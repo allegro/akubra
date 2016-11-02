@@ -19,7 +19,7 @@ type YamlConfig struct {
 	//Listen interface and port e.g. "0:8000", "localhost:9090", ":80"
 	Listen string `yaml:"Listen,omitempty"`
 	//List of backend uri's e.g. "http://s3.mydaracenter.org"
-	Backends []string `yaml:"Backends,omitempty,flow"`
+	Backends []YAMLURL `yaml:"Backends,omitempty,flow"`
 	//Limit of outgoing connections. When limit is reached, akubra will omit external backend
 	//with greatest number of stalled connections
 	ConnLimit int64 `yaml:"ConnLimit,omitempty"`
@@ -36,18 +36,36 @@ type YamlConfig struct {
 	//List request methods to be logged in synclog in case of backend failure
 	SyncLogMethods []string `yaml:"SyncLogMethods,omitempty"`
 	//Should we keep alive connections with backend servers
-	KeepAlive bool `yaml:"SyncLogMethods,omitempty"`
+	KeepAlive bool `yaml:"KeepAlive,omitempty"`
 }
+
+
 
 //Config contains processed YamlConfig data
 type Config struct {
 	YamlConfig
-	BackendURLs       []*url.URL
 	SyncLogMethodsSet set.Set
 	Synclog           *log.Logger
 	Accesslog         *log.Logger
 	Mainlog           *log.Logger
 }
+
+
+type YAMLURL struct {
+	*url.URL
+}
+
+
+func (j *YAMLURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+	url, err := url.Parse(s)
+	j.URL = url
+	return err
+}
+
 
 //Parse json config
 func parseConf(file io.Reader) (YamlConfig, error) {
@@ -93,7 +111,7 @@ func setupLoggers(conf *Config) error {
 func Configure() (conf Config, err error) {
 
 	conf = Config{}
-
+	flag.Parse()
 	if confFile, openErr := os.Open(*confFilePath); openErr != nil {
 		yconf, parseErr := parseConf(confFile)
 		if parseErr != nil {
@@ -102,21 +120,16 @@ func Configure() (conf Config, err error) {
 		conf = Config{YamlConfig: yconf}
 	}
 
-	conf.BackendURLs = make([]*url.URL, 0, len(conf.Backends))
-	for _, rawstr := range conf.Backends {
-		url, perr := url.Parse(rawstr)
-		if perr != nil {
-			return conf, perr
+	confFile, openErr := os.Open(*confFilePath)
+	if openErr == nil {
+		yconf, parseErr := parseConf(confFile)
+		if parseErr != nil {
+			return conf, parseErr
 		}
-		conf.BackendURLs = append(conf.BackendURLs, url)
-	}
-
-	if len(conf.MaintainedBackend) > 0 {
-		u, perr := url.Parse(conf.MaintainedBackend)
-		if perr != nil {
-			return conf, perr
-		}
-		conf.MaintainedBackend = u.Host
+		conf = Config{YamlConfig: yconf}
+	} else {
+		fmt.Println("Cannot read config file:", openErr.Error())
+		return Config{}, openErr
 	}
 
 	if len(conf.SyncLogMethods) > 0 {
@@ -128,6 +141,7 @@ func Configure() (conf Config, err error) {
 		conf.SyncLogMethodsSet = set.NewThreadUnsafeSetFromSlice(
 			[]interface{}{"PUT", "GET", "HEAD", "DELETE", "OPTIONS"})
 	}
+
 	err = setupLoggers(&conf)
 	return conf, err
 }

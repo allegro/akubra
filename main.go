@@ -49,7 +49,7 @@ func main() {
 	}
 	mainlog.Printf("starting on port %s", conf.Listen)
 	mainlog.Printf("connlimit %v", conf.ConnLimit)
-	mainlog.Printf("backends %s", conf.BackendURLs)
+	mainlog.Printf("backends %s", conf.Backends)
 	srv := newService(conf)
 	startErr := srv.start()
 	if startErr != nil {
