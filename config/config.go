@@ -62,6 +62,9 @@ func (j *YAMLURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 	url, err := url.Parse(s)
+	if url.Host == "" {
+		return fmt.Errorf("url should match proto://host[:port]/path scheme, got %q", s)
+	}
 	j.URL = url
 	return err
 }
@@ -75,11 +78,8 @@ func parseConf(file io.Reader) (YamlConfig, error) {
 	if err != nil {
 		return rc, err
 	}
-
 	err = yaml.Unmarshal(bs, &rc)
-
 	if err != nil {
-		println("got unmarshal err", err.Error())
 		return rc, err
 	}
 	return rc, nil
