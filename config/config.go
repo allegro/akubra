@@ -39,8 +39,6 @@ type YamlConfig struct {
 	KeepAlive bool `yaml:"KeepAlive,omitempty"`
 }
 
-
-
 //Config contains processed YamlConfig data
 type Config struct {
 	YamlConfig
@@ -50,12 +48,12 @@ type Config struct {
 	Mainlog           *log.Logger
 }
 
-
+//YAMLURL type fields in yaml configuration will parse urls
 type YAMLURL struct {
 	*url.URL
 }
 
-
+//UnmarshalYAML parses strings to url.URL
 func (j *YAMLURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
@@ -69,7 +67,6 @@ func (j *YAMLURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return err
 }
 
-
 //Parse json config
 func parseConf(file io.Reader) (YamlConfig, error) {
 	rc := YamlConfig{}
@@ -79,10 +76,7 @@ func parseConf(file io.Reader) (YamlConfig, error) {
 		return rc, err
 	}
 	err = yaml.Unmarshal(bs, &rc)
-	if err != nil {
-		return rc, err
-	}
-	return rc, nil
+	return rc, err
 }
 
 var confFilePath = flag.String("c", "", "Configuration file e.g.: \"conf/dev.json\"")
@@ -121,16 +115,14 @@ func Configure() (conf Config, err error) {
 	}
 
 	confFile, openErr := os.Open(*confFilePath)
-	if openErr == nil {
-		yconf, parseErr := parseConf(confFile)
-		if parseErr != nil {
-			return conf, parseErr
-		}
-		conf = Config{YamlConfig: yconf}
-	} else {
-		fmt.Println("Cannot read config file:", openErr.Error())
+	if openErr != nil {
 		return Config{}, openErr
 	}
+	yconf, parseErr := parseConf(confFile)
+	if parseErr != nil {
+		return conf, parseErr
+	}
+	conf = Config{YamlConfig: yconf}
 
 	if len(conf.SyncLogMethods) > 0 {
 		conf.SyncLogMethodsSet = set.NewThreadUnsafeSet()

@@ -91,8 +91,8 @@ func NewHandler(conf config.Config) http.Handler {
 		DisableKeepAlives:   conf.KeepAlive,
 		MaxIdleConnsPerHost: int(conf.ConnLimit)}
 	backends := make([]*url.URL, len(conf.Backends))
-	for _, backend := range(conf.Backends) {
-		backends = append(backends, backend.URL)
+	for i, backend := range conf.Backends {
+		backends[i] = backend.URL
 	}
 	multiTransport := transport.NewMultiTransport(
 		httpTransport,
