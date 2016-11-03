@@ -1,7 +1,3 @@
-PACKAGE_NAME         := github.com/allegro/akubra/akubra
-VERSION_PACKAGE_NAME :=$(PACKAGE_NAME)/version
-VERSION				 := `./get_version.sh`
-
 all: lint test build
 
 lint: deps-lint
