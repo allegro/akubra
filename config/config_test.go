@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/go-yaml/yaml"
 	"testing"
+
+	"github.com/go-yaml/yaml"
 )
 
 type TestYaml struct {
