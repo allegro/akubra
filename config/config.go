@@ -36,7 +36,7 @@ type YamlConfig struct {
 	//List request methods to be logged in synclog in case of backend failure
 	SyncLogMethods []string `yaml:"SyncLogMethods,omitempty"`
 	//Should we keep alive connections with backend servers
-	KeepAlive bool `yaml:"KeepAlive,omitempty"`
+	KeepAlive bool `yaml:"KeepAlive"`
 }
 
 //Config contains processed YamlConfig data
