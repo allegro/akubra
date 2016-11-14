@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/allegro/akubra/config"
@@ -89,10 +90,13 @@ func NewHandler(conf config.Config) http.Handler {
 		Dial:                dialer.Dial,
 		DisableKeepAlives:   conf.KeepAlive,
 		MaxIdleConnsPerHost: int(conf.ConnLimit)}
-
+	backends := make([]*url.URL, len(conf.Backends))
+	for i, backend := range conf.Backends {
+		backends[i] = backend.URL
+	}
 	multiTransport := transport.NewMultiTransport(
 		httpTransport,
-		conf.BackendURLs,
+		backends,
 		rh.handleResponses)
 	roundTripper := Decorate(
 		multiTransport,

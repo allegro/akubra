@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"time"
@@ -42,14 +42,15 @@ func newService(cfg config.Config) *service {
 func main() {
 
 	conf, err := config.Configure()
-	mainlog := conf.Mainlog
+
 	if err != nil {
-		fmt.Printf("Improperly configured %s", err)
-		return
+		log.Fatalf("Improperly configured %s", err)
 	}
+
+	mainlog := conf.Mainlog
 	mainlog.Printf("starting on port %s", conf.Listen)
 	mainlog.Printf("connlimit %v", conf.ConnLimit)
-	mainlog.Printf("backends %s", conf.BackendURLs)
+	mainlog.Printf("backends %s", conf.Backends)
 	srv := newService(conf)
 	startErr := srv.start()
 	if startErr != nil {
