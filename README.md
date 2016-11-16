@@ -101,19 +101,3 @@ Configuration is read from the yaml configuration file with the following fields
 
  * Users credentials have to be identical on every backend
  * We do not support S3 partial uploads
-
-
-## Change log
-
-- v 0.9.26:
-    All logs goes to syslog
-    Fixed: Mismatched content-length header bug
-
-- v 0.8.1 - fixed: read backends from config
-- v 0.8.0 - release candidate
-- v 0.0.2:
-    Log all write errors to separate log
-
-- v 0.0.1:
-    Goal: Handle all write requests and pass them to all
-    configured S3 endpoints
