@@ -36,10 +36,8 @@ type YamlConfig struct {
 	//List request methods to be logged in synclog in case of backend failure
 	SyncLogMethods []string `yaml:"SyncLogMethods,omitempty"`
 	//Should we keep alive connections with backend servers
-	KeepAlive bool `yaml:"KeepAlive,omitempty"`
+	KeepAlive bool `yaml:"KeepAlive"`
 }
-
-
 
 //Config contains processed YamlConfig data
 type Config struct {
@@ -50,22 +48,24 @@ type Config struct {
 	Mainlog           *log.Logger
 }
 
-
+//YAMLURL type fields in yaml configuration will parse urls
 type YAMLURL struct {
 	*url.URL
 }
 
-
+//UnmarshalYAML parses strings to url.URL
 func (j *YAMLURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err
 	}
 	url, err := url.Parse(s)
+	if url.Host == "" {
+		return fmt.Errorf("url should match proto://host[:port]/path scheme, got %q", s)
+	}
 	j.URL = url
 	return err
 }
-
 
 //Parse json config
 func parseConf(file io.Reader) (YamlConfig, error) {
@@ -75,35 +75,27 @@ func parseConf(file io.Reader) (YamlConfig, error) {
 	if err != nil {
 		return rc, err
 	}
-
 	err = yaml.Unmarshal(bs, &rc)
-
-	if err != nil {
-		println("got unmarshal err", err.Error())
-		return rc, err
-	}
-	return rc, nil
+	return rc, err
 }
 
 var confFilePath = flag.String("c", "", "Configuration file e.g.: \"conf/dev.json\"")
 
 func setupLoggers(conf *Config) error {
-	accesslog, slErr := syslog.NewLogger(syslog.LOG_LOCAL0, log.LstdFlags)
+	accesslog, slErr := syslog.NewLogger(syslog.LOG_LOCAL0, 0)
 	conf.Accesslog = accesslog
-	conf.Accesslog.SetPrefix("access")
+	conf.Accesslog.SetPrefix("")
 	if slErr != nil {
 		return slErr
 	}
-	conf.Synclog, slErr = syslog.NewLogger(syslog.LOG_LOCAL1, log.LstdFlags)
+	conf.Synclog, slErr = syslog.NewLogger(syslog.LOG_LOCAL1, 0)
 	conf.Synclog.SetPrefix("")
 	if slErr != nil {
 		return slErr
 	}
 	conf.Mainlog, slErr = syslog.NewLogger(syslog.LOG_LOCAL2, log.LstdFlags)
 	conf.Mainlog.SetPrefix("main")
-	if slErr != nil {
-		fmt.Println("co", slErr.Error())
-	}
+
 	return slErr
 }
 
@@ -121,16 +113,14 @@ func Configure() (conf Config, err error) {
 	}
 
 	confFile, openErr := os.Open(*confFilePath)
-	if openErr == nil {
-		yconf, parseErr := parseConf(confFile)
-		if parseErr != nil {
-			return conf, parseErr
-		}
-		conf = Config{YamlConfig: yconf}
-	} else {
-		fmt.Println("Cannot read config file:", openErr.Error())
+	if openErr != nil {
 		return Config{}, openErr
 	}
+	yconf, parseErr := parseConf(confFile)
+	if parseErr != nil {
+		return conf, parseErr
+	}
+	conf = Config{YamlConfig: yconf}
 
 	if len(conf.SyncLogMethods) > 0 {
 		conf.SyncLogMethodsSet = set.NewThreadUnsafeSet()

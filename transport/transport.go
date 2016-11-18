@@ -189,6 +189,7 @@ func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context
 				io.LimitReader(req.Body, req.ContentLength),
 				time.Second}
 			n, cerr := io.Copy(bufio.NewWriterSize(writer, int(req.ContentLength)), bodyReader)
+
 			if cerr != nil || n < req.ContentLength {
 				cancelFun()
 			}
@@ -200,8 +201,7 @@ func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context
 
 func (mt *MultiTransport) sendRequest(
 	req *http.Request,
-	out chan *ReqResErrTuple,
-	wg *sync.WaitGroup) {
+	out chan *ReqResErrTuple) {
 	ctx := req.Context()
 	o := make(chan *ReqResErrTuple)
 	go func() {
@@ -218,6 +218,7 @@ func (mt *MultiTransport) sendRequest(
 	case reqresperr = <-o:
 		break
 	}
+	close(o)
 	out <- reqresperr
 }
 
@@ -240,7 +241,7 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 		wg.Add(1)
 		r := req.WithContext(bctx)
 		go func() {
-			mt.sendRequest(r, c, &wg)
+			mt.sendRequest(r, c)
 			wg.Done()
 		}()
 	}

@@ -33,15 +33,18 @@ func (rd *responseMerger) synclog(r, successfulTup *transport.ReqResErrTuple) {
 	if r.Err != nil {
 		errorMsg = r.Err.Error()
 	}
-	log.Printf("got some err %s", errorMsg)
-	rd.syncerrlog.Printf("%q, %q, %q, %q, %q, %q",
+	syncLogMsg := NewSyncLogMessageData(
 		r.Req.Method,
 		r.Req.Host,
 		successfulTup.Req.URL.Path,
 		successfulTup.Req.Host,
 		r.Req.Header.Get("User-Agent"),
 		errorMsg)
-
+	logMsg, err := syncLogMsg.JSON()
+	if err != nil {
+		return
+	}
+	rd.syncerrlog.Println(string(logMsg))
 }
 
 func (rd *responseMerger) handleFailedResponces(

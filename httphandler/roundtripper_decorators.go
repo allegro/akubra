@@ -36,8 +36,11 @@ func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Respons
 		statusCode,
 		duration,
 		errStr)
-
-	lrt.accessLog.Println(accessLogMessage.String())
+	jsonb, almerr := accessLogMessage.JSON()
+	if almerr != nil {
+		log.Println(almerr.Error())
+	}
+	lrt.accessLog.Printf("%s", jsonb)
 	return
 }
 
@@ -72,7 +75,12 @@ func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err
 		req.Header.Set("Host", newhost)
 		req.Host = newhost
 	}
+
 	resp, err = hs.roundTripper.RoundTrip(req)
+
+	if err != nil {
+		return
+	}
 
 	for k, v := range hs.responseHeaders {
 		_, ok := resp.Header[k]
@@ -107,6 +115,7 @@ func (os optionsHandler) RoundTrip(req *http.Request) (resp *http.Response, err 
 	if resp != nil && isOptions {
 		resp.Header.Set("Content-Length", "0")
 	}
+
 	return
 }
 

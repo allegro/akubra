@@ -50,6 +50,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	wh := w.Header()
+	for k, v := range resp.Header {
+		wh[k] = v
+	}
+
 	w.WriteHeader(resp.StatusCode)
 	_, copyErr := io.Copy(w, resp.Body)
 
@@ -91,8 +96,8 @@ func NewHandler(conf config.Config) http.Handler {
 		DisableKeepAlives:   conf.KeepAlive,
 		MaxIdleConnsPerHost: int(conf.ConnLimit)}
 	backends := make([]*url.URL, len(conf.Backends))
-	for _, backend := range(conf.Backends) {
-		backends = append(backends, backend.URL)
+	for i, backend := range conf.Backends {
+		backends[i] = backend.URL
 	}
 	multiTransport := transport.NewMultiTransport(
 		httpTransport,

@@ -1,4 +1,5 @@
-# Project goal #
+# Akubra [![Build Status](https://travis-ci.org/allegro/akubra.svg?branch=master)](https://travis-ci.org/allegro/akubra) #
+## Project goal ##
 
 Akubra is a simple solution to keep independent S3 storages in sync eventually (almost realtime).
 
@@ -11,7 +12,7 @@ keeping track of new objects (or periodical buckets listing...), downloading and
 other storage. It's slow, expensive and hard to implement.
 
 Akubra way is to put files in all storages at once by copying requests to multiple backends. Sometimes
-one of clusters may reject request for various reason, but that's not a big deal: we simply log 
+one of clusters may reject request for various reason, but that's not a big deal: we simply log
 that event, and sync object in the independent process.
 
 ## Build
