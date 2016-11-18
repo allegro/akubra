@@ -100,7 +100,9 @@ func TestAccessLogging(t *testing.T) {
 	sendReq(t, srv, "GET", nil, rt)
 
 	amdstr := strings.Trim(buf.String(), "\n")
-	amd, err := ScanCSVAccessLogMessage(amdstr)
+	amd := &AccessMessageData{}
+	err := json.Unmarshal([]byte(amdstr), amd)
+
 	if err != nil {
 		t.Errorf("Cannot read AccessLog message %q, %q", amdstr, err)
 	}

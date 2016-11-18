@@ -218,7 +218,6 @@ func (mt *MultiTransport) sendRequest(
 	case reqresperr = <-o:
 		break
 	}
-	close(o)
 	out <- reqresperr
 }
 
