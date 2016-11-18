@@ -5,7 +5,6 @@ imports:
   version: 8f447961c7bbced95e0612a6a89c764b3c13d291
 - name: github.com/alecthomas/kingpin
   version: e9044be3ab2a8e11d4e1f418d12f0790d57e8d70
->>>>>>> 89f85db8afc02ed6c5faf2d55a5ff7eaaec7b035
 - name: github.com/deckarep/golang-set
   version: 52ba7f28f319e9d560acbf47c7fcf9b9ee7aa7d3
 - name: github.com/go-yaml/yaml
