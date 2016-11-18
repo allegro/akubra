@@ -1,7 +1,6 @@
 package config
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -36,7 +35,7 @@ type YamlConfig struct {
 	//List request methods to be logged in synclog in case of backend failure
 	SyncLogMethods []string `yaml:"SyncLogMethods,omitempty"`
 	//Should we keep alive connections with backend servers
-	KeepAlive bool `yaml:"KeepAlive,omitempty"`
+	KeepAlive bool `yaml:"KeepAlive"`
 }
 
 
@@ -50,23 +49,40 @@ type Config struct {
 	Mainlog           *log.Logger
 }
 
+<<<<<<< HEAD
 
+=======
+//YAMLURL type fields in yaml configuration will parse urls
+>>>>>>> 89f85db8afc02ed6c5faf2d55a5ff7eaaec7b035
 type YAMLURL struct {
 	*url.URL
 }
 
+<<<<<<< HEAD
 
+=======
+//UnmarshalYAML parses strings to url.URL
+>>>>>>> 89f85db8afc02ed6c5faf2d55a5ff7eaaec7b035
 func (j *YAMLURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err
 	}
 	url, err := url.Parse(s)
+<<<<<<< HEAD
+=======
+	if url.Host == "" {
+		return fmt.Errorf("url should match proto://host[:port]/path scheme, got %q", s)
+	}
+>>>>>>> 89f85db8afc02ed6c5faf2d55a5ff7eaaec7b035
 	j.URL = url
 	return err
 }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 89f85db8afc02ed6c5faf2d55a5ff7eaaec7b035
 //Parse json config
 func parseConf(file io.Reader) (YamlConfig, error) {
 	rc := YamlConfig{}
@@ -75,17 +91,9 @@ func parseConf(file io.Reader) (YamlConfig, error) {
 	if err != nil {
 		return rc, err
 	}
-
 	err = yaml.Unmarshal(bs, &rc)
-
-	if err != nil {
-		println("got unmarshal err", err.Error())
-		return rc, err
-	}
-	return rc, nil
+	return rc, err
 }
-
-var confFilePath = flag.String("c", "", "Configuration file e.g.: \"conf/dev.json\"")
 
 func setupLoggers(conf *Config) error {
 	accesslog, slErr := syslog.NewLogger(syslog.LOG_LOCAL0, log.LstdFlags)
@@ -108,6 +116,7 @@ func setupLoggers(conf *Config) error {
 }
 
 // Configure parse configuration file
+<<<<<<< HEAD
 func Configure() (conf Config, err error) {
 
 	conf = Config{}
@@ -130,7 +139,19 @@ func Configure() (conf Config, err error) {
 	} else {
 		fmt.Println("Cannot read config file:", openErr.Error())
 		return Config{}, openErr
+=======
+func Configure(configFilePath string) (conf Config, err error) {
+	confFile, err := os.Open(configFilePath)
+	if err != nil {
+		return
 	}
+
+	yconf, err := parseConf(confFile)
+	if err != nil {
+		return
+>>>>>>> 89f85db8afc02ed6c5faf2d55a5ff7eaaec7b035
+	}
+	conf.YamlConfig = yconf
 
 	if len(conf.SyncLogMethods) > 0 {
 		conf.SyncLogMethodsSet = set.NewThreadUnsafeSet()
@@ -143,5 +164,5 @@ func Configure() (conf Config, err error) {
 	}
 
 	err = setupLoggers(&conf)
-	return conf, err
+	return
 }
