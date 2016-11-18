@@ -107,6 +107,7 @@ func NewHandler(conf config.Config) http.Handler {
 		multiTransport,
 		HeadersSuplier(conf.AdditionalRequestHeaders, conf.AdditionalResponseHeaders),
 		AccessLogging(conf.Accesslog),
+		OptionsHandler,
 	)
 	return &Handler{
 		config:       conf,
