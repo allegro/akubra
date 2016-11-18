@@ -1,7 +1,6 @@
 package config
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -79,8 +78,6 @@ func parseConf(file io.Reader) (YamlConfig, error) {
 	return rc, err
 }
 
-var confFilePath = flag.String("c", "", "Configuration file e.g.: \"conf/dev.json\"")
-
 func setupLoggers(conf *Config) error {
 	accesslog, slErr := syslog.NewLogger(syslog.LOG_LOCAL0, log.LstdFlags)
 	conf.Accesslog = accesslog
@@ -102,27 +99,17 @@ func setupLoggers(conf *Config) error {
 }
 
 // Configure parse configuration file
-func Configure() (conf Config, err error) {
-
-	conf = Config{}
-	flag.Parse()
-	if confFile, openErr := os.Open(*confFilePath); openErr != nil {
-		yconf, parseErr := parseConf(confFile)
-		if parseErr != nil {
-			return conf, parseErr
-		}
-		conf = Config{YamlConfig: yconf}
+func Configure(configFilePath string) (conf Config, err error) {
+	confFile, err := os.Open(configFilePath)
+	if err != nil {
+		return
 	}
 
-	confFile, openErr := os.Open(*confFilePath)
-	if openErr != nil {
-		return Config{}, openErr
+	yconf, err := parseConf(confFile)
+	if err != nil {
+		return
 	}
-	yconf, parseErr := parseConf(confFile)
-	if parseErr != nil {
-		return conf, parseErr
-	}
-	conf = Config{YamlConfig: yconf}
+	conf.YamlConfig = yconf
 
 	if len(conf.SyncLogMethods) > 0 {
 		conf.SyncLogMethodsSet = set.NewThreadUnsafeSet()
@@ -135,5 +122,5 @@ func Configure() (conf Config, err error) {
 	}
 
 	err = setupLoggers(&conf)
-	return conf, err
+	return
 }
