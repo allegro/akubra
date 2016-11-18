@@ -1,8 +1,11 @@
-hash: a3c14b0d16972b2624d08023dad9a6e8206f43fb78edc2ba1633f8c6c7303b24
-updated: 2016-10-31T17:30:19.583202317+01:00
+hash: fb705f72a816c66b4fba9089b3113db3d956a756ed6418d5ea27113f483206fe
+updated: 2016-11-18T10:50:18.804698083+01:00
 imports:
 - name: github.com/alecthomas/gometalinter
   version: 8f447961c7bbced95e0612a6a89c764b3c13d291
+- name: github.com/alecthomas/kingpin
+  version: e9044be3ab2a8e11d4e1f418d12f0790d57e8d70
+>>>>>>> 89f85db8afc02ed6c5faf2d55a5ff7eaaec7b035
 - name: github.com/deckarep/golang-set
   version: 52ba7f28f319e9d560acbf47c7fcf9b9ee7aa7d3
 - name: github.com/go-yaml/yaml
@@ -15,7 +18,7 @@ testImports:
   subpackages:
   - spew
 - name: github.com/pmezard/go-difflib
-  version: 792786c7400a136282c1664665ae0a8db921c6c2
+  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
   subpackages:
   - difflib
 - name: github.com/stretchr/testify
