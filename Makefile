@@ -1,3 +1,6 @@
+VERSION := `cat VERSION`
+LDFLAGS := -X main.version=$(VERSION)
+
 all: lint test build
 
 lint: deps-lint
@@ -16,7 +19,7 @@ deps-lint: deps
 	gometalinter --install
 
 build: deps lint
-	go build .
+	go build -v -ldflags "$(LDFLAGS)" .
 
 test: deps
 	go test -v -race -cover $$(go list ./... | grep -v /vendor/)

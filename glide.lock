@@ -1,8 +1,10 @@
-hash: 6d3a02be47a212982989aa0b30ff851a26d20b70124bb5934cb82b5ef30cc1ef
-updated: 2016-11-16T13:40:00.772833213+01:00
+hash: fb705f72a816c66b4fba9089b3113db3d956a756ed6418d5ea27113f483206fe
+updated: 2016-11-18T10:50:18.804698083+01:00
 imports:
 - name: github.com/alecthomas/gometalinter
   version: 8f447961c7bbced95e0612a6a89c764b3c13d291
+- name: github.com/alecthomas/kingpin
+  version: e9044be3ab2a8e11d4e1f418d12f0790d57e8d70
 - name: github.com/deckarep/golang-set
   version: 52ba7f28f319e9d560acbf47c7fcf9b9ee7aa7d3
 - name: github.com/go-yaml/yaml
