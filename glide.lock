@@ -1,14 +1,24 @@
 hash: fb705f72a816c66b4fba9089b3113db3d956a756ed6418d5ea27113f483206fe
-updated: 2016-11-18T10:50:18.804698083+01:00
+updated: 2016-11-19T11:11:16.769482694+01:00
 imports:
 - name: github.com/alecthomas/gometalinter
   version: 8f447961c7bbced95e0612a6a89c764b3c13d291
 - name: github.com/alecthomas/kingpin
   version: e9044be3ab2a8e11d4e1f418d12f0790d57e8d70
+- name: github.com/alecthomas/template
+  version: a0175ee3bccc567396460bf5acd36800cb10c49c
+  subpackages:
+  - parse
+- name: github.com/alecthomas/units
+  version: 2efee857e7cfd4f3d0138cc3cbb1b4966962b93a
 - name: github.com/deckarep/golang-set
   version: 52ba7f28f319e9d560acbf47c7fcf9b9ee7aa7d3
 - name: github.com/go-yaml/yaml
   version: e4d366fc3c7938e2958e662b4258c7a89e1f0e3e
+- name: github.com/golang/groupcache
+  version: a6b377e3400b08991b80d6805d627f347f983866
+  subpackages:
+  - consistenthash
 - name: gopkg.in/tylerb/graceful.v1
   version: 50a48b6e73fcc75b45e22c05b79629a67c79e938
 testImports:

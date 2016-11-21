@@ -31,14 +31,14 @@ type YamlConfig struct {
 	//Dial timeout on outgoing connections
 	ConnectionDialTimeout string `yaml:"ConnectionDialTimeout,omitempty"`
 	//Backend in maintenance mode. Akubra will not send data there
-	MaintainedBackend string `yaml:"MaintainedBackend,omitempty"`
+	MaintainedBackend YAMLURL `yaml:"MaintainedBackend,omitempty"`
 	//List request methods to be logged in synclog in case of backend failure
 	SyncLogMethods []string `yaml:"SyncLogMethods,omitempty"`
 	//Should we keep alive connections with backend servers
-	KeepAlive bool `yaml:"KeepAlive"`
+	KeepAlive bool                     `yaml:"KeepAlive"`
+	Clusters  map[string]ClusterConfig `yaml:"Clusters,omitempty"`
+	Client    ClientConfig             `yaml:"Client,omitempty"`
 }
-
-
 
 //Config contains processed YamlConfig data
 type Config struct {
@@ -49,40 +49,47 @@ type Config struct {
 	Mainlog           *log.Logger
 }
 
-<<<<<<< HEAD
-
-=======
 //YAMLURL type fields in yaml configuration will parse urls
->>>>>>> 89f85db8afc02ed6c5faf2d55a5ff7eaaec7b035
 type YAMLURL struct {
 	*url.URL
 }
 
-<<<<<<< HEAD
-
-=======
 //UnmarshalYAML parses strings to url.URL
->>>>>>> 89f85db8afc02ed6c5faf2d55a5ff7eaaec7b035
 func (j *YAMLURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err
 	}
 	url, err := url.Parse(s)
-<<<<<<< HEAD
-=======
 	if url.Host == "" {
 		return fmt.Errorf("url should match proto://host[:port]/path scheme, got %q", s)
 	}
->>>>>>> 89f85db8afc02ed6c5faf2d55a5ff7eaaec7b035
 	j.URL = url
 	return err
 }
 
-<<<<<<< HEAD
+//ClusterConfig defines cluster configuration
+type ClusterConfig struct {
+	//Backends should contain s3 backend urls
+	Backends []YAMLURL `yaml:"Backends,omitempty"`
+	//Type, currently replicator is only option
+	Type string `yaml:"Type,omitempty"`
+	//Points how much load cluster should handle
+	Weight uint `yaml:"Weight,omitempty"`
+	//cluster type specific options
+	Options map[string]string `yaml:"Options,omitempty"`
+}
 
-=======
->>>>>>> 89f85db8afc02ed6c5faf2d55a5ff7eaaec7b035
+//ClientConfig keeps information about client setup
+type ClientConfig struct {
+	//Client name
+	Name string `yaml:"Name,omitempty"`
+	//List of clusters name
+	Clusters []string `yaml:"Clusters,omitempty"`
+	//Total number of shards
+	ShardsCount uint64 `yaml:"ShardsCount,omitempty"`
+}
+
 //Parse json config
 func parseConf(file io.Reader) (YamlConfig, error) {
 	rc := YamlConfig{}
@@ -116,30 +123,6 @@ func setupLoggers(conf *Config) error {
 }
 
 // Configure parse configuration file
-<<<<<<< HEAD
-func Configure() (conf Config, err error) {
-
-	conf = Config{}
-	flag.Parse()
-	if confFile, openErr := os.Open(*confFilePath); openErr != nil {
-		yconf, parseErr := parseConf(confFile)
-		if parseErr != nil {
-			return conf, parseErr
-		}
-		conf = Config{YamlConfig: yconf}
-	}
-
-	confFile, openErr := os.Open(*confFilePath)
-	if openErr == nil {
-		yconf, parseErr := parseConf(confFile)
-		if parseErr != nil {
-			return conf, parseErr
-		}
-		conf = Config{YamlConfig: yconf}
-	} else {
-		fmt.Println("Cannot read config file:", openErr.Error())
-		return Config{}, openErr
-=======
 func Configure(configFilePath string) (conf Config, err error) {
 	confFile, err := os.Open(configFilePath)
 	if err != nil {
@@ -149,7 +132,6 @@ func Configure(configFilePath string) (conf Config, err error) {
 	yconf, err := parseConf(confFile)
 	if err != nil {
 		return
->>>>>>> 89f85db8afc02ed6c5faf2d55a5ff7eaaec7b035
 	}
 	conf.YamlConfig = yconf
 

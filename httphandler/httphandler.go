@@ -69,43 +69,73 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}()
 }
 
-//NewHandler will create Handler
-func NewHandler(conf config.Config) http.Handler {
-	mainlog := conf.Mainlog
-	rh := &responseMerger{
-		conf.Synclog,
-		mainlog,
-		conf.SyncLogMethodsSet}
-
+//ConfigureHTTPTransport returns http.Transport with customized dialer,
+//MaxIdleConnsPerHost and DisableKeepAlives
+func ConfigureHTTPTransport(conf config.Config) *http.Transport {
 	connDuration, _ := time.ParseDuration(conf.ConnectionTimeout)
-	dialDuration, _ := time.ParseDuration(conf.ConnectionTimeout)
 	var dialer *dial.LimitDialer
 
-	dialer = dial.NewLimitDialer(conf.ConnLimit, connDuration, dialDuration)
-	if len(conf.MaintainedBackend) > 0 {
-		dialer.DropEndpoint(conf.MaintainedBackend)
+	dialer = dial.NewLimitDialer(conf.ConnLimit, connDuration, connDuration)
+	if conf.MaintainedBackend.URL != nil {
+		// maintainedURL := conf.MaintainedBackend.(url.URL)
+		dialer.DropEndpoint(*conf.MaintainedBackend.URL)
 	}
 
 	httpTransport := &http.Transport{
 		Dial:                dialer.Dial,
 		DisableKeepAlives:   conf.KeepAlive,
 		MaxIdleConnsPerHost: int(conf.ConnLimit)}
+
+	return httpTransport
+}
+
+//NewMultipleResponseHandler returns a function for a later use in transport.MultiTransport
+func NewMultipleResponseHandler(conf config.Config) transport.MultipleResponsesHandler {
+	rh := responseMerger{
+		conf.Synclog,
+		conf.Mainlog,
+		conf.SyncLogMethodsSet,
+	}
+	return rh.handleResponses
+}
+
+//DecorateRoundTripper applies common http.RoundTripper decorators
+func DecorateRoundTripper(conf config.Config, rt http.RoundTripper) http.RoundTripper {
+	return Decorate(
+		rt,
+		HeadersSuplier(conf.AdditionalRequestHeaders, conf.AdditionalResponseHeaders),
+		AccessLogging(conf.Accesslog),
+		OptionsHandler,
+	)
+}
+
+//NewHandler will create Handler
+func NewHandler(conf config.Config) http.Handler {
+	transp := ConfigureHTTPTransport(conf)
+	responseMerger := NewMultipleResponseHandler(conf)
 	backends := make([]*url.URL, len(conf.Backends))
 	for i, backend := range conf.Backends {
 		backends[i] = backend.URL
 	}
-	multiTransport := transport.NewMultiTransport(
-		httpTransport,
+	httpTransport := transport.NewMultiTransport(
+		transp,
 		backends,
-		rh.handleResponses)
-	roundTripper := Decorate(
-		multiTransport,
-		HeadersSuplier(conf.AdditionalRequestHeaders, conf.AdditionalResponseHeaders),
-		AccessLogging(conf.Accesslog),
-	)
+		responseMerger)
+
+	roundTripper := DecorateRoundTripper(conf, httpTransport)
 	return &Handler{
 		config:       conf,
-		mainLog:      mainlog,
+		mainLog:      conf.Mainlog,
+		accessLog:    conf.Accesslog,
+		roundTripper: roundTripper,
+	}
+}
+
+//NewHandlerWithRoundTripper returns Handler, but will not construct transport.MultiTransport by itself
+func NewHandlerWithRoundTripper(conf config.Config, roundTripper http.RoundTripper) http.Handler {
+	return &Handler{
+		config:       conf,
+		mainLog:      conf.Mainlog,
 		accessLog:    conf.Accesslog,
 		roundTripper: roundTripper,
 	}
