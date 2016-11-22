@@ -76,7 +76,7 @@ type ClusterConfig struct {
 	Type string `yaml:"Type,omitempty"`
 	//Points how much load cluster should handle
 	Weight uint `yaml:"Weight,omitempty"`
-	//cluster type specific options
+	//Cluster type specific options
 	Options map[string]string `yaml:"Options,omitempty"`
 }
 

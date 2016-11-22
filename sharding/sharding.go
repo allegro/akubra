@@ -38,7 +38,6 @@ func (sr shardsRing) Pick(key string) (http.RoundTripper, error) {
 	shardName = sr.ring.Get(key)
 
 	shardCluster, ok := sr.shardClusterMap[shardName]
-	fmt.Println("ShardName %s, %v, %s", shardName, shardCluster.backends, key)
 	if !ok {
 		return nil, fmt.Errorf("no cluster for shard %s, cannot handle key %s", shardName, key)
 	}
@@ -103,20 +102,15 @@ func (rf ringFactory) getCluster(name string) (cluster, error) {
 
 func (rf ringFactory) mapShards(weightSum uint, clientCfg config.ClientConfig) (map[string]cluster, error) {
 	shardClusterMap := make(map[string]cluster, clientCfg.ShardsCount)
-	fmt.Println("%v", clientCfg.Clusters)
 	for _, name := range clientCfg.Clusters {
-		fmt.Println("Getting cluster", name)
 		clientCluster, err := rf.getCluster(name)
 		if err != nil {
-			fmt.Println("DUPA")
 			return shardClusterMap, err
 		}
 		shardsNum := float64(clientCfg.ShardsCount) * float64(clientCluster.weight) / float64(weightSum)
-		fmt.Printf("%s %v\n", name, shardsNum, clientCluster.weight)
 		for i := 0; i < int(shardsNum); i++ {
 			shardName := fmt.Sprintf("%s-%d", name, i)
 			shardClusterMap[shardName] = clientCluster
-			fmt.Printf("%s %v\n", shardName, clientCluster.backends)
 		}
 	}
 	return shardClusterMap, nil
@@ -137,7 +131,6 @@ func (rf ringFactory) uniqBackends(clientCfg config.ClientConfig) ([]*url.URL, e
 	for url := range allBackendsSet {
 		uniqBackendsSlice = append(uniqBackendsSlice, url.URL)
 	}
-	fmt.Printf("UNIQUE BACKEND SLICES%v", uniqBackendsSlice)
 	return uniqBackendsSlice, nil
 }
 
@@ -148,7 +141,6 @@ func (rf ringFactory) clientRing(clientCfg config.ClientConfig) (shardsRing, err
 
 		clientCluster, err := rf.getCluster(name)
 		if err != nil {
-			fmt.Println("cannot get cluster", name)
 			return shardsRing{}, err
 		}
 		weightSum += clientCluster.weight
@@ -162,6 +154,7 @@ func (rf ringFactory) clientRing(clientCfg config.ClientConfig) (shardsRing, err
 	for shardID := range shardMap {
 		cHashMap.Add(shardID)
 	}
+	// fmt.Println("ClientRing %v", clientCfg)
 	allBackendsSlice, err := rf.uniqBackends(clientCfg)
 	if err != nil {
 		return shardsRing{}, err
@@ -190,6 +183,7 @@ func NewHandler(conf config.Config) http.Handler {
 	for name := range conf.Clusters {
 		clustersNames = append(clustersNames, name)
 	}
+
 	conf.Mainlog.Printf("Configured clusters: %s", strings.Join(clustersNames, ", "))
 
 	httptransp := httphandler.ConfigureHTTPTransport(conf)

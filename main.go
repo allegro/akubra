@@ -12,6 +12,7 @@ import (
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/sharding"
 )
 
 var (
@@ -54,7 +55,12 @@ type service struct {
 }
 
 func (s *service) start() error {
-	handler := httphandler.NewHandler(s.config)
+	var handler http.Handler
+	if len(s.config.Clusters) > 0 {
+		handler = sharding.NewHandler(s.config)
+	} else {
+		handler = httphandler.NewHandler(s.config)
+	}
 	srv := &graceful.Server{
 		Server: &http.Server{
 			Addr:    s.config.Listen,
