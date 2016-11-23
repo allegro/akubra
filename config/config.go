@@ -103,22 +103,20 @@ func parseConf(file io.Reader) (YamlConfig, error) {
 }
 
 func setupLoggers(conf *Config) error {
-	accesslog, slErr := syslog.NewLogger(syslog.LOG_LOCAL0, log.LstdFlags)
+	accesslog, slErr := syslog.NewLogger(syslog.LOG_LOCAL0, 0)
 	conf.Accesslog = accesslog
-	conf.Accesslog.SetPrefix("access")
+	conf.Accesslog.SetPrefix("")
 	if slErr != nil {
 		return slErr
 	}
-	conf.Synclog, slErr = syslog.NewLogger(syslog.LOG_LOCAL1, log.LstdFlags)
+	conf.Synclog, slErr = syslog.NewLogger(syslog.LOG_LOCAL1, 0)
 	conf.Synclog.SetPrefix("")
 	if slErr != nil {
 		return slErr
 	}
 	conf.Mainlog, slErr = syslog.NewLogger(syslog.LOG_LOCAL2, log.LstdFlags)
 	conf.Mainlog.SetPrefix("main")
-	if slErr != nil {
-		fmt.Println("co", slErr.Error())
-	}
+
 	return slErr
 }
 
