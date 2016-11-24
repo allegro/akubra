@@ -12,7 +12,7 @@ import (
 	"github.com/allegro/akubra/transport"
 )
 
-//Handler implements http.Handler interface
+// Handler implements http.Handler interface
 type Handler struct {
 	config       config.Config
 	roundTripper http.RoundTripper
@@ -74,7 +74,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}()
 }
 
-//NewHandler will create Handler
+// NewHandler will create Handler
 func NewHandler(conf config.Config) http.Handler {
 	mainlog := conf.Mainlog
 	rh := &responseMerger{

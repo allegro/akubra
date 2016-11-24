@@ -39,8 +39,8 @@ func multiplicateReadClosers(num int) (writer io.Writer, readers []io.ReadCloser
 	return writer, readers
 }
 
-//MultipleResponsesHandler should handle chan of incomming ReqResErrTuple
-//returned value's response and error will be passed to client
+// MultipleResponsesHandler should handle chan of incomming ReqResErrTuple
+// returned value's response and error will be passed to client
 type MultipleResponsesHandler func(in <-chan *ReqResErrTuple) *ReqResErrTuple
 
 func defaultHandleResponses(in <-chan *ReqResErrTuple, out chan<- *ReqResErrTuple) {
@@ -52,33 +52,33 @@ func defaultHandleResponses(in <-chan *ReqResErrTuple, out chan<- *ReqResErrTupl
 		if !ok {
 			break
 		}
-		//discard body of successful responses if response already passed to client
+		// discard body of successful responses if response already passed to client
 		if respPassed {
 			clearBody = append(clearBody, r)
 		}
-		//pass first successful answer to client
+		// pass first successful answer to client
 		if r.Err == nil && !respPassed {
 			out <- r
 			respPassed = true
 		}
-		//if error occured then append it into errs slice
+		// if error occured then append it into errs slice
 		if r.Err != nil {
 			if !respPassed {
 				errs = append(errs, r)
 			} else {
-				//we passed response so discard response bodies as soon as possible
+				// we passed response so discard response bodies as soon as possible
 				clearBody = append(clearBody, r)
 			}
 		}
 	}
 
-	//if no response passed and has errors pass first one to client
+	// if no response passed and has errors pass first one to client
 	if !respPassed && len(errs) > 0 {
 		out <- errs[0]
 		// pop first error
 		errs = errs[1:]
 	}
-	//close other error responses
+	// close other error responses
 	clearResponsesBody(append(errs, clearBody...))
 
 }
@@ -94,31 +94,31 @@ func clearResponsesBody(respTups []*ReqResErrTuple) {
 	}
 }
 
-//DefaultHandleResponses is default way of handling multiple responses.
-//It will pass first success response or any error if no
-//success occured
+// DefaultHandleResponses is default way of handling multiple responses.
+// It will pass first success response or any error if no
+// success occured
 func DefaultHandleResponses(in <-chan *ReqResErrTuple) *ReqResErrTuple {
 	out := make(chan *ReqResErrTuple, 1)
 	go defaultHandleResponses(in, out)
 	return <-out
 }
 
-//ErrTimeout is returned if TimeoutReader exceeds timeout
+// ErrTimeout is returned if TimeoutReader exceeds timeout
 var ErrTimeout = errors.New("Read timeout")
 
-//ErrBodyContentLengthMismatch is returned if request body is shorter than
-//declared ContentLength header
+// ErrBodyContentLengthMismatch is returned if request body is shorter than
+// declared ContentLength header
 var ErrBodyContentLengthMismatch = errors.New("Body ContentLength miss match")
 
-//TimeoutReader returns error if cannot read any byte for Timeout duration
+// TimeoutReader returns error if cannot read any byte for Timeout duration
 type TimeoutReader struct {
-	//R is original reader
+	// R is original reader
 	R io.Reader
-	//Timeout defines how long TimeoutReader will wait for next byte
+	// Timeout defines how long TimeoutReader will wait for next byte
 	Timeout time.Duration
 }
 
-//Read implements io.Reader interface
+// Read implements io.Reader interface
 func (tr *TimeoutReader) Read(b []byte) (n int, err error) {
 	gotsome := make(chan bool)
 	go func() {
@@ -134,31 +134,31 @@ func (tr *TimeoutReader) Read(b []byte) (n int, err error) {
 	}
 }
 
-//RequestProcessor helps change requests before roundtrip to backends
-//orig is request received from client, copies will be send further
+// RequestProcessor helps change requests before roundtrip to backends
+// orig is request received from client, copies will be send further
 type RequestProcessor func(orig *http.Request, copies []*http.Request)
 
-//MultiTransport replicates request onto multiple backends
+// MultiTransport replicates request onto multiple backends
 type MultiTransport struct {
 	http.RoundTripper
-	//Backends is list of target endpoints URL
+	// Backends is list of target endpoints URL
 	Backends []*url.URL
-	//Response handler will get `ReqResErrTuple` in `in` channel
-	//should process all responses and send one to out chan.
-	//Response senf to out chan will be returned from RoundTrip.
-	//Remember to discard respose bodies if not read, otherwise
-	//Keep-Alives won't function properly
+	// Response handler will get `ReqResErrTuple` in `in` channel
+	// should process all responses and send one to out chan.
+	// Response senf to out chan will be returned from RoundTrip.
+	// Remember to discard respose bodies if not read, otherwise
+	// Keep-Alives won't function properly
 	//
-	//If `HandleResponses` is nil will pass first successful
+	// If `HandleResponses` is nil will pass first successful
 	//(with status >= 200 & < 300) response or last failed.
 	HandleResponses MultipleResponsesHandler
-	//Process request between replication and sending, useful for changing request headers
+	// Process request between replication and sending, useful for changing request headers
 	PreProcessRequest RequestProcessor
 }
 
-//ReplicateRequests creates request copies (one per MultiTransport.Bakcends item).
-//New requests will have substituted Host field, original request body will be copied
-//simultaneously
+// ReplicateRequests creates request copies (one per MultiTransport.Bakcends item).
+// New requests will have substituted Host field, original request body will be copied
+// simultaneously
 func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context.CancelFunc) (reqs []*http.Request, err error) {
 	copiesCount := len(mt.Backends)
 	reqs = make([]*http.Request, 0, copiesCount)
@@ -183,7 +183,7 @@ func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context
 		reqs = append(reqs, r)
 	}
 	go func() {
-		//Copy original request body to replicated requests bodies
+		// Copy original request body to replicated requests bodies
 		if req.Body != nil {
 			bodyReader := &TimeoutReader{
 				io.LimitReader(req.Body, req.ContentLength),
@@ -206,7 +206,7 @@ func (mt *MultiTransport) sendRequest(
 	o := make(chan *ReqResErrTuple)
 	go func() {
 		resp, err := mt.RoundTripper.RoundTrip(req)
-		//report Non 2XX status codes as errors
+		// report Non 2XX status codes as errors
 		failed := err != nil || resp != nil && (resp.StatusCode < 200 || resp.StatusCode > 399)
 		r := &ReqResErrTuple{req, resp, err, failed}
 		o <- r
@@ -221,7 +221,7 @@ func (mt *MultiTransport) sendRequest(
 	out <- reqresperr
 }
 
-//RoundTrip satisfies http.RoundTripper interface
+// RoundTrip satisfies http.RoundTripper interface
 func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	bctx, cancelFunc := context.WithCancel(context.Background())
 
@@ -245,7 +245,7 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 		}()
 	}
 
-	//close c chanel once all requests comes in
+	// close c chanel once all requests comes in
 	go func() {
 		wg.Wait()
 		close(c)
@@ -254,8 +254,8 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 	return resTup.Res, resTup.Err
 }
 
-//NewMultiTransport creates *MultiTransport. If requestsPreprocesor or responseHandler
-//are nil will use default ones
+// NewMultiTransport creates *MultiTransport. If requestsPreprocesor or responseHandler
+// are nil will use default ones
 func NewMultiTransport(roundTripper http.RoundTripper,
 	backends []*url.URL,
 	responsesHandler MultipleResponsesHandler) *MultiTransport {
