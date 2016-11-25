@@ -22,6 +22,7 @@ type shardsRing struct {
 	ring                    *consistenthash.Map
 	shardClusterMap         map[string]cluster
 	allClustersRoundTripper http.RoundTripper
+	regressionRing          []cluster
 }
 
 func (sr shardsRing) isBucketPath(path string) bool {
@@ -134,6 +135,10 @@ func (rf ringFactory) uniqBackends(clientCfg config.ClientConfig) ([]*url.URL, e
 	return uniqBackendsSlice, nil
 }
 
+func (rf) regresionSetUp() {
+
+}
+
 func (rf ringFactory) clientRing(clientCfg config.ClientConfig) (shardsRing, error) {
 	weightSum := uint(0)
 	clientClusters := make([]cluster, 0, len(clientCfg.Clusters))
@@ -154,7 +159,7 @@ func (rf ringFactory) clientRing(clientCfg config.ClientConfig) (shardsRing, err
 	for shardID := range shardMap {
 		cHashMap.Add(shardID)
 	}
-	// fmt.Println("ClientRing %v", clientCfg)
+
 	allBackendsSlice, err := rf.uniqBackends(clientCfg)
 	if err != nil {
 		return shardsRing{}, err

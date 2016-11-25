@@ -38,7 +38,6 @@ type YamlConfig struct {
 	KeepAlive bool                     `yaml:"KeepAlive"`
 	Clusters  map[string]ClusterConfig `yaml:"Clusters,omitempty"`
 	Client    ClientConfig             `yaml:"Client,omitempty"`
-	KeepAlive bool `yaml:"KeepAlive"`
 }
 
 // Config contains processed YamlConfig data
