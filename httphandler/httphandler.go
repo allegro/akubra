@@ -1,6 +1,7 @@
 package httphandler
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -77,7 +78,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 //ConfigureHTTPTransport returns http.Transport with customized dialer,
 //MaxIdleConnsPerHost and DisableKeepAlives
 func ConfigureHTTPTransport(conf config.Config) *http.Transport {
-	connDuration, _ := time.ParseDuration(conf.ConnectionTimeout)
+	connDuration, err := time.ParseDuration(conf.ConnectionTimeout)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
 	var dialer *dial.LimitDialer
 
 	dialer = dial.NewLimitDialer(conf.ConnLimit, connDuration, connDuration)
