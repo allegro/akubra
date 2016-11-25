@@ -12,7 +12,7 @@ import (
 	"github.com/allegro/akubra/transport"
 )
 
-//Handler implements http.Handler interface
+// Handler implements http.Handler interface
 type Handler struct {
 	config       config.Config
 	roundTripper http.RoundTripper
@@ -74,8 +74,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}()
 }
 
-//ConfigureHTTPTransport returns http.Transport with customized dialer,
-//MaxIdleConnsPerHost and DisableKeepAlives
+// ConfigureHTTPTransport returns http.Transport with customized dialer,
+// MaxIdleConnsPerHost and DisableKeepAlives
 func ConfigureHTTPTransport(conf config.Config) *http.Transport {
 	connDuration, _ := time.ParseDuration(conf.ConnectionTimeout)
 	var dialer *dial.LimitDialer
@@ -94,7 +94,7 @@ func ConfigureHTTPTransport(conf config.Config) *http.Transport {
 	return httpTransport
 }
 
-//NewMultipleResponseHandler returns a function for a later use in transport.MultiTransport
+// NewMultipleResponseHandler returns a function for a later use in transport.MultiTransport
 func NewMultipleResponseHandler(conf config.Config) transport.MultipleResponsesHandler {
 	rh := responseMerger{
 		conf.Synclog,
@@ -104,7 +104,7 @@ func NewMultipleResponseHandler(conf config.Config) transport.MultipleResponsesH
 	return rh.handleResponses
 }
 
-//DecorateRoundTripper applies common http.RoundTripper decorators
+// DecorateRoundTripper applies common http.RoundTripper decorators
 func DecorateRoundTripper(conf config.Config, rt http.RoundTripper) http.RoundTripper {
 	return Decorate(
 		rt,

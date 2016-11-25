@@ -21,8 +21,8 @@ func (wc *watchConn) Close() error {
 	return err
 }
 
-//LimitDialer limits open connections by read and dial timeout. Also provides hard
-//limit on number of open connections
+// LimitDialer limits open connections by read and dial timeout. Also provides hard
+// limit on number of open connections
 type LimitDialer struct {
 	activeCons      map[string]int64
 	limit           int64
@@ -32,7 +32,7 @@ type LimitDialer struct {
 	countersMx      sync.Mutex
 }
 
-//ErrSlowOrMaintained is returned if LimitDialer exceeds connection limit
+// ErrSlowOrMaintained is returned if LimitDialer exceeds connection limit
 var ErrSlowOrMaintained = fmt.Errorf("Slow or maintained endpoint")
 
 func (d *LimitDialer) incrementCount(addr string) (int64, error) {
@@ -58,7 +58,7 @@ func (d *LimitDialer) decrementCount(addr string) {
 	d.activeCons[addr]--
 }
 
-//checks if limit is reached and if given endpoint is most occupied
+// checks if limit is reached and if given endpoint is most occupied
 func (d *LimitDialer) limitReached(endpoint string) bool {
 	numOfAllConns := int64(0)
 	maxNumOfEndpointConns := int64(0)
@@ -79,8 +79,8 @@ func (d *LimitDialer) limitReached(endpoint string) bool {
 	return false
 }
 
-//Dial connects to endpoint as net.Dial does, but also keeps track
-//on number of connections
+// Dial connects to endpoint as net.Dial does, but also keeps track
+// on number of connections
 func (d *LimitDialer) Dial(network, addr string) (c net.Conn, err error) {
 	_, incErr := d.incrementCount(addr)
 	if incErr != nil {
@@ -119,12 +119,12 @@ func (d *LimitDialer) Dial(network, addr string) (c net.Conn, err error) {
 	return c, err
 }
 
-//DropEndpoint marks backend as dropped i.e. maintenance x
+// DropEndpoint marks backend as dropped i.e. maintenance x
 func (d *LimitDialer) DropEndpoint(endpoint url.URL) {
 	d.droppedEndpoint = endpoint.Host
 }
 
-//NewLimitDialer returns new `LimitDialer`.
+// NewLimitDialer returns new `LimitDialer`.
 func NewLimitDialer(limit int64, readTimeout, dialTimeout time.Duration) *LimitDialer {
 	return &LimitDialer{
 		activeCons:  make(map[string]int64),
