@@ -1,6 +1,7 @@
 package httphandler
 
 import (
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"log"
@@ -16,32 +17,35 @@ type responseMerger struct {
 }
 
 func (rd *responseMerger) synclog(r, successfulTup *transport.ReqResErrTuple) {
-	//don't log if request method was not included in configuration
+	// don't log if request method was not included in configuration
 	if rd.methodSetFilter == nil || !rd.methodSetFilter.Contains(r.Req.Method) {
 		return
 	}
-	//do not log if backend response was successful
+	// do not log if backend response was successful
 	if !r.Failed {
 		return
 	}
-	//do not log if there was no successful response
+	// do not log if there was no successful response
 	if successfulTup == nil {
 		return
 	}
-	//log error entry
+	// log error entry
 	errorMsg := "No error"
 	if r.Err != nil {
 		errorMsg = r.Err.Error()
 	}
-	log.Printf("got some err %s", errorMsg)
-	rd.syncerrlog.Printf("%q, %q, %q, %q, %q, %q",
+	syncLogMsg := NewSyncLogMessageData(
 		r.Req.Method,
 		r.Req.Host,
 		successfulTup.Req.URL.Path,
 		successfulTup.Req.Host,
 		r.Req.Header.Get("User-Agent"),
 		errorMsg)
-
+	logMsg, err := json.Marshal(syncLogMsg)
+	if err != nil {
+		return
+	}
+	rd.syncerrlog.Println(string(logMsg))
 }
 
 func (rd *responseMerger) handleFailedResponces(
@@ -69,9 +73,9 @@ func (rd *responseMerger) handleFailedResponces(
 		if !alreadysent {
 			out <- r
 			alreadysent = true
-			continue //don't discard body
+			continue // don't discard body
 		}
-		//discard body
+		// discard body
 		if r.Res != nil && r.Res.Body != nil {
 			_, err := io.Copy(ioutil.Discard, r.Res.Body)
 			if err != nil {
@@ -94,9 +98,9 @@ func (rd *responseMerger) _handle(in <-chan *transport.ReqResErrTuple, out chan<
 		if !hasMore {
 			break
 		}
-		//pass first successful answer to client
+		// pass first successful answer to client
 		if !r.Failed && !respPassed {
-			//append additional headers
+			// append additional headers
 			successfulTup = r
 			out <- r
 			respPassed = true

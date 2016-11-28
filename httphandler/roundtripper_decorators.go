@@ -1,13 +1,14 @@
 package httphandler
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 )
 
-//Decorator is http.RoundTripper interface wrapper
+// Decorator is http.RoundTripper interface wrapper
 type Decorator func(http.RoundTripper) http.RoundTripper
 
 type loggingRoundTripper struct {
@@ -36,12 +37,16 @@ func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Respons
 		statusCode,
 		duration,
 		errStr)
-
-	lrt.accessLog.Println(accessLogMessage.String())
+	jsonb, almerr := json.Marshal(accessLogMessage)
+	if almerr != nil {
+		log.Printf("Cannot marshal access log message %s", almerr.Error())
+		return
+	}
+	lrt.accessLog.Printf("%s", jsonb)
 	return
 }
 
-//AccessLogging creares Decorator with access log collector
+// AccessLogging creares Decorator with access log collector
 func AccessLogging(logger *log.Logger) Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
 		return &loggingRoundTripper{roundTripper: rt, accessLog: logger}
@@ -72,7 +77,12 @@ func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err
 		req.Header.Set("Host", newhost)
 		req.Host = newhost
 	}
+
 	resp, err = hs.roundTripper.RoundTrip(req)
+
+	if err != nil {
+		return
+	}
 
 	for k, v := range hs.responseHeaders {
 		_, ok := resp.Header[k]
@@ -83,7 +93,7 @@ func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err
 	return
 }
 
-//HeadersSuplier creates Decorator which adds headers to request and response
+// HeadersSuplier creates Decorator which adds headers to request and response
 func HeadersSuplier(requestHeaders, responseHeaders map[string]string) Decorator {
 	return func(roundTripper http.RoundTripper) http.RoundTripper {
 		return &headersSuplier{
@@ -107,16 +117,17 @@ func (os optionsHandler) RoundTrip(req *http.Request) (resp *http.Response, err 
 	if resp != nil && isOptions {
 		resp.Header.Set("Content-Length", "0")
 	}
+
 	return
 }
 
-//OptionsHandler changes OPTIONS method it to HEAD and pass it to
-//decorated http.RoundTripper, also clears response content-length header
+// OptionsHandler changes OPTIONS method it to HEAD and pass it to
+// decorated http.RoundTripper, also clears response content-length header
 func OptionsHandler(roundTripper http.RoundTripper) http.RoundTripper {
 	return optionsHandler{roundTripper: roundTripper}
 }
 
-//Decorate returns http.Roundtripper wraped with all passed decorators
+// Decorate returns http.Roundtripper wraped with all passed decorators
 func Decorate(roundTripper http.RoundTripper, decorators ...Decorator) http.RoundTripper {
 
 	for _, dec := range decorators {
