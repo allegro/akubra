@@ -66,7 +66,7 @@ func dummyReq(stream []byte, addContentLength int64) *http.Request {
 }
 
 func TestPipeReads(t *testing.T) {
-	//Check if we may replicate reader into more readers
+	// Check if we may replicate reader into more readers
 	forkCount := 3
 	stream := []byte("zażółć gęślą jaźń\r\n")
 	writer, readers := multiplicateReadClosers(forkCount)

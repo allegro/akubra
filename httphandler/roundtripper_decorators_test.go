@@ -11,7 +11,6 @@ import (
 	"testing"
 	// "net/url"
 	"encoding/json"
-	"strings"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -99,10 +98,12 @@ func TestAccessLogging(t *testing.T) {
 
 	sendReq(t, srv, "GET", nil, rt)
 
-	amdstr := strings.Trim(buf.String(), "\n")
-	amd, err := ScanCSVAccessLogMessage(amdstr)
+	amddata := bytes.Trim(buf.Bytes(), "\n")
+	amd := &AccessMessageData{}
+	err := json.Unmarshal(amddata, amd)
+
 	if err != nil {
-		t.Errorf("Cannot read AccessLog message %q, %q", amdstr, err)
+		t.Errorf("Cannot read AccessLog message %q, %q", amddata, err)
 	}
 	assert.Equal(t, http.StatusOK, amd.StatusCode)
 }
