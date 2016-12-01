@@ -103,10 +103,10 @@ func TestSingleClusterOnRing(t *testing.T) {
 	}
 	req, _ := http.NewRequest("GET", "http://example.com/f/a", nil)
 	resp, err := clientRing.RoundTrip(req)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	respBody := make([]byte, resp.ContentLength)
 	_, err = io.ReadFull(resp.Body, respBody)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, stream, respBody)
 }
 
@@ -134,21 +134,21 @@ func TestTwoClustersOnRing(t *testing.T) {
 	URL := "http://example.com/myindex/abcdef"
 	req, _ := http.NewRequest("PUT", URL, reader)
 	resp, err := clientRing.RoundTrip(req)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	respBody := make([]byte, 3)
 	_, err = io.ReadFull(resp.Body, respBody)
-	assert.Nil(t, err, "cannot read response")
+	assert.NoError(t, err, "cannot read response")
 	assert.Equal(t, response1, respBody, "response differs")
 
-	// req2, _ := http.NewRequest("PUT", "http://example.com/myindex/a", reader)
-	// resp2, err2 := clientRing.RoundTrip(req2)
-	// assert.Nil(t, err2)
+	req2, _ := http.NewRequest("PUT", "http://example.com/myindex/a", reader)
+	resp2, err2 := clientRing.RoundTrip(req2)
+	assert.NoError(t, err2)
 
-	// respBody2 := make([]byte, 3)
-	// _, err = io.ReadFull(resp2.Body, respBody2)
-	// assert.Nil(t, err, "cannot read response")
-	// assert.Equal(t, response2, respBody2, "response differs")
+	respBody2 := make([]byte, 3)
+	_, err = io.ReadFull(resp2.Body, respBody2)
+	assert.NoError(t, err, "cannot read response")
+	assert.Equal(t, response2, respBody2, "response differs")
 }
 
 func TestBucketOpDetection(t *testing.T) {
@@ -194,11 +194,11 @@ func TestTwoClustersOnRingBucketOp(t *testing.T) {
 
 	clientRing, err := ringFactory.clientRing(conf.Client)
 
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	reader := bytes.NewBuffer([]byte{})
 	req, _ := http.NewRequest("PUT", "http://example.com/index/", reader)
 	_, err2 := clientRing.RoundTrip(req)
-	assert.Nil(t, err2)
+	assert.NoError(t, err2)
 
 	assert.Equal(t, 4, callCount, "No all backends called")
 }
@@ -230,11 +230,37 @@ func TestTwoClustersOnRingBucketSharding(t *testing.T) {
 
 	clientRing, err := ringFactory.clientRing(conf.Client)
 
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	reader := bytes.NewBuffer([]byte{})
 	req, _ := http.NewRequest("PUT", "http://example.com/index/a", reader)
 	_, err2 := clientRing.RoundTrip(req)
-	assert.Nil(t, err2)
+	assert.NoError(t, err2)
 
 	assert.Equal(t, 2, callCount, "Too many backends called")
+}
+
+func TestBacktracking(t *testing.T) {
+	response := []byte("bbb")
+	cluster1Urls := mkDummySrvs(2, response, t)
+
+	conf := configure(cluster1Urls)
+
+	cluster2Urls := mkDummySrvsWithfun(2, t, http.NotFound)
+
+	conf.Clusters["test"] = config.ClusterConfig{
+		Weight:   1,
+		Type:     "replicator",
+		Backends: cluster2Urls,
+	}
+
+	conf.Client.Clusters = append(conf.Client.Clusters, "test")
+	httptransp := httphandler.ConfigureHTTPTransport(conf)
+	respHandler := httphandler.NewMultipleResponseHandler(conf)
+	ringFactory := newRingFactory(conf, httptransp, respHandler)
+	clientRing, err := ringFactory.clientRing(conf.Client)
+	assert.NoError(t, err)
+	req, _ := http.NewRequest("GET", "http://example.com/index/a", nil)
+	resp, err := clientRing.RoundTrip(req)
+	assert.NoError(t, err)
+	assert.NotEqual(t, http.StatusNotFound, resp.StatusCode)
 }
