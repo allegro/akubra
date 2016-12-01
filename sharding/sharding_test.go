@@ -88,37 +88,6 @@ func configure(backends []config.YAMLURL) config.Config {
 	}
 }
 
-// func TestClusterTypeMap(t *testing.T) {
-// 	cluster1Urls := mkDummySrvs(2, []byte("ok"), t)
-// 	cluster2Urls := mkDummySrvs(2, []byte("ok"), t)
-// 	conf := configure(cluster1Urls)
-// 	conf.Clusters["test"] = config.ClusterConfig{
-// 		Weight:   2,
-// 		Type:     "replicator",
-// 		Backends: cluster2Urls,
-// 	}
-// 	clusterTypMap, err := mapClusterTypes(conf)
-// 	if err != nil {
-// 		t.Fail()
-// 	}
-// 	if len(clusterTypMap) != 2 {
-// 		t.Fail()
-// 	}
-// 	if _, ok := clusterTypMap["test"]; !ok {
-// 		t.Fail()
-// 	}
-// }
-
-// func TestSingleCluster(t *testing.T) {
-// 	cluster1Urls := mkDummySrvs(2, []byte("ok"), t)
-// 	conf := configure(cluster1Urls)
-// 	clusterConf := conf.Clusters["default"]
-// 	rtCluster := newReplicatorCluster(conf, clusterConf)
-// 	clustr, ok := rtCluster.(cluster)
-// 	assert.True(t, ok)
-// 	assert.Equal(t, clusterConf.Weight, clustr.Weight)
-// }
-
 func TestSingleClusterOnRing(t *testing.T) {
 	stream := []byte("cluster1")
 	cluster1Urls := mkDummySrvs(2, stream, t)

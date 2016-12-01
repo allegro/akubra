@@ -7,7 +7,7 @@ lint: deps-lint
 	gometalinter ./... \
 	--disable=gotype \
 	--disable=dupl \
-	--deadline=120s \
+	--deadline=300s \
 	--enable=goimports \
 	--vendor
 
