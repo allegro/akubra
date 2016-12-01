@@ -28,7 +28,7 @@ func mkDummySrvsWithfun(count int, t *testing.T, handlerfunc func(w http.Respons
 		if err != nil {
 			t.Error(err)
 		}
-		urls = append(urls, config.YAMLURL{urlN})
+		urls = append(urls, config.YAMLURL{URL: urlN})
 	}
 	return urls
 }

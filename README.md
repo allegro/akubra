@@ -114,6 +114,28 @@ ConnectionDialTimeout: "1s"
 SyncLogMethods:
   - PUT
   - DELETE
+# Configure sharding
+Clusters:
+  # Cluster label
+  cluster1:
+    # Set type, aviable: replicator
+    Type: "replicator"
+    # Weight
+    Weight: 1
+    Backends:
+      - http://s3.dc1.internal
+  cluster2:
+    Type: "replicator"
+    Weight: 1
+    Backends:
+      - http://s3.dc2.internal
+Client:
+  Name: client1
+  Clusters:
+    - cluster1
+    - cluster2
+  ShardsCount: 10000
+
 ```
 
 ## Limitations
