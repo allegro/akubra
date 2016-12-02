@@ -98,9 +98,7 @@ func TestSingleClusterOnRing(t *testing.T) {
 	ringFactory := newRingFactory(conf, httptransp, respHandler)
 
 	clientRing, err := ringFactory.clientRing(conf.Client)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 	req, _ := http.NewRequest("GET", "http://example.com/f/a", nil)
 	resp, err := clientRing.RoundTrip(req)
 	assert.NoError(t, err)
@@ -129,7 +127,7 @@ func TestTwoClustersOnRing(t *testing.T) {
 	ringFactory := newRingFactory(conf, httptransp, respHandler)
 
 	clientRing, err := ringFactory.clientRing(conf.Client)
-
+	assert.NoError(t, err)
 	reader := bytes.NewBuffer([]byte{})
 	URL := "http://example.com/myindex/abcdef"
 	req, _ := http.NewRequest("PUT", URL, reader)
