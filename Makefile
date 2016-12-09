@@ -12,6 +12,7 @@ lint: deps-lint
 	--vendor
 
 deps:
+	go get github.com/Masterminds/glide
 	glide install
 
 deps-lint: deps
