@@ -1,7 +1,6 @@
 package httphandler
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -80,14 +79,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func ConfigureHTTPTransport(conf config.Config) *http.Transport {
 	connDuration, err := time.ParseDuration(conf.ConnectionTimeout)
 	if err != nil {
-		fmt.Println(err)
+		conf.Mainlog.Println(err)
 		return nil
 	}
 	var dialer *dial.LimitDialer
 
 	dialer = dial.NewLimitDialer(conf.ConnLimit, connDuration, connDuration)
 	if conf.MaintainedBackend.URL != nil {
-		// maintainedURL := conf.MaintainedBackend.(url.URL)
 		dialer.DropEndpoint(*conf.MaintainedBackend.URL)
 	}
 

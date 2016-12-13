@@ -70,23 +70,23 @@ func (j *YAMLURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // ClusterConfig defines cluster configuration
 type ClusterConfig struct {
-	//Backends should contain s3 backend urls
+	// Backends should contain s3 backend urls
 	Backends []YAMLURL `yaml:"Backends,omitempty"`
-	//Type, currently replicator is only option
+	// Type, currently replicator is only option
 	Type string `yaml:"Type,omitempty"`
-	//Points how much load cluster should handle
+	// Points how much load cluster should handle
 	Weight uint `yaml:"Weight,omitempty"`
-	//Cluster type specific options
+	// Cluster type specific options
 	Options map[string]string `yaml:"Options,omitempty"`
 }
 
 // ClientConfig keeps information about client setup
 type ClientConfig struct {
-	//Client name
+	// Client name
 	Name string `yaml:"Name,omitempty"`
-	//List of clusters name
+	// List of clusters name
 	Clusters []string `yaml:"Clusters,omitempty"`
-	//Total number of shards
+	// Total number of shards
 	ShardsCount uint64 `yaml:"ShardsCount,omitempty"`
 }
 

@@ -2,13 +2,14 @@ package sharding
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/allegro/akubra/config"
@@ -151,28 +152,27 @@ func TestTwoClustersOnRing(t *testing.T) {
 
 func TestBucketOpDetection(t *testing.T) {
 	sr := shardsRing{}
-	bucketPaths := []string{"/foo", "/bar/"}
-	for _, path := range bucketPaths {
-		if !sr.isBucketPath(path) {
-			t.Fail()
-		}
+	testCases := []struct {
+		path string
+		expected bool
+	} {
+		{"/foo",true},
+		{"/bar/", true},
+		{"/foo/1", false},
+		{"/bar/1/", false},
 	}
-	nonBucketPaths := []string{"/foo/1", "/bar/1/"}
-	for _, path := range nonBucketPaths {
-		if sr.isBucketPath(path) {
-			t.Fail()
-		}
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("%s is bucket path", tc.path), func(t *testing.T) {
+			assert.Equal(t, sr.isBucketPath(tc.path), tc.expected)
+		})
 	}
 }
 
 func TestTwoClustersOnRingBucketOp(t *testing.T) {
-	callCount := 0
-	m := sync.Mutex{}
+	callCount := int64(0)
 	f := func(w http.ResponseWriter, r *http.Request) {
-		m.Lock()
 		w.WriteHeader(http.StatusBadRequest)
-		callCount++
-		m.Unlock()
+		atomic.AddInt64(&callCount, 1)
 	}
 
 	cluster1Urls := mkDummySrvsWithfun(2, t, f)
@@ -198,17 +198,14 @@ func TestTwoClustersOnRingBucketOp(t *testing.T) {
 	_, err2 := clientRing.RoundTrip(req)
 	assert.NoError(t, err2)
 
-	assert.Equal(t, 4, callCount, "No all backends called")
+	assert.Equal(t, int64(4), callCount, "No all backends called")
 }
 
 func TestTwoClustersOnRingBucketSharding(t *testing.T) {
-	callCount := 0
-	m := sync.Mutex{}
+	callCount := int64(0)
 	f := func(w http.ResponseWriter, r *http.Request) {
-		m.Lock()
 		w.WriteHeader(http.StatusBadRequest)
-		callCount++
-		m.Unlock()
+		atomic.AddInt64(&callCount, 1)
 	}
 
 	cluster1Urls := mkDummySrvsWithfun(2, t, f)
@@ -234,7 +231,7 @@ func TestTwoClustersOnRingBucketSharding(t *testing.T) {
 	_, err2 := clientRing.RoundTrip(req)
 	assert.NoError(t, err2)
 
-	assert.Equal(t, 2, callCount, "Too many backends called")
+	assert.Equal(t, int64(2), callCount, "Too many backends called")
 }
 
 func TestBacktracking(t *testing.T) {

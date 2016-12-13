@@ -47,7 +47,7 @@ func (sr shardsRing) Pick(key string) (http.RoundTripper, error) {
 
 func (sr shardsRing) regressionCall(cl http.RoundTripper, req *http.Request) (*http.Response, error) {
 	resp, err := cl.RoundTrip(req)
-	if resp.StatusCode == 404 {
+	if resp.StatusCode == http.StatusNotFound {
 		curCluster, ok := cl.(cluster)
 		if ok {
 			regressionCluster, exists := sr.clusterRegressionMap[curCluster.name]
