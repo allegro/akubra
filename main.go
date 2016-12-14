@@ -8,11 +8,10 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin"
-	"gopkg.in/tylerb/graceful.v1"
-
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/sharding"
+	"gopkg.in/tylerb/graceful.v1"
 )
 
 var (

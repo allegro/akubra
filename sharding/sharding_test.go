@@ -16,6 +16,7 @@ import (
 	"github.com/allegro/akubra/httphandler"
 	set "github.com/deckarep/golang-set"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func mkDummySrvsWithfun(count int, t *testing.T, handlerfunc func(w http.ResponseWriter, r *http.Request)) []config.YAMLURL {
@@ -99,13 +100,13 @@ func TestSingleClusterOnRing(t *testing.T) {
 	ringFactory := newRingFactory(conf, httptransp, respHandler)
 
 	clientRing, err := ringFactory.clientRing(conf.Client)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	req, _ := http.NewRequest("GET", "http://example.com/f/a", nil)
 	resp, err := clientRing.RoundTrip(req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	respBody := make([]byte, resp.ContentLength)
 	_, err = io.ReadFull(resp.Body, respBody)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, stream, respBody)
 }
 
@@ -128,35 +129,35 @@ func TestTwoClustersOnRing(t *testing.T) {
 	ringFactory := newRingFactory(conf, httptransp, respHandler)
 
 	clientRing, err := ringFactory.clientRing(conf.Client)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	reader := bytes.NewBuffer([]byte{})
 	URL := "http://example.com/myindex/abcdef"
 	req, _ := http.NewRequest("PUT", URL, reader)
 	resp, err := clientRing.RoundTrip(req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	respBody := make([]byte, 3)
 	_, err = io.ReadFull(resp.Body, respBody)
-	assert.NoError(t, err, "cannot read response")
+	require.NoError(t, err, "cannot read response")
 	assert.Equal(t, response1, respBody, "response differs")
 
 	req2, _ := http.NewRequest("PUT", "http://example.com/myindex/a", reader)
 	resp2, err2 := clientRing.RoundTrip(req2)
-	assert.NoError(t, err2)
+	require.NoError(t, err2)
 
 	respBody2 := make([]byte, 3)
 	_, err = io.ReadFull(resp2.Body, respBody2)
-	assert.NoError(t, err, "cannot read response")
+	require.NoError(t, err, "cannot read response")
 	assert.Equal(t, response2, respBody2, "response differs")
 }
 
 func TestBucketOpDetection(t *testing.T) {
 	sr := shardsRing{}
 	testCases := []struct {
-		path string
+		path     string
 		expected bool
-	} {
-		{"/foo",true},
+	}{
+		{"/foo", true},
 		{"/bar/", true},
 		{"/foo/1", false},
 		{"/bar/1/", false},
@@ -192,11 +193,11 @@ func TestTwoClustersOnRingBucketOp(t *testing.T) {
 
 	clientRing, err := ringFactory.clientRing(conf.Client)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	reader := bytes.NewBuffer([]byte{})
 	req, _ := http.NewRequest("PUT", "http://example.com/index/", reader)
 	_, err2 := clientRing.RoundTrip(req)
-	assert.NoError(t, err2)
+	require.NoError(t, err2)
 
 	assert.Equal(t, int64(4), callCount, "No all backends called")
 }
@@ -224,13 +225,13 @@ func TestTwoClustersOnRingBucketSharding(t *testing.T) {
 	ringFactory := newRingFactory(conf, httptransp, respHandler)
 
 	clientRing, err := ringFactory.clientRing(conf.Client)
+	require.NoError(t, err)
 
-	assert.NoError(t, err)
 	reader := bytes.NewBuffer([]byte{})
 	req, _ := http.NewRequest("PUT", "http://example.com/index/a", reader)
-	_, err2 := clientRing.RoundTrip(req)
-	assert.NoError(t, err2)
 
+	_, err2 := clientRing.RoundTrip(req)
+	require.NoError(t, err2)
 	assert.Equal(t, int64(2), callCount, "Too many backends called")
 }
 
@@ -253,9 +254,45 @@ func TestBacktracking(t *testing.T) {
 	respHandler := httphandler.NewMultipleResponseHandler(conf)
 	ringFactory := newRingFactory(conf, httptransp, respHandler)
 	clientRing, err := ringFactory.clientRing(conf.Client)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+
 	req, _ := http.NewRequest("GET", "http://example.com/index/a", nil)
 	resp, err := clientRing.RoundTrip(req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+
 	assert.NotEqual(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestDeletePassToAllBackends(t *testing.T) {
+	callCount := int64(0)
+	f := func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		atomic.AddInt64(&callCount, 1)
+	}
+
+	cluster1Urls := mkDummySrvsWithfun(2, t, f)
+	conf := configure(cluster1Urls)
+	cluster2Urls := mkDummySrvsWithfun(2, t, f)
+	conf.Clusters["test"] = config.ClusterConfig{
+		Weight:   1,
+		Type:     "replicator",
+		Backends: cluster2Urls,
+	}
+
+	conf.Client.Clusters = append(conf.Client.Clusters, "test")
+	httptransp := httphandler.ConfigureHTTPTransport(conf)
+	respHandler := httphandler.NewMultipleResponseHandler(conf)
+
+	ringFactory := newRingFactory(conf, httptransp, respHandler)
+
+	clientRing, err := ringFactory.clientRing(conf.Client)
+	require.NoError(t, err)
+
+	reader := bytes.NewBuffer([]byte{})
+	req, _ := http.NewRequest("DELETE", "http://example.com/index/a", reader)
+	_, err2 := clientRing.RoundTrip(req)
+	require.NoError(t, err2)
+
+	assert.Equal(t, int64(4), callCount, "All backends should be called")
+
 }

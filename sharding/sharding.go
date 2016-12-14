@@ -47,7 +47,8 @@ func (sr shardsRing) Pick(key string) (http.RoundTripper, error) {
 
 func (sr shardsRing) regressionCall(cl http.RoundTripper, req *http.Request) (*http.Response, error) {
 	resp, err := cl.RoundTrip(req)
-	if resp.StatusCode == http.StatusNotFound {
+	// Do regression call if response status is > 400
+	if err != nil || resp.StatusCode > 400 {
 		curCluster, ok := cl.(cluster)
 		if ok {
 			regressionCluster, exists := sr.clusterRegressionMap[curCluster.name]
@@ -60,10 +61,16 @@ func (sr shardsRing) regressionCall(cl http.RoundTripper, req *http.Request) (*h
 }
 
 func (sr shardsRing) RoundTrip(req *http.Request) (*http.Response, error) {
+
+	if req.Method == http.MethodDelete {
+		return sr.allClustersRoundTripper.RoundTrip(req)
+	}
+
 	cl, err := sr.Pick(req.URL.Path)
 	if err != nil {
 		return nil, err
 	}
+
 	return sr.regressionCall(cl, req)
 }
 
