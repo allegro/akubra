@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"net/textproto"
 	"testing"
-	// "net/url"
 	"encoding/json"
 
 	"github.com/stretchr/testify/assert"
