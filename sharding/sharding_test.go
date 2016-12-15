@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -90,15 +91,17 @@ func configure(backends []config.YAMLURL) config.Config {
 	}
 }
 
+func makeRingFactory(conf config.Config) ringFactory {
+	httptransp := httphandler.ConfigureHTTPTransport(conf)
+	respHandler := httphandler.NewMultipleResponseHandler(conf)
+	return newRingFactory(conf, httptransp, respHandler)
+}
+
 func TestSingleClusterOnRing(t *testing.T) {
 	stream := []byte("cluster1")
 	cluster1Urls := mkDummySrvs(2, stream, t)
 	conf := configure(cluster1Urls)
-
-	httptransp := httphandler.ConfigureHTTPTransport(conf)
-	respHandler := httphandler.NewMultipleResponseHandler(conf)
-	ringFactory := newRingFactory(conf, httptransp, respHandler)
-
+	ringFactory := makeRingFactory(conf)
 	clientRing, err := ringFactory.clientRing(conf.Client)
 	require.NoError(t, err)
 	req, _ := http.NewRequest("GET", "http://example.com/f/a", nil)
@@ -124,9 +127,7 @@ func TestTwoClustersOnRing(t *testing.T) {
 
 	conf.Client.Clusters = append(conf.Client.Clusters, "test")
 
-	httptransp := httphandler.ConfigureHTTPTransport(conf)
-	respHandler := httphandler.NewMultipleResponseHandler(conf)
-	ringFactory := newRingFactory(conf, httptransp, respHandler)
+	ringFactory := makeRingFactory(conf)
 
 	clientRing, err := ringFactory.clientRing(conf.Client)
 	require.NoError(t, err)
@@ -186,10 +187,7 @@ func TestTwoClustersOnRingBucketOp(t *testing.T) {
 	}
 
 	conf.Client.Clusters = append(conf.Client.Clusters, "test")
-	httptransp := httphandler.ConfigureHTTPTransport(conf)
-	respHandler := httphandler.NewMultipleResponseHandler(conf)
-
-	ringFactory := newRingFactory(conf, httptransp, respHandler)
+	ringFactory := makeRingFactory(conf)
 
 	clientRing, err := ringFactory.clientRing(conf.Client)
 
@@ -219,11 +217,7 @@ func TestTwoClustersOnRingBucketSharding(t *testing.T) {
 	}
 
 	conf.Client.Clusters = append(conf.Client.Clusters, "test")
-	httptransp := httphandler.ConfigureHTTPTransport(conf)
-	respHandler := httphandler.NewMultipleResponseHandler(conf)
-
-	ringFactory := newRingFactory(conf, httptransp, respHandler)
-
+	ringFactory := makeRingFactory(conf)
 	clientRing, err := ringFactory.clientRing(conf.Client)
 	require.NoError(t, err)
 
@@ -250,9 +244,7 @@ func TestBacktracking(t *testing.T) {
 	}
 
 	conf.Client.Clusters = append(conf.Client.Clusters, "test")
-	httptransp := httphandler.ConfigureHTTPTransport(conf)
-	respHandler := httphandler.NewMultipleResponseHandler(conf)
-	ringFactory := newRingFactory(conf, httptransp, respHandler)
+	ringFactory := makeRingFactory(conf)
 	clientRing, err := ringFactory.clientRing(conf.Client)
 	require.NoError(t, err)
 
@@ -280,19 +272,55 @@ func TestDeletePassToAllBackends(t *testing.T) {
 	}
 
 	conf.Client.Clusters = append(conf.Client.Clusters, "test")
-	httptransp := httphandler.ConfigureHTTPTransport(conf)
-	respHandler := httphandler.NewMultipleResponseHandler(conf)
-
-	ringFactory := newRingFactory(conf, httptransp, respHandler)
+	ringFactory := makeRingFactory(conf)
 
 	clientRing, err := ringFactory.clientRing(conf.Client)
 	require.NoError(t, err)
 
-	reader := bytes.NewBuffer([]byte{})
-	req, _ := http.NewRequest("DELETE", "http://example.com/index/a", reader)
+	req, _ := http.NewRequest("DELETE", "http://example.com/index/a", nil)
 	_, err2 := clientRing.RoundTrip(req)
 	require.NoError(t, err2)
-
 	assert.Equal(t, int64(4), callCount, "All backends should be called")
+
+}
+
+func TestBodyResend(t *testing.T) {
+	callCount := int64(0)
+	f10BErr := func(w http.ResponseWriter, r *http.Request) {
+		read10Bytes := make([]byte, 10)
+		n, err := io.ReadFull(r.Body, read10Bytes)
+		assert.NoError(t, err)
+		assert.Equal(t, 10, n, "Should read 10 bytes")
+		assert.NoError(t, r.Body.Close())
+		w.WriteHeader(http.StatusTeapot)
+		atomic.AddInt64(&callCount, 1)
+	}
+
+	fReadAllOk := func(w http.ResponseWriter, r *http.Request) {
+		_, err := ioutil.ReadAll(r.Body)
+		assert.NoError(t, err)
+		w.WriteHeader(http.StatusOK)
+		atomic.AddInt64(&callCount, 1)
+	}
+
+	cluster1Urls := mkDummySrvsWithfun(2, t, fReadAllOk)
+	conf := configure(cluster1Urls)
+	cluster2Urls := mkDummySrvsWithfun(2, t, f10BErr)
+	conf.Clusters["test"] = config.ClusterConfig{
+		Weight:   1,
+		Type:     "replicator",
+		Backends: cluster2Urls,
+	}
+
+	conf.Client.Clusters = append(conf.Client.Clusters, "test")
+	ringFactory := makeRingFactory(conf)
+
+	clientRing, err := ringFactory.clientRing(conf.Client)
+	require.NoError(t, err)
+	body := bytes.NewBuffer([]byte("12345678901234567890"))
+	req, _ := http.NewRequest("PUT", "http://example.com/index/a", body)
+	resp, err2 := clientRing.RoundTrip(req)
+	require.NoError(t, err2)
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "Should handle")
 
 }

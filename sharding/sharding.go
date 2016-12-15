@@ -2,6 +2,9 @@ package sharding
 
 import (
 	"fmt"
+	"io"
+	// "io/ioutil"
+	"bytes"
 	"net/http"
 	"net/url"
 	"strings"
@@ -45,7 +48,47 @@ func (sr shardsRing) Pick(key string) (http.RoundTripper, error) {
 	return shardCluster, nil
 }
 
+type reqBody struct {
+	r *bytes.Reader
+}
+
+func (rb *reqBody) rewind() {
+	rb.r.Seek(0, io.SeekStart)
+}
+
+func (rb *reqBody) Read(b []byte) (int, error) {
+	return rb.r.Read(b)
+}
+
+func (rb *reqBody) Close() error {
+	return nil
+}
+
+func copyRequest(origReq *http.Request) *http.Request {
+	newReq := new(http.Request)
+	*newReq = *origReq
+	newReq.URL = &url.URL{}
+	*newReq.URL = *origReq.URL
+	newReq.Header = http.Header{}
+	for k, v := range origReq.Header {
+		for _, vv := range v {
+			newReq.Header.Add(k, vv)
+		}
+	}
+	if origReq.Body != nil {
+		buf := new(bytes.Buffer)
+		io.Copy(buf, origReq.Body)
+		newReq.Body = &reqBody{bytes.NewReader(buf.Bytes())}
+	}
+	return newReq
+}
+
 func (sr shardsRing) regressionCall(cl http.RoundTripper, req *http.Request) (*http.Response, error) {
+	// Rewind request body
+	bodySeeker, ok := req.Body.(*reqBody)
+	if ok {
+		bodySeeker.rewind()
+	}
 	resp, err := cl.RoundTrip(req)
 	// Do regression call if response status is > 400
 	if err != nil || resp.StatusCode > 400 {
@@ -61,17 +104,17 @@ func (sr shardsRing) regressionCall(cl http.RoundTripper, req *http.Request) (*h
 }
 
 func (sr shardsRing) RoundTrip(req *http.Request) (*http.Response, error) {
-
-	if req.Method == http.MethodDelete {
-		return sr.allClustersRoundTripper.RoundTrip(req)
+	reqCopy := copyRequest(req)
+	if reqCopy.Method == http.MethodDelete {
+		return sr.allClustersRoundTripper.RoundTrip(reqCopy)
 	}
 
-	cl, err := sr.Pick(req.URL.Path)
+	cl, err := sr.Pick(reqCopy.URL.Path)
 	if err != nil {
 		return nil, err
 	}
 
-	return sr.regressionCall(cl, req)
+	return sr.regressionCall(cl, reqCopy)
 }
 
 func newMultiBackendCluster(transp http.RoundTripper,
