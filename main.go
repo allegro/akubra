@@ -67,7 +67,7 @@ func (s *service) start() error {
 	listener, err := net.Listen("tcp", s.config.Listen)
 
 	if err != nil {
-		return err
+		panic(err)
 	}
 
 	return srv.Serve(listener)
