@@ -14,36 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestClosePipeAfterCopy(t *testing.T) {
-	forkCount := 3
-	stream := []byte("zażółć gęślą jaźń\r\n")
-	writer, readers := multiplicateReadClosers(forkCount)
-	go func() {
-		_, err := writer.Write(stream)
-		if err != nil {
-			t.Error("Cannot write to multiwriter")
-		}
-		for _, r := range readers {
-			pr := r.(*io.PipeReader)
-			err := pr.CloseWithError(io.EOF)
-			if err != nil {
-				t.Log("io pkg broke some promisses :/")
-			}
-		}
-	}()
-	for _, r := range readers {
-		p := make([]byte, len(stream))
-		n, err := io.ReadFull(r, p)
-		if n < len(stream) {
-			t.Errorf("Read full read only %d bytes and returned Error %s", n, err.Error())
-		}
-		if err != nil {
-			t.Logf("%q", err.Error())
-		}
-	}
-
-}
-
 func TestLimitReaderFromBuffer(t *testing.T) {
 	stream := []byte("some text")
 	reader := bytes.NewBuffer(stream)
@@ -67,32 +37,6 @@ func dummyReq(stream []byte, addContentLength int64) *http.Request {
 		io.LimitReader(reader, limit))
 	req.ContentLength = limit + addContentLength
 	return req
-}
-
-func TestPipeReads(t *testing.T) {
-	// Check if we may replicate reader into more readers
-	forkCount := 3
-	stream := []byte("zażółć gęślą jaźń\r\n")
-	writer, readers := multiplicateReadClosers(forkCount)
-	if len(readers) != forkCount {
-		t.Errorf("Expected %d readers got %d", forkCount, len(readers))
-	}
-	go func() {
-		_, err := writer.Write(stream)
-		if err != nil {
-			t.Error("Cannot write to stream")
-		}
-	}()
-	for _, reader := range readers {
-		p := make([]byte, len(stream))
-		_, err := io.ReadFull(reader, p)
-		if err != nil {
-			t.Error(err)
-		}
-		if !bytes.Equal(stream, p) {
-			t.Errorf("Expected same readings as writes got %q", p)
-		}
-	}
 }
 
 func mkDummySrvs(count int, stream []byte, t *testing.T) []*url.URL {

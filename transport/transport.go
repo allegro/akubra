@@ -149,7 +149,6 @@ func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context
 	copiesCount := len(mt.Backends)
 	reqs = make([]*http.Request, 0, copiesCount)
 	// We need some read closers
-	// writer, readers := multiplicateReadClosers(copiesCount)
 	bodyBuffer := &bytes.Buffer{}
 	bodyReader := &TimeoutReader{
 		io.LimitReader(req.Body, req.ContentLength),
@@ -164,7 +163,6 @@ func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context
 
 	for _, backend := range mt.Backends {
 		req.URL.Host = backend.Host
-		// body := io.LimitReader(reader, req.ContentLength)+
 		newBody := ioutil.NopCloser(bytes.NewReader(bodyBuffer.Bytes()))
 		r, rerr := http.NewRequest(req.Method, req.URL.String(), newBody)
 		// Copy request data

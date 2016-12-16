@@ -1,10 +1,9 @@
 package sharding
 
 import (
+	"bytes"
 	"fmt"
 	"io"
-	// "io/ioutil"
-	"bytes"
 	"net/http"
 	"net/url"
 	"strings"
@@ -52,8 +51,9 @@ type reqBody struct {
 	r *bytes.Reader
 }
 
-func (rb *reqBody) rewind() {
-	rb.r.Seek(0, io.SeekStart)
+func (rb *reqBody) rewind() error {
+	_, err := rb.r.Seek(0, io.SeekStart)
+	return err
 }
 
 func (rb *reqBody) Read(b []byte) (int, error) {
@@ -64,7 +64,7 @@ func (rb *reqBody) Close() error {
 	return nil
 }
 
-func copyRequest(origReq *http.Request) *http.Request {
+func copyRequest(origReq *http.Request) (*http.Request, error) {
 	newReq := new(http.Request)
 	*newReq = *origReq
 	newReq.URL = &url.URL{}
@@ -77,17 +77,23 @@ func copyRequest(origReq *http.Request) *http.Request {
 	}
 	if origReq.Body != nil {
 		buf := new(bytes.Buffer)
-		io.Copy(buf, origReq.Body)
+		_, err := io.Copy(buf, origReq.Body)
+		if err != nil {
+			return nil, err
+		}
 		newReq.Body = &reqBody{bytes.NewReader(buf.Bytes())}
 	}
-	return newReq
+	return newReq, nil
 }
 
 func (sr shardsRing) regressionCall(cl http.RoundTripper, req *http.Request) (*http.Response, error) {
 	// Rewind request body
 	bodySeeker, ok := req.Body.(*reqBody)
 	if ok {
-		bodySeeker.rewind()
+		err := bodySeeker.rewind()
+		if err != nil {
+			return nil, err
+		}
 	}
 	resp, err := cl.RoundTrip(req)
 	// Do regression call if response status is > 400
@@ -104,7 +110,10 @@ func (sr shardsRing) regressionCall(cl http.RoundTripper, req *http.Request) (*h
 }
 
 func (sr shardsRing) RoundTrip(req *http.Request) (*http.Response, error) {
-	reqCopy := copyRequest(req)
+	reqCopy, err := copyRequest(req)
+	if err != nil {
+		return nil, err
+	}
 	if reqCopy.Method == http.MethodDelete {
 		return sr.allClustersRoundTripper.RoundTrip(reqCopy)
 	}
@@ -253,7 +262,7 @@ func newRingFactory(conf config.Config, transport http.RoundTripper, respHandler
 }
 
 //NewHandler constructs http.Handler
-func NewHandler(conf config.Config) http.Handler {
+func NewHandler(conf config.Config) (http.Handler, error) {
 	// clustersMap, _ := mapClusterTypes(conf)
 	clustersNames := make([]string, 0, len(conf.Clusters))
 	for name := range conf.Clusters {
@@ -264,11 +273,11 @@ func NewHandler(conf config.Config) http.Handler {
 
 	httptransp := httphandler.ConfigureHTTPTransport(conf)
 	respHandler := httphandler.NewMultipleResponseHandler(conf)
-	ringFactory := newRingFactory(conf, httptransp, respHandler)
+	rings := newRingFactory(conf, httptransp, respHandler)
 	//TODO: Multiple clients
-	ring, err := ringFactory.clientRing(conf.Client)
+	ring, err := rings.clientRing(conf.Client)
 	if err != nil {
-		conf.Mainlog.Fatalln("Setup error:", err.Error())
+		return nil, err
 	}
 
 	conf.Mainlog.Printf("Ring sharded into %d partitions", len(ring.shardClusterMap))
