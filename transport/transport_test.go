@@ -8,6 +8,10 @@ import (
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/allegro/akubra/dial"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClosePipeAfterCopy(t *testing.T) {
@@ -116,13 +120,14 @@ func mkDummySrvs(count int, stream []byte, t *testing.T) []*url.URL {
 	return urls
 }
 
-func mkTransport(urls []*url.URL, t *testing.T) *MultiTransport {
+func mkTransportWithRoundTripper(urls []*url.URL, rt http.RoundTripper, t *testing.T) *MultiTransport {
 	return &MultiTransport{
-		RoundTripper: http.DefaultTransport,
+		RoundTripper: rt,
 		Backends:     urls,
 		HandleResponses: func(in <-chan *ReqResErrTuple) *ReqResErrTuple {
 			out := make(chan *ReqResErrTuple, 1)
 			sent := false
+			var lastErr *ReqResErrTuple
 			for {
 				rs, ok := <-in
 				if !ok {
@@ -137,15 +142,24 @@ func mkTransport(urls []*url.URL, t *testing.T) *MultiTransport {
 					if bytes.HasPrefix(b, []byte("ERR")) {
 						t.Error("Body has error")
 					}
+					if !sent {
+						out <- rs
+						sent = true
+					}
+				} else {
+					lastErr = rs
 				}
-				if !sent {
-					out <- rs
-					sent = true
-				}
+			}
 
+			if !sent {
+				out <- lastErr
 			}
 			return <-out
 		}}
+}
+
+func mkTransport(urls []*url.URL, t *testing.T) *MultiTransport {
+	return mkTransportWithRoundTripper(urls, http.DefaultTransport, t)
 }
 
 func TestTimeoutReader(t *testing.T) {
@@ -187,4 +201,23 @@ func TestRequestMultiplication(t *testing.T) {
 	if err2 == nil {
 		t.Errorf("Should get ErrTimeout or ErrBodyContentLengthMismatch")
 	}
+}
+
+func TestMaintainedBackend(t *testing.T) {
+	stream := []byte("zażółć gęślą jaźń 123456789")
+	urls := mkDummySrvs(2, stream, t)
+	req := dummyReq(stream, 0)
+
+	dialer := dial.NewLimitDialer(2, time.Second, time.Second)
+	dialer.DropEndpoint(*urls[0])
+
+	httpTransport := &http.Transport{
+		Dial:                dialer.Dial,
+		DisableKeepAlives:   false,
+		MaxIdleConnsPerHost: 1}
+	transp := mkTransportWithRoundTripper(urls, httpTransport, t)
+
+	resp, err := transp.RoundTrip(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
