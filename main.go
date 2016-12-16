@@ -45,31 +45,37 @@ func main() {
 	srv := newService(conf)
 	startErr := srv.start()
 	if startErr != nil {
-		mainlog.Printf("Could not start service, reason: %q", startErr.Error())
+		mainlog.Fatalf("Could not start service, reason: %q", startErr.Error())
 	}
 }
 
 type service struct {
-	config config.Config
+	conf config.Config
 }
 
 func (s *service) start() error {
 	var handler http.Handler
-	if len(s.config.Clusters) > 0 {
-		handler = sharding.NewHandler(s.config)
+	var err error
+	if len(s.conf.Clusters) > 0 {
+		handler, err = sharding.NewHandler(s.conf)
 	} else {
-		handler = httphandler.NewHandler(s.config)
+		handler, err = httphandler.NewHandler(s.conf)
 	}
+
+	if err != nil {
+		return err
+	}
+
 	srv := &graceful.Server{
 		Server: &http.Server{
-			Addr:    s.config.Listen,
+			Addr:    s.conf.Listen,
 			Handler: handler,
 		},
 		Timeout: 10 * time.Second,
 	}
 
 	srv.SetKeepAlivesEnabled(true)
-	listener, err := net.Listen("tcp", s.config.Listen)
+	listener, err := net.Listen("tcp", s.conf.Listen)
 
 	if err != nil {
 		return err
@@ -79,5 +85,5 @@ func (s *service) start() error {
 }
 
 func newService(cfg config.Config) *service {
-	return &service{config: cfg}
+	return &service{conf: cfg}
 }

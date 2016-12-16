@@ -76,11 +76,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // ConfigureHTTPTransport returns http.Transport with customized dialer,
 // MaxIdleConnsPerHost and DisableKeepAlives
-func ConfigureHTTPTransport(conf config.Config) *http.Transport {
+func ConfigureHTTPTransport(conf config.Config) (*http.Transport, error) {
 	connDuration, err := time.ParseDuration(conf.ConnectionTimeout)
 	if err != nil {
-		conf.Mainlog.Println(err)
-		return nil
+		return nil, err
 	}
 	var dialer *dial.LimitDialer
 
@@ -94,7 +93,7 @@ func ConfigureHTTPTransport(conf config.Config) *http.Transport {
 		DisableKeepAlives:   conf.KeepAlive,
 		MaxIdleConnsPerHost: int(conf.ConnLimit)}
 
-	return httpTransport
+	return httpTransport, nil
 }
 
 // NewMultipleResponseHandler returns a function for a later use in transport.MultiTransport
@@ -117,9 +116,12 @@ func DecorateRoundTripper(conf config.Config, rt http.RoundTripper) http.RoundTr
 	)
 }
 
-//NewHandler will create Handler
-func NewHandler(conf config.Config) http.Handler {
-	transp := ConfigureHTTPTransport(conf)
+// NewHandler will create Handler
+func NewHandler(conf config.Config) (http.Handler, error) {
+	transp, err := ConfigureHTTPTransport(conf)
+	if err != nil {
+		return nil, err
+	}
 	responseMerger := NewMultipleResponseHandler(conf)
 	backends := make([]*url.URL, len(conf.Backends))
 	for i, backend := range conf.Backends {
@@ -136,15 +138,15 @@ func NewHandler(conf config.Config) http.Handler {
 		mainLog:      conf.Mainlog,
 		accessLog:    conf.Accesslog,
 		roundTripper: roundTripper,
-	}
+	}, nil
 }
 
-//NewHandlerWithRoundTripper returns Handler, but will not construct transport.MultiTransport by itself
-func NewHandlerWithRoundTripper(conf config.Config, roundTripper http.RoundTripper) http.Handler {
+// NewHandlerWithRoundTripper returns Handler, but will not construct transport.MultiTransport by itself
+func NewHandlerWithRoundTripper(conf config.Config, roundTripper http.RoundTripper) (http.Handler, error) {
 	return &Handler{
 		config:       conf,
 		mainLog:      conf.Mainlog,
 		accessLog:    conf.Accesslog,
 		roundTripper: roundTripper,
-	}
+	}, nil
 }

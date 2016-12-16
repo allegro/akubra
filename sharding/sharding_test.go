@@ -91,22 +91,32 @@ func configure(backends []config.YAMLURL) config.Config {
 	}
 }
 
-func makeRingFactory(conf config.Config) ringFactory {
-	httptransp := httphandler.ConfigureHTTPTransport(conf)
+func makeRingFactory(conf config.Config) (ringFactory, error) {
+	httptransp, err := httphandler.ConfigureHTTPTransport(conf)
+	if err != nil {
+		return ringFactory{}, err
+	}
 	respHandler := httphandler.NewMultipleResponseHandler(conf)
-	return newRingFactory(conf, httptransp, respHandler)
+	if err != nil {
+		return ringFactory{}, err
+	}
+	return newRingFactory(conf, httptransp, respHandler), nil
 }
 
 func TestSingleClusterOnRing(t *testing.T) {
 	stream := []byte("cluster1")
 	cluster1Urls := mkDummySrvs(2, stream, t)
 	conf := configure(cluster1Urls)
-	ringFactory := makeRingFactory(conf)
+	ringFactory, err := makeRingFactory(conf)
+	require.NoError(t, err)
+
 	clientRing, err := ringFactory.clientRing(conf.Client)
 	require.NoError(t, err)
+
 	req, _ := http.NewRequest("GET", "http://example.com/f/a", nil)
 	resp, err := clientRing.RoundTrip(req)
 	require.NoError(t, err)
+
 	respBody := make([]byte, resp.ContentLength)
 	_, err = io.ReadFull(resp.Body, respBody)
 	require.NoError(t, err)
@@ -116,8 +126,10 @@ func TestSingleClusterOnRing(t *testing.T) {
 func TestTwoClustersOnRing(t *testing.T) {
 	response1 := []byte("aaa")
 	cluster1Urls := mkDummySrvs(2, response1, t)
+
 	response2 := []byte("bbb")
 	cluster2Urls := mkDummySrvs(2, response2, t)
+
 	conf := configure(cluster1Urls)
 	conf.Clusters["test"] = config.ClusterConfig{
 		Weight:   1,
@@ -127,10 +139,12 @@ func TestTwoClustersOnRing(t *testing.T) {
 
 	conf.Client.Clusters = append(conf.Client.Clusters, "test")
 
-	ringFactory := makeRingFactory(conf)
+	ringFactory, err := makeRingFactory(conf)
+	require.NoError(t, err)
 
 	clientRing, err := ringFactory.clientRing(conf.Client)
 	require.NoError(t, err)
+
 	reader := bytes.NewBuffer([]byte{})
 	URL := "http://example.com/myindex/abcdef"
 	req, _ := http.NewRequest("PUT", URL, reader)
@@ -179,6 +193,7 @@ func TestTwoClustersOnRingBucketOp(t *testing.T) {
 
 	cluster1Urls := mkDummySrvsWithfun(2, t, f)
 	conf := configure(cluster1Urls)
+
 	cluster2Urls := mkDummySrvsWithfun(2, t, f)
 	conf.Clusters["test"] = config.ClusterConfig{
 		Weight:   1,
@@ -187,16 +202,16 @@ func TestTwoClustersOnRingBucketOp(t *testing.T) {
 	}
 
 	conf.Client.Clusters = append(conf.Client.Clusters, "test")
-	ringFactory := makeRingFactory(conf)
+	ringFactory, err := makeRingFactory(conf)
+	require.NoError(t, err)
 
 	clientRing, err := ringFactory.clientRing(conf.Client)
-
 	require.NoError(t, err)
+
 	reader := bytes.NewBuffer([]byte{})
 	req, _ := http.NewRequest("PUT", "http://example.com/index/", reader)
 	_, err2 := clientRing.RoundTrip(req)
 	require.NoError(t, err2)
-
 	assert.Equal(t, int64(4), callCount, "No all backends called")
 }
 
@@ -217,7 +232,9 @@ func TestTwoClustersOnRingBucketSharding(t *testing.T) {
 	}
 
 	conf.Client.Clusters = append(conf.Client.Clusters, "test")
-	ringFactory := makeRingFactory(conf)
+	ringFactory, err := makeRingFactory(conf)
+	require.NoError(t, err)
+
 	clientRing, err := ringFactory.clientRing(conf.Client)
 	require.NoError(t, err)
 
@@ -244,7 +261,9 @@ func TestBacktracking(t *testing.T) {
 	}
 
 	conf.Client.Clusters = append(conf.Client.Clusters, "test")
-	ringFactory := makeRingFactory(conf)
+	ringFactory, err := makeRingFactory(conf)
+	require.NoError(t, err)
+
 	clientRing, err := ringFactory.clientRing(conf.Client)
 	require.NoError(t, err)
 
@@ -272,7 +291,8 @@ func TestDeletePassToAllBackends(t *testing.T) {
 	}
 
 	conf.Client.Clusters = append(conf.Client.Clusters, "test")
-	ringFactory := makeRingFactory(conf)
+	ringFactory, err := makeRingFactory(conf)
+	require.NoError(t, err)
 
 	clientRing, err := ringFactory.clientRing(conf.Client)
 	require.NoError(t, err)
@@ -292,6 +312,7 @@ func TestBodyResend(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 10, n, "Should read 10 bytes")
 		assert.NoError(t, r.Body.Close())
+
 		w.WriteHeader(http.StatusTeapot)
 		atomic.AddInt64(&callCount, 1)
 	}
@@ -305,6 +326,7 @@ func TestBodyResend(t *testing.T) {
 
 	cluster1Urls := mkDummySrvsWithfun(2, t, fReadAllOk)
 	conf := configure(cluster1Urls)
+
 	cluster2Urls := mkDummySrvsWithfun(2, t, f10BErr)
 	conf.Clusters["test"] = config.ClusterConfig{
 		Weight:   1,
@@ -313,14 +335,15 @@ func TestBodyResend(t *testing.T) {
 	}
 
 	conf.Client.Clusters = append(conf.Client.Clusters, "test")
-	ringFactory := makeRingFactory(conf)
+	ringFactory, err := makeRingFactory(conf)
+	require.NoError(t, err)
 
 	clientRing, err := ringFactory.clientRing(conf.Client)
 	require.NoError(t, err)
+
 	body := bytes.NewBuffer([]byte("12345678901234567890"))
 	req, _ := http.NewRequest("PUT", "http://example.com/index/a", body)
 	resp, err2 := clientRing.RoundTrip(req)
 	require.NoError(t, err2)
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "Should handle")
-
 }

@@ -2,6 +2,7 @@ package httphandler
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"log"
@@ -9,7 +10,6 @@ import (
 	"net/http/httptest"
 	"net/textproto"
 	"testing"
-	"encoding/json"
 
 	"github.com/stretchr/testify/assert"
 )
