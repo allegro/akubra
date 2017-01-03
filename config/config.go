@@ -47,6 +47,7 @@ type Config struct {
 	Synclog           *log.Logger
 	Accesslog         *log.Logger
 	Mainlog           *log.Logger
+	ClusterSyncLog    *log.Logger
 }
 
 // YAMLURL type fields in yaml configuration will parse urls
@@ -116,7 +117,10 @@ func setupLoggers(conf *Config) error {
 	}
 	conf.Mainlog, slErr = syslog.NewLogger(syslog.LOG_LOCAL2, log.LstdFlags)
 	conf.Mainlog.SetPrefix("main")
-
+	if slErr != nil {
+		return slErr
+	}
+	conf.ClusterSyncLog, slErr = syslog.NewLogger(syslog.LOG_LOCAL3, log.LstdFlags)
 	return slErr
 }
 

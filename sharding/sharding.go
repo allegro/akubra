@@ -2,8 +2,10 @@ package sharding
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -26,6 +28,7 @@ type shardsRing struct {
 	shardClusterMap         map[string]cluster
 	allClustersRoundTripper http.RoundTripper
 	clusterRegressionMap    map[string]cluster
+	inconsistencyLog        *log.Logger
 }
 
 func (sr shardsRing) isBucketPath(path string) bool {
@@ -33,15 +36,13 @@ func (sr shardsRing) isBucketPath(path string) bool {
 	return len(strings.Split(trimmedPath, "/")) == 1
 }
 
-func (sr shardsRing) Pick(key string) (http.RoundTripper, error) {
+func (sr shardsRing) Pick(key string) (cluster, error) {
 	var shardName string
-	if sr.isBucketPath(key) {
-		return sr.allClustersRoundTripper, nil
-	}
+
 	shardName = sr.ring.Get(key)
 	shardCluster, ok := sr.shardClusterMap[shardName]
 	if !ok {
-		return nil, fmt.Errorf("no cluster for shard %s, cannot handle key %s", shardName, key)
+		return cluster{}, fmt.Errorf("no cluster for shard %s, cannot handle key %s", shardName, key)
 	}
 
 	return shardCluster, nil
@@ -86,7 +87,7 @@ func copyRequest(origReq *http.Request) (*http.Request, error) {
 	return newReq, nil
 }
 
-func (sr shardsRing) regressionCall(cl http.RoundTripper, req *http.Request) (*http.Response, error) {
+func (sr shardsRing) send(roundTripper http.RoundTripper, req *http.Request) (*http.Response, error) {
 	// Rewind request body
 	bodySeeker, ok := req.Body.(*reqBody)
 	if ok {
@@ -95,18 +96,19 @@ func (sr shardsRing) regressionCall(cl http.RoundTripper, req *http.Request) (*h
 			return nil, err
 		}
 	}
-	resp, err := cl.RoundTrip(req)
+	return roundTripper.RoundTrip(req)
+}
+
+func (sr shardsRing) regressionCall(cl cluster, req *http.Request) (string, *http.Response, error) {
+	resp, err := sr.send(cl, req)
 	// Do regression call if response status is > 400
 	if err != nil || resp.StatusCode > 400 {
-		curCluster, ok := cl.(cluster)
+		rcl, ok := sr.clusterRegressionMap[cl.name]
 		if ok {
-			regressionCluster, exists := sr.clusterRegressionMap[curCluster.name]
-			if exists {
-				return sr.regressionCall(regressionCluster, req)
-			}
+			return sr.regressionCall(rcl, req)
 		}
 	}
-	return resp, err
+	return cl.name, resp, err
 }
 
 func (sr shardsRing) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -114,7 +116,8 @@ func (sr shardsRing) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	if reqCopy.Method == http.MethodDelete {
+
+	if reqCopy.Method == http.MethodDelete || sr.isBucketPath(reqCopy.URL.Path) {
 		return sr.allClustersRoundTripper.RoundTrip(reqCopy)
 	}
 
@@ -123,7 +126,25 @@ func (sr shardsRing) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
-	return sr.regressionCall(cl, reqCopy)
+	clusterName, resp, err := sr.regressionCall(cl, reqCopy)
+	if clusterName != cl.name {
+		var logJSON []byte
+		logJSON, err = json.Marshal(
+			struct {
+				Key      string
+				Expected string
+				Actual   string
+			}{
+				reqCopy.URL.Path, cl.name, clusterName})
+		if err == nil {
+			message := fmt.Sprintf("%s", logJSON)
+			println(message)
+			sr.inconsistencyLog.Printf(message)
+		} else {
+			println(err.Error())
+		}
+	}
+	return resp, err
 }
 
 func newMultiBackendCluster(transp http.RoundTripper,
@@ -249,7 +270,7 @@ func (rf ringFactory) clientRing(clientCfg config.ClientConfig) (shardsRing, err
 		allBackendsSlice,
 		rf.multipleResponseHandler)
 
-	return shardsRing{cHashMap, shardMap, allBackendsRoundTripper, regressionMap}, nil
+	return shardsRing{cHashMap, shardMap, allBackendsRoundTripper, regressionMap, rf.conf.ClusterSyncLog}, nil
 }
 
 func newRingFactory(conf config.Config, transport http.RoundTripper, respHandler transport.MultipleResponsesHandler) ringFactory {

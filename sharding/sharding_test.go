@@ -64,6 +64,8 @@ func configure(backends []config.YAMLURL) config.Config {
 	syncLogger := log.New(os.Stdout, "sync: ", log.Lshortfile)
 	accessLogger := log.New(os.Stdout, "accs: ", log.Lshortfile)
 	mainLogger := log.New(os.Stdout, "main: ", log.Lshortfile)
+	clsyncLogger := log.New(os.Stdout, "clsync: ", log.Lshortfile)
+
 	defaultClusterConfig.Backends = backends
 
 	clustersConf := make(map[string]config.ClusterConfig)
@@ -88,6 +90,7 @@ func configure(backends []config.YAMLURL) config.Config {
 		Synclog:           syncLogger,
 		Accesslog:         accessLogger,
 		Mainlog:           mainLogger,
+		ClusterSyncLog:    clsyncLogger,
 	}
 }
 
