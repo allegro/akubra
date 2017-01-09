@@ -102,7 +102,7 @@ func (sr shardsRing) send(roundTripper http.RoundTripper, req *http.Request) (*h
 func (sr shardsRing) regressionCall(cl cluster, req *http.Request) (string, *http.Response, error) {
 	resp, err := sr.send(cl, req)
 	// Do regression call if response status is > 400
-	if err != nil || resp.StatusCode > 400 {
+	if (err != nil || resp.StatusCode > 400) && req.Method != http.MethodPut  {
 		rcl, ok := sr.clusterRegressionMap[cl.name]
 		if ok {
 			return sr.regressionCall(rcl, req)
@@ -161,7 +161,7 @@ func newMultiBackendCluster(transp http.RoundTripper,
 		backends,
 		multiResponseHandler)
 
-	return cluster{
+	return cluster {
 		multiTransport,
 		clusterConf.Weight,
 		clusterConf.Backends,
