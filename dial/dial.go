@@ -3,6 +3,7 @@ package dial
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"sync"
 	"time"
 )
@@ -119,8 +120,8 @@ func (d *LimitDialer) Dial(network, addr string) (c net.Conn, err error) {
 }
 
 // DropEndpoint marks backend as dropped i.e. maintenance x
-func (d *LimitDialer) DropEndpoint(endpoint string) {
-	d.droppedEndpoint = endpoint
+func (d *LimitDialer) DropEndpoint(endpoint url.URL) {
+	d.droppedEndpoint = endpoint.Host
 }
 
 // NewLimitDialer returns new `LimitDialer`.

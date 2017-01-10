@@ -8,37 +8,11 @@ import (
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/allegro/akubra/dial"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
-
-func TestClosePipeAfterCopy(t *testing.T) {
-	forkCount := 3
-	stream := []byte("zażółć gęślą jaźń\r\n")
-	writer, readers := multiplicateReadClosers(forkCount)
-	go func() {
-		_, err := writer.Write(stream)
-		if err != nil {
-			t.Error("Cannot write to multiwriter")
-		}
-		for _, r := range readers {
-			pr := r.(*io.PipeReader)
-			err := pr.CloseWithError(io.EOF)
-			if err != nil {
-				t.Log("io pkg broke some promisses :/")
-			}
-		}
-	}()
-	for _, r := range readers {
-		p := make([]byte, len(stream))
-		n, err := io.ReadFull(r, p)
-		if n < len(stream) {
-			t.Errorf("Read full read only %d bytes and returned Error %s", n, err.Error())
-		}
-		if err != nil {
-			t.Logf("%q", err.Error())
-		}
-	}
-
-}
 
 func TestLimitReaderFromBuffer(t *testing.T) {
 	stream := []byte("some text")
@@ -65,34 +39,8 @@ func dummyReq(stream []byte, addContentLength int64) *http.Request {
 	return req
 }
 
-func TestPipeReads(t *testing.T) {
-	// Check if we may replicate reader into more readers
-	forkCount := 3
-	stream := []byte("zażółć gęślą jaźń\r\n")
-	writer, readers := multiplicateReadClosers(forkCount)
-	if len(readers) != forkCount {
-		t.Errorf("Expected %d readers got %d", forkCount, len(readers))
-	}
-	go func() {
-		_, err := writer.Write(stream)
-		if err != nil {
-			t.Error("Cannot write to stream")
-		}
-	}()
-	for _, reader := range readers {
-		p := make([]byte, len(stream))
-		_, err := io.ReadFull(reader, p)
-		if err != nil {
-			t.Error(err)
-		}
-		if !bytes.Equal(stream, p) {
-			t.Errorf("Expected same readings as writes got %q", p)
-		}
-	}
-}
-
-func mkDummySrvs(count int, stream []byte, t *testing.T) []*url.URL {
-	urls := make([]*url.URL, 0, count)
+func mkDummySrvs(count int, stream []byte, t *testing.T) []url.URL {
+	urls := make([]url.URL, 0, count)
 	dummySrvs := make([]*httptest.Server, 0, count)
 	for i := 0; i < count; i++ {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -111,18 +59,19 @@ func mkDummySrvs(count int, stream []byte, t *testing.T) []*url.URL {
 		if err != nil {
 			t.Error(err)
 		}
-		urls = append(urls, urlN)
+		urls = append(urls, *urlN)
 	}
 	return urls
 }
 
-func mkTransport(urls []*url.URL, t *testing.T) *MultiTransport {
+func mkTransportWithRoundTripper(urls []url.URL, rt http.RoundTripper, t *testing.T) *MultiTransport {
 	return &MultiTransport{
-		RoundTripper: http.DefaultTransport,
+		RoundTripper: rt,
 		Backends:     urls,
 		HandleResponses: func(in <-chan *ReqResErrTuple) *ReqResErrTuple {
 			out := make(chan *ReqResErrTuple, 1)
 			sent := false
+			var lastErr *ReqResErrTuple
 			for {
 				rs, ok := <-in
 				if !ok {
@@ -137,15 +86,24 @@ func mkTransport(urls []*url.URL, t *testing.T) *MultiTransport {
 					if bytes.HasPrefix(b, []byte("ERR")) {
 						t.Error("Body has error")
 					}
+					if !sent {
+						out <- rs
+						sent = true
+					}
+				} else {
+					lastErr = rs
 				}
-				if !sent {
-					out <- rs
-					sent = true
-				}
+			}
 
+			if !sent {
+				out <- lastErr
 			}
 			return <-out
 		}}
+}
+
+func mkTransport(urls []url.URL, t *testing.T) *MultiTransport {
+	return mkTransportWithRoundTripper(urls, http.DefaultTransport, t)
 }
 
 func TestTimeoutReader(t *testing.T) {
@@ -187,4 +145,23 @@ func TestRequestMultiplication(t *testing.T) {
 	if err2 == nil {
 		t.Errorf("Should get ErrTimeout or ErrBodyContentLengthMismatch")
 	}
+}
+
+func TestMaintainedBackend(t *testing.T) {
+	stream := []byte("zażółć gęślą jaźń 123456789")
+	urls := mkDummySrvs(2, stream, t)
+	req := dummyReq(stream, 0)
+
+	dialer := dial.NewLimitDialer(2, time.Second, time.Second)
+	dialer.DropEndpoint(urls[0])
+
+	httpTransport := &http.Transport{
+		Dial:                dialer.Dial,
+		DisableKeepAlives:   false,
+		MaxIdleConnsPerHost: 1}
+	transp := mkTransportWithRoundTripper(urls, httpTransport, t)
+
+	resp, err := transp.RoundTrip(req)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }

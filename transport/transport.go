@@ -1,7 +1,7 @@
 package transport
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -23,20 +23,6 @@ type ReqResErrTuple struct {
 	// Non 2XX response code is also treated as error
 	Err    error
 	Failed bool
-}
-
-// Create io.Writer and num []io.ReadCloser where all writer writes will be
-// accessible by readers
-func multiplicateReadClosers(num int) (writer io.Writer, readers []io.ReadCloser) {
-	readers = make([]io.ReadCloser, 0, num)
-	writers := make([]io.Writer, 0, num)
-	for i := 0; i < num; i++ {
-		pr, pw := io.Pipe()
-		readers = append(readers, pr)
-		writers = append(writers, pw)
-	}
-	writer = io.MultiWriter(writers...)
-	return writer, readers
 }
 
 // MultipleResponsesHandler should handle chan of incomming ReqResErrTuple
@@ -142,7 +128,7 @@ type RequestProcessor func(orig *http.Request, copies []*http.Request)
 type MultiTransport struct {
 	http.RoundTripper
 	// Backends is list of target endpoints URL
-	Backends []*url.URL
+	Backends []url.URL
 	// Response handler will get `ReqResErrTuple` in `in` channel
 	// should process all responses and send one to out chan.
 	// Response senf to out chan will be returned from RoundTrip.
@@ -150,7 +136,7 @@ type MultiTransport struct {
 	// Keep-Alives won't function properly
 	//
 	// If `HandleResponses` is nil will pass first successful
-	//(with status >= 200 & < 300) response or last failed.
+	// (with status >= 200 & < 300) response or last failed.
 	HandleResponses MultipleResponsesHandler
 	// Process request between replication and sending, useful for changing request headers
 	PreProcessRequest RequestProcessor
@@ -163,12 +149,22 @@ func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context
 	copiesCount := len(mt.Backends)
 	reqs = make([]*http.Request, 0, copiesCount)
 	// We need some read closers
-	writer, readers := multiplicateReadClosers(copiesCount)
+	bodyBuffer := &bytes.Buffer{}
+	bodyReader := &TimeoutReader{
+		io.LimitReader(req.Body, req.ContentLength),
+		time.Second}
 
-	for i, reader := range readers {
-		req.URL.Host = mt.Backends[i].Host
-		body := io.LimitReader(reader, req.ContentLength)
-		r, rerr := http.NewRequest(req.Method, req.URL.String(), body)
+	n, cerr := io.Copy(bodyBuffer, bodyReader)
+
+	if cerr != nil || n < req.ContentLength {
+		cancelFun()
+		return nil, cerr
+	}
+
+	for _, backend := range mt.Backends {
+		req.URL.Host = backend.Host
+		newBody := ioutil.NopCloser(bytes.NewReader(bodyBuffer.Bytes()))
+		r, rerr := http.NewRequest(req.Method, req.URL.String(), newBody)
 		// Copy request data
 		if rerr != nil {
 			return nil, rerr
@@ -182,19 +178,6 @@ func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context
 		r.TransferEncoding = req.TransferEncoding
 		reqs = append(reqs, r)
 	}
-	go func() {
-		// Copy original request body to replicated requests bodies
-		if req.Body != nil {
-			bodyReader := &TimeoutReader{
-				io.LimitReader(req.Body, req.ContentLength),
-				time.Second}
-			n, cerr := io.Copy(bufio.NewWriterSize(writer, int(req.ContentLength)), bodyReader)
-
-			if cerr != nil || n < req.ContentLength {
-				cancelFun()
-			}
-		}
-	}()
 
 	return reqs, err
 }
@@ -257,7 +240,7 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 // NewMultiTransport creates *MultiTransport. If requestsPreprocesor or responseHandler
 // are nil will use default ones
 func NewMultiTransport(roundTripper http.RoundTripper,
-	backends []*url.URL,
+	backends []url.URL,
 	responsesHandler MultipleResponsesHandler) *MultiTransport {
 	if responsesHandler == nil {
 		responsesHandler = DefaultHandleResponses

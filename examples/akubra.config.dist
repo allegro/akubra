@@ -1,0 +1,52 @@
+# Listen interface and port e.g. "0:8000", "localhost:9090", ":80"
+Listen: ":8080"
+# List of backend URI's e.g. "http://s3.mydaracenter.org"
+Backends:
+  - "http://127.0.0.1:9001"
+  - "http://127.0.0.1:9002"
+# Limit of outgoing connections. When limit is reached, Akubra will omit external backend
+# with greatest number of stalled connections
+ConnLimit: 100
+# Additional not AWS S3 specific headers proxy will add to original request
+AdditionalResponseHeaders:
+    'Access-Control-Allow-Origin': "*"
+    'Access-Control-Allow-Credentials': "true"
+    'Access-Control-Allow-Methods': "GET, POST, OPTIONS"
+    'Access-Control-Allow-Headers': "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type"
+# Additional headers added to backend response
+AdditionalRequestHeaders:
+    'Cache-Control': "public, s-maxage=600, max-age=600"
+    'X-Akubra-Version': '0.9.26'
+# Read timeout on outgoing connections
+ConnectionTimeout: "3s"
+# Dial timeout on outgoing connections
+ConnectionDialTimeout: "1s"
+# Backend in maintenance mode. Akubra will skip this endpoint
+
+# MaintainedBackend: "http://127.0.0.1:9002"
+
+# List request methods to be logged in synclog in case of backend failure
+SyncLogMethods:
+  - PUT
+  - DELETE
+# Configure sharding
+Clusters:
+  # Cluster label
+  cluster1:
+    # Set type, aviable: replicator
+    Type: "replicator"
+    # Weight
+    Weight: 1
+    Backends:
+      - http://127.0.0.1:9001
+  cluster2:
+    Type: "replicator"
+    Weight: 1
+    Backends:
+      - http://127.0.0.1:9002
+Client:
+  Name: client1
+  Clusters:
+    - cluster1
+    - cluster2
+  ShardsCount: 10000

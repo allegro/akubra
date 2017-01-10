@@ -31,11 +31,13 @@ type YamlConfig struct {
 	// Dial timeout on outgoing connections
 	ConnectionDialTimeout string `yaml:"ConnectionDialTimeout,omitempty"`
 	// Backend in maintenance mode. Akubra will not send data there
-	MaintainedBackend string `yaml:"MaintainedBackend,omitempty"`
+	MaintainedBackend YAMLURL `yaml:"MaintainedBackend,omitempty"`
 	// List request methods to be logged in synclog in case of backend failure
 	SyncLogMethods []string `yaml:"SyncLogMethods,omitempty"`
 	// Should we keep alive connections with backend servers
-	KeepAlive bool `yaml:"KeepAlive"`
+	KeepAlive bool                     `yaml:"KeepAlive"`
+	Clusters  map[string]ClusterConfig `yaml:"Clusters,omitempty"`
+	Client    ClientConfig             `yaml:"Client,omitempty"`
 }
 
 // Config contains processed YamlConfig data
@@ -45,6 +47,7 @@ type Config struct {
 	Synclog           *log.Logger
 	Accesslog         *log.Logger
 	Mainlog           *log.Logger
+	ClusterSyncLog    *log.Logger
 }
 
 // YAMLURL type fields in yaml configuration will parse urls
@@ -64,6 +67,28 @@ func (j *YAMLURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 	j.URL = url
 	return err
+}
+
+// ClusterConfig defines cluster configuration
+type ClusterConfig struct {
+	// Backends should contain s3 backend urls
+	Backends []YAMLURL `yaml:"Backends,omitempty"`
+	// Type, currently replicator is only option
+	Type string `yaml:"Type,omitempty"`
+	// Points how much load cluster should handle
+	Weight uint64 `yaml:"Weight,omitempty"`
+	// Cluster type specific options
+	Options map[string]string `yaml:"Options,omitempty"`
+}
+
+// ClientConfig keeps information about client setup
+type ClientConfig struct {
+	// Client name
+	Name string `yaml:"Name,omitempty"`
+	// List of clusters name
+	Clusters []string `yaml:"Clusters,omitempty"`
+	// Total number of shards
+	ShardsCount uint64 `yaml:"ShardsCount,omitempty"`
 }
 
 // Parse json config
@@ -92,7 +117,10 @@ func setupLoggers(conf *Config) error {
 	}
 	conf.Mainlog, slErr = syslog.NewLogger(syslog.LOG_LOCAL2, log.LstdFlags)
 	conf.Mainlog.SetPrefix("main")
-
+	if slErr != nil {
+		return slErr
+	}
+	conf.ClusterSyncLog, slErr = syslog.NewLogger(syslog.LOG_LOCAL3, log.LstdFlags)
 	return slErr
 }
 
