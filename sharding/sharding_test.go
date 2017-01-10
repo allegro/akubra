@@ -150,23 +150,23 @@ func TestTwoClustersOnRing(t *testing.T) {
 
 	reader := bytes.NewBuffer([]byte{})
 	URL := "http://example.com/myindex/abcdef"
-	req, _ := http.NewRequest("PUT", URL, reader)
+	req, _ := http.NewRequest("GET", URL, reader)
 	resp, err := clientRing.RoundTrip(req)
 	require.NoError(t, err)
 
 	respBody := make([]byte, 3)
 	_, err = io.ReadFull(resp.Body, respBody)
 	require.NoError(t, err, "cannot read response")
-	assert.Equal(t, response1, respBody, "response differs")
+	assert.Equal(t, response1, respBody, fmt.Sprintf("Expected %q", response1))
 
-	req2, _ := http.NewRequest("PUT", "http://example.com/myindex/a", reader)
+	req2, _ := http.NewRequest("GET", "http://example.com/myindex/a", reader)
 	resp2, err2 := clientRing.RoundTrip(req2)
 	require.NoError(t, err2)
 
 	respBody2 := make([]byte, 3)
 	_, err = io.ReadFull(resp2.Body, respBody2)
 	require.NoError(t, err, "cannot read response")
-	assert.Equal(t, response2, respBody2, "response differs")
+	assert.Equal(t, response2, respBody2, fmt.Sprintf("Expected %q", response2))
 }
 
 func TestBucketOpDetection(t *testing.T) {
@@ -212,7 +212,7 @@ func TestTwoClustersOnRingBucketOp(t *testing.T) {
 	require.NoError(t, err)
 
 	reader := bytes.NewBuffer([]byte{})
-	req, _ := http.NewRequest("PUT", "http://example.com/index/", reader)
+	req, _ := http.NewRequest("GET", "http://example.com/index/", reader)
 	_, err2 := clientRing.RoundTrip(req)
 	require.NoError(t, err2)
 	assert.Equal(t, int64(4), callCount, "No all backends called")
@@ -242,7 +242,7 @@ func TestTwoClustersOnRingBucketSharding(t *testing.T) {
 	require.NoError(t, err)
 
 	reader := bytes.NewBuffer([]byte{})
-	req, _ := http.NewRequest("PUT", "http://example.com/index/a", reader)
+	req, _ := http.NewRequest("GET", "http://example.com/index/a", reader)
 
 	_, err2 := clientRing.RoundTrip(req)
 	require.NoError(t, err2)
@@ -344,9 +344,15 @@ func TestBodyResend(t *testing.T) {
 	clientRing, err := ringFactory.clientRing(conf.Client)
 	require.NoError(t, err)
 
-	body := bytes.NewBuffer([]byte("12345678901234567890"))
-	req, _ := http.NewRequest("PUT", "http://example.com/index/a", body)
+	body := bytes.NewReader([]byte("12345678901234567890"))
+	req, _ := http.NewRequest("POST", "http://example.com/index/a", body)
 	resp, err2 := clientRing.RoundTrip(req)
 	require.NoError(t, err2)
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "Should handle")
+	_, errSeek := body.Seek(0, io.SeekStart)
+	require.NoError(t, errSeek)
+	req, _ = http.NewRequest("PUT", "http://example.com/index/a", body)
+	resp, err3 := clientRing.RoundTrip(req)
+	require.NoError(t, err3)
+	assert.Equal(t, http.StatusTeapot, resp.StatusCode, "Should return err if PUT fails on first cluster")
 }

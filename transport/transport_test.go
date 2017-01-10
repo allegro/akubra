@@ -39,8 +39,8 @@ func dummyReq(stream []byte, addContentLength int64) *http.Request {
 	return req
 }
 
-func mkDummySrvs(count int, stream []byte, t *testing.T) []*url.URL {
-	urls := make([]*url.URL, 0, count)
+func mkDummySrvs(count int, stream []byte, t *testing.T) []url.URL {
+	urls := make([]url.URL, 0, count)
 	dummySrvs := make([]*httptest.Server, 0, count)
 	for i := 0; i < count; i++ {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -59,12 +59,12 @@ func mkDummySrvs(count int, stream []byte, t *testing.T) []*url.URL {
 		if err != nil {
 			t.Error(err)
 		}
-		urls = append(urls, urlN)
+		urls = append(urls, *urlN)
 	}
 	return urls
 }
 
-func mkTransportWithRoundTripper(urls []*url.URL, rt http.RoundTripper, t *testing.T) *MultiTransport {
+func mkTransportWithRoundTripper(urls []url.URL, rt http.RoundTripper, t *testing.T) *MultiTransport {
 	return &MultiTransport{
 		RoundTripper: rt,
 		Backends:     urls,
@@ -102,7 +102,7 @@ func mkTransportWithRoundTripper(urls []*url.URL, rt http.RoundTripper, t *testi
 		}}
 }
 
-func mkTransport(urls []*url.URL, t *testing.T) *MultiTransport {
+func mkTransport(urls []url.URL, t *testing.T) *MultiTransport {
 	return mkTransportWithRoundTripper(urls, http.DefaultTransport, t)
 }
 
@@ -153,7 +153,7 @@ func TestMaintainedBackend(t *testing.T) {
 	req := dummyReq(stream, 0)
 
 	dialer := dial.NewLimitDialer(2, time.Second, time.Second)
-	dialer.DropEndpoint(*urls[0])
+	dialer.DropEndpoint(urls[0])
 
 	httpTransport := &http.Transport{
 		Dial:                dialer.Dial,

@@ -123,9 +123,9 @@ func NewHandler(conf config.Config) (http.Handler, error) {
 		return nil, err
 	}
 	responseMerger := NewMultipleResponseHandler(conf)
-	backends := make([]*url.URL, len(conf.Backends))
+	backends := make([]url.URL, len(conf.Backends))
 	for i, backend := range conf.Backends {
-		backends[i] = backend.URL
+		backends[i] = *backend.URL
 	}
 	httpTransport := transport.NewMultiTransport(
 		transp,

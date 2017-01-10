@@ -18,7 +18,7 @@ import (
 
 type cluster struct {
 	http.RoundTripper
-	weight   uint
+	weight   uint64
 	backends []config.YAMLURL
 	name     string
 }
@@ -101,8 +101,9 @@ func (sr shardsRing) send(roundTripper http.RoundTripper, req *http.Request) (*h
 
 func (sr shardsRing) regressionCall(cl cluster, req *http.Request) (string, *http.Response, error) {
 	resp, err := sr.send(cl, req)
+	println("Cluster name", cl.name)
 	// Do regression call if response status is > 400
-	if (err != nil || resp.StatusCode > 400) && req.Method != http.MethodPut  {
+	if (err != nil || resp.StatusCode > 400) && req.Method != http.MethodPut {
 		rcl, ok := sr.clusterRegressionMap[cl.name]
 		if ok {
 			return sr.regressionCall(rcl, req)
@@ -110,13 +111,24 @@ func (sr shardsRing) regressionCall(cl cluster, req *http.Request) (string, *htt
 	}
 	return cl.name, resp, err
 }
+func (sr *shardsRing) logInconsistency(key, expectedClusterName, actualClusterName string) {
+	logJSON, err := json.Marshal(
+		struct {
+			Key      string
+			Expected string
+			Actual   string
+		}{key, expectedClusterName, actualClusterName})
+	if err == nil {
+		sr.inconsistencyLog.Printf(fmt.Sprintf("%s", logJSON))
+	}
+}
 
 func (sr shardsRing) RoundTrip(req *http.Request) (*http.Response, error) {
 	reqCopy, err := copyRequest(req)
 	if err != nil {
 		return nil, err
 	}
-
+	println(reqCopy.Method, reqCopy.URL.Path, sr.isBucketPath(reqCopy.URL.Path))
 	if reqCopy.Method == http.MethodDelete || sr.isBucketPath(reqCopy.URL.Path) {
 		return sr.allClustersRoundTripper.RoundTrip(reqCopy)
 	}
@@ -128,32 +140,19 @@ func (sr shardsRing) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	clusterName, resp, err := sr.regressionCall(cl, reqCopy)
 	if clusterName != cl.name {
-		var logJSON []byte
-		logJSON, err = json.Marshal(
-			struct {
-				Key      string
-				Expected string
-				Actual   string
-			}{
-				reqCopy.URL.Path, cl.name, clusterName})
-		if err == nil {
-			message := fmt.Sprintf("%s", logJSON)
-			println(message)
-			sr.inconsistencyLog.Printf(message)
-		} else {
-			println(err.Error())
-		}
+		sr.logInconsistency(reqCopy.URL.Path, cl.name, clusterName)
 	}
+
 	return resp, err
 }
 
 func newMultiBackendCluster(transp http.RoundTripper,
 	multiResponseHandler transport.MultipleResponsesHandler,
 	clusterConf config.ClusterConfig, name string) cluster {
-	backends := make([]*url.URL, len(clusterConf.Backends))
+	backends := make([]url.URL, len(clusterConf.Backends))
 
 	for i, backend := range clusterConf.Backends {
-		backends[i] = backend.URL
+		backends[i] = *backend.URL
 	}
 
 	multiTransport := transport.NewMultiTransport(
@@ -161,7 +160,7 @@ func newMultiBackendCluster(transp http.RoundTripper,
 		backends,
 		multiResponseHandler)
 
-	return cluster {
+	return cluster{
 		multiTransport,
 		clusterConf.Weight,
 		clusterConf.Backends,
@@ -197,7 +196,7 @@ func (rf ringFactory) getCluster(name string) (cluster, error) {
 	return s3cluster, nil
 }
 
-func (rf ringFactory) mapShards(weightSum uint, clientCfg config.ClientConfig) (map[string]cluster, error) {
+func (rf ringFactory) mapShards(weightSum uint64, clientCfg config.ClientConfig) (map[string]cluster, error) {
 	shardClusterMap := make(map[string]cluster, clientCfg.ShardsCount)
 	offset := 0
 	for _, name := range clientCfg.Clusters {
@@ -205,7 +204,8 @@ func (rf ringFactory) mapShards(weightSum uint, clientCfg config.ClientConfig) (
 		if err != nil {
 			return shardClusterMap, err
 		}
-		shardsNum := float64(clientCfg.ShardsCount) * float64(clientCluster.weight) / float64(weightSum)
+		// shardsNum := float64(clientCfg.ShardsCount * clientCluster.weight) / float64(weightSum)
+		shardsNum := (clientCfg.ShardsCount * clientCluster.weight) / weightSum
 		for i := offset; i < offset+int(shardsNum); i++ {
 			shardName := fmt.Sprintf("%s-%d", clientCfg.Name, i)
 			shardClusterMap[shardName] = clientCluster
@@ -215,7 +215,7 @@ func (rf ringFactory) mapShards(weightSum uint, clientCfg config.ClientConfig) (
 	return shardClusterMap, nil
 }
 
-func (rf ringFactory) uniqBackends(clientCfg config.ClientConfig) ([]*url.URL, error) {
+func (rf ringFactory) uniqBackends(clientCfg config.ClientConfig) ([]url.URL, error) {
 	allBackendsSet := make(map[config.YAMLURL]bool)
 	for _, name := range clientCfg.Clusters {
 		clientCluster, err := rf.getCluster(name)
@@ -226,36 +226,53 @@ func (rf ringFactory) uniqBackends(clientCfg config.ClientConfig) ([]*url.URL, e
 			allBackendsSet[backendURL] = true
 		}
 	}
-	var uniqBackendsSlice []*url.URL
+	var uniqBackendsSlice []url.URL
 	for url := range allBackendsSet {
-		uniqBackendsSlice = append(uniqBackendsSlice, url.URL)
+		uniqBackendsSlice = append(uniqBackendsSlice, *url.URL)
 	}
 	return uniqBackendsSlice, nil
 }
 
-func (rf ringFactory) clientRing(clientCfg config.ClientConfig) (shardsRing, error) {
-	weightSum := uint(0)
-	clientClusters := make([]cluster, 0, len(clientCfg.Clusters))
-	regressionMap := make(map[string]cluster)
-	var previousCluster cluster
-	for i, name := range clientCfg.Clusters {
+func (rf ringFactory) sumWeights(clusters []string) (uint64, error) {
+	weightSum := uint64(0)
+	for _, name := range clusters {
 		clientCluster, err := rf.getCluster(name)
 		if err != nil {
-			return shardsRing{}, err
+			return 0, err
 		}
-
 		weightSum += clientCluster.weight
-		clientClusters = append(clientClusters, clientCluster)
+	}
+	return weightSum, nil
+}
 
+func (rf ringFactory) createRegressionMap(clusters []string) (map[string]cluster, error) {
+	regressionMap := make(map[string]cluster)
+	var previousCluster cluster
+	for i, name := range clusters {
+		clientCluster, err := rf.getCluster(name)
+		if err != nil {
+			return nil, err
+		}
 		if i > 0 {
 			regressionMap[name] = previousCluster
 		}
 		previousCluster = clientCluster
 	}
+	return regressionMap, nil
+}
+
+func (rf ringFactory) clientRing(clientCfg config.ClientConfig) (shardsRing, error) {
+	weightSum, err := rf.sumWeights(clientCfg.Clusters)
+
+	if err != nil {
+		return shardsRing{}, err
+	}
+
 	shardMap, err := rf.mapShards(weightSum, clientCfg)
 	if err != nil {
 		return shardsRing{}, err
 	}
+
 	cHashMap := consistenthash.New(1, nil)
 	for shardID := range shardMap {
 		cHashMap.Add(shardID)
@@ -269,7 +286,10 @@ func (rf ringFactory) clientRing(clientCfg config.ClientConfig) (shardsRing, err
 		rf.transport,
 		allBackendsSlice,
 		rf.multipleResponseHandler)
-
+	regressionMap, err := rf.createRegressionMap(clientCfg.Clusters)
+	if err != nil {
+		return shardsRing{}, nil
+	}
 	return shardsRing{cHashMap, shardMap, allBackendsRoundTripper, regressionMap, rf.conf.ClusterSyncLog}, nil
 }
 
@@ -284,7 +304,6 @@ func newRingFactory(conf config.Config, transport http.RoundTripper, respHandler
 
 // NewHandler constructs http.Handler
 func NewHandler(conf config.Config) (http.Handler, error) {
-	// clustersMap, _ := mapClusterTypes(conf)
 	clustersNames := make([]string, 0, len(conf.Clusters))
 	for name := range conf.Clusters {
 		clustersNames = append(clustersNames, name)

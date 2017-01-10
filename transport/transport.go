@@ -128,7 +128,7 @@ type RequestProcessor func(orig *http.Request, copies []*http.Request)
 type MultiTransport struct {
 	http.RoundTripper
 	// Backends is list of target endpoints URL
-	Backends []*url.URL
+	Backends []url.URL
 	// Response handler will get `ReqResErrTuple` in `in` channel
 	// should process all responses and send one to out chan.
 	// Response senf to out chan will be returned from RoundTrip.
@@ -240,7 +240,7 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 // NewMultiTransport creates *MultiTransport. If requestsPreprocesor or responseHandler
 // are nil will use default ones
 func NewMultiTransport(roundTripper http.RoundTripper,
-	backends []*url.URL,
+	backends []url.URL,
 	responsesHandler MultipleResponsesHandler) *MultiTransport {
 	if responsesHandler == nil {
 		responsesHandler = DefaultHandleResponses

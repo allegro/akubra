@@ -76,7 +76,7 @@ type ClusterConfig struct {
 	// Type, currently replicator is only option
 	Type string `yaml:"Type,omitempty"`
 	// Points how much load cluster should handle
-	Weight uint `yaml:"Weight,omitempty"`
+	Weight uint64 `yaml:"Weight,omitempty"`
 	// Cluster type specific options
 	Options map[string]string `yaml:"Options,omitempty"`
 }
