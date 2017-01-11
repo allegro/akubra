@@ -24,12 +24,12 @@ func (wc *watchConn) Close() error {
 // LimitDialer limits open connections by read and dial timeout. Also provides hard
 // limit on number of open connections
 type LimitDialer struct {
-	activeCons      map[string]int64
-	limit           int64
-	dialTimeout     time.Duration
-	readTimeout     time.Duration
-	droppedEndpoint string
-	countersMx      sync.Mutex
+	activeCons       map[string]int64
+	limit            int64
+	dialTimeout      time.Duration
+	readTimeout      time.Duration
+	droppedEndpoints map[string]bool
+	countersMx       sync.Mutex
 }
 
 // ErrSlowOrMaintained is returned if LimitDialer exceeds connection limit
@@ -63,7 +63,7 @@ func (d *LimitDialer) limitReached(endpoint string) bool {
 	numOfAllConns := int64(0)
 	maxNumOfEndpointConns := int64(0)
 	mostLoadedEndpoint := ""
-	if endpoint == d.droppedEndpoint {
+	if d.droppedEndpoints[endpoint] {
 		return true
 	}
 	for key, count := range d.activeCons {
@@ -119,17 +119,22 @@ func (d *LimitDialer) Dial(network, addr string) (c net.Conn, err error) {
 	return c, err
 }
 
-// DropEndpoint marks backend as dropped i.e. maintenance x
-func (d *LimitDialer) DropEndpoint(endpoint url.URL) {
-	d.droppedEndpoint = endpoint.Host
+func (d *LimitDialer) dropEndpoints(droppedEndpoints []url.URL) {
+	endpointsMap := make(map[string]bool, len(droppedEndpoints))
+	for _, URL := range droppedEndpoints {
+		endpointsMap[URL.Host] = true
+	}
+	d.droppedEndpoints = endpointsMap
 }
 
 // NewLimitDialer returns new `LimitDialer`.
-func NewLimitDialer(limit int64, readTimeout, dialTimeout time.Duration) *LimitDialer {
-	return &LimitDialer{
+func NewLimitDialer(limit int64, readTimeout, dialTimeout time.Duration, droppedEndpoints []url.URL) *LimitDialer {
+	dialer := &LimitDialer{
 		activeCons:  make(map[string]int64),
 		limit:       limit,
 		dialTimeout: dialTimeout,
 		readTimeout: readTimeout,
 	}
+	dialer.dropEndpoints(droppedEndpoints)
+	return dialer
 }

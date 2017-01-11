@@ -23,7 +23,8 @@ ConnectionTimeout: "3s"
 ConnectionDialTimeout: "1s"
 # Backend in maintenance mode. Akubra will skip this endpoint
 
-# MaintainedBackend: "http://127.0.0.1:9002"
+# MaintainedBackends:
+#   - "http://127.0.0.1:9002"
 
 # List request methods to be logged in synclog in case of backend failure
 SyncLogMethods:

@@ -82,11 +82,14 @@ func ConfigureHTTPTransport(conf config.Config) (*http.Transport, error) {
 		return nil, err
 	}
 	var dialer *dial.LimitDialer
-
-	dialer = dial.NewLimitDialer(conf.ConnLimit, connDuration, connDuration)
-	if conf.MaintainedBackend.URL != nil {
-		dialer.DropEndpoint(*conf.MaintainedBackend.URL)
+	var maintainedBackendURLs []url.URL
+	if conf.MaintainedBackends != nil {
+		for _, yamlURLS := range conf.MaintainedBackends {
+			maintainedBackendURLs = append(maintainedBackendURLs, *yamlURLS.URL)
+		}
 	}
+
+	dialer = dial.NewLimitDialer(conf.ConnLimit, connDuration, connDuration, maintainedBackendURLs)
 
 	httpTransport := &http.Transport{
 		Dial:                dialer.Dial,

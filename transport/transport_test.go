@@ -152,8 +152,7 @@ func TestMaintainedBackend(t *testing.T) {
 	urls := mkDummySrvs(2, stream, t)
 	req := dummyReq(stream, 0)
 
-	dialer := dial.NewLimitDialer(2, time.Second, time.Second)
-	dialer.DropEndpoint(urls[0])
+	dialer := dial.NewLimitDialer(2, time.Second, time.Second, []url.URL{urls[0]})
 
 	httpTransport := &http.Transport{
 		Dial:                dialer.Dial,
