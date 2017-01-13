@@ -31,7 +31,7 @@ type YamlConfig struct {
 	// Dial timeout on outgoing connections
 	ConnectionDialTimeout string `yaml:"ConnectionDialTimeout,omitempty"`
 	// Backend in maintenance mode. Akubra will not send data there
-	MaintainedBackends []YAMLURL `yaml:"MaintainedBackends, omitempty"`
+	MaintainedBackends []YAMLURL `yaml:"MaintainedBackends,omitempty"`
 	// List request methods to be logged in synclog in case of backend failure
 	SyncLogMethods []string `yaml:"SyncLogMethods,omitempty"`
 	// Should we keep alive connections with backend servers
