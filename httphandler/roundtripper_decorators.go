@@ -2,10 +2,11 @@ package httphandler
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/allegro/akubra/log"
 )
 
 // Decorator is http.RoundTripper interface wrapper
@@ -13,7 +14,7 @@ type Decorator func(http.RoundTripper) http.RoundTripper
 
 type loggingRoundTripper struct {
 	roundTripper http.RoundTripper
-	accessLog    *log.Logger
+	accessLog    log.Logger
 }
 
 func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Response, err error) {
@@ -47,7 +48,7 @@ func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Respons
 }
 
 // AccessLogging creares Decorator with access log collector
-func AccessLogging(logger *log.Logger) Decorator {
+func AccessLogging(logger log.Logger) Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
 		return &loggingRoundTripper{roundTripper: rt, accessLog: logger}
 	}

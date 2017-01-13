@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
 	"github.com/golang/groupcache/consistenthash"
 )
@@ -28,7 +28,7 @@ type shardsRing struct {
 	shardClusterMap         map[string]cluster
 	allClustersRoundTripper http.RoundTripper
 	clusterRegressionMap    map[string]cluster
-	inconsistencyLog        *log.Logger
+	inconsistencyLog        log.Logger
 }
 
 func (sr shardsRing) isBucketPath(path string) bool {
@@ -101,7 +101,6 @@ func (sr shardsRing) send(roundTripper http.RoundTripper, req *http.Request) (*h
 
 func (sr shardsRing) regressionCall(cl cluster, req *http.Request) (string, *http.Response, error) {
 	resp, err := sr.send(cl, req)
-	println("Cluster name", cl.name)
 	// Do regression call if response status is > 400
 	if (err != nil || resp.StatusCode > 400) && req.Method != http.MethodPut {
 		rcl, ok := sr.clusterRegressionMap[cl.name]
@@ -128,7 +127,6 @@ func (sr shardsRing) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	println(reqCopy.Method, reqCopy.URL.Path, sr.isBucketPath(reqCopy.URL.Path))
 	if reqCopy.Method == http.MethodDelete || sr.isBucketPath(reqCopy.URL.Path) {
 		return sr.allClustersRoundTripper.RoundTrip(reqCopy)
 	}
@@ -318,7 +316,7 @@ func NewHandler(conf config.Config) (http.Handler, error) {
 	respHandler := httphandler.NewMultipleResponseHandler(conf)
 	rings := newRingFactory(conf, httptransp, respHandler)
 	// TODO: Multiple clients
-	ring, err := rings.clientRing(conf.Client)
+	ring, err := rings.clientRing(*conf.Client)
 	if err != nil {
 		return nil, err
 	}

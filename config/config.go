@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
-	"log/syslog"
 	"net/url"
 	"os"
 
+	"github.com/allegro/akubra/log"
 	set "github.com/deckarep/golang-set"
 	"github.com/go-yaml/yaml"
 )
@@ -37,17 +36,26 @@ type YamlConfig struct {
 	// Should we keep alive connections with backend servers
 	KeepAlive bool                     `yaml:"KeepAlive"`
 	Clusters  map[string]ClusterConfig `yaml:"Clusters,omitempty"`
-	Client    ClientConfig             `yaml:"Client,omitempty"`
+	Client    *ClientConfig            `yaml:"Client,omitempty"`
+	Logging   *LoggingConfig           `yaml:"Logging,omitempty"`
+}
+
+// LoggingConfig contains Loggers configuration
+type LoggingConfig struct {
+	Accesslog      log.LoggerConfig `yaml:"Logging,omitempty"`
+	Synclog        log.LoggerConfig `yaml:"Synclog,omitempty"`
+	Mainlog        log.LoggerConfig `yaml:"Mainlog,omitempty"`
+	ClusterSyncLog log.LoggerConfig `yaml:"ClusterSynclog,omitempty"`
 }
 
 // Config contains processed YamlConfig data
 type Config struct {
 	YamlConfig
 	SyncLogMethodsSet set.Set
-	Synclog           *log.Logger
-	Accesslog         *log.Logger
-	Mainlog           *log.Logger
-	ClusterSyncLog    *log.Logger
+	Synclog           log.Logger
+	Accesslog         log.Logger
+	Mainlog           log.Logger
+	ClusterSyncLog    log.Logger
 }
 
 // YAMLURL type fields in yaml configuration will parse urls
@@ -103,25 +111,53 @@ func parseConf(file io.Reader) (YamlConfig, error) {
 	return rc, err
 }
 
-func setupLoggers(conf *Config) error {
-	accesslog, slErr := syslog.NewLogger(syslog.LOG_LOCAL0, 0)
-	conf.Accesslog = accesslog
-	conf.Accesslog.SetPrefix("")
-	if slErr != nil {
-		return slErr
+func setupLoggers(conf *Config) (err error) {
+	emptyLoggerConfig := log.LoggerConfig{}
+
+	if conf.Logging.Accesslog == emptyLoggerConfig {
+		conf.Logging.Accesslog = log.LoggerConfig{Syslog: "LOG_LOCAL0"}
 	}
-	conf.Synclog, slErr = syslog.NewLogger(syslog.LOG_LOCAL1, 0)
-	conf.Synclog.SetPrefix("")
-	if slErr != nil {
-		return slErr
+
+	conf.Accesslog, err = log.NewLogger(conf.Logging.Accesslog)
+
+	if err != nil {
+		return err
 	}
-	conf.Mainlog, slErr = syslog.NewLogger(syslog.LOG_LOCAL2, log.LstdFlags)
-	conf.Mainlog.SetPrefix("main")
-	if slErr != nil {
-		return slErr
+
+	if conf.Logging.Synclog == emptyLoggerConfig {
+		conf.Logging.Synclog = log.LoggerConfig{
+			Syslog:    "LOG_LOCAL1",
+			PlainText: true,
+		}
+
 	}
-	conf.ClusterSyncLog, slErr = syslog.NewLogger(syslog.LOG_LOCAL3, log.LstdFlags)
-	return slErr
+
+	conf.Synclog, err = log.NewLogger(conf.Logging.Synclog)
+
+	if err != nil {
+		return err
+	}
+
+	if conf.Logging.Mainlog == emptyLoggerConfig {
+		conf.Logging.Mainlog = log.LoggerConfig{Syslog: "LOG_LOCAL2"}
+	}
+
+	conf.Mainlog, err = log.NewLogger(conf.Logging.Mainlog)
+
+	if err != nil {
+		return err
+	}
+
+	if conf.Logging.ClusterSyncLog == emptyLoggerConfig {
+		conf.Logging.ClusterSyncLog = log.LoggerConfig{
+			Syslog:    "LOG_LOCAL3",
+			PlainText: true,
+		}
+	}
+
+	conf.ClusterSyncLog, err = log.NewLogger(conf.Logging.ClusterSyncLog)
+
+	return err
 }
 
 // Configure parse configuration file
