@@ -20,33 +20,11 @@ type Handler struct {
 	accessLog    *log.Logger
 }
 
-func (h *Handler) closeBadRequest(w http.ResponseWriter) {
-
-	hj, ok := w.(http.Hijacker)
-	if !ok {
-		http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
-		return
-	}
-
-	conn, _, err := hj.Hijack()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	closeErr := conn.Close()
-	if closeErr != nil {
-		h.mainLog.Println(closeErr.Error())
-		return
-	}
-}
-
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	resp, err := h.roundTripper.RoundTrip(req)
 
 	if err != nil {
-		h.closeBadRequest(w)
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
