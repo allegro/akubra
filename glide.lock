@@ -1,5 +1,5 @@
-hash: fb705f72a816c66b4fba9089b3113db3d956a756ed6418d5ea27113f483206fe
-updated: 2016-11-19T11:11:16.769482694+01:00
+hash: b209bcdb54891a40939df5063b36f9e958cd4339ac5dfc2dad59680093c37ab9
+updated: 2017-01-16T10:26:27.632520755+01:00
 imports:
 - name: github.com/alecthomas/gometalinter
   version: 8f447961c7bbced95e0612a6a89c764b3c13d291
@@ -19,8 +19,14 @@ imports:
   version: a6b377e3400b08991b80d6805d627f347f983866
   subpackages:
   - consistenthash
+- name: github.com/sirupsen/logrus
+  version: d26492970760ca5d33129d2d799e34be5c4782eb
+- name: golang.org/x/sys
+  version: f64b50fbea64174967a8882830d621a18ee1548e
+  subpackages:
+  - unix
 - name: gopkg.in/tylerb/graceful.v1
-  version: 50a48b6e73fcc75b45e22c05b79629a67c79e938
+  version: 0e9129e9c6d47da90dc0c188b26bd7bb1dab53cd
 testImports:
 - name: github.com/davecgh/go-spew
   version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
@@ -34,3 +40,4 @@ testImports:
   version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
   subpackages:
   - assert
+  - require
