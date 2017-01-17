@@ -101,7 +101,6 @@ func (sr shardsRing) send(roundTripper http.RoundTripper, req *http.Request) (*h
 
 func (sr shardsRing) regressionCall(cl cluster, req *http.Request) (string, *http.Response, error) {
 	resp, err := sr.send(cl, req)
-	println("Cluster name", cl.name)
 	// Do regression call if response status is > 400
 	if (err != nil || resp.StatusCode > 400) && req.Method != http.MethodPut {
 		rcl, ok := sr.clusterRegressionMap[cl.name]
@@ -128,7 +127,7 @@ func (sr shardsRing) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	println(reqCopy.Method, reqCopy.URL.Path, sr.isBucketPath(reqCopy.URL.Path))
+
 	if reqCopy.Method == http.MethodDelete || sr.isBucketPath(reqCopy.URL.Path) {
 		return sr.allClustersRoundTripper.RoundTrip(reqCopy)
 	}
@@ -263,6 +262,10 @@ func (rf ringFactory) createRegressionMap(clusters []string) (map[string]cluster
 
 func (rf ringFactory) clientRing(clientCfg config.ClientConfig) (shardsRing, error) {
 	weightSum, err := rf.sumWeights(clientCfg.Clusters)
+
+	if weightSum <= 0 {
+		return shardsRing{}, fmt.Errorf("configuration error clusters weigth sum should be greater than 0, got %d", weightSum)
+	}
 
 	if err != nil {
 		return shardsRing{}, err
