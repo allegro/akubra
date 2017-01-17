@@ -127,6 +127,7 @@ func (sr shardsRing) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if reqCopy.Method == http.MethodDelete || sr.isBucketPath(reqCopy.URL.Path) {
 		return sr.allClustersRoundTripper.RoundTrip(reqCopy)
 	}
@@ -264,6 +265,10 @@ func (rf ringFactory) clientRing(clientCfg config.ClientConfig) (shardsRing, err
 
 	if err != nil {
 		return shardsRing{}, err
+	}
+
+	if weightSum <= 0 {
+		return shardsRing{}, fmt.Errorf("configuration error clusters weigth sum should be greater than 0, got %d", weightSum)
 	}
 
 	shardMap, err := rf.mapShards(weightSum, clientCfg)
