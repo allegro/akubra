@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
-	"log"
 
+	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
 	set "github.com/deckarep/golang-set"
 )
 
 type responseMerger struct {
-	syncerrlog      *log.Logger
-	runtimeLog      *log.Logger
+	syncerrlog      log.Logger
+	runtimeLog      log.Logger
 	methodSetFilter set.Set
 }
 

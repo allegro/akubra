@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
 	"github.com/golang/groupcache/consistenthash"
 )
@@ -28,7 +28,7 @@ type shardsRing struct {
 	shardClusterMap         map[string]cluster
 	allClustersRoundTripper http.RoundTripper
 	clusterRegressionMap    map[string]cluster
-	inconsistencyLog        *log.Logger
+	inconsistencyLog        log.Logger
 }
 
 func (sr shardsRing) isBucketPath(path string) bool {
@@ -263,12 +263,12 @@ func (rf ringFactory) createRegressionMap(clusters []string) (map[string]cluster
 func (rf ringFactory) clientRing(clientCfg config.ClientConfig) (shardsRing, error) {
 	weightSum, err := rf.sumWeights(clientCfg.Clusters)
 
-	if weightSum <= 0 {
-		return shardsRing{}, fmt.Errorf("configuration error clusters weigth sum should be greater than 0, got %d", weightSum)
-	}
-
 	if err != nil {
 		return shardsRing{}, err
+	}
+
+	if weightSum <= 0 {
+		return shardsRing{}, fmt.Errorf("configuration error clusters weigth sum should be greater than 0, got %d", weightSum)
 	}
 
 	shardMap, err := rf.mapShards(weightSum, clientCfg)
@@ -321,7 +321,7 @@ func NewHandler(conf config.Config) (http.Handler, error) {
 	respHandler := httphandler.NewMultipleResponseHandler(conf)
 	rings := newRingFactory(conf, httptransp, respHandler)
 	// TODO: Multiple clients
-	ring, err := rings.clientRing(conf.Client)
+	ring, err := rings.clientRing(*conf.Client)
 	if err != nil {
 		return nil, err
 	}

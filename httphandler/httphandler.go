@@ -2,13 +2,13 @@ package httphandler
 
 import (
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/dial"
+	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
 )
 
@@ -16,8 +16,8 @@ import (
 type Handler struct {
 	config       config.Config
 	roundTripper http.RoundTripper
-	mainLog      *log.Logger
-	accessLog    *log.Logger
+	mainLog      log.Logger
+	accessLog    log.Logger
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
