@@ -97,31 +97,6 @@ func DecorateRoundTripper(conf config.Config, rt http.RoundTripper) http.RoundTr
 	)
 }
 
-// NewHandler will create Handler
-func NewHandler(conf config.Config) (http.Handler, error) {
-	transp, err := ConfigureHTTPTransport(conf)
-	if err != nil {
-		return nil, err
-	}
-	responseMerger := NewMultipleResponseHandler(conf)
-	backends := make([]url.URL, len(conf.Backends))
-	for i, backend := range conf.Backends {
-		backends[i] = *backend.URL
-	}
-	httpTransport := transport.NewMultiTransport(
-		transp,
-		backends,
-		responseMerger)
-
-	roundTripper := DecorateRoundTripper(conf, httpTransport)
-	return &Handler{
-		config:       conf,
-		mainLog:      conf.Mainlog,
-		accessLog:    conf.Accesslog,
-		roundTripper: roundTripper,
-	}, nil
-}
-
 // NewHandlerWithRoundTripper returns Handler, but will not construct transport.MultiTransport by itself
 func NewHandlerWithRoundTripper(conf config.Config, roundTripper http.RoundTripper) (http.Handler, error) {
 	return &Handler{

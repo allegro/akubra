@@ -9,7 +9,6 @@ import (
 
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/config"
-	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/sharding"
 	"gopkg.in/tylerb/graceful.v1"
 )
@@ -41,7 +40,6 @@ func main() {
 	mainlog := conf.Mainlog
 	mainlog.Printf("starting on port %s", conf.Listen)
 	mainlog.Printf("connlimit %v", conf.ConnLimit)
-	mainlog.Printf("backends %s", conf.Backends)
 	srv := newService(conf)
 	startErr := srv.start()
 	if startErr != nil {
@@ -54,13 +52,7 @@ type service struct {
 }
 
 func (s *service) start() error {
-	var handler http.Handler
-	var err error
-	if len(s.conf.Clusters) > 0 {
-		handler, err = sharding.NewHandler(s.conf)
-	} else {
-		handler, err = httphandler.NewHandler(s.conf)
-	}
+	handler, err := sharding.NewHandler(s.conf)
 
 	if err != nil {
 		return err
