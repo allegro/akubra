@@ -1,9 +1,5 @@
 # Listen interface and port e.g. "0:8000", "localhost:9090", ":80"
 Listen: ":8080"
-# List of backend URI's e.g. "http://s3.mydaracenter.org"
-Backends:
-  - "http://127.0.0.1:9001"
-  - "http://127.0.0.1:9002"
 # Limit of outgoing connections. When limit is reached, Akubra will omit external backend
 # with greatest number of stalled connections
 ConnLimit: 100
@@ -51,3 +47,23 @@ Client:
     - cluster1
     - cluster2
   ShardsCount: 10000
+
+Logging:
+  Synclog:
+    stderr: true
+  #  stdout: false  # default: false
+  #  file: "/var/log/akubra/sync.log"  # default: ""
+  #  syslog: LOG_LOCAL1  # default: LOG_LOCAL1
+
+  Mainlog:
+    stderr: true
+  #  stdout: false  # default: false
+  #  file: "/var/log/akubra/akubra.log"  # default: ""
+  #  syslog: LOG_LOCAL2  # default: LOG_LOCAL2
+
+  Accesslog:
+    stderr: true  # default: false
+  #  stdout: false  # default: false
+  #  file: "/var/log/akubra/access.log"  # default: ""
+  #  syslog: LOG_LOCAL3  # default: LOG_LOCAL3
+

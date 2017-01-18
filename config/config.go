@@ -16,8 +16,6 @@ import (
 type YamlConfig struct {
 	// Listen interface and port e.g. "0:8000", "localhost:9090", ":80"
 	Listen string `yaml:"Listen,omitempty"`
-	// List of backend uri's e.g. "http:// s3.mydaracenter.org"
-	Backends []YAMLURL `yaml:"Backends,omitempty,flow"`
 	// Limit of outgoing connections. When limit is reached, akubra will omit external backend
 	// with greatest number of stalled connections
 	ConnLimit int64 `yaml:"ConnLimit,omitempty"`

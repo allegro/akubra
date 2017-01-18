@@ -84,7 +84,6 @@ func configure(backends []config.YAMLURL) config.Config {
 			ConnectionDialTimeout: timeout,
 			Client:                clientCfg,
 			Clusters:              clustersConf,
-			Backends:              backends,
 		},
 		SyncLogMethodsSet: methodsSet,
 		Synclog:           syncLogger,
