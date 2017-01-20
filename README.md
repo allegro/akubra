@@ -105,7 +105,7 @@ ConnectionDialTimeout: "1s"
 # Backend in maintenance mode. Akubra will skip this endpoint
 
 # MaintainedBackends:
-  - "http://s3.dc2.internal"
+#  - "http://s3.dc2.internal"
 
 # List request methods to be logged in synclog in case of backend failure
 SyncLogMethods:
