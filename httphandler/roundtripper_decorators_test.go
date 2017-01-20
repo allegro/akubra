@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
 	"testing"
 
+	"github.com/sirupsen/logrus"
+
+	"github.com/allegro/akubra/log"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -88,14 +90,19 @@ func TestOptionsHandler(t *testing.T) {
 
 func TestAccessLogging(t *testing.T) {
 	var buf bytes.Buffer
-	logger := log.New(&buf, "", 0)
+	logger := &logrus.Logger{
+		Out:       &buf,
+		Formatter: log.PlainTextFormatter{},
+		Hooks:     make(logrus.LevelHooks),
+		Level:     logrus.DebugLevel,
+	}
 	rt := Decorate(http.DefaultTransport, AccessLogging(logger))
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write([]byte("OK"))
 		assert.Nil(t, err)
 	}))
 
-	sendReq(t, srv, "GET", nil, rt)
+	sendReq(t, srv, "PUT", nil, rt)
 
 	amddata := bytes.Trim(buf.Bytes(), "\n")
 	amd := &AccessMessageData{}

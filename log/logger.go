@@ -32,6 +32,16 @@ var SyslogFacilityMap = map[string]syslog.Priority{
 	"LOG_LOCAL7":   syslog.LOG_LOCAL7,
 }
 
+// LogLevelMap is string map of log levels
+var LogLevelMap = map[string]logrus.Level{
+	"Panic": logrus.PanicLevel,
+	"Fatal": logrus.FatalLevel,
+	"Error": logrus.ErrorLevel,
+	"Warn":  logrus.WarnLevel,
+	"Info":  logrus.InfoLevel,
+	"Debug": logrus.DebugLevel,
+}
+
 // Logger interface generalizes Logger implementations
 type Logger interface {
 	Fatal(v ...interface{})
@@ -45,6 +55,10 @@ type Logger interface {
 	Print(v ...interface{})
 	Printf(format string, v ...interface{})
 	Println(v ...interface{})
+
+	Debug(v ...interface{})
+	Debugf(format string, v ...interface{})
+	Debugln(v ...interface{})
 }
 
 // LoggerConfig holds oprions
@@ -54,6 +68,7 @@ type LoggerConfig struct {
 	Stdout    bool   `yaml:"stdout,omitempty"`
 	File      string `yaml:"file,omitempty"`
 	Syslog    string `yaml:"syslog,omitempty"`
+	Level     string `yaml:"level"`
 }
 
 func createLogWriter(config LoggerConfig) (io.Writer, error) {
@@ -91,6 +106,7 @@ func (f PlainTextFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 
 // NewLogger creates Logger
 func NewLogger(config LoggerConfig) (Logger, error) {
+
 	writer, err := createLogWriter(config)
 	if err != nil {
 		return nil, err
@@ -106,17 +122,23 @@ func NewLogger(config LoggerConfig) (Logger, error) {
 		formatter = PlainTextFormatter{}
 	}
 
+	level := logrus.DebugLevel
+
+	if conflevel, ok := LogLevelMap[config.Level]; ok {
+		level = conflevel
+	}
+
 	logger := &logrus.Logger{
 		Out:       writer,
 		Formatter: formatter,
 		Hooks:     make(logrus.LevelHooks),
-		Level:     logrus.DebugLevel,
+		Level:     level,
 	}
 	return logger, nil
 }
 
 // DefaultLogger ...
-var DefaultLogger = logrus.New()
+var DefaultLogger Logger = logrus.New()
 
 // Fatal calls DefaultLogger
 func Fatal(v ...interface{}) {
@@ -161,4 +183,19 @@ func Printf(format string, v ...interface{}) {
 // Println calls DefaultLogger
 func Println(v ...interface{}) {
 	DefaultLogger.Println(v...)
+}
+
+// Debug calls DefaultLogger
+func Debug(v ...interface{}) {
+	DefaultLogger.Debug(v...)
+}
+
+// Debugf calls DefaultLogger
+func Debugf(format string, v ...interface{}) {
+	DefaultLogger.Debugf(format, v...)
+}
+
+// Debugln calls DefaultLogger
+func Debugln(v ...interface{}) {
+	DefaultLogger.Debugln(v...)
 }

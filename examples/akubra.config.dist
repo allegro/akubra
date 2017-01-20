@@ -60,6 +60,7 @@ Logging:
   #  stdout: false  # default: false
   #  file: "/var/log/akubra/akubra.log"  # default: ""
   #  syslog: LOG_LOCAL2  # default: LOG_LOCAL2
+  #  level: Error   # default: Debug
 
   Accesslog:
     stderr: true  # default: false

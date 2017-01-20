@@ -35,12 +35,12 @@ type YamlConfig struct {
 	KeepAlive bool                     `yaml:"KeepAlive"`
 	Clusters  map[string]ClusterConfig `yaml:"Clusters,omitempty"`
 	Client    *ClientConfig            `yaml:"Client,omitempty"`
-	Logging   *LoggingConfig           `yaml:"Logging,omitempty"`
+	Logging   LoggingConfig            `yaml:"Logging,omitempty"`
 }
 
 // LoggingConfig contains Loggers configuration
 type LoggingConfig struct {
-	Accesslog      log.LoggerConfig `yaml:"Logging,omitempty"`
+	Accesslog      log.LoggerConfig `yaml:"Accesslog,omitempty"`
 	Synclog        log.LoggerConfig `yaml:"Synclog,omitempty"`
 	Mainlog        log.LoggerConfig `yaml:"Mainlog,omitempty"`
 	ClusterSyncLog log.LoggerConfig `yaml:"ClusterSynclog,omitempty"`
@@ -129,7 +129,6 @@ func setupLoggers(conf *Config) (err error) {
 		}
 
 	}
-
 	conf.Synclog, err = log.NewLogger(conf.Logging.Synclog)
 
 	if err != nil {
@@ -141,7 +140,7 @@ func setupLoggers(conf *Config) (err error) {
 	}
 
 	conf.Mainlog, err = log.NewLogger(conf.Logging.Mainlog)
-
+	log.DefaultLogger = conf.Mainlog
 	if err != nil {
 		return err
 	}
