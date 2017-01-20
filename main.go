@@ -29,10 +29,8 @@ func main() {
 	versionString := fmt.Sprintf("Akubra (%s version)", version)
 	kingpin.Version(versionString)
 	kingpin.Parse()
-
-	log.Println(versionString)
 	conf, err := config.Configure(*configFile)
-
+	log.Println(versionString)
 	if err != nil {
 		log.Fatalf("Improperly configured %s", err)
 	}

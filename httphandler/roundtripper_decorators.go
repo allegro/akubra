@@ -33,7 +33,6 @@ func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Respons
 	if err != nil {
 		errStr = err.Error()
 	}
-
 	accessLogMessage := NewAccessLogMessage(*req,
 		statusCode,
 		duration,

@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"sync/atomic"
 	"testing"
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/log"
+
 	set "github.com/deckarep/golang-set"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -61,10 +61,10 @@ func configure(backends []config.YAMLURL) config.Config {
 		methodsSet.Add(method)
 	}
 
-	syncLogger := log.New(os.Stdout, "sync: ", log.Lshortfile)
-	accessLogger := log.New(os.Stdout, "accs: ", log.Lshortfile)
-	mainLogger := log.New(os.Stdout, "main: ", log.Lshortfile)
-	clsyncLogger := log.New(os.Stdout, "clsync: ", log.Lshortfile)
+	syncLogger := log.DefaultLogger
+	accessLogger := log.DefaultLogger
+	mainLogger := log.DefaultLogger
+	clsyncLogger := log.DefaultLogger
 
 	defaultClusterConfig.Backends = backends
 
