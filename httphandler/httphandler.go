@@ -9,7 +9,6 @@ import (
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/dial"
 	"github.com/allegro/akubra/log"
-	"github.com/allegro/akubra/transport"
 )
 
 // Handler implements http.Handler interface
@@ -75,16 +74,6 @@ func ConfigureHTTPTransport(conf config.Config) (*http.Transport, error) {
 		MaxIdleConnsPerHost: int(conf.ConnLimit)}
 
 	return httpTransport, nil
-}
-
-// NewMultipleResponseHandler returns a function for a later use in transport.MultiTransport
-func NewMultipleResponseHandler(conf config.Config) transport.MultipleResponsesHandler {
-	rh := responseMerger{
-		conf.Synclog,
-		conf.Mainlog,
-		conf.SyncLogMethodsSet,
-	}
-	return rh.handleResponses
 }
 
 // DecorateRoundTripper applies common http.RoundTripper decorators
