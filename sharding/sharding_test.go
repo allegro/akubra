@@ -98,11 +98,10 @@ func makeRingFactory(conf config.Config) (ringFactory, error) {
 	if err != nil {
 		return ringFactory{}, err
 	}
-	respHandler := httphandler.NewMultipleResponseHandler(conf)
 	if err != nil {
 		return ringFactory{}, err
 	}
-	return newRingFactory(conf, httptransp, respHandler), nil
+	return newRingFactory(conf, httptransp), nil
 }
 
 func TestSingleClusterOnRing(t *testing.T) {
