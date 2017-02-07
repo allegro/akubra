@@ -36,12 +36,14 @@ func (rd *responseMerger) synclog(r, successfulTup *transport.ReqResErrTuple) {
 	if r.Err != nil {
 		errorMsg = r.Err.Error()
 	}
+	reqID := r.Req.Context().Value(log.ContextreqIDKey).(string)
 	syncLogMsg := NewSyncLogMessageData(
 		r.Req.Method,
 		r.Req.Host,
 		successfulTup.Req.URL.Path,
 		successfulTup.Req.Host,
 		r.Req.Header.Get("User-Agent"),
+		reqID,
 		errorMsg)
 	logMsg, err := json.Marshal(syncLogMsg)
 	if err != nil {
@@ -58,7 +60,6 @@ func (rd *responseMerger) handleFailedResponces(
 	logMethodSet set.Set) bool {
 
 	for _, r := range tups {
-
 		rd.synclog(r, successfulTup)
 
 		if !alreadysent {
@@ -90,21 +91,21 @@ func (rd *responseMerger) _handle(in <-chan *transport.ReqResErrTuple, out chan<
 			break
 		}
 
-		errorMsg := "No error"
-		if r.Err != nil {
-			errorMsg = r.Err.Error()
+		statusCode := 0
+		if r.Res != nil {
+			statusCode = r.Res.StatusCode
 		}
 
-		rd.runtimeLog.Printf("RGW resp %q, %q, %q, %t, %q",
-			r.Req.URL.Path,
-			r.Req.Method,
+		reqID, _ := r.Req.Context().Value(log.ContextreqIDKey).(string)
+		log.Debugf("Got response %s from backend %s, status: %d, method: %s, path %s, error: %q",
+			reqID,
 			r.Req.Host,
-			r.Failed,
-			errorMsg)
+			statusCode,
+			r.Req.Method,
+			r.Req.URL.Path,
+			r.Err)
 
-		// pass first successful answer to client
 		if !r.Failed && !firstPassed {
-			// append additional headers
 			successfulTup = r
 			if rd.fifo {
 				out <- r

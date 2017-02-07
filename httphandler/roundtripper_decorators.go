@@ -18,8 +18,8 @@ type loggingRoundTripper struct {
 }
 
 func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-	timeStart := time.Now()
 
+	timeStart := time.Now()
 	resp, err = lrt.roundTripper.RoundTrip(req)
 
 	duration := time.Since(timeStart).Seconds()

@@ -8,6 +8,7 @@ import (
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
 	"github.com/golang/groupcache/consistenthash"
 )
@@ -21,7 +22,7 @@ type cluster struct {
 
 func newMultiBackendCluster(transp http.RoundTripper,
 	multiResponseHandler transport.MultipleResponsesHandler,
-	clusterConf config.ClusterConfig, name string) cluster {
+	clusterConf config.ClusterConfig, name string, maintainedBackends []config.YAMLURL) cluster {
 	backends := make([]url.URL, len(clusterConf.Backends))
 
 	for i, backend := range clusterConf.Backends {
@@ -31,7 +32,8 @@ func newMultiBackendCluster(transp http.RoundTripper,
 	multiTransport := transport.NewMultiTransport(
 		transp,
 		backends,
-		multiResponseHandler)
+		multiResponseHandler,
+		maintainedBackends)
 
 	return cluster{
 		multiTransport,
@@ -53,7 +55,7 @@ func (rf ringFactory) initCluster(name string) (cluster, error) {
 		return cluster{}, fmt.Errorf("no cluster %q in configuration", name)
 	}
 	respHandler := httphandler.EarliestResponseHandler(rf.conf)
-	return newMultiBackendCluster(rf.transport, respHandler, clusterConf, name), nil
+	return newMultiBackendCluster(rf.transport, respHandler, clusterConf, name, rf.conf.MaintainedBackends), nil
 }
 
 func (rf ringFactory) getCluster(name string) (cluster, error) {
@@ -90,12 +92,15 @@ func (rf ringFactory) mapShards(weightSum uint64, clientCfg config.ClientConfig)
 
 func (rf ringFactory) uniqBackends(clientCfg config.ClientConfig) ([]url.URL, error) {
 	allBackendsSet := make(map[config.YAMLURL]bool)
+	log.Debugf("client %v", clientCfg.Clusters)
 	for _, name := range clientCfg.Clusters {
+		log.Debugf("cluster %s", name)
 		clientCluster, err := rf.getCluster(name)
 		if err != nil {
 			return nil, err
 		}
 		for _, backendURL := range clientCluster.backends {
+			log.Debugf("backend %s", backendURL.Host)
 			allBackendsSet[backendURL] = true
 		}
 	}
@@ -165,12 +170,19 @@ func (rf ringFactory) clientRing(clientCfg config.ClientConfig) (shardsRing, err
 	allBackendsRoundTripper := transport.NewMultiTransport(
 		rf.transport,
 		allBackendsSlice,
-		respHandler)
+		respHandler,
+		rf.conf.MaintainedBackends)
+	log.Debugf("All backends %v", allBackendsSlice)
 	regressionMap, err := rf.createRegressionMap(clientCfg.Clusters)
 	if err != nil {
 		return shardsRing{}, nil
 	}
-	return shardsRing{cHashMap, shardMap, allBackendsRoundTripper, regressionMap, rf.conf.ClusterSyncLog}, nil
+	return shardsRing{
+		cHashMap,
+		shardMap,
+		allBackendsRoundTripper,
+		regressionMap,
+		rf.conf.ClusterSyncLog}, nil
 }
 
 func newRingFactory(conf config.Config, transport http.RoundTripper) ringFactory {
