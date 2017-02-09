@@ -62,6 +62,7 @@ type SyncLogMessageData struct {
 	Path        string `json:"path"`
 	SuccessHost string `json:"successhost"`
 	UserAgent   string `json:"useragent"`
+	ContentLength string `json:"content-length"`
 	ErrorMsg    string `json:"error"`
 	ReqID       string `json:"reqID"`
 	Time        string `json:"ts"`
@@ -76,14 +77,15 @@ func (slmd SyncLogMessageData) String() string {
 		slmd.Path,
 		slmd.SuccessHost,
 		slmd.UserAgent,
+		slmd.ContentLength,
 		slmd.ErrorMsg)
 }
 
 // NewSyncLogMessageData creates new SyncLogMessageData
 func NewSyncLogMessageData(method, failedHost, path, successHost, userAgent,
-	reqID, errorMsg string) *SyncLogMessageData {
+	contentLength, reqID, errorMsg string) *SyncLogMessageData {
 	ts := time.Now().Format(time.RFC3339Nano)
 	return &SyncLogMessageData{
 		method, failedHost, path, successHost, userAgent,
-		errorMsg, reqID, ts}
+		contentLength, errorMsg, reqID, ts}
 }

@@ -43,6 +43,7 @@ func (rd *responseMerger) synclog(r, successfulTup *transport.ReqResErrTuple) {
 		successfulTup.Req.URL.Path,
 		successfulTup.Req.Host,
 		r.Req.Header.Get("User-Agent"),
+		successfulTup.Res.Header.Get("Content-Length"),
 		reqID,
 		errorMsg)
 	logMsg, err := json.Marshal(syncLogMsg)
