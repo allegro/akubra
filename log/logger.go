@@ -4,8 +4,14 @@ import (
 	"io"
 	"log/syslog"
 	"os"
+	"time"
 
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	// ContextreqIDKey is Request Context Value key for debug logging
+	ContextreqIDKey = "reqID"
 )
 
 // SyslogFacilityMap is string map of facilities
@@ -115,7 +121,8 @@ func NewLogger(config LoggerConfig) (Logger, error) {
 	var formatter logrus.Formatter
 
 	formatter = &logrus.TextFormatter{
-		FullTimestamp: true,
+		FullTimestamp:   true,
+		TimestampFormat: time.StampMicro,
 	}
 
 	if config.PlainText {

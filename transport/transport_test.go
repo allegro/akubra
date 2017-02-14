@@ -2,6 +2,7 @@ package transport
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/allegro/akubra/dial"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,9 +19,7 @@ func TestLimitReaderFromBuffer(t *testing.T) {
 	lreader := io.LimitReader(reader, int64(len(stream)))
 	p := make([]byte, len(stream))
 	n, err := io.ReadFull(lreader, p)
-	if n == 0 {
-		t.Error("read 0 bytes")
-	}
+	require.NotEqual(t, 0, n, "read no bytes")
 	if err != nil && err != io.EOF {
 		t.Errorf("Got strange error %q", err)
 	}
@@ -56,9 +53,7 @@ func mkDummySrvs(count int, stream []byte, t *testing.T) []url.URL {
 		}))
 		dummySrvs = append(dummySrvs, ts)
 		urlN, err := url.Parse(ts.URL)
-		if err != nil {
-			t.Error(err)
-		}
+		require.NoError(t, err)
 		urls = append(urls, *urlN)
 	}
 	return urls
@@ -120,9 +115,8 @@ func TestTimeoutReader(t *testing.T) {
 	tr := &TimeoutReader{pr, time.Second * 2}
 	for i := 0; i < 4; i++ {
 		_, err := tr.Read(make([]byte, 20))
-		if err != nil {
-			t.Errorf("Timeout was not reached, but error occured %s", err.Error())
-		}
+		require.NoError(t, err,
+			fmt.Sprintf("Timeout was not reached, but error occured %s", err))
 	}
 	tr2 := &TimeoutReader{pr, time.Millisecond}
 	_, err := tr2.Read(make([]byte, 0, 20))
@@ -145,22 +139,4 @@ func TestRequestMultiplication(t *testing.T) {
 	if err2 == nil {
 		t.Errorf("Should get ErrTimeout or ErrBodyContentLengthMismatch")
 	}
-}
-
-func TestMaintainedBackend(t *testing.T) {
-	stream := []byte("zażółć gęślą jaźń 123456789")
-	urls := mkDummySrvs(2, stream, t)
-	req := dummyReq(stream, 0)
-
-	dialer := dial.NewLimitDialer(2, time.Second, time.Second, []url.URL{urls[0]})
-
-	httpTransport := &http.Transport{
-		Dial:                dialer.Dial,
-		DisableKeepAlives:   false,
-		MaxIdleConnsPerHost: 1}
-	transp := mkTransportWithRoundTripper(urls, httpTransport, t)
-
-	resp, err := transp.RoundTrip(req)
-	require.NoError(t, err)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/allegro/akubra/log"
 )
 
 // AccessMessageData holds all important informations
@@ -16,6 +18,7 @@ type AccessMessageData struct {
 	StatusCode int     `json:"status"`
 	Duration   float64 `json:"duration"`
 	RespErr    string  `json:"error"`
+	ReqID      string  `json:"reqID"`
 	Time       string  `json:"ts"`
 }
 
@@ -31,12 +34,14 @@ func (amd AccessMessageData) String() string {
 func NewAccessLogMessage(req http.Request,
 	statusCode int, duration float64, respErr string) *AccessMessageData {
 	ts := time.Now().Format(time.RFC3339Nano)
+	reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
 	return &AccessMessageData{
 		req.Method,
 		req.Host,
 		req.URL.Path,
 		req.Header.Get("User-Agent"),
-		statusCode, duration * 1000, respErr, ts}
+		statusCode, duration * 1000, respErr,
+		reqID, ts}
 }
 
 // ScanCSVAccessLogMessage will scan csv string and return AccessMessageData.
@@ -58,6 +63,7 @@ type SyncLogMessageData struct {
 	SuccessHost string `json:"successhost"`
 	UserAgent   string `json:"useragent"`
 	ErrorMsg    string `json:"error"`
+	ReqID       string `json:"reqID"`
 	Time        string `json:"ts"`
 }
 
@@ -75,9 +81,9 @@ func (slmd SyncLogMessageData) String() string {
 
 // NewSyncLogMessageData creates new SyncLogMessageData
 func NewSyncLogMessageData(method, failedHost, path, successHost, userAgent,
-	errorMsg string) *SyncLogMessageData {
+	reqID, errorMsg string) *SyncLogMessageData {
 	ts := time.Now().Format(time.RFC3339Nano)
 	return &SyncLogMessageData{
 		method, failedHost, path, successHost, userAgent,
-		errorMsg, ts}
+		errorMsg, reqID, ts}
 }

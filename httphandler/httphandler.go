@@ -1,15 +1,15 @@
 package httphandler
 
 import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"io"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/allegro/akubra/config"
-	"github.com/allegro/akubra/dial"
 	"github.com/allegro/akubra/log"
-	"github.com/allegro/akubra/transport"
 )
 
 // Handler implements http.Handler interface
@@ -21,7 +21,17 @@ type Handler struct {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	resp, err := h.roundTripper.RoundTrip(req)
+
+	randomID := make([]byte, 12)
+	_, err := rand.Read(randomID)
+	if err != nil {
+		randomID = []byte("notrandomid")
+	}
+
+	randomIDStr := hex.EncodeToString(randomID)
+	randomIDContext := context.WithValue(req.Context(), log.ContextreqIDKey, randomIDStr)
+	log.Debugf("Request id %s", randomIDStr)
+	resp, err := h.roundTripper.RoundTrip(req.WithContext(randomIDContext))
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -55,36 +65,20 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // ConfigureHTTPTransport returns http.Transport with customized dialer,
 // MaxIdleConnsPerHost and DisableKeepAlives
 func ConfigureHTTPTransport(conf config.Config) (*http.Transport, error) {
+
 	connDuration, err := time.ParseDuration(conf.ConnectionTimeout)
 	if err != nil {
 		return nil, err
 	}
-	var dialer *dial.LimitDialer
-	var maintainedBackendURLs []url.URL
-	if conf.MaintainedBackends != nil {
-		for _, yamlURLS := range conf.MaintainedBackends {
-			maintainedBackendURLs = append(maintainedBackendURLs, *yamlURLS.URL)
-		}
-	}
-
-	dialer = dial.NewLimitDialer(conf.ConnLimit, connDuration, connDuration, maintainedBackendURLs)
 
 	httpTransport := &http.Transport{
-		Dial:                dialer.Dial,
-		DisableKeepAlives:   conf.KeepAlive,
-		MaxIdleConnsPerHost: int(conf.ConnLimit)}
+		MaxIdleConns:          int(conf.ConnLimit),
+		IdleConnTimeout:       connDuration,
+		ResponseHeaderTimeout: connDuration,
+		DisableKeepAlives:     conf.KeepAlive,
+	}
 
 	return httpTransport, nil
-}
-
-// NewMultipleResponseHandler returns a function for a later use in transport.MultiTransport
-func NewMultipleResponseHandler(conf config.Config) transport.MultipleResponsesHandler {
-	rh := responseMerger{
-		conf.Synclog,
-		conf.Mainlog,
-		conf.SyncLogMethodsSet,
-	}
-	return rh.handleResponses
 }
 
 // DecorateRoundTripper applies common http.RoundTripper decorators

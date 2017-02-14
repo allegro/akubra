@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
+
+	"github.com/allegro/akubra/config"
+	"github.com/allegro/akubra/log"
 )
 
 // ReqResErrTuple is intermediate structure for internal use of
@@ -128,7 +132,8 @@ type RequestProcessor func(orig *http.Request, copies []*http.Request)
 type MultiTransport struct {
 	http.RoundTripper
 	// Backends is list of target endpoints URL
-	Backends []url.URL
+	Backends     []url.URL
+	SkipBackends map[string]bool
 	// Response handler will get `ReqResErrTuple` in `in` channel
 	// should process all responses and send one to out chan.
 	// Response senf to out chan will be returned from RoundTrip.
@@ -163,6 +168,7 @@ func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context
 
 	for _, backend := range mt.Backends {
 		req.URL.Host = backend.Host
+		log.Debugf("Replicate request %s, for %s", req.Context().Value(log.ContextreqIDKey), backend.Host)
 		newBody := ioutil.NopCloser(bytes.NewReader(bodyBuffer.Bytes()))
 		r, rerr := http.NewRequest(req.Method, req.URL.String(), newBody)
 		// Copy request data
@@ -188,8 +194,17 @@ func (mt *MultiTransport) sendRequest(
 	ctx := req.Context()
 	o := make(chan *ReqResErrTuple)
 	go func() {
-		resp, err := mt.RoundTripper.RoundTrip(req)
+		if mt.SkipBackends[req.URL.Host] {
+			log.Debugf("Skipping request %s, for %s", req.Context().Value(log.ContextreqIDKey), req.URL.Host)
+			r := &ReqResErrTuple{req, nil, fmt.Errorf("Maintained Backend %s", req.URL.Host), true}
+			o <- r
+			return
+		}
+		resp, err := mt.RoundTripper.RoundTrip(req.WithContext(context.Background()))
 		// report Non 2XX status codes as errors
+		if err != nil {
+			log.Debugf("Send request error %s, %s", err.Error(), ctx.Value(log.ContextreqIDKey))
+		}
 		failed := err != nil || resp != nil && (resp.StatusCode < 200 || resp.StatusCode > 399)
 		r := &ReqResErrTuple{req, resp, err, failed}
 		o <- r
@@ -197,6 +212,7 @@ func (mt *MultiTransport) sendRequest(
 	var reqresperr *ReqResErrTuple
 	select {
 	case <-ctx.Done():
+		log.Debugf("Ctx Done reqID %s ", ctx.Value(log.ContextreqIDKey))
 		reqresperr = &ReqResErrTuple{req, nil, ErrBodyContentLengthMismatch, true}
 	case reqresperr = <-o:
 		break
@@ -207,7 +223,7 @@ func (mt *MultiTransport) sendRequest(
 // RoundTrip satisfies http.RoundTripper interface
 func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	bctx, cancelFunc := context.WithCancel(context.Background())
-
+	bctx = context.WithValue(bctx, log.ContextreqIDKey, req.Context().Value(log.ContextreqIDKey))
 	reqs, err := mt.ReplicateRequests(req, cancelFunc)
 	if err != nil {
 		return nil, err
@@ -241,16 +257,22 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 // are nil will use default ones
 func NewMultiTransport(roundTripper http.RoundTripper,
 	backends []url.URL,
-	responsesHandler MultipleResponsesHandler) *MultiTransport {
+	responsesHandler MultipleResponsesHandler,
+	maintainedBackends []config.YAMLURL) *MultiTransport {
 	if responsesHandler == nil {
 		responsesHandler = DefaultHandleResponses
 	}
 	if roundTripper == nil {
 		roundTripper = http.DefaultTransport
 	}
+	mb := make(map[string]bool, len(maintainedBackends))
+	for _, yurl := range maintainedBackends {
+		mb[yurl.Host] = true
+	}
 
 	return &MultiTransport{
 		RoundTripper:    roundTripper,
 		Backends:        backends,
+		SkipBackends:    mb,
 		HandleResponses: responsesHandler}
 }
