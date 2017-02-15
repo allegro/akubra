@@ -102,6 +102,8 @@ AdditionalRequestHeaders:
 ConnectionTimeout: "3s"
 # Dial timeout on outgoing connections
 ConnectionDialTimeout: "1s"
+# Maximum accepted body size
+BodyMaxSize: "100M"
 # Backend in maintenance mode. Akubra will skip this endpoint
 
 # MaintainedBackends:
