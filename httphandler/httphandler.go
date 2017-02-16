@@ -74,7 +74,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) validateIncomingRequest(req *http.Request) int {
-	var contentLength int64 = 0
+	var contentLength int64
 	contentLengthHeader := req.Header.Get("Content-Length")
 	if contentLengthHeader != "" {
 		var err error
