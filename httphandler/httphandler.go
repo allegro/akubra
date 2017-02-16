@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"io"
 	"net/http"
-	"time"
 	"strconv"
-	"errors"
+	"time"
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/log"
