@@ -27,6 +27,8 @@ type YamlConfig struct {
 	ConnectionTimeout string `yaml:"ConnectionTimeout,omitempty"`
 	// Dial timeout on outgoing connections
 	ConnectionDialTimeout string `yaml:"ConnectionDialTimeout,omitempty"`
+	// Maximum accepted body size
+	BodyMaxSize string `yaml:"BodyMaxSize,omitempty"`
 	// Backend in maintenance mode. Akubra will not send data there
 	MaintainedBackends []YAMLURL `yaml:"MaintainedBackends,omitempty"`
 	// List request methods to be logged in synclog in case of backend failure
