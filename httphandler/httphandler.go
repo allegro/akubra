@@ -74,14 +74,17 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) validateIncomingRequest(req *http.Request) int {
+	var contentLength int64 = 0
 	contentLengthHeader := req.Header.Get("Content-Length")
 	if contentLengthHeader != "" {
-		contentLength, err := strconv.ParseInt(contentLengthHeader, 10, 64)
+		var err error
+		contentLength, err = strconv.ParseInt(contentLengthHeader, 10, 64)
 		if err != nil {
 			return http.StatusBadRequest
-		} else if (contentLength > h.bodyMaxSize) {
-			return http.StatusRequestEntityTooLarge
 		}
+	}
+	if contentLength > h.bodyMaxSize || req.ContentLength > h.bodyMaxSize {
+		return http.StatusRequestEntityTooLarge
 	}
 	return 0
 }
