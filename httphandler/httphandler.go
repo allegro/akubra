@@ -4,12 +4,15 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/log"
+	"github.com/docker/go-units"
 )
 
 // Handler implements http.Handler interface
@@ -18,6 +21,7 @@ type Handler struct {
 	roundTripper http.RoundTripper
 	mainLog      log.Logger
 	accessLog    log.Logger
+	bodyMaxSize  int64
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -26,6 +30,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	_, err := rand.Read(randomID)
 	if err != nil {
 		randomID = []byte("notrandomid")
+	}
+
+	validationCode := h.validateIncomingRequest(req)
+	if validationCode > 0 {
+		log.Printf("Rejected invalid incoming request from %s, code %d", req.RemoteAddr, validationCode)
+		w.WriteHeader(validationCode)
+		return
 	}
 
 	randomIDStr := hex.EncodeToString(randomID)
@@ -62,6 +73,22 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}()
 }
 
+func (h *Handler) validateIncomingRequest(req *http.Request) int {
+	var contentLength int64
+	contentLengthHeader := req.Header.Get("Content-Length")
+	if contentLengthHeader != "" {
+		var err error
+		contentLength, err = strconv.ParseInt(contentLengthHeader, 10, 64)
+		if err != nil {
+			return http.StatusBadRequest
+		}
+	}
+	if contentLength > h.bodyMaxSize || req.ContentLength > h.bodyMaxSize {
+		return http.StatusRequestEntityTooLarge
+	}
+	return 0
+}
+
 // ConfigureHTTPTransport returns http.Transport with customized dialer,
 // MaxIdleConnsPerHost and DisableKeepAlives
 func ConfigureHTTPTransport(conf config.Config) (*http.Transport, error) {
@@ -93,10 +120,15 @@ func DecorateRoundTripper(conf config.Config, rt http.RoundTripper) http.RoundTr
 
 // NewHandlerWithRoundTripper returns Handler, but will not construct transport.MultiTransport by itself
 func NewHandlerWithRoundTripper(conf config.Config, roundTripper http.RoundTripper) (http.Handler, error) {
+	bodyMaxSize, err := units.FromHumanSize(conf.BodyMaxSize)
+	if err != nil {
+		return nil, errors.New("Unable to parse BodyMaxSize: " + err.Error())
+	}
 	return &Handler{
 		config:       conf,
 		mainLog:      conf.Mainlog,
 		accessLog:    conf.Accesslog,
 		roundTripper: roundTripper,
+		bodyMaxSize:  bodyMaxSize,
 	}, nil
 }

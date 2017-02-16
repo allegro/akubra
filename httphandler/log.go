@@ -62,16 +62,17 @@ type SyncLogMessageData struct {
 	Path        string `json:"path"`
 	SuccessHost string `json:"successhost"`
 	UserAgent   string `json:"useragent"`
-	ContentLength string `json:"content-length"`
-	ErrorMsg    string `json:"error"`
-	ReqID       string `json:"reqID"`
-	Time        string `json:"ts"`
+	// ContentLength if negative means no content length header provided
+	ContentLength int64  `json:"content-length"`
+	ErrorMsg      string `json:"error"`
+	ReqID         string `json:"reqID"`
+	Time          string `json:"ts"`
 }
 
 // String produces data in csv format with fields in following order:
 // Method, Host, Path, UserAgent, StatusCode, Duration, RespErr)
 func (slmd SyncLogMessageData) String() string {
-	return fmt.Sprintf("%q, %q, %q, %q, %q, %q",
+	return fmt.Sprintf("%q, %q, %q, %q, %q, %d, %q",
 		slmd.Method,
 		slmd.FailedHost,
 		slmd.Path,
@@ -83,7 +84,7 @@ func (slmd SyncLogMessageData) String() string {
 
 // NewSyncLogMessageData creates new SyncLogMessageData
 func NewSyncLogMessageData(method, failedHost, path, successHost, userAgent,
-	contentLength, reqID, errorMsg string) *SyncLogMessageData {
+	reqID, errorMsg string, contentLength int64) *SyncLogMessageData {
 	ts := time.Now().Format(time.RFC3339Nano)
 	return &SyncLogMessageData{
 		method, failedHost, path, successHost, userAgent,
