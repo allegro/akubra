@@ -12,7 +12,7 @@ import (
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/log"
-	"github.com/docker/go-units"
+	units "github.com/docker/go-units"
 )
 
 // Handler implements http.Handler interface

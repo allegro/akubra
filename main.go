@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"time"
 
+	graceful "gopkg.in/tylerb/graceful.v1"
+
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/sharding"
-	"gopkg.in/tylerb/graceful.v1"
 )
 
 var (
