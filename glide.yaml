@@ -12,6 +12,7 @@ import:
 - package: github.com/sirupsen/logrus
   version: ~0.11.x
 - package: github.com/docker/go-units
+- package: github.com/serialx/hashring
 testImport:
 - package: github.com/stretchr/testify
   version: ~1.1.x

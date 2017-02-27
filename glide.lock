@@ -1,5 +1,5 @@
-hash: 09f5321a92321072fe28ba138e19310ae86d518fdb70b1af969450ec8435247b
-updated: 2017-02-16T09:27:49.251930507+01:00
+hash: 293402de3afa6fe3a3b4137f5f2900ea8b43cc06491fe57e88b827bb695d6122
+updated: 2017-02-27T14:00:57.169542178+01:00
 imports:
 - name: github.com/alecthomas/gometalinter
   version: 8f447961c7bbced95e0612a6a89c764b3c13d291
@@ -17,14 +17,12 @@ imports:
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
 - name: github.com/go-yaml/yaml
   version: e4d366fc3c7938e2958e662b4258c7a89e1f0e3e
-- name: github.com/golang/groupcache
-  version: a6b377e3400b08991b80d6805d627f347f983866
-  subpackages:
-  - consistenthash
+- name: github.com/serialx/hashring
+  version: b686d66ce08cf020eda4758a8e42ccdbe8ff8481
 - name: github.com/sirupsen/logrus
-  version: c078b1e43f58d563c74cebe63c85789e76ddb627
+  version: 0208149b40d863d2c1a2f8fe5753096a9cf2cc8b
 - name: golang.org/x/sys
-  version: e24f485414aeafb646f6fca458b0bf869c0880a1
+  version: e4594059fe4cde2daf423055a596c2cd1e6c9adf
   subpackages:
   - unix
 - name: gopkg.in/tylerb/graceful.v1
