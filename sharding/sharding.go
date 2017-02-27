@@ -10,12 +10,12 @@ import (
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
-	"github.com/golang/groupcache/consistenthash"
+	"github.com/serialx/hashring"
 )
 
 type cluster struct {
 	http.RoundTripper
-	weight   uint64
+	weight   int
 	backends []config.YAMLURL
 	name     string
 }
@@ -71,25 +71,6 @@ func (rf ringFactory) getCluster(name string) (cluster, error) {
 	return s3cluster, nil
 }
 
-func (rf ringFactory) mapShards(weightSum uint64, clientCfg config.ClientConfig) (map[string]cluster, error) {
-	shardClusterMap := make(map[string]cluster, clientCfg.ShardsCount)
-	offset := 0
-	for _, name := range clientCfg.Clusters {
-		clientCluster, err := rf.getCluster(name)
-		if err != nil {
-			return shardClusterMap, err
-		}
-		// shardsNum := float64(clientCfg.ShardsCount * clientCluster.weight) / float64(weightSum)
-		shardsNum := (clientCfg.ShardsCount * clientCluster.weight) / weightSum
-		for i := offset; i < offset+int(shardsNum); i++ {
-			shardName := fmt.Sprintf("%s-%d", clientCfg.Name, i)
-			shardClusterMap[shardName] = clientCluster
-		}
-		offset += int(shardsNum)
-	}
-	return shardClusterMap, nil
-}
-
 func (rf ringFactory) uniqBackends(clientCfg config.ClientConfig) ([]url.URL, error) {
 	allBackendsSet := make(map[config.YAMLURL]bool)
 	log.Debugf("client %v", clientCfg.Clusters)
@@ -111,16 +92,25 @@ func (rf ringFactory) uniqBackends(clientCfg config.ClientConfig) ([]url.URL, er
 	return uniqBackendsSlice, nil
 }
 
-func (rf ringFactory) sumWeights(clusters []string) (uint64, error) {
-	weightSum := uint64(0)
-	for _, name := range clusters {
-		clientCluster, err := rf.getCluster(name)
-		if err != nil {
-			return 0, err
-		}
-		weightSum += clientCluster.weight
+func (rf ringFactory) getClientClusters(clientCfg config.ClientConfig) map[string]int {
+	res := make(map[string]int)
+	for _, clusterName := range clientCfg.Clusters {
+		cluster := rf.conf.Clusters[clusterName]
+		res[clusterName] = cluster.Weight
 	}
-	return weightSum, nil
+	return res
+}
+
+func (rf ringFactory) makeClusterMap(clientClusters map[string]int) (map[string]cluster, error) {
+	res := make(map[string]cluster, len(clientClusters))
+	for name := range clientClusters {
+		cl, err := rf.getCluster(name)
+		if err != nil {
+			return nil, err
+		}
+		res[name] = cl
+	}
+	return res, nil
 }
 
 func (rf ringFactory) createRegressionMap(clusters []string) (map[string]cluster, error) {
@@ -140,26 +130,14 @@ func (rf ringFactory) createRegressionMap(clusters []string) (map[string]cluster
 }
 
 func (rf ringFactory) clientRing(clientCfg config.ClientConfig) (shardsRing, error) {
-	weightSum, err := rf.sumWeights(clientCfg.Clusters)
+	clientClusters := rf.getClientClusters(clientCfg)
 
+	shardClusterMap, err := rf.makeClusterMap(clientClusters)
 	if err != nil {
 		return shardsRing{}, err
 	}
 
-	if weightSum <= 0 {
-		return shardsRing{}, fmt.Errorf("configuration error clusters weigth sum should be greater than 0, got %d", weightSum)
-	}
-
-	shardMap, err := rf.mapShards(weightSum, clientCfg)
-	if err != nil {
-		return shardsRing{}, err
-	}
-
-	cHashMap := consistenthash.New(1, nil)
-	for shardID := range shardMap {
-		cHashMap.Add(shardID)
-	}
-
+	cHashMap := hashring.NewWithWeights(clientClusters)
 	allBackendsSlice, err := rf.uniqBackends(clientCfg)
 	if err != nil {
 		return shardsRing{}, err
@@ -179,7 +157,7 @@ func (rf ringFactory) clientRing(clientCfg config.ClientConfig) (shardsRing, err
 	}
 	return shardsRing{
 		cHashMap,
-		shardMap,
+		shardClusterMap,
 		allBackendsRoundTripper,
 		regressionMap,
 		rf.conf.ClusterSyncLog}, nil
