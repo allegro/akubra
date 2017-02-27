@@ -10,11 +10,11 @@ import (
 	"strings"
 
 	"github.com/allegro/akubra/log"
-	"github.com/golang/groupcache/consistenthash"
+	"github.com/serialx/hashring"
 )
 
 type shardsRing struct {
-	ring                    *consistenthash.Map
+	ring                    *hashring.HashRing
 	shardClusterMap         map[string]cluster
 	allClustersRoundTripper http.RoundTripper
 	clusterRegressionMap    map[string]cluster
@@ -29,7 +29,7 @@ func (sr shardsRing) isBucketPath(path string) bool {
 func (sr shardsRing) Pick(key string) (cluster, error) {
 	var shardName string
 
-	shardName = sr.ring.Get(key)
+	shardName, _ = sr.ring.GetNode(key)
 	shardCluster, ok := sr.shardClusterMap[shardName]
 	if !ok {
 		return cluster{}, fmt.Errorf("no cluster for shard %s, cannot handle key %s", shardName, key)

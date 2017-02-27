@@ -84,7 +84,7 @@ type ClusterConfig struct {
 	// Type, currently replicator is only option
 	Type string `yaml:"Type,omitempty"`
 	// Points how much load cluster should handle
-	Weight uint64 `yaml:"Weight,omitempty"`
+	Weight int `yaml:"Weight,omitempty"`
 	// Cluster type specific options
 	Options map[string]string `yaml:"Options,omitempty"`
 }
@@ -95,8 +95,6 @@ type ClientConfig struct {
 	Name string `yaml:"Name,omitempty"`
 	// List of clusters name
 	Clusters []string `yaml:"Clusters,omitempty"`
-	// Total number of shards
-	ShardsCount uint64 `yaml:"ShardsCount,omitempty"`
 }
 
 // Parse json config

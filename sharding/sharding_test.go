@@ -72,9 +72,8 @@ func configure(backends []config.YAMLURL) config.Config {
 	clustersConf["cluster1"] = defaultClusterConfig
 
 	clientCfg := &config.ClientConfig{
-		Name:        "client1",
-		Clusters:    []string{"cluster1"},
-		ShardsCount: 20,
+		Name:     "client1",
+		Clusters: []string{"cluster1"},
 	}
 
 	return config.Config{
@@ -157,7 +156,7 @@ func TestTwoClustersOnRing(t *testing.T) {
 	require.NoError(t, err, "cannot read response")
 	assert.Equal(t, response1, respBody, fmt.Sprintf("Expected %q", response1))
 
-	req2, _ := http.NewRequest("GET", "http://example.com/myindex/a", reader)
+	req2, _ := http.NewRequest("GET", "http://example.com/myindex/aba", reader)
 	resp2, err2 := clientRing.RoundTrip(req2)
 	require.NoError(t, err2)
 

@@ -35,12 +35,12 @@ Clusters:
     # Set type, aviable: replicator
     Type: "replicator"
     # Weight
-    Weight: 1
+    Weight: 100
     Backends:
       - http://127.0.0.1:9001
   cluster2:
     Type: "replicator"
-    Weight: 1
+    Weight: 100
     Backends:
       - http://127.0.0.1:9002
 Client:
@@ -48,7 +48,6 @@ Client:
   Clusters:
     - cluster1
     - cluster2
-  ShardsCount: 10000
 
 Logging:
   Synclog:
