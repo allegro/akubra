@@ -19,7 +19,7 @@ type responseMerger struct {
 	fifo            bool
 }
 
-func (rd *responseMerger) synclog(r, successfulTup *transport.ReqResErrTuple) {
+func (rd *responseMerger) synclog(r, successfulTup transport.ReqResErrTuple) {
 	// don't log if request method was not included in configuration
 	if rd.methodSetFilter == nil || !rd.methodSetFilter.Contains(r.Req.Method) {
 		return
@@ -29,7 +29,7 @@ func (rd *responseMerger) synclog(r, successfulTup *transport.ReqResErrTuple) {
 		return
 	}
 	// do not log if there was no successful response
-	if successfulTup == nil {
+	if (successfulTup == transport.ReqResErrTuple{}) {
 		return
 	}
 	// log error entry
@@ -62,10 +62,10 @@ func (rd *responseMerger) synclog(r, successfulTup *transport.ReqResErrTuple) {
 }
 
 func (rd *responseMerger) handleFailedResponces(
-	tups []*transport.ReqResErrTuple,
-	out chan<- *transport.ReqResErrTuple,
+	tups []transport.ReqResErrTuple,
+	out chan<- transport.ReqResErrTuple,
 	alreadysent bool,
-	successfulTup *transport.ReqResErrTuple,
+	successfulTup transport.ReqResErrTuple,
 	logMethodSet set.Set) bool {
 
 	for _, r := range tups {
@@ -88,10 +88,10 @@ func (rd *responseMerger) handleFailedResponces(
 	return alreadysent
 }
 
-func (rd *responseMerger) _handle(in <-chan *transport.ReqResErrTuple, out chan<- *transport.ReqResErrTuple) {
-	var successfulTup *transport.ReqResErrTuple
-	errs := []*transport.ReqResErrTuple{}
-	nonErrs := []*transport.ReqResErrTuple{}
+func (rd *responseMerger) _handle(in <-chan transport.ReqResErrTuple, out chan<- transport.ReqResErrTuple) {
+	var successfulTup transport.ReqResErrTuple
+	errs := []transport.ReqResErrTuple{}
+	nonErrs := []transport.ReqResErrTuple{}
 	firstPassed := false
 
 	for {
@@ -137,8 +137,8 @@ func (rd *responseMerger) _handle(in <-chan *transport.ReqResErrTuple, out chan<
 	rd.handleFailedResponces(errs, out, firstPassed, successfulTup, rd.methodSetFilter)
 }
 
-func (rd *responseMerger) handleResponses(in <-chan *transport.ReqResErrTuple) *transport.ReqResErrTuple {
-	out := make(chan *transport.ReqResErrTuple, 1)
+func (rd *responseMerger) handleResponses(in <-chan transport.ReqResErrTuple) transport.ReqResErrTuple {
+	out := make(chan transport.ReqResErrTuple, 1)
 	go func() {
 		rd._handle(in, out)
 		close(out)

@@ -1,5 +1,5 @@
-hash: 293402de3afa6fe3a3b4137f5f2900ea8b43cc06491fe57e88b827bb695d6122
-updated: 2017-02-27T14:00:57.169542178+01:00
+hash: 18fff8557a4452d10fe89e20d00c01bcfcae06f70efe7985e6a302304f388e81
+updated: 2017-03-03T17:28:16.294147182+01:00
 imports:
 - name: github.com/alecthomas/gometalinter
   version: 8f447961c7bbced95e0612a6a89c764b3c13d291
@@ -11,12 +11,16 @@ imports:
   - parse
 - name: github.com/alecthomas/units
   version: 2efee857e7cfd4f3d0138cc3cbb1b4966962b93a
+- name: github.com/cyberdelia/go-metrics-graphite
+  version: 39f87cc3b432bbb898d7c643c0e93cac2bc865ad
 - name: github.com/deckarep/golang-set
   version: 52ba7f28f319e9d560acbf47c7fcf9b9ee7aa7d3
 - name: github.com/docker/go-units
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
 - name: github.com/go-yaml/yaml
   version: e4d366fc3c7938e2958e662b4258c7a89e1f0e3e
+- name: github.com/rcrowley/go-metrics
+  version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
 - name: github.com/serialx/hashring
   version: b686d66ce08cf020eda4758a8e42ccdbe8ff8481
 - name: github.com/sirupsen/logrus

@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/metrics"
 	set "github.com/deckarep/golang-set"
 	"github.com/go-yaml/yaml"
 )
@@ -15,29 +16,30 @@ import (
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
 	// Listen interface and port e.g. "0:8000", "localhost:9090", ":80"
-	Listen string `yaml:"Listen,omitempty"`
-	// Limit of outgoing connections. When limit is reached, akubra will omit external backend
-	// with greatest number of stalled connections
-	ConnLimit int64 `yaml:"ConnLimit,omitempty"`
-	// Additional not amazon specific headers proxy will add to original request
-	AdditionalRequestHeaders map[string]string `yaml:"AdditionalRequestHeaders,omitempty"`
-	// Additional headers added to backend response
-	AdditionalResponseHeaders map[string]string `yaml:"AdditionalResponseHeaders,omitempty"`
-	// Read timeout on outgoing connections
+	Listen            string `yaml:"Listen,omitempty"`
 	ConnectionTimeout string `yaml:"ConnectionTimeout,omitempty"`
 	// Dial timeout on outgoing connections
 	ConnectionDialTimeout string `yaml:"ConnectionDialTimeout,omitempty"`
 	// Maximum accepted body size
 	BodyMaxSize string `yaml:"BodyMaxSize,omitempty"`
+	// Limit of outgoing connections. When limit is reached, akubra will omit external backend
+	// with greatest number of stalled connections
+	ConnLimit int64                    `yaml:"ConnLimit,omitempty"`
+	Clusters  map[string]ClusterConfig `yaml:"Clusters,omitempty"`
+	// Additional not amazon specific headers proxy will add to original request
+	AdditionalRequestHeaders map[string]string `yaml:"AdditionalRequestHeaders,omitempty"`
+	// Additional headers added to backend response
+	AdditionalResponseHeaders map[string]string `yaml:"AdditionalResponseHeaders,omitempty"`
+	// Read timeout on outgoing connections
 	// Backend in maintenance mode. Akubra will not send data there
 	MaintainedBackends []YAMLURL `yaml:"MaintainedBackends,omitempty"`
 	// List request methods to be logged in synclog in case of backend failure
 	SyncLogMethods []string `yaml:"SyncLogMethods,omitempty"`
 	// Should we keep alive connections with backend servers
-	KeepAlive bool                     `yaml:"KeepAlive"`
-	Clusters  map[string]ClusterConfig `yaml:"Clusters,omitempty"`
-	Client    *ClientConfig            `yaml:"Client,omitempty"`
-	Logging   LoggingConfig            `yaml:"Logging,omitempty"`
+	Client    *ClientConfig  `yaml:"Client,omitempty"`
+	Logging   LoggingConfig  `yaml:"Logging,omitempty"`
+	Metrics   metrics.Config `yaml:"Metrics,omitempty"`
+	KeepAlive bool           `yaml:"KeepAlive"`
 }
 
 // LoggingConfig contains Loggers configuration
