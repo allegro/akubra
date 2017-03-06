@@ -155,6 +155,24 @@ Logging:
   #  file: "/var/log/akubra/access.log"  # default: ""
   #  syslog: LOG_LOCAL3  # default: LOG_LOCAL3
 
+# Enable metrics collection
+Metrics:
+  # Possible targets: "graphite", "expvar", "stdout"
+  Target: graphite
+  # Expvar handler listener address
+  ExpAddr: ":8080"
+  # How often metrics should be released, applicable for "graphite" and "stdout"
+  Interval: 20s
+  # Graphite metrics prefix path
+  Prefix: my.metrics
+  # Shall prefix be suffixed with "<hostname>.<process>"
+  AppendDefaults: true
+  # Graphite collector address
+  Addr: graphite.addr.internal:2003
+  # Debug includes runtime.MemStats metrics
+  Debug: false
+
+
 ```
 
 ## Limitations

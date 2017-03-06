@@ -11,6 +11,7 @@ import (
 
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/config"
+	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/sharding"
 )
 
@@ -57,6 +58,12 @@ func (s *service) start() error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("metrics conf %v", s.conf.Metrics)
+	err = metrics.Init(s.conf.Metrics)
+
+	if err != nil {
+		return err
+	}
 
 	srv := &graceful.Server{
 		Server: &http.Server{
@@ -72,7 +79,6 @@ func (s *service) start() error {
 	if err != nil {
 		return err
 	}
-
 	return srv.Serve(listener)
 }
 
