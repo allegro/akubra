@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
-	"strconv"
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/log"
@@ -38,11 +37,7 @@ func (rd *responseMerger) synclog(r, successfulTup transport.ReqResErrTuple) {
 		errorMsg = r.Err.Error()
 	}
 
-	contentLengthStr := successfulTup.Res.Header.Get("Content-Length")
-	contentLength, err := strconv.ParseInt(contentLengthStr, 10, 64)
-	if err != nil {
-		contentLength = -1
-	}
+	contentLength := successfulTup.Res.ContentLength
 
 	reqID := r.Req.Context().Value(log.ContextreqIDKey).(string)
 	syncLogMsg := NewSyncLogMessageData(
