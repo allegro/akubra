@@ -14,6 +14,7 @@ import (
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/metrics"
 )
 
 // ReqResErrTuple is intermediate structure for internal use of
@@ -31,11 +32,11 @@ type ReqResErrTuple struct {
 
 // MultipleResponsesHandler should handle chan of incomming ReqResErrTuple
 // returned value's response and error will be passed to client
-type MultipleResponsesHandler func(in <-chan *ReqResErrTuple) *ReqResErrTuple
+type MultipleResponsesHandler func(in <-chan ReqResErrTuple) ReqResErrTuple
 
-func defaultHandleResponses(in <-chan *ReqResErrTuple, out chan<- *ReqResErrTuple) {
-	errs := []*ReqResErrTuple{}
-	clearBody := []*ReqResErrTuple{}
+func defaultHandleResponses(in <-chan ReqResErrTuple, out chan<- ReqResErrTuple) {
+	errs := []ReqResErrTuple{}
+	clearBody := []ReqResErrTuple{}
 	respPassed := false
 	for {
 		r, ok := <-in
@@ -73,7 +74,7 @@ func defaultHandleResponses(in <-chan *ReqResErrTuple, out chan<- *ReqResErrTupl
 
 }
 
-func clearResponsesBody(respTups []*ReqResErrTuple) {
+func clearResponsesBody(respTups []ReqResErrTuple) {
 	for _, rtup := range respTups {
 		if rtup.Res != nil {
 			_, err := io.Copy(ioutil.Discard, rtup.Res.Body)
@@ -87,8 +88,8 @@ func clearResponsesBody(respTups []*ReqResErrTuple) {
 // DefaultHandleResponses is default way of handling multiple responses.
 // It will pass first success response or any error if no
 // success occured
-func DefaultHandleResponses(in <-chan *ReqResErrTuple) *ReqResErrTuple {
-	out := make(chan *ReqResErrTuple, 1)
+func DefaultHandleResponses(in <-chan ReqResErrTuple) ReqResErrTuple {
+	out := make(chan ReqResErrTuple, 1)
 	go defaultHandleResponses(in, out)
 	return <-out
 }
@@ -188,15 +189,32 @@ func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context
 	return reqs, err
 }
 
+func collectMetrics(req *http.Request, reqresperr ReqResErrTuple, since time.Time) {
+	host := metrics.Clean(req.URL.Host)
+	metrics.UpdateSince("reqs.backend."+host+".all", since)
+	if reqresperr.Err != nil {
+		metrics.UpdateSince("reqs.backend."+host+".err", since)
+	}
+	if reqresperr.Res != nil {
+		statusName := fmt.Sprintf("reqs.backend."+host+".status_%d", reqresperr.Res.StatusCode)
+		metrics.UpdateSince(statusName, since)
+	}
+	if reqresperr.Req != nil {
+		methodName := fmt.Sprintf("reqs.backend."+host+".method_%s", reqresperr.Req.Method)
+		metrics.UpdateSince(methodName, since)
+	}
+}
+
 func (mt *MultiTransport) sendRequest(
 	req *http.Request,
-	out chan *ReqResErrTuple) {
+	out chan ReqResErrTuple) {
+	since := time.Now()
 	ctx := req.Context()
-	o := make(chan *ReqResErrTuple)
+	o := make(chan ReqResErrTuple)
 	go func() {
 		if mt.SkipBackends[req.URL.Host] {
 			log.Debugf("Skipping request %s, for %s", req.Context().Value(log.ContextreqIDKey), req.URL.Host)
-			r := &ReqResErrTuple{req, nil, fmt.Errorf("Maintained Backend %s", req.URL.Host), true}
+			r := ReqResErrTuple{req, nil, fmt.Errorf("Maintained Backend %s", req.URL.Host), true}
 			o <- r
 			return
 		}
@@ -206,14 +224,16 @@ func (mt *MultiTransport) sendRequest(
 			log.Debugf("Send request error %s, %s", err.Error(), ctx.Value(log.ContextreqIDKey))
 		}
 		failed := err != nil || resp != nil && (resp.StatusCode < 200 || resp.StatusCode > 399)
-		r := &ReqResErrTuple{req, resp, err, failed}
+		r := ReqResErrTuple{req, resp, err, failed}
 		o <- r
 	}()
-	var reqresperr *ReqResErrTuple
+	var reqresperr ReqResErrTuple
+	defer collectMetrics(req, reqresperr, since)
+
 	select {
 	case <-ctx.Done():
 		log.Debugf("Ctx Done reqID %s ", ctx.Value(log.ContextreqIDKey))
-		reqresperr = &ReqResErrTuple{req, nil, ErrBodyContentLengthMismatch, true}
+		reqresperr = ReqResErrTuple{req, nil, ErrBodyContentLengthMismatch, true}
 	case reqresperr = <-o:
 		break
 	}
@@ -229,7 +249,7 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 		return nil, err
 	}
 
-	c := make(chan *ReqResErrTuple, len(reqs))
+	c := make(chan ReqResErrTuple, len(reqs))
 	if len(reqs) == 0 {
 		return nil, errors.New("No requests provided")
 	}

@@ -4,6 +4,7 @@ import (
 	"io"
 	"log/syslog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -107,7 +108,18 @@ type PlainTextFormatter struct{}
 
 // Format implements logrus.Formatter interface
 func (f PlainTextFormatter) Format(entry *logrus.Entry) ([]byte, error) {
-	return []byte(entry.Message + "\n"), nil
+
+	return []byte(strings.TrimSuffix(entry.Message, "\n") + "\n"), nil
+}
+
+type stripMessageNewLineFormatter struct {
+	logrus.Formatter
+}
+
+// Format implements logrus.Formatter interface
+func (f stripMessageNewLineFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	entry.Message = strings.TrimSuffix(entry.Message, "\n")
+	return f.Formatter.Format(entry)
 }
 
 // NewLogger creates Logger
@@ -120,10 +132,11 @@ func NewLogger(config LoggerConfig) (Logger, error) {
 
 	var formatter logrus.Formatter
 
-	formatter = &logrus.TextFormatter{
-		FullTimestamp:   true,
-		TimestampFormat: time.StampMicro,
-	}
+	formatter = stripMessageNewLineFormatter{
+		&logrus.TextFormatter{
+			FullTimestamp:   true,
+			TimestampFormat: time.StampMicro,
+		}}
 
 	if config.PlainText {
 		formatter = PlainTextFormatter{}

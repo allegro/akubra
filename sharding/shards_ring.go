@@ -8,8 +8,10 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/metrics"
 	"github.com/serialx/hashring"
 )
 
@@ -121,7 +123,23 @@ func (sr *shardsRing) logInconsistency(key, expectedClusterName, actualClusterNa
 	}
 }
 
-func (sr shardsRing) RoundTrip(req *http.Request) (*http.Response, error) {
+func (sr shardsRing) RoundTrip(req *http.Request) (resp *http.Response, rerr error) {
+	since := time.Now()
+	defer func() {
+		metrics.UpdateSince("reqs.global.all", since)
+		if rerr != nil {
+			metrics.UpdateSince("reqs.global.err", since)
+		}
+		if resp != nil {
+			name := fmt.Sprintf("reqs.global.status_%d", resp.StatusCode)
+			metrics.UpdateSince(name, since)
+		}
+		if req != nil {
+			methodName := fmt.Sprintf("reqs.global.method_%s", req.Method)
+			metrics.UpdateSince(methodName, since)
+		}
+	}()
+
 	reqCopy, err := copyRequest(req)
 	if err != nil {
 		return nil, err

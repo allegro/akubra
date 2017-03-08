@@ -69,3 +69,7 @@ Logging:
   #  file: "/var/log/akubra/access.log"  # default: ""
   #  syslog: LOG_LOCAL3  # default: LOG_LOCAL3
 
+Metrics:
+  Target: expvar
+  ExpAddr: ":9089"
+
