@@ -10,6 +10,7 @@ import (
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
+	units "github.com/docker/go-units"
 	"github.com/serialx/hashring"
 )
 
@@ -184,7 +185,14 @@ func NewHandler(conf config.Config) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	// go func() {
+	// 	for {
+	// 		select {
+	// 		case <- time.After(time.Second):
+	// 			httptransp.CloseIdleConnections()
+	// 		}
+	// 	}
+	// }()
 	rings := newRingFactory(conf, httptransp)
 	// TODO: Multiple clients
 	ring, err := rings.clientRing(*conf.Client)
@@ -195,5 +203,10 @@ func NewHandler(conf config.Config) (http.Handler, error) {
 	conf.Mainlog.Printf("Ring sharded into %d partitions", len(ring.shardClusterMap))
 
 	roundTripper := httphandler.DecorateRoundTripper(conf, ring)
-	return httphandler.NewHandlerWithRoundTripper(conf, roundTripper)
+	bodyMaxSize, err := units.FromHumanSize(conf.BodyMaxSize)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to parse BodyMaxSize: %s" + err.Error())
+	}
+
+	return httphandler.NewHandlerWithRoundTripper(roundTripper, bodyMaxSize)
 }

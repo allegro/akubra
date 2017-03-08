@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/rcrowley/go-metrics"
+	metrics "github.com/rcrowley/go-metrics"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -136,7 +136,7 @@ func TestInit_DefaultPrefix(t *testing.T) {
 	Clear()
 }
 
-func TestInit_DefaultPrefix_WithErrors(t *testing.T) {
+func TestInit_DefaultPrefix_WithoutErrors(t *testing.T) {
 	// given
 	hostname = func() (string, error) { return "myhost", nil }
 	os.Args = []string{"./myapp"}

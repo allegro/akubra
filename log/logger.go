@@ -112,12 +112,12 @@ func (f PlainTextFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return []byte(strings.TrimSuffix(entry.Message, "\n") + "\n"), nil
 }
 
-type StripMessageNewLineFormatter struct {
+type stripMessageNewLineFormatter struct {
 	logrus.Formatter
 }
 
 // Format implements logrus.Formatter interface
-func (f StripMessageNewLineFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+func (f stripMessageNewLineFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	entry.Message = strings.TrimSuffix(entry.Message, "\n")
 	return f.Formatter.Format(entry)
 }
@@ -132,7 +132,7 @@ func NewLogger(config LoggerConfig) (Logger, error) {
 
 	var formatter logrus.Formatter
 
-	formatter = StripMessageNewLineFormatter{
+	formatter = stripMessageNewLineFormatter{
 		&logrus.TextFormatter{
 			FullTimestamp:   true,
 			TimestampFormat: time.StampMicro,

@@ -3,7 +3,7 @@ package metrics
 import (
 	"runtime"
 
-	"github.com/rcrowley/go-metrics"
+	metrics "github.com/rcrowley/go-metrics"
 )
 
 const allocGauge = "runtime.mem.bytes_allocated_and_not_yet_freed"

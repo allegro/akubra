@@ -13,7 +13,6 @@ import (
 
 type responseMerger struct {
 	syncerrlog      log.Logger
-	runtimeLog      log.Logger
 	methodSetFilter set.Set
 	fifo            bool
 }
@@ -75,7 +74,11 @@ func (rd *responseMerger) handleFailedResponces(
 		if r.Res != nil && r.Res.Body != nil {
 			_, err := io.Copy(ioutil.Discard, r.Res.Body)
 			if err != nil {
-				rd.runtimeLog.Printf("Could not discard body %s", err)
+				log.Printf("Could not discard body %s", err)
+			}
+			err = r.Res.Body.Close()
+			if err != nil {
+				log.Printf("Could not close body %s", err)
 			}
 		}
 	}
@@ -146,7 +149,6 @@ func (rd *responseMerger) handleResponses(in <-chan transport.ReqResErrTuple) tr
 func EarliestResponseHandler(conf config.Config) transport.MultipleResponsesHandler {
 	rh := responseMerger{
 		conf.Synclog,
-		conf.Mainlog,
 		conf.SyncLogMethodsSet,
 		true,
 	}
@@ -159,7 +161,6 @@ func EarliestResponseHandler(conf config.Config) transport.MultipleResponsesHand
 func LateResponseHandler(conf config.Config) transport.MultipleResponsesHandler {
 	rh := responseMerger{
 		conf.Synclog,
-		conf.Mainlog,
 		conf.SyncLogMethodsSet,
 		false,
 	}

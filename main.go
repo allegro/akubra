@@ -39,8 +39,6 @@ func main() {
 
 	mainlog := conf.Mainlog
 	mainlog.Printf("starting on port %s", conf.Listen)
-	mainlog.Printf("connlimit %v", conf.ConnLimit)
-	mainlog.Printf("connection timeout %v", conf.ConnectionTimeout)
 	srv := newService(conf)
 	startErr := srv.start()
 	if startErr != nil {

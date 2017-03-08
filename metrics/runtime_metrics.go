@@ -3,7 +3,7 @@ package metrics
 import (
 	"runtime"
 
-	"github.com/rcrowley/go-metrics"
+	metrics "github.com/rcrowley/go-metrics"
 )
 
 const goroutinesNumGauge = "runtime.goroutines_num"

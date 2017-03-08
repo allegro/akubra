@@ -16,16 +16,23 @@ import (
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
 	// Listen interface and port e.g. "0:8000", "localhost:9090", ":80"
-	Listen            string `yaml:"Listen,omitempty"`
-	ConnectionTimeout string `yaml:"ConnectionTimeout,omitempty"`
-	// Dial timeout on outgoing connections
-	ConnectionDialTimeout string `yaml:"ConnectionDialTimeout,omitempty"`
+	Listen string `yaml:"Listen,omitempty"`
 	// Maximum accepted body size
 	BodyMaxSize string `yaml:"BodyMaxSize,omitempty"`
-	// Limit of outgoing connections. When limit is reached, akubra will omit external backend
-	// with greatest number of stalled connections
-	ConnLimit int64                    `yaml:"ConnLimit,omitempty"`
-	Clusters  map[string]ClusterConfig `yaml:"Clusters,omitempty"`
+	// MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
+	// Default 0 (no limit)
+	MaxIdleConns int `yaml:"MaxIdleConns"`
+	// MaxIdleConnsPerHost see: https://golang.org/pkg/net/http/#Transport
+	// Default 100
+	MaxIdleConnsPerHost int `yaml:"MaxIdleConnsPerHost"`
+	// IdleConnTimeout see: https://golang.org/pkg/net/http/#Transport
+	// Default 0 (no limit)
+	IdleConnTimeout metrics.Interval `yaml:"IdleConnTimeout"`
+	// ResponseHeaderTimeout see: https://golang.org/pkg/net/http/#Transport
+	// Default 5s (no limit)
+	ResponseHeaderTimeout metrics.Interval `yaml:"ResponseHeaderTimeout"`
+
+	Clusters map[string]ClusterConfig `yaml:"Clusters,omitempty"`
 	// Additional not amazon specific headers proxy will add to original request
 	AdditionalRequestHeaders map[string]string `yaml:"AdditionalRequestHeaders,omitempty"`
 	// Additional headers added to backend response
@@ -36,10 +43,10 @@ type YamlConfig struct {
 	// List request methods to be logged in synclog in case of backend failure
 	SyncLogMethods []string `yaml:"SyncLogMethods,omitempty"`
 	// Should we keep alive connections with backend servers
-	Client    *ClientConfig  `yaml:"Client,omitempty"`
-	Logging   LoggingConfig  `yaml:"Logging,omitempty"`
-	Metrics   metrics.Config `yaml:"Metrics,omitempty"`
-	KeepAlive bool           `yaml:"KeepAlive"`
+	Client            *ClientConfig  `yaml:"Client,omitempty"`
+	Logging           LoggingConfig  `yaml:"Logging,omitempty"`
+	Metrics           metrics.Config `yaml:"Metrics,omitempty"`
+	DisableKeepAlives bool           `yaml:"DisableKeepAlives"`
 }
 
 // LoggingConfig contains Loggers configuration

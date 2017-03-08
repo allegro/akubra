@@ -1,8 +1,5 @@
 # Listen interface and port e.g. "0:8000", "localhost:9090", ":80"
 Listen: ":8080"
-# Limit of outgoing connections. When limit is reached, Akubra will omit external backend
-# with greatest number of stalled connections
-ConnLimit: 100
 # Additional not AWS S3 specific headers proxy will add to original request
 AdditionalResponseHeaders:
     'Access-Control-Allow-Origin': "*"
@@ -13,14 +10,24 @@ AdditionalResponseHeaders:
 AdditionalRequestHeaders:
     'Cache-Control': "public, s-maxage=600, max-age=600"
     'X-Akubra-Version': '0.9.26'
-# Read timeout on outgoing connections
-ConnectionTimeout: "3s"
-# Dial timeout on outgoing connections
-ConnectionDialTimeout: "1s"
 # Maximum accepted body size
 BodyMaxSize: "100M"
 # Backend in maintenance mode. Akubra will skip this endpoint
-
+# MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
+# Default 0 (no limit)
+MaxIdleConns: 0
+# MaxIdleConnsPerHost see: https://golang.org/pkg/net/http/#Transport
+# Default 100
+MaxIdleConnsPerHost: 100
+# IdleConnTimeout see: https://golang.org/pkg/net/http/#Transport
+# Default 0 (no limit)
+IdleConnTimeout: 0s
+# ResponseHeaderTimeout see: https://golang.org/pkg/net/http/#Transport
+# Default 5s (no limit)
+ResponseHeaderTimeout: 5s
+# DisableKeepAlives see: https://golang.org/pkg/net/http/#Transport
+# Default false
+DisableKeepAlives: false
 # MaintainedBackends:
 #   - "http://127.0.0.1:9002"
 
