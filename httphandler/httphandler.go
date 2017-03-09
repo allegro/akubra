@@ -108,6 +108,7 @@ func ConfigureHTTPTransport(conf config.Config) (*http.Transport, error) {
 		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
 		IdleConnTimeout:       conf.IdleConnTimeout.Duration,
 		ResponseHeaderTimeout: responseHeaderTimeout,
+		DisableKeepAlives:     conf.DisableKeepAlives,
 	}
 
 	return httpTransport, nil
