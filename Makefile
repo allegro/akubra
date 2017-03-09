@@ -9,7 +9,8 @@ lint: deps-lint
 	--disable=dupl \
 	--deadline=600s \
 	--enable=goimports \
-	--vendor
+	--vendor \
+        --fast
 
 deps:
 	go get github.com/Masterminds/glide
