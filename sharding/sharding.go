@@ -185,14 +185,7 @@ func NewHandler(conf config.Config) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	// go func() {
-	// 	for {
-	// 		select {
-	// 		case <- time.After(time.Second):
-	// 			httptransp.CloseIdleConnections()
-	// 		}
-	// 	}
-	// }()
+
 	rings := newRingFactory(conf, httptransp)
 	// TODO: Multiple clients
 	ring, err := rings.clientRing(*conf.Client)

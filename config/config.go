@@ -41,12 +41,12 @@ type YamlConfig struct {
 	// Backend in maintenance mode. Akubra will not send data there
 	MaintainedBackends []YAMLURL `yaml:"MaintainedBackends,omitempty"`
 	// List request methods to be logged in synclog in case of backend failure
-	SyncLogMethods []string `yaml:"SyncLogMethods,omitempty"`
+	SyncLogMethods []string       `yaml:"SyncLogMethods,omitempty"`
+	Client         *ClientConfig  `yaml:"Client,omitempty"`
+	Logging        LoggingConfig  `yaml:"Logging,omitempty"`
+	Metrics        metrics.Config `yaml:"Metrics,omitempty"`
 	// Should we keep alive connections with backend servers
-	Client            *ClientConfig  `yaml:"Client,omitempty"`
-	Logging           LoggingConfig  `yaml:"Logging,omitempty"`
-	Metrics           metrics.Config `yaml:"Metrics,omitempty"`
-	DisableKeepAlives bool           `yaml:"DisableKeepAlives"`
+	DisableKeepAlives bool `yaml:"DisableKeepAlives"`
 }
 
 // LoggingConfig contains Loggers configuration
