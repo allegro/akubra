@@ -13,6 +13,11 @@ import (
 	"github.com/allegro/akubra/log"
 )
 
+const (
+	defaultMaxIdleConnsPerHost   = 100
+	defaultResponseHeaderTimeout = 5 * time.Second
+)
+
 // Handler implements http.Handler interface
 type Handler struct {
 	roundTripper http.RoundTripper
@@ -87,14 +92,17 @@ func (h *Handler) validateIncomingRequest(req *http.Request) int {
 // ConfigureHTTPTransport returns http.Transport with customized dialer,
 // MaxIdleConnsPerHost and DisableKeepAlives
 func ConfigureHTTPTransport(conf config.Config) (*http.Transport, error) {
-	maxIdleConnsPerHost := 100
+	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
+	responseHeaderTimeout := defaultResponseHeaderTimeout
+
 	if conf.MaxIdleConnsPerHost != 0 {
 		maxIdleConnsPerHost = conf.MaxIdleConnsPerHost
 	}
-	responseHeaderTimeout := 5 * time.Second
+
 	if conf.ResponseHeaderTimeout.Duration != 0 {
 		responseHeaderTimeout = conf.ResponseHeaderTimeout.Duration
 	}
+
 	httpTransport := &http.Transport{
 		MaxIdleConns:          conf.MaxIdleConns,
 		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
