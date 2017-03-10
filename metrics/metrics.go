@@ -7,14 +7,16 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/allegro/akubra/log"
+
 	graphite "github.com/cyberdelia/go-metrics-graphite"
 	metrics "github.com/rcrowley/go-metrics"
+
+	"github.com/ShowMax/go-fqdn"
 	"github.com/rcrowley/go-metrics/exp"
 )
 
@@ -137,11 +139,7 @@ func appendDefaults(prefix string) (string, error) {
 
 // stubbed out for testing
 var hostname = func() (string, error) {
-	out, err := exec.Command("hostname", "-f").Output()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return strings.Trim(fmt.Sprintf("%s", out), "\n "), err
+	return fqdn.Get(), nil
 }
 
 func defaultPrefix() (string, error) {

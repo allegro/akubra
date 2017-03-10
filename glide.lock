@@ -1,5 +1,5 @@
-hash: 18fff8557a4452d10fe89e20d00c01bcfcae06f70efe7985e6a302304f388e81
-updated: 2017-03-03T17:28:16.294147182+01:00
+hash: 550de3213aa6fafb6479d804399be007830d4043f06aa4e9b8a136adba2c1660
+updated: 2017-03-10T13:45:57.204094188+01:00
 imports:
 - name: github.com/alecthomas/gometalinter
   version: 8f447961c7bbced95e0612a6a89c764b3c13d291
@@ -21,8 +21,12 @@ imports:
   version: e4d366fc3c7938e2958e662b4258c7a89e1f0e3e
 - name: github.com/rcrowley/go-metrics
   version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
+  subpackages:
+  - exp
 - name: github.com/serialx/hashring
   version: b686d66ce08cf020eda4758a8e42ccdbe8ff8481
+- name: github.com/ShowMax/go-fqdn
+  version: 2501cdd51ef4c60dd727c58b2199e1a09466b10f
 - name: github.com/sirupsen/logrus
   version: 0208149b40d863d2c1a2f8fe5753096a9cf2cc8b
 - name: golang.org/x/sys
