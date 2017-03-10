@@ -15,6 +15,7 @@ import:
 - package: github.com/serialx/hashring
 - package: github.com/rcrowley/go-metrics
 - package: github.com/cyberdelia/go-metrics-graphite
+- package: github.com/ShowMax/go-fqdn
 testImport:
 - package: github.com/stretchr/testify
   version: ~1.1.x
