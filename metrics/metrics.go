@@ -52,7 +52,7 @@ func UpdateGauge(name string, value int64) {
 	gauge.Update(value)
 }
 
-func setupPrefix(cfg Config) (string, error) {
+func setupPrefix(cfg Config) string {
 	pfx = cfg.Prefix
 	if pfx == "default" {
 		pfx = defaultPrefix()
@@ -61,20 +61,18 @@ func setupPrefix(cfg Config) (string, error) {
 	if cfg.AppendDefaults {
 		pfx = appendDefaults(cfg.Prefix)
 	}
-	return pfx, nil
+	return pfx
 }
 
 //Init setups metrics publication
 func Init(cfg Config) (err error) {
-	prefix, perr := setupPrefix(cfg)
-	pfx = prefix
-	if perr != nil {
-		return perr
-	}
+	pfx = setupPrefix(cfg)
+
 	err = collectSystemMetrics(cfg.Debug)
 	if err != nil {
 		return err
 	}
+
 	err = collectRuntimeMetrics()
 	if err != nil {
 		return err
