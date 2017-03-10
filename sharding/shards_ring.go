@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -100,10 +101,16 @@ func (sr shardsRing) regressionCall(cl cluster, req *http.Request) (string, *htt
 	if (err != nil || resp.StatusCode > 400) && req.Method != http.MethodPut {
 		rcl, ok := sr.clusterRegressionMap[cl.name]
 		if ok {
+			_, discardErr := io.Copy(ioutil.Discard, resp.Body)
+			if discardErr != nil {
+				reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
+				log.Printf("Cannot discard response body for req %s, reason: %q",
+					reqID, discardErr.Error())
+			}
 			closeErr := resp.Body.Close()
 			if closeErr != nil {
 				reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
-				log.Debugf("Cannot close response body for req %s, reason: %q",
+				log.Printf("Cannot close response body for req %s, reason: %q",
 					reqID, closeErr.Error())
 			}
 			return sr.regressionCall(rcl, req)

@@ -52,8 +52,6 @@ var defaultClusterConfig = config.ClusterConfig{
 
 func configure(backends []config.YAMLURL) config.Config {
 
-	timeout := "3s"
-	connLimit := int64(10)
 	methodsSlice := []string{"PUT", "GET", "DELETE"}
 
 	methodsSet := set.NewThreadUnsafeSet()
@@ -78,11 +76,8 @@ func configure(backends []config.YAMLURL) config.Config {
 
 	return config.Config{
 		YamlConfig: config.YamlConfig{
-			ConnLimit:             connLimit,
-			ConnectionTimeout:     timeout,
-			ConnectionDialTimeout: timeout,
-			Client:                clientCfg,
-			Clusters:              clustersConf,
+			Client:   clientCfg,
+			Clusters: clustersConf,
 		},
 		SyncLogMethodsSet: methodsSet,
 		Synclog:           syncLogger,

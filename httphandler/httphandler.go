@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -12,15 +11,16 @@ import (
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/log"
-	units "github.com/docker/go-units"
+)
+
+const (
+	defaultMaxIdleConnsPerHost   = 100
+	defaultResponseHeaderTimeout = 5 * time.Second
 )
 
 // Handler implements http.Handler interface
 type Handler struct {
-	config       config.Config
 	roundTripper http.RoundTripper
-	mainLog      log.Logger
-	accessLog    log.Logger
 	bodyMaxSize  int64
 }
 
@@ -59,7 +59,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	defer func() {
 		if copyErr != nil {
-			h.mainLog.Printf("Cannot send response body reason: %q",
+			log.Printf("Cannot send response body reason: %q",
 				copyErr.Error())
 		}
 	}()
@@ -67,7 +67,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	defer func() {
 		closeErr := resp.Body.Close()
 		if closeErr != nil {
-			h.mainLog.Printf("Cannot send response body reason: %q",
+			log.Printf("Cannot send response body reason: %q",
 				closeErr.Error())
 		}
 	}()
@@ -92,17 +92,23 @@ func (h *Handler) validateIncomingRequest(req *http.Request) int {
 // ConfigureHTTPTransport returns http.Transport with customized dialer,
 // MaxIdleConnsPerHost and DisableKeepAlives
 func ConfigureHTTPTransport(conf config.Config) (*http.Transport, error) {
+	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
+	responseHeaderTimeout := defaultResponseHeaderTimeout
 
-	connDuration, err := time.ParseDuration(conf.ConnectionTimeout)
-	if err != nil {
-		return nil, err
+	if conf.MaxIdleConnsPerHost != 0 {
+		maxIdleConnsPerHost = conf.MaxIdleConnsPerHost
+	}
+
+	if conf.ResponseHeaderTimeout.Duration != 0 {
+		responseHeaderTimeout = conf.ResponseHeaderTimeout.Duration
 	}
 
 	httpTransport := &http.Transport{
-		MaxIdleConns:          int(conf.ConnLimit),
-		IdleConnTimeout:       connDuration,
-		ResponseHeaderTimeout: connDuration,
-		DisableKeepAlives:     conf.KeepAlive,
+		MaxIdleConns:          conf.MaxIdleConns,
+		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
+		IdleConnTimeout:       conf.IdleConnTimeout.Duration,
+		ResponseHeaderTimeout: responseHeaderTimeout,
+		DisableKeepAlives:     conf.DisableKeepAlives,
 	}
 
 	return httpTransport, nil
@@ -119,15 +125,8 @@ func DecorateRoundTripper(conf config.Config, rt http.RoundTripper) http.RoundTr
 }
 
 // NewHandlerWithRoundTripper returns Handler, but will not construct transport.MultiTransport by itself
-func NewHandlerWithRoundTripper(conf config.Config, roundTripper http.RoundTripper) (http.Handler, error) {
-	bodyMaxSize, err := units.FromHumanSize(conf.BodyMaxSize)
-	if err != nil {
-		return nil, errors.New("Unable to parse BodyMaxSize: " + err.Error())
-	}
+func NewHandlerWithRoundTripper(roundTripper http.RoundTripper, bodyMaxSize int64) (http.Handler, error) {
 	return &Handler{
-		config:       conf,
-		mainLog:      conf.Mainlog,
-		accessLog:    conf.Accesslog,
 		roundTripper: roundTripper,
 		bodyMaxSize:  bodyMaxSize,
 	}, nil
