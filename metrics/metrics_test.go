@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -124,21 +123,9 @@ func TestMetricsInit(t *testing.T) {
 	Clear()
 }
 
-func TestInit_DefaultPrefix(t *testing.T) {
-	// given
-	hostname = func() (string, error) { return "", fmt.Errorf("Some error") }
-
-	// when
-	err := Init(Config{Prefix: "default"})
-
-	// then
-	assert.Error(t, err)
-	Clear()
-}
-
 func TestInit_DefaultPrefix_WithoutErrors(t *testing.T) {
 	// given
-	hostname = func() (string, error) { return "myhost", nil }
+	hostname = func() string { return "myhost" }
 	os.Args = []string{"./myapp"}
 
 	// when

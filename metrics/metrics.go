@@ -55,19 +55,11 @@ func UpdateGauge(name string, value int64) {
 func setupPrefix(cfg Config) (string, error) {
 	pfx = cfg.Prefix
 	if pfx == "default" {
-		prefix, err := defaultPrefix()
-		if err != nil {
-			return "", err
-		}
-		pfx = prefix
+		pfx = defaultPrefix()
 	}
 
 	if cfg.AppendDefaults {
-		prefix, err := appendDefaults(cfg.Prefix)
-		if err != nil {
-			return "", err
-		}
-		pfx = prefix
+		pfx = appendDefaults(cfg.Prefix)
 	}
 	return pfx, nil
 }
@@ -128,28 +120,20 @@ func Clean(s string) string {
 	return strings.ToLower(s)
 }
 
-func appendDefaults(prefix string) (string, error) {
-	defaults, err := defaultPrefix()
-	if err != nil {
-		log.Printf("Problem with detecting defaults: %q", err.Error())
-		return "", err
-	}
-	return prefix + "." + defaults, nil
+func appendDefaults(prefix string) string {
+	defaults := defaultPrefix()
+	return prefix + "." + defaults
 }
 
 // stubbed out for testing
-var hostname = func() (string, error) {
-	return fqdn.Get(), nil
+var hostname = func() string {
+	return fqdn.Get()
 }
 
-func defaultPrefix() (string, error) {
-	host, err := hostname()
-	if err != nil {
-		log.Printf("Problem with detecting prefix: %q", err.Error())
-		return "", err
-	}
+func defaultPrefix() string {
+	host := hostname()
 	exe := filepath.Base(os.Args[0])
-	return Clean(host) + "." + Clean(exe), nil
+	return Clean(host) + "." + Clean(exe)
 }
 
 func initStdout(interval time.Duration) error {
