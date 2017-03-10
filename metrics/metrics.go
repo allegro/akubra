@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -135,7 +136,13 @@ func appendDefaults(prefix string) (string, error) {
 }
 
 // stubbed out for testing
-var hostname = os.Hostname
+var hostname = func() (string, error) {
+	out, err := exec.Command("hostname", "-f").Output()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return strings.Trim(fmt.Sprintf("%s", out), "\n "), err
+}
 
 func defaultPrefix() (string, error) {
 	host, err := hostname()
