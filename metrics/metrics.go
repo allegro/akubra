@@ -68,7 +68,7 @@ func setupPrefix(cfg Config) string {
 func Init(cfg Config) (err error) {
 	pfx = setupPrefix(cfg)
 
-	err = collectSystemMetrics(cfg.Debug)
+	err = collectSystemMetrics(cfg)
 	if err != nil {
 		return err
 	}
