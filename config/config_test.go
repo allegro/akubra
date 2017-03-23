@@ -5,7 +5,9 @@ import (
 
 	"github.com/go-yaml/yaml"
 	"github.com/stretchr/testify/assert"
-	//"github.com/allegro/akubra/log"
+	"net/url"
+	"github.com/allegro/akubra/metrics"
+	"time"
 )
 
 type TestYaml struct {
@@ -41,57 +43,54 @@ func TestListenYamlParameterValidation(t *testing.T) {
 	assert.NoError(t, err, "Should not even try to parse")
 	assert.Nil(t, testyaml.Field.URL, "Should be nil")
 }
-/*
 
 func TestShouldValidateListenConf(t *testing.T) {
-	testListenData := []string{"aaa", "127.0.0.1", "127.0.0.1:8080", ":8080", ":80"}
+	testListenData := []string{":aaa", "127.0.0.1", "127.0.0.1:8080", ":8080", ":80"}
 
 	for _, listenValue := range testListenData {
-		testConfData := prepareYamlConfig("20", "31", "45", "", listenValue)
+		testConfData := prepareYamlConfig("20Mb", 31, 45, "127.0.0.1:81", listenValue)
 		result, _ := ValidateConf(testConfData)
 		assert.True(t, result, "Should be true")
 	}
 }
 func TestShouldNotValidateListenConf(t *testing.T) {
-	testWrongListenData := []string{"", "-", " ", "aaa", ":1234567", "0:0"}
+	testWrongListenData := []string{"", "-", " ", "aaa", ":1234567", "0:0", ":80aa"}
 
 	for _, listenWrongValue := range testWrongListenData {
-		testConfData := prepareYamlConfig("20", "31", "45", "", listenWrongValue)
+		testConfData := prepareYamlConfig("20", 31, 45, "127.0.0.1:82", listenWrongValue)
 		result, _ := ValidateConf(testConfData)
 		assert.False(t, result, "Should be false")
 	}
 }
 
 func TestShouldValidateConfWithRegexp(t *testing.T) {
-	testConfData := prepareYamlConfig("1", "10", "91", "", "")
+	testConfData := prepareYamlConfig("300kb", 10, 91, "127.0.0.1:83", "")
 
 	result, _ := ValidateConf(testConfData)
 
 	assert.True(t, result, "Should be true")
 }
 
-func TestShouldNotValidateConfWithWrongValuesinRegexp(t *testing.T) {
-	testConfData := prepareYamlConfig("0", "aa", "", "", "")
+func TestShouldNotValidateConfWithWrongBodyMaxSizeValueinRegexp(t *testing.T) {
+	testConfData := prepareYamlConfig("0", 0, 1, "127.0.0.1:84", "")
 
 	result, validationErrors := ValidateConf(testConfData)
 
-	assert.Contains(t, validationErrors, "ConnLimit")
-	assert.Contains(t, validationErrors, "ConnectionTimeout")
-	assert.Contains(t, validationErrors, "ConnectionDialTimeout")
+	assert.Contains(t, validationErrors, "BodyMaxSize")
 	assert.False(t, result, "Should be false")
 }
 
-func TestShouldValidateConfMaintainedBackendWhenNotEmpty(t *testing.T) {
-	maintainedBackend := "127.0.0.1:8044ąąą"
-	testConfData := prepareYamlConfig("11", "22", "33", maintainedBackend, "")
+//func TestShouldValidateConfMaintainedBackendWhenNotEmpty(t *testing.T) {
+//	maintainedBackendHost := "127.0.0.1:85"
+//	testConfData := prepareYamlConfig("10Mb", 22, 33, maintainedBackendHost, "")
+//
+//	result, _ := ValidateConf(testConfData)
+//
+//	assert.True(t, result, "Should be true")
+//}
 
-	result, _ := ValidateConf(testConfData)
-
-	assert.True(t, result, "Should be true")
-}
-
-func prepareYamlConfig(bodyMaxSize string, connectionTimeout string, connectionDialTimeout string,
-	maintainedBackend string, listen string) (YamlConfig) {
+func prepareYamlConfig(bodyMaxSize string, idleConnTimeoutInp time.Duration, responseHeaderTimeoutInp time.Duration,
+	maintainedBackendHost string, listen string) (YamlConfig) {
 
 	backends := []YAMLURL{}
 
@@ -103,25 +102,28 @@ func prepareYamlConfig(bodyMaxSize string, connectionTimeout string, connectionD
 		"Access-Control-Allow-Methods" : "GET, POST, OPTIONS",
 	}
 
-	syncLogMethods := make([]SYNCLOGMETHOD, 1) {
-		"POST",
+	syncLogMethods := []SYNCLOGMETHOD{{"POST"}}
+
+	url1 := url.URL {
+		Scheme: "http",
+		Host: "127.0.0.1:8080",
 	}
+	yamlUrl := []YAMLURL{{&url1}}
 
 	maxIdleConns := 1
 	maxIdleConnsPerHost := 2
-	idleConnTimeout := "1s"
-	responseHeaderTimeout := "2s"
+	idleConnTimeout := metrics.Interval{idleConnTimeoutInp,}
+	responseHeaderTimeout := metrics.Interval{responseHeaderTimeoutInp,}
 	clusters := map[string]ClusterConfig{"test": {
-		{"127.0.0.1:8080"},
+		yamlUrl,
 		"replicator",
 		1,
 		map[string]string{},
 	}}
-	maintainedBackends := map[]{YAMLURL{"http://127.0.0.2:8081",}}
-	client := ClientConfig{"a", []string{"test"},}
-	tmpLogger := log.LoggerConfig{false,false,false,"/tmp/1","/tmp/2","/tmp/3",}
-	logging := LoggingConfig{tmpLogger, tmpLogger, tmpLogger, tmpLogger,}
-	metrics := nil
+
+	url2 := url.URL{ Scheme: "http", Host: maintainedBackendHost, }
+	maintainedBackends := []YAMLURL{{&url2, }}
+	metrics := metrics.Config{}
 	disableKeepAlive := false
 	return YamlConfig{
 		listen,
@@ -136,10 +138,9 @@ func prepareYamlConfig(bodyMaxSize string, connectionTimeout string, connectionD
 		additionalResponseHeaders,
 		maintainedBackends,
 		syncLogMethods,
-		&client,
-		logging,
+		&ClientConfig{},
+		LoggingConfig{},
 		metrics,
 		disableKeepAlive,
 	}
 }
-*/
