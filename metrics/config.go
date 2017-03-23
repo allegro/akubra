@@ -1,8 +1,8 @@
 package metrics
 
 import (
-	"fmt"
 	"time"
+	"fmt"
 )
 
 // Interval is time.Duration wrapper
