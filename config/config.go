@@ -14,7 +14,6 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
-
 // ClusterConfig defines cluster configuration
 type ClusterConfig struct {
 	// Backends should contain s3 backend urls
@@ -51,11 +50,11 @@ type ADDITIONALHEADERS struct {
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
 	// Listen interface and port e.g. "0.0.0.0:8000", "127.0.0.1:9090", ":80"
-	Listen string 				`yaml:"Listen,omitempty" validate:"regexp=^([0-9]+[.][0-9]+[.][0-9]+[.][0-9])?[:][0-9]\{1,6\})$"`
+	Listen string 				`yaml:"Listen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
 	// List of backend URI's e.g. "http://s3.mydatacenter.org"
 	Backends []YAMLURL 			`yaml:"Backends,omitempty,flow"`
 	// Maximum accepted body size
-	BodyMaxSize string 			`yaml:"BodyMaxSize,omitempty" validate:"regexp=^([1-9][0-9]+[mkgMKG][Bb])$"`
+	BodyMaxSize string 			`yaml:"BodyMaxSize,omitempty" validate:"regexp=^([1-9][0-9]+[kMG][B])$"`
 	// MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
 	// Default 0 (no limit)
 	MaxIdleConns int 			`yaml:"MaxIdleConns" validate:"min=0"`
@@ -71,9 +70,9 @@ type YamlConfig struct {
 
 	Clusters map[string]ClusterConfig 	`yaml:"Clusters,omitempty"`
 	// Additional not amazon specific headers proxy will add to original request
-	AdditionalRequestHeaders map[string]string /* ADDITIONALHEADERS */ `yaml:"AdditionalRequestHeaders,omitempty"`
+	AdditionalRequestHeaders map[string]string /* ADDITIONALHEADERS */ `yaml:"AdditionalRequestHeaders,omitempty,flow"`
 	// Additional headers added to backend response
-	AdditionalResponseHeaders map[string]string /* ADDITIONALHEADERS */ `yaml:"AdditionalResponseHeaders,omitempty"`
+	AdditionalResponseHeaders map[string]string /* ADDITIONALHEADERS */ `yaml:"AdditionalResponseHeaders,omitempty,flow"`
 	// Read timeout on outgoing connections
 
 	// Backend in maintenance mode. Akubra will not send data there
