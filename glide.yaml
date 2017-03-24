@@ -21,3 +21,11 @@ testImport:
   version: ~1.1.x
   subpackages:
   - assert
+- package: github.com/go-validator/validator
+  version: v1
+- package: gopkg.in/yaml.v2
+  version: v2
+- package: github.com/rcrowley/go-metrics
+  version: master
+  subpackages:
+  - exp

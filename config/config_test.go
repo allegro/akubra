@@ -3,11 +3,12 @@ package config
 import (
 	"testing"
 
+	"net/url"
+	"time"
+
 	"github.com/allegro/akubra/metrics"
 	"github.com/go-yaml/yaml"
 	"github.com/stretchr/testify/assert"
-	"net/url"
-	"time"
 )
 
 type TestYaml struct {
@@ -129,12 +130,12 @@ func prepareYamlConfig(bodyMaxSize string, idleConnTimeoutInp time.Duration, res
 		Scheme: "http",
 		Host:   "127.0.0.1:8080",
 	}
-	yamlUrl := []YAMLURL{{&url1}}
+	yamlURL := []YAMLURL{{&url1}}
 
 	maxIdleConns := 1
 	maxIdleConnsPerHost := 2
 	clusters := map[string]ClusterConfig{"test": {
-		yamlUrl,
+		yamlURL,
 		"replicator",
 		1,
 		map[string]string{},
