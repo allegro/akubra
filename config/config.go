@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"os"
 
+	"strings"
+
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
 	set "github.com/deckarep/golang-set"
@@ -17,7 +19,7 @@ import (
 // ClusterConfig defines cluster configuration
 type ClusterConfig struct {
 	// Backends should contain s3 backend urls
-	Backends []YAMLURL `yaml:"Backends,omitempty"`
+	Backends []YAMLUrl `yaml:"Backends,omitempty"`
 	// Type, currently replicator is only option
 	Type string `yaml:"Type,omitempty"`
 	// Points how much load cluster should handle
@@ -34,28 +36,25 @@ type ClientConfig struct {
 	Clusters []string `yaml:"Clusters,omitempty"`
 }
 
-// YAMLURL type fields in yaml configuration will parse urls
-type YAMLURL struct {
+// YAMLUrl type fields in yaml configuration will parse urls
+type YAMLUrl struct {
 	*url.URL
 }
 
-// SYNCLOGMETHOD type fields in yaml configuration will parse list of HTTP methods
-type SYNCLOGMETHOD struct {
+// SyncLogMethod type fields in yaml configuration will parse list of HTTP methods
+type SyncLogMethod struct {
 	method string
 }
 
-/*
-type ADDITIONALHEADERS struct {
-	headers map[string]string
-}
-*/
+// AdditionalHeaders type fields in yaml configuration will parse list of special headers
+type AdditionalHeaders map[string]string
 
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
 	// Listen interface and port e.g. "0.0.0.0:8000", "127.0.0.1:9090", ":80"
 	Listen string `yaml:"Listen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
 	// List of backend URI's e.g. "http://s3.mydatacenter.org"
-	Backends []YAMLURL `yaml:"Backends,omitempty,flow"`
+	Backends []YAMLUrl `yaml:"Backends,omitempty,flow"`
 	// Maximum accepted body size
 	BodyMaxSize string `yaml:"BodyMaxSize,omitempty" validate:"regexp=^([1-9][0-9]+[kMG][B])$"`
 	// MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
@@ -73,16 +72,16 @@ type YamlConfig struct {
 
 	Clusters map[string]ClusterConfig `yaml:"Clusters,omitempty"`
 	// Additional not amazon specific headers proxy will add to original request
-	AdditionalRequestHeaders map[string]string/* ADDITIONALHEADERS */ `yaml:"AdditionalRequestHeaders,omitempty,flow"`
+	AdditionalRequestHeaders AdditionalHeaders `yaml:"AdditionalRequestHeaders,omitempty"`
 	// Additional headers added to backend response
-	AdditionalResponseHeaders map[string]string/* ADDITIONALHEADERS */ `yaml:"AdditionalResponseHeaders,omitempty,flow"`
+	AdditionalResponseHeaders AdditionalHeaders `yaml:"AdditionalResponseHeaders,omitempty"`
 	// Read timeout on outgoing connections
 
 	// Backend in maintenance mode. Akubra will not send data there
-	MaintainedBackends []YAMLURL `yaml:"MaintainedBackends,omitempty"`
+	MaintainedBackends []YAMLUrl `yaml:"MaintainedBackends,omitempty"`
 
 	// List request methods to be logged in synclog in case of backend failure
-	SyncLogMethods []SYNCLOGMETHOD `yaml:"SyncLogMethods,omitempty"`
+	SyncLogMethods []SyncLogMethod `yaml:"SyncLogMethods,omitempty"`
 	Client         *ClientConfig   `yaml:"Client,omitempty"`
 	Logging        LoggingConfig   `yaml:"Logging,omitempty"`
 	Metrics        metrics.Config  `yaml:"Metrics,omitempty"`
@@ -108,8 +107,8 @@ type Config struct {
 	ClusterSyncLog    log.Logger
 }
 
-// UnmarshalYAML for YAMLURL
-func (j *YAMLURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
+// UnmarshalYAML for YAMLUrl
+func (j *YAMLUrl) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err
@@ -122,8 +121,8 @@ func (j *YAMLURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return err
 }
 
-// UnmarshalYAML for SYNCLOGMETHOD
-func (j *SYNCLOGMETHOD) UnmarshalYAML(unmarshal func(interface{}) error) error {
+// UnmarshalYAML for SyncLogMethod
+func (j *SyncLogMethod) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err
@@ -139,19 +138,23 @@ func (j *SYNCLOGMETHOD) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-/*
-func (j *ADDITIONALHEADERS) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var s string
-	if err := unmarshal(&s); err != nil {
+// UnmarshalYAML for AdditionalHeaders
+func (j *AdditionalHeaders) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var headers map[string]string
+	if err := unmarshal(&headers); err != nil {
 		return err
 	}
 
-	if
-
-	j.headers = headers
+	for key, value := range headers {
+		if strings.TrimSpace(key) == "" {
+			return fmt.Errorf("Empty additional header key: %q with value: %q", key, value)
+		}
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("Empty additional header value: %q with key: %q", value, key)
+		}
+	}
 	return nil
 }
-*/
 
 // Parse json config
 func parseConf(file io.Reader) (YamlConfig, error) {

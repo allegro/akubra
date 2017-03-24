@@ -17,13 +17,13 @@ import (
 type cluster struct {
 	http.RoundTripper
 	weight   int
-	backends []config.YAMLURL
+	backends []config.YAMLUrl
 	name     string
 }
 
 func newMultiBackendCluster(transp http.RoundTripper,
 	multiResponseHandler transport.MultipleResponsesHandler,
-	clusterConf config.ClusterConfig, name string, maintainedBackends []config.YAMLURL) cluster {
+	clusterConf config.ClusterConfig, name string, maintainedBackends []config.YAMLUrl) cluster {
 	backends := make([]url.URL, len(clusterConf.Backends))
 
 	for i, backend := range clusterConf.Backends {
@@ -73,7 +73,7 @@ func (rf ringFactory) getCluster(name string) (cluster, error) {
 }
 
 func (rf ringFactory) uniqBackends(clientCfg config.ClientConfig) ([]url.URL, error) {
-	allBackendsSet := make(map[config.YAMLURL]bool)
+	allBackendsSet := make(map[config.YAMLUrl]bool)
 	log.Debugf("client %v", clientCfg.Clusters)
 	for _, name := range clientCfg.Clusters {
 		log.Debugf("cluster %s", name)

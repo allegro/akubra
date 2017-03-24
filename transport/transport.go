@@ -278,7 +278,7 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 func NewMultiTransport(roundTripper http.RoundTripper,
 	backends []url.URL,
 	responsesHandler MultipleResponsesHandler,
-	maintainedBackends []config.YAMLURL) *MultiTransport {
+	maintainedBackends []config.YAMLUrl) *MultiTransport {
 	if responsesHandler == nil {
 		responsesHandler = DefaultHandleResponses
 	}

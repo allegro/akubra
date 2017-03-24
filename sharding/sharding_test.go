@@ -20,8 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func mkDummySrvsWithfun(count int, t *testing.T, handlerfunc func(w http.ResponseWriter, r *http.Request)) []config.YAMLURL {
-	urls := make([]config.YAMLURL, 0, count)
+func mkDummySrvsWithfun(count int, t *testing.T, handlerfunc func(w http.ResponseWriter, r *http.Request)) []config.YAMLUrl {
+	urls := make([]config.YAMLUrl, 0, count)
 	dummySrvs := make([]*httptest.Server, 0, count)
 	for i := 0; i < count; i++ {
 		handlerfun := http.HandlerFunc(handlerfunc)
@@ -31,12 +31,12 @@ func mkDummySrvsWithfun(count int, t *testing.T, handlerfunc func(w http.Respons
 		if err != nil {
 			t.Error(err)
 		}
-		urls = append(urls, config.YAMLURL{URL: urlN})
+		urls = append(urls, config.YAMLUrl{URL: urlN})
 	}
 	return urls
 }
 
-func mkDummySrvs(count int, stream []byte, t *testing.T) []config.YAMLURL {
+func mkDummySrvs(count int, stream []byte, t *testing.T) []config.YAMLUrl {
 	f := func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write(stream)
 		assert.Nil(t, err)
@@ -50,7 +50,7 @@ var defaultClusterConfig = config.ClusterConfig{
 	Options: map[string]string{},
 }
 
-func configure(backends []config.YAMLURL) config.Config {
+func configure(backends []config.YAMLUrl) config.Config {
 
 	methodsSlice := []string{"PUT", "GET", "DELETE"}
 

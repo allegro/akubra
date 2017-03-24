@@ -12,24 +12,28 @@ import (
 )
 
 type TestYaml struct {
-	Field YAMLURL
+	Field YAMLUrl
 }
 
-func TestYAMLURLParsingSuccessful(t *testing.T) {
+type TestAdditionalHeadersYaml struct {
+	HeaderField AdditionalHeaders
+}
+
+func TestYAMLUrlParsingSuccessful(t *testing.T) {
 	correct := []byte(`field: http://golang.org:80/pkg/net`)
 	testyaml := TestYaml{}
 	err := yaml.Unmarshal(correct, &testyaml)
 	assert.NoError(t, err, "Should be correct")
 }
 
-func TestYAMLURLParsingFailure(t *testing.T) {
+func TestYAMLUrlParsingFailure(t *testing.T) {
 	incorrect := []byte(`field: golang.org:80/pkg/net`)
 	testyaml := TestYaml{}
 	err := yaml.Unmarshal(incorrect, &testyaml)
 	assert.Error(t, err, "Missing protocol should return error")
 }
 
-//func TestYAMLURLParsingEmpty(t *testing.T) {
+//func TestYAMLUrlParsingEmpty(t *testing.T) {
 //	incorrect := []byte(`field: "1"`)
 //	testyaml := TestYaml{}
 //	err := yaml.Unmarshal(incorrect, &testyaml)
@@ -101,8 +105,8 @@ func TestShouldValidateConfMaintainedBackendWhenEmpty(t *testing.T) {
 
 /*
 func TestShouldValidateAllPossibleSyncLogMethods(t *testing.T) {
-	syncLogMethodsTestData := []SYNCLOGMETHOD{{method: "GET",}, {method: "POST",}}
-	testConfData := prepareYamlConfig("40MB", 10, 11, "127.0.0.1:86", ":80", syncLogMethodsTestData)
+	SyncLogMethodsTestData := []SyncLogMethod{{method: "GET",}, {method: "POST",}}
+	testConfData := prepareYamlConfig("40MB", 10, 11, "127.0.0.1:86", ":80", SyncLogMethodsTestData)
 
 	result, _ := ValidateConf(testConfData)
 
@@ -110,8 +114,8 @@ func TestShouldValidateAllPossibleSyncLogMethods(t *testing.T) {
 }
 
 func TestShouldNotValidateWrongSyncLogMethod(t *testing.T) {
-	syncLogMethodsTestData := []SYNCLOGMETHOD{{method: "WRONG",}}
-	testConfData := prepareYamlConfig("50MB", 12, 31, "127.0.0.1:86", ":80", syncLogMethodsTestData)
+	SyncLogMethodsTestData := []SyncLogMethod{{method: "WRONG",}}
+	testConfData := prepareYamlConfig("50MB", 12, 31, "127.0.0.1:86", ":80", SyncLogMethodsTestData)
 
 	result, _ := ValidateConf(testConfData)
 
@@ -119,18 +123,42 @@ func TestShouldNotValidateWrongSyncLogMethod(t *testing.T) {
 }
 */
 
-func prepareYamlConfig(bodyMaxSize string, idleConnTimeoutInp time.Duration, responseHeaderTimeoutInp time.Duration,
-	maintainedBackendHost string, listen string, syncLogMethods []SYNCLOGMETHOD) YamlConfig {
+/*
+func TestAdditionalHeadersYamlParsingSuccessful(t *testing.T) {
+	correct := []byte(`HeaderField:\n  'FieldKey': "FieldValue"`)
+	testyaml := TestAdditionalHeadersYaml{}
+	err := yaml.Unmarshal(correct, &testyaml)
+	assert.NoError(t, err, "Should be correct")
+}
 
-	if syncLogMethods == nil {
-		syncLogMethods = []SYNCLOGMETHOD{{method: "POST"}}
+
+func TestAdditionalHeadersYamlParsingFailureWhenKeyIsEmpty(t *testing.T) {
+	incorrect := []byte(`HeaderField:\n  '': "FieldValue2"`)
+	testyaml := TestYaml{}
+	err := yaml.Unmarshal(incorrect, &testyaml)
+	assert.Error(t, err, "Missing protocol should return error")
+}
+
+func TestAdditionalHeadersYamlParsingFailureWhenValueIsEmpty(t *testing.T) {
+	incorrect := []byte(`HeaderField:\n  'FieldKey3': ""`)
+	testyaml := TestYaml{}
+	err := yaml.Unmarshal(incorrect, &testyaml)
+	assert.Error(t, err, "Missing protocol should return error")
+}
+*/
+
+func prepareYamlConfig(bodyMaxSize string, idleConnTimeoutInp time.Duration, responseHeaderTimeoutInp time.Duration,
+	maintainedBackendHost string, listen string, SyncLogMethods []SyncLogMethod) YamlConfig {
+
+	if SyncLogMethods == nil {
+		SyncLogMethods = []SyncLogMethod{{method: "POST"}}
 	}
 
 	url1 := url.URL{
 		Scheme: "http",
 		Host:   "127.0.0.1:8080",
 	}
-	yamlURL := []YAMLURL{{&url1}}
+	yamlURL := []YAMLUrl{{&url1}}
 
 	maxIdleConns := 1
 	maxIdleConnsPerHost := 2
@@ -142,24 +170,29 @@ func prepareYamlConfig(bodyMaxSize string, idleConnTimeoutInp time.Duration, res
 	}}
 
 	url2 := url.URL{Scheme: "http", Host: maintainedBackendHost}
-	maintainedBackends := []YAMLURL{{&url2}}
+	maintainedBackends := []YAMLUrl{{&url2}}
+
+	additionalRequestHeaders := AdditionalHeaders{
+		"Cache-Control": "public, s-maxage=600, max-age=600",
+	}
+
+	additionalResponseHeaders := AdditionalHeaders{
+		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+	}
+
 	return YamlConfig{
 		listen,
-		[]YAMLURL{},
+		[]YAMLUrl{},
 		bodyMaxSize,
 		maxIdleConns,
 		maxIdleConnsPerHost,
 		metrics.Interval{idleConnTimeoutInp},
 		metrics.Interval{responseHeaderTimeoutInp},
 		clusters,
-		map[string]string{
-			"Cache-Control": "public, s-maxage=600, max-age=600",
-		},
-		map[string]string{
-			"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-		},
+		additionalRequestHeaders,
+		additionalResponseHeaders,
 		maintainedBackends,
-		syncLogMethods,
+		SyncLogMethods,
 		&ClientConfig{},
 		LoggingConfig{},
 		metrics.Config{},
