@@ -68,7 +68,7 @@ func setupPrefix(cfg Config) string {
 func Init(cfg Config) (err error) {
 	pfx = setupPrefix(cfg)
 
-	err = collectSystemMetrics(cfg.Debug)
+	err = collectSystemMetrics(cfg)
 	if err != nil {
 		return err
 	}
@@ -87,7 +87,11 @@ func Init(cfg Config) (err error) {
 			return errors.New("metrics: graphite addr missing")
 		}
 		log.Printf("Sending metrics to Graphite on %s as %q", cfg.Addr, pfx)
-		return initGraphite(cfg.Addr, cfg.Interval.Duration)
+		percentiles := cfg.Percentiles
+		if len(percentiles) == 0 {
+			percentiles = append(percentiles, []float64{0.75, 0.95, 0.99, 0.999}...)
+		}
+		return initGraphite(cfg.Addr, cfg.Interval.Duration, percentiles)
 	case "expvar":
 		handler := exp.ExpHandler(metrics.DefaultRegistry)
 		go startExpvar(cfg, handler)
@@ -139,7 +143,7 @@ func initStdout(interval time.Duration) error {
 	return nil
 }
 
-func initGraphite(addr string, interval time.Duration) error {
+func initGraphite(addr string, interval time.Duration, percentiles []float64) error {
 	a, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("metrics: cannot connect to Graphite: %s", err)
@@ -150,6 +154,7 @@ func initGraphite(addr string, interval time.Duration) error {
 		Registry:      metrics.DefaultRegistry,
 		FlushInterval: interval,
 		Prefix:        pfx,
+		Percentiles:   percentiles,
 		Addr:          a})
 	return nil
 }

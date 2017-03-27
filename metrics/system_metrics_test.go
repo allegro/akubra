@@ -38,7 +38,7 @@ func TestMetricsRegistered(t *testing.T) {
 	t.Parallel()
 
 	//when
-	err := collectSystemMetrics(false)
+	err := collectSystemMetrics(Config{})
 	assert.NoError(t, err)
 	//then
 	assert.NotNil(t, metrics.Get(allocGauge))
