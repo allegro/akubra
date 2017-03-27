@@ -15,10 +15,6 @@ type TestYaml struct {
 	Field YAMLUrl
 }
 
-type TestAdditionalHeadersYaml struct {
-	HeaderField AdditionalHeaders
-}
-
 func TestYAMLUrlParsingSuccessful(t *testing.T) {
 	correct := []byte(`field: http://golang.org:80/pkg/net`)
 	testyaml := TestYaml{}
@@ -33,13 +29,13 @@ func TestYAMLUrlParsingFailure(t *testing.T) {
 	assert.Error(t, err, "Missing protocol should return error")
 }
 
-//func TestYAMLUrlParsingEmpty(t *testing.T) {
-//	incorrect := []byte(`field: "1"`)
-//	testyaml := TestYaml{}
-//	err := yaml.Unmarshal(incorrect, &testyaml)
-//	assert.NoError(t, err, "Should not even try to parse")
-//	assert.Nil(t, testyaml.Field.URL, "Should be nil")
-//}
+func TestYAMLUrlParsingEmpty(t *testing.T) {
+	incorrect := []byte(`field: "1"`)
+	testyaml := YAMLUrl{}
+	err := yaml.Unmarshal(incorrect, &testyaml)
+	assert.Error(t, err, "Should not even try to parse")
+	assert.Nil(t, testyaml.URL, "Should be nil")
+}
 
 func TestListenYamlParameterValidation(t *testing.T) {
 	incorrect := []byte(`Listen: ":8080"`)
@@ -172,28 +168,38 @@ func TestShouldNotValidateWrongSyncLogMethod(t *testing.T) {
 	assert.NotNil(t, errors)
 }
 
-/*
 func TestAdditionalHeadersYamlParsingSuccessful(t *testing.T) {
-	correct := []byte(`HeaderField:\n  'FieldKey': "FieldValue"`)
-	testyaml := TestAdditionalHeadersYaml{}
-	err := yaml.Unmarshal(correct, &testyaml)
+	correct := `
+'Access-Control-Allow-Credentials': "true"
+'Access-Control-Allow-Methods': "GET, POST, OPTIONS"
+`
+	testyaml := AdditionalHeaders{}
+	err := yaml.Unmarshal([]byte(correct), &testyaml)
+
 	assert.NoError(t, err, "Should be correct")
 }
 
 func TestAdditionalHeadersYamlParsingFailureWhenKeyIsEmpty(t *testing.T) {
-	incorrect := []byte(`HeaderField:\n  '': "FieldValue2"`)
-	testyaml := TestAdditionalHeadersYaml{}
+	incorrect := []byte(`
+'Access-Control-Allow-Credentials': "true"
+'': "GET, POST, OPTIONS"
+`)
+	testyaml := AdditionalHeaders{}
 	err := yaml.Unmarshal(incorrect, &testyaml)
+
 	assert.Error(t, err, "Missing protocol should return error")
 }
 
 func TestAdditionalHeadersYamlParsingFailureWhenValueIsEmpty(t *testing.T) {
-	incorrect := []byte(`HeaderField:\n  'FieldKey3': ""`)
-	testyaml := TestAdditionalHeadersYaml{}
+	incorrect := []byte(`
+'Access-Control-Allow-Methods': ""
+'Access-Control-Allow-Credentials': "true"
+`)
+	testyaml := AdditionalHeaders{}
 	err := yaml.Unmarshal(incorrect, &testyaml)
+
 	assert.Error(t, err, "Missing protocol should return error")
 }
-*/
 
 func prepareYamlConfig(bodyMaxSize string, idleConnTimeoutInp time.Duration, responseHeaderTimeoutInp time.Duration,
 	maintainedBackendHost string, listen string, syncLogMethods []SyncLogMethod, clientCfgName string,
