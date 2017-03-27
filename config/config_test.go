@@ -53,7 +53,7 @@ func TestShouldValidateListenConf(t *testing.T) {
 	testListenData := []string{"127.0.0.1:8080", ":8080", ":80"}
 
 	for _, listenValue := range testListenData {
-		testConfData := prepareYamlConfig("100MB", 31, 45, "127.0.0.1:81", listenValue, nil)
+		testConfData := prepareYamlConfig("100MB", 31, 45, "127.0.0.1:81", listenValue, nil, "client1", []string{"dev"})
 		result, _ := ValidateConf(testConfData)
 		assert.True(t, result, "Should be true")
 	}
@@ -62,14 +62,14 @@ func TestShouldNotValidateListenConf(t *testing.T) {
 	testWrongListenData := []string{"", "-", " ", "aaa", ":bbb", "c:"}
 
 	for _, listenWrongValue := range testWrongListenData {
-		testConfData := prepareYamlConfig("20MB", 31, 45, "127.0.0.1:82", listenWrongValue, nil)
+		testConfData := prepareYamlConfig("20MB", 31, 45, "127.0.0.1:82", listenWrongValue, nil, "client1", []string{"dev"})
 		result, _ := ValidateConf(testConfData)
 		assert.False(t, result, "Should be false")
 	}
 }
 
 func TestShouldValidateConfWithRegexp(t *testing.T) {
-	testConfData := prepareYamlConfig("40MB", 17, 51, "127.0.0.1:83", ":80", nil)
+	testConfData := prepareYamlConfig("40MB", 17, 51, "127.0.0.1:83", ":80", nil, "client1", []string{"dev"})
 
 	result, _ := ValidateConf(testConfData)
 
@@ -77,7 +77,7 @@ func TestShouldValidateConfWithRegexp(t *testing.T) {
 }
 
 func TestShouldNotValidateConfWithWrongBodyMaxSizeValueinRegexp(t *testing.T) {
-	testConfData := prepareYamlConfig("0", 0, 1, "127.0.0.1:84", ":80", nil)
+	testConfData := prepareYamlConfig("0", 0, 1, "127.0.0.1:84", ":80", nil, "client1", []string{"dev"})
 
 	result, validationErrors := ValidateConf(testConfData)
 
@@ -87,7 +87,7 @@ func TestShouldNotValidateConfWithWrongBodyMaxSizeValueinRegexp(t *testing.T) {
 
 func TestShouldValidateConfMaintainedBackendWhenNotEmpty(t *testing.T) {
 	maintainedBackendHost := "127.0.0.1:85"
-	testConfData := prepareYamlConfig("112MB", 21, 32, maintainedBackendHost, ":80", nil)
+	testConfData := prepareYamlConfig("112MB", 21, 32, maintainedBackendHost, ":80", nil, "client1", []string{"dev"})
 
 	result, _ := ValidateConf(testConfData)
 
@@ -96,32 +96,81 @@ func TestShouldValidateConfMaintainedBackendWhenNotEmpty(t *testing.T) {
 
 func TestShouldValidateConfMaintainedBackendWhenEmpty(t *testing.T) {
 	maintainedBackendHost := ""
-	testConfData := prepareYamlConfig("113MB", 22, 33, maintainedBackendHost, ":80", nil)
+	testConfData := prepareYamlConfig("113MB", 22, 33, maintainedBackendHost, ":80", nil, "client1", []string{"dev"})
 
 	result, _ := ValidateConf(testConfData)
 
 	assert.True(t, result, "Should be true")
 }
 
-/*
-func TestShouldValidateAllPossibleSyncLogMethods(t *testing.T) {
-	SyncLogMethodsTestData := []SyncLogMethod{{method: "GET",}, {method: "POST",}}
-	testConfData := prepareYamlConfig("40MB", 10, 11, "127.0.0.1:86", ":80", SyncLogMethodsTestData)
+func TestShouldValidateConfClientNameWithMinLenght(t *testing.T) {
+	clientName := "c"
+	testConfData := prepareYamlConfig("114MB", 22, 33, "", ":80", nil, clientName, []string{"dev"})
 
 	result, _ := ValidateConf(testConfData)
 
 	assert.True(t, result, "Should be true")
 }
 
-func TestShouldNotValidateWrongSyncLogMethod(t *testing.T) {
-	SyncLogMethodsTestData := []SyncLogMethod{{method: "WRONG",}}
-	testConfData := prepareYamlConfig("50MB", 12, 31, "127.0.0.1:86", ":80", SyncLogMethodsTestData)
+func TestShouldNotValidateConfClientNameWhenEmpty(t *testing.T) {
+	clientName := ""
+	testConfData := prepareYamlConfig("115MB", 22, 33, "", ":80", nil, clientName, []string{"dev"})
 
 	result, _ := ValidateConf(testConfData)
 
 	assert.False(t, result, "Should be false")
 }
-*/
+
+func TestShouldValidateConfClientClustersValues(t *testing.T) {
+	testConfData := prepareYamlConfig("115MB", 22, 33, "", ":80", nil, "client", []string{"prod", "jprod"})
+
+	result, _ := ValidateConf(testConfData)
+
+	assert.True(t, result, "Should be true")
+}
+
+func TestShouldNotValidateConfClientClustersValuesWhenEmpty(t *testing.T) {
+	testConfData := prepareYamlConfig("116MB", 22, 33, "", ":80", nil, "client", []string{"prod", "  "})
+
+	result, validationErrors := ValidateConf(testConfData)
+
+	assert.Contains(t, validationErrors, "Client.Clusters")
+	assert.False(t, result, "Should be false")
+}
+
+func TestShouldNotValidateConfClientClustersValuesWhenDuplicated(t *testing.T) {
+	testConfData := prepareYamlConfig("117MB", 22, 33, "", ":80", nil, "client", []string{"jprod", "jprod"})
+
+	result, validationErrors := ValidateConf(testConfData)
+
+	assert.Contains(t, validationErrors, "Client.Clusters")
+	assert.False(t, result, "Should be false")
+}
+
+func TestShouldValidateAllPossibleSyncLogMethods(t *testing.T) {
+	data := `
+- GET
+- POST
+- PUT
+- DELETE
+- HEAD
+- OPTIONS
+`
+	syncLogMethodsTestData := []SyncLogMethod{}
+	errors := yaml.Unmarshal([]byte(data), &syncLogMethodsTestData)
+
+	assert.Nil(t, errors)
+}
+
+func TestShouldNotValidateWrongSyncLogMethod(t *testing.T) {
+	data := `
+- WRONG
+`
+	syncLogMethodsTestData := []SyncLogMethod{}
+	errors := yaml.Unmarshal([]byte(data), &syncLogMethodsTestData)
+
+	assert.NotNil(t, errors)
+}
 
 /*
 func TestAdditionalHeadersYamlParsingSuccessful(t *testing.T) {
@@ -131,27 +180,27 @@ func TestAdditionalHeadersYamlParsingSuccessful(t *testing.T) {
 	assert.NoError(t, err, "Should be correct")
 }
 
-
 func TestAdditionalHeadersYamlParsingFailureWhenKeyIsEmpty(t *testing.T) {
 	incorrect := []byte(`HeaderField:\n  '': "FieldValue2"`)
-	testyaml := TestYaml{}
+	testyaml := TestAdditionalHeadersYaml{}
 	err := yaml.Unmarshal(incorrect, &testyaml)
 	assert.Error(t, err, "Missing protocol should return error")
 }
 
 func TestAdditionalHeadersYamlParsingFailureWhenValueIsEmpty(t *testing.T) {
 	incorrect := []byte(`HeaderField:\n  'FieldKey3': ""`)
-	testyaml := TestYaml{}
+	testyaml := TestAdditionalHeadersYaml{}
 	err := yaml.Unmarshal(incorrect, &testyaml)
 	assert.Error(t, err, "Missing protocol should return error")
 }
 */
 
 func prepareYamlConfig(bodyMaxSize string, idleConnTimeoutInp time.Duration, responseHeaderTimeoutInp time.Duration,
-	maintainedBackendHost string, listen string, SyncLogMethods []SyncLogMethod) YamlConfig {
+	maintainedBackendHost string, listen string, syncLogMethods []SyncLogMethod, clientCfgName string,
+	clientClusters []string) YamlConfig {
 
-	if SyncLogMethods == nil {
-		SyncLogMethods = []SyncLogMethod{{method: "POST"}}
+	if syncLogMethods == nil {
+		syncLogMethods = []SyncLogMethod{{method: "POST"}}
 	}
 
 	url1 := url.URL{
@@ -180,6 +229,11 @@ func prepareYamlConfig(bodyMaxSize string, idleConnTimeoutInp time.Duration, res
 		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 	}
 
+	clientCfg := &ClientConfig{
+		Name:     clientCfgName,
+		Clusters: clientClusters,
+	}
+
 	return YamlConfig{
 		listen,
 		[]YAMLUrl{},
@@ -192,8 +246,8 @@ func prepareYamlConfig(bodyMaxSize string, idleConnTimeoutInp time.Duration, res
 		additionalRequestHeaders,
 		additionalResponseHeaders,
 		maintainedBackends,
-		SyncLogMethods,
-		&ClientConfig{},
+		syncLogMethods,
+		clientCfg,
 		LoggingConfig{},
 		metrics.Config{},
 		false,

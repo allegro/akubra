@@ -16,6 +16,9 @@ import (
 	"github.com/allegro/akubra/sharding"
 )
 
+// YamlValidationErrorExitCode for problems with YAML config validation
+const YamlValidationErrorExitCode = 20
+
 type service struct {
 	conf config.Config
 }
@@ -49,7 +52,7 @@ func main() {
 	valid, errs := config.ValidateConf(conf.YamlConfig)
 	if !valid {
 		log.Println("Custom YAML Configuration validation error:", errs)
-		os.Exit(20)
+		os.Exit(YamlValidationErrorExitCode)
 	}
 	log.Println("Configuration checked - OK.")
 

@@ -31,9 +31,9 @@ type ClusterConfig struct {
 // ClientConfig keeps information about client setup
 type ClientConfig struct {
 	// Client name
-	Name string `yaml:"Name,omitempty"`
+	Name string `yaml:"Name,omitempty" validate:"regexp=^([a-zA-Z0-9_-]+)$"`
 	// List of clusters name
-	Clusters []string `yaml:"Clusters,omitempty"`
+	Clusters []string `yaml:"Clusters,omitempty" validate:"NoEmptyValuesSlice=Clusters,UniqueValuesSlice=Clusters"`
 }
 
 // YAMLUrl type fields in yaml configuration will parse urls
@@ -132,7 +132,7 @@ func (j *SyncLogMethod) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	case "GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS":
 		break
 	default:
-		return fmt.Errorf("sync log method should be one from: GET, POST, DELETE, HEAD, OPTIONS - got %q", s)
+		return fmt.Errorf("Sync log method should be one from [GET, POST, DELETE, HEAD, OPTIONS] - got %q", s)
 	}
 	j.method = method
 	return nil
@@ -160,7 +160,6 @@ func (j *AdditionalHeaders) UnmarshalYAML(unmarshal func(interface{}) error) err
 func parseConf(file io.Reader) (YamlConfig, error) {
 	rc := YamlConfig{}
 	bs, err := ioutil.ReadAll(file)
-
 	if err != nil {
 		return rc, err
 	}
@@ -254,6 +253,8 @@ func setupSyncLogThread(conf *Config, methods []interface{}) {
 
 // ValidateConf validate configuration from YAML file
 func ValidateConf(conf YamlConfig) (bool, map[string][]error) {
+	validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
+	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
 	valid, validationErrors := validator.Validate(conf)
 	for propertyName, validatorMessage := range validationErrors {
 		log.Printf("[ ERROR ] YAML config validation -> propertyName: '%s', validatorMessage: '%s'\n", propertyName, validatorMessage)
