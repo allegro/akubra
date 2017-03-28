@@ -15,6 +15,18 @@ type TestYaml struct {
 	Field YAMLUrl
 }
 
+// YamlConfigTest for tests defaults
+type YamlConfigTest struct {
+	YamlConfig
+}
+
+// getTestDefaults tests func for updating fields values in tests cases
+func (t *YamlConfigTest) getTestDefaults() *YamlConfig {
+	t.YamlConfig = prepareYamlConfig(
+		"100MB", 31, 45, "127.0.0.1:81", ":80", "client1", []string{"dev"})
+	return &t.YamlConfig
+}
+
 func TestYAMLUrlParsingSuccessful(t *testing.T) {
 	correct := []byte(`field: http://golang.org:80/pkg/net`)
 	testyaml := TestYaml{}
@@ -46,36 +58,40 @@ func TestListenYamlParameterValidation(t *testing.T) {
 }
 
 func TestShouldValidateListenConf(t *testing.T) {
+	var testConf YamlConfigTest
 	testListenData := []string{"127.0.0.1:8080", ":8080", ":80"}
 
 	for _, listenValue := range testListenData {
-		testConfData := prepareYamlConfig("100MB", 31, 45, "127.0.0.1:81", listenValue, "client1", []string{"dev"})
-		result, _ := ValidateConf(testConfData)
+		testConf.getTestDefaults().Listen = listenValue
+		result, _ := ValidateConf(testConf.YamlConfig)
 		assert.True(t, result, "Should be true")
 	}
 }
 func TestShouldNotValidateListenConf(t *testing.T) {
+	var testConf YamlConfigTest
 	testWrongListenData := []string{"", "-", " ", "aaa", ":bbb", "c:"}
 
 	for _, listenWrongValue := range testWrongListenData {
-		testConfData := prepareYamlConfig("20MB", 31, 45, "127.0.0.1:82", listenWrongValue, "client1", []string{"dev"})
-		result, _ := ValidateConf(testConfData)
+		testConf.getTestDefaults().Listen = listenWrongValue
+		result, _ := ValidateConf(testConf.YamlConfig)
 		assert.False(t, result, "Should be false")
 	}
 }
 
 func TestShouldValidateConfWithRegexp(t *testing.T) {
-	testConfData := prepareYamlConfig("40MB", 17, 51, "127.0.0.1:83", ":80", "client1", []string{"dev"})
+	var testConf YamlConfigTest
+	testConf.getTestDefaults().BodyMaxSize = "40MB"
 
-	result, _ := ValidateConf(testConfData)
+	result, _ := ValidateConf(testConf.YamlConfig)
 
 	assert.True(t, result, "Should be true")
 }
 
 func TestShouldNotValidateConfWithWrongBodyMaxSizeValue(t *testing.T) {
-	testConfData := prepareYamlConfig("0", 0, 1, "127.0.0.1:84", ":80", "client1", []string{"dev"})
+	var testConf YamlConfigTest
+	testConf.getTestDefaults().BodyMaxSize = "0"
 
-	result, validationErrors := ValidateConf(testConfData)
+	result, validationErrors := ValidateConf(testConf.YamlConfig)
 
 	assert.Contains(t, validationErrors, "BodyMaxSize")
 	assert.False(t, result, "Should be false")
@@ -100,44 +116,47 @@ func TestShouldValidateConfMaintainedBackendWhenEmpty(t *testing.T) {
 }
 
 func TestShouldValidateConfClientNameWithMinLenght(t *testing.T) {
-	clientName := "c"
-	testConfData := prepareYamlConfig("114MB", 22, 33, "", ":80", clientName, []string{"dev"})
+	var testConf YamlConfigTest
+	testConf.getTestDefaults().Client.Name = "c"
 
-	result, _ := ValidateConf(testConfData)
+	result, _ := ValidateConf(testConf.YamlConfig)
 
 	assert.True(t, result, "Should be true")
 }
 
 func TestShouldNotValidateConfClientNameWhenEmpty(t *testing.T) {
-	clientName := ""
-	testConfData := prepareYamlConfig("115MB", 22, 33, "", ":80", clientName, []string{"dev"})
+	var testConf YamlConfigTest
+	testConf.getTestDefaults().Client.Name = ""
 
-	result, _ := ValidateConf(testConfData)
+	result, _ := ValidateConf(testConf.YamlConfig)
 
 	assert.False(t, result, "Should be false")
 }
 
 func TestShouldValidateConfClientClustersValues(t *testing.T) {
-	testConfData := prepareYamlConfig("115MB", 22, 33, "", ":80", "client", []string{"prod", "jprod"})
+	var testConf YamlConfigTest
+	testConf.getTestDefaults().Client.Clusters = []string{"prod", "jprod"}
 
-	result, _ := ValidateConf(testConfData)
+	result, _ := ValidateConf(testConf.YamlConfig)
 
 	assert.True(t, result, "Should be true")
 }
 
 func TestShouldNotValidateConfClientClustersValuesWhenEmpty(t *testing.T) {
-	testConfData := prepareYamlConfig("116MB", 22, 33, "", ":80", "client", []string{"prod", "  "})
+	var testConf YamlConfigTest
+	testConf.getTestDefaults().Client.Clusters = []string{"prod", "  "}
 
-	result, validationErrors := ValidateConf(testConfData)
+	result, validationErrors := ValidateConf(testConf.YamlConfig)
 
 	assert.Contains(t, validationErrors, "Client.Clusters")
 	assert.False(t, result, "Should be false")
 }
 
 func TestShouldNotValidateConfClientClustersValuesWhenDuplicated(t *testing.T) {
-	testConfData := prepareYamlConfig("117MB", 22, 33, "", ":80", "client", []string{"jprod", "jprod"})
+	var testConf YamlConfigTest
+	testConf.getTestDefaults().Client.Clusters = []string{"jprod", "jprod"}
 
-	result, validationErrors := ValidateConf(testConfData)
+	result, validationErrors := ValidateConf(testConf.YamlConfig)
 
 	assert.Contains(t, validationErrors, "Client.Clusters")
 	assert.False(t, result, "Should be false")
