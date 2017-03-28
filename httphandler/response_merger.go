@@ -2,11 +2,13 @@ package httphandler
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/transport"
 	set "github.com/deckarep/golang-set"
 )
@@ -48,6 +50,7 @@ func (rd *responseMerger) synclog(r, successfulTup transport.ReqResErrTuple) {
 		reqID,
 		errorMsg,
 		contentLength)
+	metrics.Mark(fmt.Sprintf("reqs.inconsistencies.%s.method-%s", metrics.Clean(r.Req.Host), r.Req.Method))
 	logMsg, err := json.Marshal(syncLogMsg)
 	if err != nil {
 		return
