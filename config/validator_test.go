@@ -1,9 +1,10 @@
 package config
 
 import (
+	"testing"
+
 	"github.com/go-validator/validator"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 type CustomItemsTestUnique struct {

@@ -48,7 +48,7 @@ func UniqueValuesInSliceValidator(v interface{}, param string) error {
 				return fmt.Errorf("UniqueValuesInSliceValidator: Invalid Kind: %v in parameter: %q. Only kind 'String' is supported", e.Kind(), param)
 			}
 		}
-		if len(vals) != len(uniqueVals.ToSlice()) {
+		if len(vals) != uniqueVals.Cardinality() {
 			return fmt.Errorf("UniqueValuesInSliceValidator: Duplicated values detected in parameter: %q", param)
 		}
 	} else {

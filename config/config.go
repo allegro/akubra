@@ -62,13 +62,13 @@ type YamlConfig struct {
 	MaxIdleConns int `yaml:"MaxIdleConns" validate:"min=0"`
 	// MaxIdleConnsPerHost see: https://golang.org/pkg/net/http/#Transport
 	// Default 100
-	MaxIdleConnsPerHost int `yaml:"MaxIdleConnsPerHost" validate:"min=1"`
+	MaxIdleConnsPerHost int `yaml:"MaxIdleConnsPerHost" validate:"min=0"`
 	// IdleConnTimeout see: https://golang.org/pkg/net/http/#Transport
 	// Default 0 (no limit)
-	IdleConnTimeout metrics.Interval `yaml:"IdleConnTimeout" validate:"regexp=^([1-9][0-9]*s)$"`
+	IdleConnTimeout metrics.Interval `yaml:"IdleConnTimeout"`
 	// ResponseHeaderTimeout see: https://golang.org/pkg/net/http/#Transport
 	// Default 5s (no limit)
-	ResponseHeaderTimeout metrics.Interval `yaml:"ResponseHeaderTimeout" validate:"regexp=^([1-9][0-9]*s)$"`
+	ResponseHeaderTimeout metrics.Interval `yaml:"ResponseHeaderTimeout"`
 
 	Clusters map[string]ClusterConfig `yaml:"Clusters,omitempty"`
 	// Additional not amazon specific headers proxy will add to original request
@@ -147,10 +147,10 @@ func (j *AdditionalHeaders) UnmarshalYAML(unmarshal func(interface{}) error) err
 
 	for key, value := range headers {
 		if strings.TrimSpace(key) == "" {
-			return fmt.Errorf("Empty additional header key: %q with value: %q", key, value)
+			return fmt.Errorf("Empty additional header with value: %q", value)
 		}
 		if strings.TrimSpace(value) == "" {
-			return fmt.Errorf("Empty additional header value: %q with key: %q", value, key)
+			return fmt.Errorf("Empty additional header with key: %q", key)
 		}
 	}
 	return nil
@@ -244,7 +244,7 @@ func setupSyncLogThread(conf *Config, methods []interface{}) {
 	if len(conf.SyncLogMethods) > 0 {
 		conf.SyncLogMethodsSet = set.NewThreadUnsafeSet()
 		for _, v := range conf.SyncLogMethods {
-			conf.SyncLogMethodsSet.Add(v)
+			conf.SyncLogMethodsSet.Add(v.method)
 		}
 	} else {
 		conf.SyncLogMethodsSet = set.NewThreadUnsafeSetFromSlice(methods)
