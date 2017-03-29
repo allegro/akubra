@@ -1,16 +1,17 @@
 package config
 
 import (
-	logconfig "github.com/allegro/akubra/log/config"
-	set "github.com/deckarep/golang-set"
-	"github.com/go-validator/validator"
-	yaml "gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"os"
-	shardingconfig "github.com/allegro/akubra/sharding/config"
-	"github.com/allegro/akubra/metrics"
+
 	"github.com/allegro/akubra/log"
+	logconfig "github.com/allegro/akubra/log/config"
+	"github.com/allegro/akubra/metrics"
+	shardingconfig "github.com/allegro/akubra/sharding/config"
+	set "github.com/deckarep/golang-set"
+	"github.com/go-validator/validator"
+	yaml "gopkg.in/yaml.v2"
 )
 
 // YamlConfig contains configuration fields of config file
@@ -48,7 +49,7 @@ type YamlConfig struct {
 	SyncLogMethods []shardingconfig.SyncLogMethod `yaml:"SyncLogMethods,omitempty"`
 	Client         *shardingconfig.ClientConfig   `yaml:"Client,omitempty"`
 	Logging        logconfig.LoggingConfig        `yaml:"Logging,omitempty"`
-	Metrics        metrics.Config           `yaml:"Metrics,omitempty"`
+	Metrics        metrics.Config                 `yaml:"Metrics,omitempty"`
 	// Should we keep alive connections with backend servers
 	DisableKeepAlives bool `yaml:"DisableKeepAlives"`
 }

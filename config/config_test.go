@@ -1,14 +1,15 @@
 package config
 
 import (
+	"net/url"
+	"testing"
+	"time"
+
 	logconfig "github.com/allegro/akubra/log/config"
 	"github.com/allegro/akubra/metrics"
 	shardingconfig "github.com/allegro/akubra/sharding/config"
 	"github.com/go-yaml/yaml"
 	"github.com/stretchr/testify/assert"
-	"net/url"
-	"testing"
-	"time"
 )
 
 type TestYaml struct {
@@ -240,7 +241,7 @@ func prepareYamlConfig(bodyMaxSize string, idleConnTimeoutInp time.Duration, res
 	maintainedBackendHost string, listen string, clientCfgName string,
 	clientClusters []string) YamlConfig {
 
-	syncLogMethods := []shardingconfig.SyncLogMethod{{Method:"POST"}}
+	syncLogMethods := []shardingconfig.SyncLogMethod{{Method: "POST"}}
 
 	url1 := url.URL{
 		Scheme: "http",
