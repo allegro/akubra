@@ -1,60 +1,24 @@
 package config
 
 import (
-	"fmt"
-	"io"
-	"io/ioutil"
-	"net/url"
-	"os"
-
-	"strings"
-
-	"github.com/allegro/akubra/log"
-	"github.com/allegro/akubra/metrics"
+	logconfig "github.com/allegro/akubra/log/config"
 	set "github.com/deckarep/golang-set"
 	"github.com/go-validator/validator"
 	yaml "gopkg.in/yaml.v2"
+	"io"
+	"io/ioutil"
+	"os"
+	shardingconfig "github.com/allegro/akubra/sharding/config"
+	"github.com/allegro/akubra/metrics"
+	"github.com/allegro/akubra/log"
 )
-
-// ClusterConfig defines cluster configuration
-type ClusterConfig struct {
-	// Backends should contain s3 backend urls
-	Backends []YAMLUrl `yaml:"Backends,omitempty"`
-	// Type, currently replicator is only option
-	Type string `yaml:"Type,omitempty"`
-	// Points how much load cluster should handle
-	Weight int `yaml:"Weight,omitempty"`
-	// Cluster type specific options
-	Options map[string]string `yaml:"Options,omitempty"`
-}
-
-// ClientConfig keeps information about client setup
-type ClientConfig struct {
-	// Client name
-	Name string `yaml:"Name,omitempty" validate:"regexp=^([a-zA-Z0-9_-]+)$"`
-	// List of clusters name
-	Clusters []string `yaml:"Clusters,omitempty" validate:"NoEmptyValuesSlice=Clusters,UniqueValuesSlice=Clusters"`
-}
-
-// YAMLUrl type fields in yaml configuration will parse urls
-type YAMLUrl struct {
-	*url.URL
-}
-
-// SyncLogMethod type fields in yaml configuration will parse list of HTTP methods
-type SyncLogMethod struct {
-	method string
-}
-
-// AdditionalHeaders type fields in yaml configuration will parse list of special headers
-type AdditionalHeaders map[string]string
 
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
 	// Listen interface and port e.g. "0.0.0.0:8000", "127.0.0.1:9090", ":80"
 	Listen string `yaml:"Listen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
 	// List of backend URI's e.g. "http://s3.mydatacenter.org"
-	Backends []YAMLUrl `yaml:"Backends,omitempty,flow"`
+	Backends []shardingconfig.YAMLUrl `yaml:"Backends,omitempty,flow"`
 	// Maximum accepted body size
 	BodyMaxSize string `yaml:"BodyMaxSize,omitempty" validate:"regexp=^([1-9][0-9]+[kMG][B])$"`
 	// MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
@@ -70,31 +34,23 @@ type YamlConfig struct {
 	// Default 5s (no limit)
 	ResponseHeaderTimeout metrics.Interval `yaml:"ResponseHeaderTimeout"`
 
-	Clusters map[string]ClusterConfig `yaml:"Clusters,omitempty"`
+	Clusters map[string]shardingconfig.ClusterConfig `yaml:"Clusters,omitempty"`
 	// Additional not amazon specific headers proxy will add to original request
-	AdditionalRequestHeaders AdditionalHeaders `yaml:"AdditionalRequestHeaders,omitempty"`
+	AdditionalRequestHeaders shardingconfig.AdditionalHeaders `yaml:"AdditionalRequestHeaders,omitempty"`
 	// Additional headers added to backend response
-	AdditionalResponseHeaders AdditionalHeaders `yaml:"AdditionalResponseHeaders,omitempty"`
+	AdditionalResponseHeaders shardingconfig.AdditionalHeaders `yaml:"AdditionalResponseHeaders,omitempty"`
 	// Read timeout on outgoing connections
 
 	// Backend in maintenance mode. Akubra will not send data there
-	MaintainedBackends []YAMLUrl `yaml:"MaintainedBackends,omitempty"`
+	MaintainedBackends []shardingconfig.YAMLUrl `yaml:"MaintainedBackends,omitempty"`
 
 	// List request methods to be logged in synclog in case of backend failure
-	SyncLogMethods []SyncLogMethod `yaml:"SyncLogMethods,omitempty"`
-	Client         *ClientConfig   `yaml:"Client,omitempty"`
-	Logging        LoggingConfig   `yaml:"Logging,omitempty"`
-	Metrics        metrics.Config  `yaml:"Metrics,omitempty"`
+	SyncLogMethods []shardingconfig.SyncLogMethod `yaml:"SyncLogMethods,omitempty"`
+	Client         *shardingconfig.ClientConfig   `yaml:"Client,omitempty"`
+	Logging        logconfig.LoggingConfig        `yaml:"Logging,omitempty"`
+	Metrics        metrics.Config           `yaml:"Metrics,omitempty"`
 	// Should we keep alive connections with backend servers
 	DisableKeepAlives bool `yaml:"DisableKeepAlives"`
-}
-
-// LoggingConfig contains Loggers configuration
-type LoggingConfig struct {
-	Accesslog      log.LoggerConfig `yaml:"Accesslog,omitempty"`
-	Synclog        log.LoggerConfig `yaml:"Synclog,omitempty"`
-	Mainlog        log.LoggerConfig `yaml:"Mainlog,omitempty"`
-	ClusterSyncLog log.LoggerConfig `yaml:"ClusterSynclog,omitempty"`
 }
 
 // Config contains processed YamlConfig data
@@ -105,55 +61,6 @@ type Config struct {
 	Accesslog         log.Logger
 	Mainlog           log.Logger
 	ClusterSyncLog    log.Logger
-}
-
-// UnmarshalYAML for YAMLUrl
-func (j *YAMLUrl) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var s string
-	if err := unmarshal(&s); err != nil {
-		return err
-	}
-	url, err := url.Parse(s)
-	if url.Host == "" {
-		return fmt.Errorf("url should match proto://host[:port]/path scheme - got %q", s)
-	}
-	j.URL = url
-	return err
-}
-
-// UnmarshalYAML for SyncLogMethod
-func (j *SyncLogMethod) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var s string
-	if err := unmarshal(&s); err != nil {
-		return err
-	}
-	method := fmt.Sprintf("%v", s)
-	switch method {
-	case "GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS":
-		break
-	default:
-		return fmt.Errorf("Sync log method should be one from [GET, POST, DELETE, HEAD, OPTIONS] - got %q", s)
-	}
-	j.method = method
-	return nil
-}
-
-// UnmarshalYAML for AdditionalHeaders
-func (j *AdditionalHeaders) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var headers map[string]string
-	if err := unmarshal(&headers); err != nil {
-		return err
-	}
-
-	for key, value := range headers {
-		if strings.TrimSpace(key) == "" {
-			return fmt.Errorf("Empty additional header with value: %q", value)
-		}
-		if strings.TrimSpace(value) == "" {
-			return fmt.Errorf("Empty additional header with key: %q", key)
-		}
-	}
-	return nil
 }
 
 // Parse json config
@@ -244,7 +151,7 @@ func setupSyncLogThread(conf *Config, methods []interface{}) {
 	if len(conf.SyncLogMethods) > 0 {
 		conf.SyncLogMethodsSet = set.NewThreadUnsafeSet()
 		for _, v := range conf.SyncLogMethods {
-			conf.SyncLogMethodsSet.Add(v.method)
+			conf.SyncLogMethodsSet.Add(v.Method)
 		}
 	} else {
 		conf.SyncLogMethodsSet = set.NewThreadUnsafeSetFromSlice(methods)

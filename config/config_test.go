@@ -1,18 +1,18 @@
 package config
 
 import (
-	"testing"
-
-	"net/url"
-	"time"
-
+	logconfig "github.com/allegro/akubra/log/config"
 	"github.com/allegro/akubra/metrics"
+	shardingconfig "github.com/allegro/akubra/sharding/config"
 	"github.com/go-yaml/yaml"
 	"github.com/stretchr/testify/assert"
+	"net/url"
+	"testing"
+	"time"
 )
 
 type TestYaml struct {
-	Field YAMLUrl
+	Field shardingconfig.YAMLUrl
 }
 
 // YamlConfigTest for tests defaults
@@ -20,8 +20,8 @@ type YamlConfigTest struct {
 	YamlConfig
 }
 
-// getTestDefaults tests func for updating fields values in tests cases
-func (t *YamlConfigTest) getTestDefaults() *YamlConfig {
+// NewYamlConfigTest tests func for updating fields values in tests cases
+func (t *YamlConfigTest) NewYamlConfigTest() *YamlConfig {
 	t.YamlConfig = prepareYamlConfig(
 		"100MB", 31, 45, "127.0.0.1:81", ":80", "client1", []string{"dev"})
 	return &t.YamlConfig
@@ -43,7 +43,7 @@ func TestYAMLUrlParsingFailure(t *testing.T) {
 
 func TestYAMLUrlParsingEmpty(t *testing.T) {
 	incorrect := []byte(`field: "1"`)
-	testyaml := YAMLUrl{}
+	testyaml := shardingconfig.YAMLUrl{}
 	err := yaml.Unmarshal(incorrect, &testyaml)
 	assert.Error(t, err, "Should not even try to parse")
 	assert.Nil(t, testyaml.URL, "Should be nil")
@@ -62,7 +62,7 @@ func TestShouldValidateListenConf(t *testing.T) {
 	testListenData := []string{"127.0.0.1:8080", ":8080", ":80"}
 
 	for _, listenValue := range testListenData {
-		testConf.getTestDefaults().Listen = listenValue
+		testConf.NewYamlConfigTest().Listen = listenValue
 		result, _ := ValidateConf(testConf.YamlConfig)
 		assert.True(t, result, "Should be true")
 	}
@@ -72,7 +72,7 @@ func TestShouldNotValidateListenConf(t *testing.T) {
 	testWrongListenData := []string{"", "-", " ", "aaa", ":bbb", "c:"}
 
 	for _, listenWrongValue := range testWrongListenData {
-		testConf.getTestDefaults().Listen = listenWrongValue
+		testConf.NewYamlConfigTest().Listen = listenWrongValue
 		result, _ := ValidateConf(testConf.YamlConfig)
 		assert.False(t, result, "Should be false")
 	}
@@ -80,7 +80,7 @@ func TestShouldNotValidateListenConf(t *testing.T) {
 
 func TestShouldValidateConfWithRegexp(t *testing.T) {
 	var testConf YamlConfigTest
-	testConf.getTestDefaults().BodyMaxSize = "40MB"
+	testConf.NewYamlConfigTest().BodyMaxSize = "40MB"
 
 	result, _ := ValidateConf(testConf.YamlConfig)
 
@@ -89,7 +89,7 @@ func TestShouldValidateConfWithRegexp(t *testing.T) {
 
 func TestShouldNotValidateConfWithWrongBodyMaxSizeValue(t *testing.T) {
 	var testConf YamlConfigTest
-	testConf.getTestDefaults().BodyMaxSize = "0"
+	testConf.NewYamlConfigTest().BodyMaxSize = "0"
 
 	result, validationErrors := ValidateConf(testConf.YamlConfig)
 
@@ -117,7 +117,7 @@ func TestShouldValidateConfMaintainedBackendWhenEmpty(t *testing.T) {
 
 func TestShouldValidateConfClientNameWithMinLenght(t *testing.T) {
 	var testConf YamlConfigTest
-	testConf.getTestDefaults().Client.Name = "c"
+	testConf.NewYamlConfigTest().Client.Name = "c"
 
 	result, _ := ValidateConf(testConf.YamlConfig)
 
@@ -126,7 +126,7 @@ func TestShouldValidateConfClientNameWithMinLenght(t *testing.T) {
 
 func TestShouldNotValidateConfClientNameWhenEmpty(t *testing.T) {
 	var testConf YamlConfigTest
-	testConf.getTestDefaults().Client.Name = ""
+	testConf.NewYamlConfigTest().Client.Name = ""
 
 	result, _ := ValidateConf(testConf.YamlConfig)
 
@@ -135,7 +135,7 @@ func TestShouldNotValidateConfClientNameWhenEmpty(t *testing.T) {
 
 func TestShouldValidateConfClientClustersValues(t *testing.T) {
 	var testConf YamlConfigTest
-	testConf.getTestDefaults().Client.Clusters = []string{"prod", "jprod"}
+	testConf.NewYamlConfigTest().Client.Clusters = []string{"prod", "jprod"}
 
 	result, _ := ValidateConf(testConf.YamlConfig)
 
@@ -144,7 +144,7 @@ func TestShouldValidateConfClientClustersValues(t *testing.T) {
 
 func TestShouldNotValidateConfClientClustersValuesWhenEmpty(t *testing.T) {
 	var testConf YamlConfigTest
-	testConf.getTestDefaults().Client.Clusters = []string{"prod", "  "}
+	testConf.NewYamlConfigTest().Client.Clusters = []string{"prod", "  "}
 
 	result, validationErrors := ValidateConf(testConf.YamlConfig)
 
@@ -154,7 +154,7 @@ func TestShouldNotValidateConfClientClustersValuesWhenEmpty(t *testing.T) {
 
 func TestShouldNotValidateConfClientClustersValuesWhenDuplicated(t *testing.T) {
 	var testConf YamlConfigTest
-	testConf.getTestDefaults().Client.Clusters = []string{"jprod", "jprod"}
+	testConf.NewYamlConfigTest().Client.Clusters = []string{"jprod", "jprod"}
 
 	result, validationErrors := ValidateConf(testConf.YamlConfig)
 
@@ -171,7 +171,7 @@ func TestShouldValidateAllPossibleSyncLogMethods(t *testing.T) {
 - HEAD
 - OPTIONS
 `
-	syncLogMethodsTestData := []SyncLogMethod{}
+	syncLogMethodsTestData := []shardingconfig.SyncLogMethod{}
 	errors := yaml.Unmarshal([]byte(data), &syncLogMethodsTestData)
 
 	assert.Nil(t, errors)
@@ -181,7 +181,7 @@ func TestShouldNotValidateWrongSyncLogMethod(t *testing.T) {
 	data := `
 - WRONG
 `
-	syncLogMethodsTestData := []SyncLogMethod{}
+	syncLogMethodsTestData := []shardingconfig.SyncLogMethod{}
 	errors := yaml.Unmarshal([]byte(data), &syncLogMethodsTestData)
 
 	assert.NotNil(t, errors)
@@ -192,7 +192,7 @@ func TestAdditionalHeadersYamlParsingSuccessful(t *testing.T) {
 'Access-Control-Allow-Credentials': "true"
 'Access-Control-Allow-Methods': "GET, POST, OPTIONS"
 `
-	testyaml := AdditionalHeaders{}
+	testyaml := shardingconfig.AdditionalHeaders{}
 	err := yaml.Unmarshal([]byte(correct), &testyaml)
 
 	assert.NoError(t, err, "Should be correct")
@@ -203,7 +203,7 @@ func TestAdditionalHeadersYamlParsingFailureWhenKeyIsEmpty(t *testing.T) {
 'Access-Control-Allow-Credentials': "true"
 '': "GET, POST, OPTIONS"
 `)
-	testyaml := AdditionalHeaders{}
+	testyaml := shardingconfig.AdditionalHeaders{}
 	err := yaml.Unmarshal(incorrect, &testyaml)
 
 	assert.Error(t, err, "Empty key should return error")
@@ -214,7 +214,7 @@ func TestAdditionalHeadersYamlParsingFailureWhenValueIsEmpty(t *testing.T) {
 'Access-Control-Allow-Methods': ""
 'Access-Control-Allow-Credentials': "true"
 `)
-	testyaml := AdditionalHeaders{}
+	testyaml := shardingconfig.AdditionalHeaders{}
 	err := yaml.Unmarshal(incorrect, &testyaml)
 
 	assert.Error(t, err, "Empty value should return error")
@@ -240,17 +240,17 @@ func prepareYamlConfig(bodyMaxSize string, idleConnTimeoutInp time.Duration, res
 	maintainedBackendHost string, listen string, clientCfgName string,
 	clientClusters []string) YamlConfig {
 
-	syncLogMethods := []SyncLogMethod{{method: "POST"}}
+	syncLogMethods := []shardingconfig.SyncLogMethod{{Method:"POST"}}
 
 	url1 := url.URL{
 		Scheme: "http",
 		Host:   "127.0.0.1:8080",
 	}
-	yamlURL := []YAMLUrl{{&url1}}
+	yamlURL := []shardingconfig.YAMLUrl{{&url1}}
 
 	maxIdleConns := 1
 	maxIdleConnsPerHost := 2
-	clusters := map[string]ClusterConfig{"test": {
+	clusters := map[string]shardingconfig.ClusterConfig{"test": {
 		yamlURL,
 		"replicator",
 		1,
@@ -258,24 +258,24 @@ func prepareYamlConfig(bodyMaxSize string, idleConnTimeoutInp time.Duration, res
 	}}
 
 	url2 := url.URL{Scheme: "http", Host: maintainedBackendHost}
-	maintainedBackends := []YAMLUrl{{&url2}}
+	maintainedBackends := []shardingconfig.YAMLUrl{{&url2}}
 
-	additionalRequestHeaders := AdditionalHeaders{
+	additionalRequestHeaders := shardingconfig.AdditionalHeaders{
 		"Cache-Control": "public, s-maxage=600, max-age=600",
 	}
 
-	additionalResponseHeaders := AdditionalHeaders{
+	additionalResponseHeaders := shardingconfig.AdditionalHeaders{
 		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 	}
 
-	clientCfg := &ClientConfig{
+	clientCfg := &shardingconfig.ClientConfig{
 		Name:     clientCfgName,
 		Clusters: clientClusters,
 	}
 
 	return YamlConfig{
 		listen,
-		[]YAMLUrl{},
+		[]shardingconfig.YAMLUrl{},
 		bodyMaxSize,
 		maxIdleConns,
 		maxIdleConnsPerHost,
@@ -287,7 +287,7 @@ func prepareYamlConfig(bodyMaxSize string, idleConnTimeoutInp time.Duration, res
 		maintainedBackends,
 		syncLogMethods,
 		clientCfg,
-		LoggingConfig{},
+		logconfig.LoggingConfig{},
 		metrics.Config{},
 		false,
 	}
