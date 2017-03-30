@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
+	shardingconfig "github.com/allegro/akubra/sharding/config"
 )
 
 // ReqResErrTuple is intermediate structure for internal use of
@@ -278,7 +278,7 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 func NewMultiTransport(roundTripper http.RoundTripper,
 	backends []url.URL,
 	responsesHandler MultipleResponsesHandler,
-	maintainedBackends []config.YAMLURL) *MultiTransport {
+	maintainedBackends []shardingconfig.YAMLUrl) *MultiTransport {
 	if responsesHandler == nil {
 		responsesHandler = DefaultHandleResponses
 	}

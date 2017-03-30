@@ -1,30 +1,32 @@
 package config
 
 import (
-	"fmt"
+	logconfig "github.com/allegro/akubra/log/config"
+	set "github.com/deckarep/golang-set"
+	"github.com/go-validator/validator"
+	yaml "gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
-	"net/url"
 	"os"
-
-	"github.com/allegro/akubra/log"
+	shardingconfig "github.com/allegro/akubra/sharding/config"
 	"github.com/allegro/akubra/metrics"
-	set "github.com/deckarep/golang-set"
-	"github.com/go-yaml/yaml"
+	"github.com/allegro/akubra/log"
 )
 
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
-	// Listen interface and port e.g. "0:8000", "localhost:9090", ":80"
-	Listen string `yaml:"Listen,omitempty"`
+	// Listen interface and port e.g. "0.0.0.0:8000", "127.0.0.1:9090", ":80"
+	Listen string `yaml:"Listen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
+	// List of backend URI's e.g. "http://s3.mydatacenter.org"
+	Backends []shardingconfig.YAMLUrl `yaml:"Backends,omitempty,flow"`
 	// Maximum accepted body size
-	BodyMaxSize string `yaml:"BodyMaxSize,omitempty"`
+	BodyMaxSize string `yaml:"BodyMaxSize,omitempty" validate:"regexp=^([1-9][0-9]+[kMG][B])$"`
 	// MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
 	// Default 0 (no limit)
-	MaxIdleConns int `yaml:"MaxIdleConns"`
+	MaxIdleConns int `yaml:"MaxIdleConns" validate:"min=0"`
 	// MaxIdleConnsPerHost see: https://golang.org/pkg/net/http/#Transport
 	// Default 100
-	MaxIdleConnsPerHost int `yaml:"MaxIdleConnsPerHost"`
+	MaxIdleConnsPerHost int `yaml:"MaxIdleConnsPerHost" validate:"min=0"`
 	// IdleConnTimeout see: https://golang.org/pkg/net/http/#Transport
 	// Default 0 (no limit)
 	IdleConnTimeout metrics.Interval `yaml:"IdleConnTimeout"`
@@ -32,29 +34,23 @@ type YamlConfig struct {
 	// Default 5s (no limit)
 	ResponseHeaderTimeout metrics.Interval `yaml:"ResponseHeaderTimeout"`
 
-	Clusters map[string]ClusterConfig `yaml:"Clusters,omitempty"`
+	Clusters map[string]shardingconfig.ClusterConfig `yaml:"Clusters,omitempty"`
 	// Additional not amazon specific headers proxy will add to original request
-	AdditionalRequestHeaders map[string]string `yaml:"AdditionalRequestHeaders,omitempty"`
+	AdditionalRequestHeaders shardingconfig.AdditionalHeaders `yaml:"AdditionalRequestHeaders,omitempty"`
 	// Additional headers added to backend response
-	AdditionalResponseHeaders map[string]string `yaml:"AdditionalResponseHeaders,omitempty"`
+	AdditionalResponseHeaders shardingconfig.AdditionalHeaders `yaml:"AdditionalResponseHeaders,omitempty"`
 	// Read timeout on outgoing connections
+
 	// Backend in maintenance mode. Akubra will not send data there
-	MaintainedBackends []YAMLURL `yaml:"MaintainedBackends,omitempty"`
+	MaintainedBackends []shardingconfig.YAMLUrl `yaml:"MaintainedBackends,omitempty"`
+
 	// List request methods to be logged in synclog in case of backend failure
-	SyncLogMethods []string       `yaml:"SyncLogMethods,omitempty"`
-	Client         *ClientConfig  `yaml:"Client,omitempty"`
-	Logging        LoggingConfig  `yaml:"Logging,omitempty"`
-	Metrics        metrics.Config `yaml:"Metrics,omitempty"`
+	SyncLogMethods []shardingconfig.SyncLogMethod `yaml:"SyncLogMethods,omitempty"`
+	Client         *shardingconfig.ClientConfig   `yaml:"Client,omitempty"`
+	Logging        logconfig.LoggingConfig        `yaml:"Logging,omitempty"`
+	Metrics        metrics.Config           `yaml:"Metrics,omitempty"`
 	// Should we keep alive connections with backend servers
 	DisableKeepAlives bool `yaml:"DisableKeepAlives"`
-}
-
-// LoggingConfig contains Loggers configuration
-type LoggingConfig struct {
-	Accesslog      log.LoggerConfig `yaml:"Accesslog,omitempty"`
-	Synclog        log.LoggerConfig `yaml:"Synclog,omitempty"`
-	Mainlog        log.LoggerConfig `yaml:"Mainlog,omitempty"`
-	ClusterSyncLog log.LoggerConfig `yaml:"ClusterSynclog,omitempty"`
 }
 
 // Config contains processed YamlConfig data
@@ -67,54 +63,17 @@ type Config struct {
 	ClusterSyncLog    log.Logger
 }
 
-// YAMLURL type fields in yaml configuration will parse urls
-type YAMLURL struct {
-	*url.URL
-}
-
-// UnmarshalYAML parses strings to url.URL
-func (j *YAMLURL) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var s string
-	if err := unmarshal(&s); err != nil {
-		return err
-	}
-	url, err := url.Parse(s)
-	if url.Host == "" {
-		return fmt.Errorf("url should match proto://host[:port]/path scheme, got %q", s)
-	}
-	j.URL = url
-	return err
-}
-
-// ClusterConfig defines cluster configuration
-type ClusterConfig struct {
-	// Backends should contain s3 backend urls
-	Backends []YAMLURL `yaml:"Backends,omitempty"`
-	// Type, currently replicator is only option
-	Type string `yaml:"Type,omitempty"`
-	// Points how much load cluster should handle
-	Weight int `yaml:"Weight,omitempty"`
-	// Cluster type specific options
-	Options map[string]string `yaml:"Options,omitempty"`
-}
-
-// ClientConfig keeps information about client setup
-type ClientConfig struct {
-	// Client name
-	Name string `yaml:"Name,omitempty"`
-	// List of clusters name
-	Clusters []string `yaml:"Clusters,omitempty"`
-}
-
 // Parse json config
 func parseConf(file io.Reader) (YamlConfig, error) {
 	rc := YamlConfig{}
 	bs, err := ioutil.ReadAll(file)
-
 	if err != nil {
 		return rc, err
 	}
 	err = yaml.Unmarshal(bs, &rc)
+	if err != nil {
+		return rc, err
+	}
 	return rc, err
 }
 
@@ -170,25 +129,42 @@ func setupLoggers(conf *Config) (err error) {
 func Configure(configFilePath string) (conf Config, err error) {
 	confFile, err := os.Open(configFilePath)
 	if err != nil {
-		return
+		log.Fatalf("[ ERROR ] Problem with opening config file: '%s' - err: %v !", configFilePath, err)
+		return conf, err
 	}
+	defer confFile.Close()
 
 	yconf, err := parseConf(confFile)
 	if err != nil {
-		return
+		log.Fatalf("[ ERROR ] Problem with parsing config file: '%s' - err: %v !", configFilePath, err)
+		return conf, err
 	}
 	conf.YamlConfig = yconf
 
+	setupSyncLogThread(&conf, []interface{}{"PUT", "GET", "HEAD", "DELETE", "OPTIONS"})
+
+	err = setupLoggers(&conf)
+	return conf, err
+}
+
+func setupSyncLogThread(conf *Config, methods []interface{}) {
 	if len(conf.SyncLogMethods) > 0 {
 		conf.SyncLogMethodsSet = set.NewThreadUnsafeSet()
 		for _, v := range conf.SyncLogMethods {
-			conf.SyncLogMethodsSet.Add(v)
+			conf.SyncLogMethodsSet.Add(v.Method)
 		}
 	} else {
-		conf.SyncLogMethodsSet = set.NewThreadUnsafeSetFromSlice(
-			[]interface{}{"PUT", "GET", "HEAD", "DELETE", "OPTIONS"})
+		conf.SyncLogMethodsSet = set.NewThreadUnsafeSetFromSlice(methods)
 	}
+}
 
-	err = setupLoggers(&conf)
-	return
+// ValidateConf validate configuration from YAML file
+func ValidateConf(conf YamlConfig) (bool, map[string][]error) {
+	validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
+	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
+	valid, validationErrors := validator.Validate(conf)
+	for propertyName, validatorMessage := range validationErrors {
+		log.Printf("[ ERROR ] YAML config validation -> propertyName: '%s', validatorMessage: '%s'\n", propertyName, validatorMessage)
+	}
+	return valid, validationErrors
 }
