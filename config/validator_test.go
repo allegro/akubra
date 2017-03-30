@@ -15,7 +15,7 @@ type CustomItemsTestNoEmpty struct {
 	Items []string `validate:"NoEmptyValuesSlice=Items"`
 }
 
-func TestShouldValidateWhenValuesInSliceAreNotDuplicated(t *testing.T) {
+func TestShouldValidateWhenValuesInSliceAreUnique(t *testing.T) {
 	var data CustomItemsTestUnique
 	data.Items = []string{"item001", "item002"}
 

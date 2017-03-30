@@ -21,7 +21,7 @@ type YamlConfig struct {
 	// List of backend URI's e.g. "http://s3.mydatacenter.org"
 	Backends []shardingconfig.YAMLUrl `yaml:"Backends,omitempty,flow"`
 	// Maximum accepted body size
-	BodyMaxSize string `yaml:"BodyMaxSize,omitempty" validate:"regexp=^([1-9][0-9]+[kMG][B])$"`
+	BodyMaxSize shardingconfig.HumanSizeUnits `yaml:"BodyMaxSize,omitempty"`
 	// MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
 	// Default 0 (no limit)
 	MaxIdleConns int `yaml:"MaxIdleConns" validate:"min=0"`

@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"errors"
+
+	units "github.com/docker/go-units"
 )
 
 // ClusterConfig defines cluster configuration
@@ -38,6 +42,11 @@ type SyncLogMethod struct {
 
 // AdditionalHeaders type fields in yaml configuration will parse list of special headers
 type AdditionalHeaders map[string]string
+
+// HumanSizeUnits type for max. payload body size in bytes
+type HumanSizeUnits struct {
+	SizeInBytes int64
+}
 
 // UnmarshalYAML for YAMLUrl
 func (j *YAMLUrl) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -85,5 +94,22 @@ func (j *AdditionalHeaders) UnmarshalYAML(unmarshal func(interface{}) error) err
 			return fmt.Errorf("Empty additional header with key: %q", key)
 		}
 	}
+	return nil
+}
+
+// UnmarshalYAML for HumanSizeUnits
+func (j *HumanSizeUnits) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var size string
+	if err := unmarshal(&size); err != nil {
+		return err
+	}
+	value, err := units.FromHumanSize(size)
+	if err != nil {
+		return fmt.Errorf("Unable to parse BodyMaxSize: %s" + err.Error())
+	}
+	if value < 1 {
+		return errors.New("BodyMaxSize must be greater than zero")
+	}
+	j.SizeInBytes = value
 	return nil
 }
