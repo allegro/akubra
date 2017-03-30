@@ -160,10 +160,13 @@ func setupSyncLogThread(conf *Config, methods []interface{}) {
 }
 
 // ValidateConf validate configuration from YAML file
-func ValidateConf(conf YamlConfig) (bool, map[string][]error) {
+func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[string][]error) {
 	validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
 	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
 	valid, validationErrors := validator.Validate(conf)
+	if enableLogicalValidator {
+		conf.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
+	}
 	for propertyName, validatorMessage := range validationErrors {
 		log.Printf("[ ERROR ] YAML config validation -> propertyName: '%s', validatorMessage: '%s'\n", propertyName, validatorMessage)
 	}

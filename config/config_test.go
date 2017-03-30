@@ -25,7 +25,7 @@ type YamlConfigTest struct {
 func (t *YamlConfigTest) NewYamlConfigTest() *YamlConfig {
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	t.YamlConfig = prepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", "client1", []string{"dev"})
+	t.YamlConfig = PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", "client1", []string{"cluster1test"})
 	return &t.YamlConfig
 }
 
@@ -65,7 +65,7 @@ func TestShouldValidateListenConf(t *testing.T) {
 
 	for _, listenValue := range testListenData {
 		testConf.NewYamlConfigTest().Listen = listenValue
-		result, _ := ValidateConf(testConf.YamlConfig)
+		result, _ := ValidateConf(testConf.YamlConfig, false)
 		assert.True(t, result, "Should be true")
 	}
 }
@@ -75,7 +75,7 @@ func TestShouldNotValidateListenConf(t *testing.T) {
 
 	for _, listenWrongValue := range testWrongListenData {
 		testConf.NewYamlConfigTest().Listen = listenWrongValue
-		result, _ := ValidateConf(testConf.YamlConfig)
+		result, _ := ValidateConf(testConf.YamlConfig, false)
 		assert.False(t, result, "Should be false")
 	}
 }
@@ -84,9 +84,9 @@ func TestShouldValidateConfMaintainedBackendWhenNotEmpty(t *testing.T) {
 	maintainedBackendHost := "127.0.0.1:85"
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	testConfData := prepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", "client1", []string{"dev"})
+	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", "client1", []string{"cluster1test"})
 
-	result, _ := ValidateConf(testConfData)
+	result, _ := ValidateConf(testConfData, false)
 
 	assert.True(t, result, "Should be true")
 }
@@ -95,9 +95,9 @@ func TestShouldValidateConfMaintainedBackendWhenEmpty(t *testing.T) {
 	maintainedBackendHost := ""
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 4096
-	testConfData := prepareYamlConfig(size, 22, 33, maintainedBackendHost, ":80", "client1", []string{"dev"})
+	testConfData := PrepareYamlConfig(size, 22, 33, maintainedBackendHost, ":80", "client1", []string{"cluster1test"})
 
-	result, _ := ValidateConf(testConfData)
+	result, _ := ValidateConf(testConfData, false)
 
 	assert.True(t, result, "Should be true")
 }
@@ -106,7 +106,7 @@ func TestShouldValidateConfClientNameWithMinLenght(t *testing.T) {
 	var testConf YamlConfigTest
 	testConf.NewYamlConfigTest().Client.Name = "c"
 
-	result, _ := ValidateConf(testConf.YamlConfig)
+	result, _ := ValidateConf(testConf.YamlConfig, false)
 
 	assert.True(t, result, "Should be true")
 }
@@ -115,7 +115,7 @@ func TestShouldNotValidateConfClientNameWhenEmpty(t *testing.T) {
 	var testConf YamlConfigTest
 	testConf.NewYamlConfigTest().Client.Name = ""
 
-	result, _ := ValidateConf(testConf.YamlConfig)
+	result, _ := ValidateConf(testConf.YamlConfig, false)
 
 	assert.False(t, result, "Should be false")
 }
@@ -124,7 +124,7 @@ func TestShouldValidateConfClientClustersValues(t *testing.T) {
 	var testConf YamlConfigTest
 	testConf.NewYamlConfigTest().Client.Clusters = []string{"prod", "jprod"}
 
-	result, _ := ValidateConf(testConf.YamlConfig)
+	result, _ := ValidateConf(testConf.YamlConfig, false)
 
 	assert.True(t, result, "Should be true")
 }
@@ -133,7 +133,7 @@ func TestShouldNotValidateConfClientClustersValuesWhenEmpty(t *testing.T) {
 	var testConf YamlConfigTest
 	testConf.NewYamlConfigTest().Client.Clusters = []string{"prod", "  "}
 
-	result, validationErrors := ValidateConf(testConf.YamlConfig)
+	result, validationErrors := ValidateConf(testConf.YamlConfig, false)
 
 	assert.Contains(t, validationErrors, "Client.Clusters")
 	assert.False(t, result, "Should be false")
@@ -143,7 +143,7 @@ func TestShouldNotValidateConfClientClustersValuesWhenDuplicated(t *testing.T) {
 	var testConf YamlConfigTest
 	testConf.NewYamlConfigTest().Client.Clusters = []string{"jprod", "jprod"}
 
-	result, validationErrors := ValidateConf(testConf.YamlConfig)
+	result, validationErrors := ValidateConf(testConf.YamlConfig, false)
 
 	assert.Contains(t, validationErrors, "Client.Clusters")
 	assert.False(t, result, "Should be false")
@@ -247,7 +247,7 @@ func TestShouldNotValidateBodyMaxSizeWithZero(t *testing.T) {
 	assert.Error(t, err, "Missing BodyMaxSize should return error")
 }
 
-func prepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeoutInp time.Duration, responseHeaderTimeoutInp time.Duration,
+func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeoutInp time.Duration, responseHeaderTimeoutInp time.Duration,
 	maintainedBackendHost string, listen string, clientCfgName string,
 	clientClusters []string) YamlConfig {
 
@@ -261,7 +261,7 @@ func prepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeou
 
 	maxIdleConns := 1
 	maxIdleConnsPerHost := 2
-	clusters := map[string]shardingconfig.ClusterConfig{"test": {
+	clusters := map[string]shardingconfig.ClusterConfig{"cluster1test": {
 		yamlURL,
 		"replicator",
 		1,
