@@ -15,13 +15,14 @@ import (
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
 
+	shardingconfig "github.com/allegro/akubra/sharding/config"
 	set "github.com/deckarep/golang-set"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func mkDummySrvsWithfun(count int, t *testing.T, handlerfunc func(w http.ResponseWriter, r *http.Request)) []config.YAMLUrl {
-	urls := make([]config.YAMLUrl, 0, count)
+func mkDummySrvsWithfun(count int, t *testing.T, handlerfunc func(w http.ResponseWriter, r *http.Request)) []shardingconfig.YAMLUrl {
+	urls := make([]shardingconfig.YAMLUrl, 0, count)
 	dummySrvs := make([]*httptest.Server, 0, count)
 	for i := 0; i < count; i++ {
 		handlerfun := http.HandlerFunc(handlerfunc)
@@ -31,12 +32,12 @@ func mkDummySrvsWithfun(count int, t *testing.T, handlerfunc func(w http.Respons
 		if err != nil {
 			t.Error(err)
 		}
-		urls = append(urls, config.YAMLUrl{URL: urlN})
+		urls = append(urls, shardingconfig.YAMLUrl{URL: urlN})
 	}
 	return urls
 }
 
-func mkDummySrvs(count int, stream []byte, t *testing.T) []config.YAMLUrl {
+func mkDummySrvs(count int, stream []byte, t *testing.T) []shardingconfig.YAMLUrl {
 	f := func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write(stream)
 		assert.Nil(t, err)
@@ -44,13 +45,13 @@ func mkDummySrvs(count int, stream []byte, t *testing.T) []config.YAMLUrl {
 	return mkDummySrvsWithfun(count, t, f)
 }
 
-var defaultClusterConfig = config.ClusterConfig{
+var defaultClusterConfig = shardingconfig.ClusterConfig{
 	Type:    "replicator",
 	Weight:  1,
 	Options: map[string]string{},
 }
 
-func configure(backends []config.YAMLUrl) config.Config {
+func configure(backends []shardingconfig.YAMLUrl) config.Config {
 
 	methodsSlice := []string{"PUT", "GET", "DELETE"}
 
@@ -66,10 +67,10 @@ func configure(backends []config.YAMLUrl) config.Config {
 
 	defaultClusterConfig.Backends = backends
 
-	clustersConf := make(map[string]config.ClusterConfig)
+	clustersConf := make(map[string]shardingconfig.ClusterConfig)
 	clustersConf["cluster1"] = defaultClusterConfig
 
-	clientCfg := &config.ClientConfig{
+	clientCfg := &shardingconfig.ClientConfig{
 		Name:     "client1",
 		Clusters: []string{"cluster1"},
 	}
@@ -126,7 +127,7 @@ func TestTwoClustersOnRing(t *testing.T) {
 	cluster2Urls := mkDummySrvs(2, response2, t)
 
 	conf := configure(cluster1Urls)
-	conf.Clusters["test"] = config.ClusterConfig{
+	conf.Clusters["test"] = shardingconfig.ClusterConfig{
 		Weight:   1,
 		Type:     "replicator",
 		Backends: cluster2Urls,
@@ -190,7 +191,7 @@ func TestTwoClustersOnRingBucketOp(t *testing.T) {
 	conf := configure(cluster1Urls)
 
 	cluster2Urls := mkDummySrvsWithfun(2, t, f)
-	conf.Clusters["test"] = config.ClusterConfig{
+	conf.Clusters["test"] = shardingconfig.ClusterConfig{
 		Weight:   1,
 		Type:     "replicator",
 		Backends: cluster2Urls,
@@ -220,7 +221,7 @@ func TestTwoClustersOnRingBucketSharding(t *testing.T) {
 	cluster1Urls := mkDummySrvsWithfun(2, t, f)
 	conf := configure(cluster1Urls)
 	cluster2Urls := mkDummySrvsWithfun(2, t, f)
-	conf.Clusters["test"] = config.ClusterConfig{
+	conf.Clusters["test"] = shardingconfig.ClusterConfig{
 		Weight:   1,
 		Type:     "replicator",
 		Backends: cluster2Urls,
@@ -249,7 +250,7 @@ func TestBacktracking(t *testing.T) {
 
 	cluster2Urls := mkDummySrvsWithfun(2, t, http.NotFound)
 
-	conf.Clusters["test"] = config.ClusterConfig{
+	conf.Clusters["test"] = shardingconfig.ClusterConfig{
 		Weight:   1,
 		Type:     "replicator",
 		Backends: cluster2Urls,
@@ -279,7 +280,7 @@ func TestDeletePassToAllBackends(t *testing.T) {
 	cluster1Urls := mkDummySrvsWithfun(2, t, f)
 	conf := configure(cluster1Urls)
 	cluster2Urls := mkDummySrvsWithfun(2, t, f)
-	conf.Clusters["test"] = config.ClusterConfig{
+	conf.Clusters["test"] = shardingconfig.ClusterConfig{
 		Weight:   1,
 		Type:     "replicator",
 		Backends: cluster2Urls,
@@ -323,7 +324,7 @@ func TestBodyResend(t *testing.T) {
 	conf := configure(cluster1Urls)
 
 	cluster2Urls := mkDummySrvsWithfun(2, t, f10BErr)
-	conf.Clusters["test"] = config.ClusterConfig{
+	conf.Clusters["test"] = shardingconfig.ClusterConfig{
 		Weight:   1,
 		Type:     "replicator",
 		Backends: cluster2Urls,

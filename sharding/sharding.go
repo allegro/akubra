@@ -11,7 +11,6 @@ import (
 	"github.com/allegro/akubra/log"
 	shardingconfig "github.com/allegro/akubra/sharding/config"
 	"github.com/allegro/akubra/transport"
-	units "github.com/docker/go-units"
 	"github.com/serialx/hashring"
 )
 
@@ -197,10 +196,6 @@ func NewHandler(conf config.Config) (http.Handler, error) {
 	conf.Mainlog.Printf("Ring sharded into %d partitions", len(ring.shardClusterMap))
 
 	roundTripper := httphandler.DecorateRoundTripper(conf, ring)
-	bodyMaxSize, err := units.FromHumanSize(conf.BodyMaxSize)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to parse BodyMaxSize: %s" + err.Error())
-	}
 
-	return httphandler.NewHandlerWithRoundTripper(roundTripper, bodyMaxSize)
+	return httphandler.NewHandlerWithRoundTripper(roundTripper, conf.BodyMaxSize.SizeInBytes)
 }

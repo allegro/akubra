@@ -1,16 +1,17 @@
 package config
 
 import (
-	logconfig "github.com/allegro/akubra/log/config"
-	set "github.com/deckarep/golang-set"
-	"github.com/go-validator/validator"
-	yaml "gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"os"
-	shardingconfig "github.com/allegro/akubra/sharding/config"
-	"github.com/allegro/akubra/metrics"
+
 	"github.com/allegro/akubra/log"
+	logconfig "github.com/allegro/akubra/log/config"
+	"github.com/allegro/akubra/metrics"
+	shardingconfig "github.com/allegro/akubra/sharding/config"
+	set "github.com/deckarep/golang-set"
+	"github.com/go-validator/validator"
+	yaml "gopkg.in/yaml.v2"
 )
 
 // YamlConfig contains configuration fields of config file
@@ -20,7 +21,7 @@ type YamlConfig struct {
 	// List of backend URI's e.g. "http://s3.mydatacenter.org"
 	Backends []shardingconfig.YAMLUrl `yaml:"Backends,omitempty,flow"`
 	// Maximum accepted body size
-	BodyMaxSize string `yaml:"BodyMaxSize,omitempty" validate:"regexp=^([1-9][0-9]+[kMG][B])$"`
+	BodyMaxSize shardingconfig.HumanSizeUnits `yaml:"BodyMaxSize,omitempty"`
 	// MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
 	// Default 0 (no limit)
 	MaxIdleConns int `yaml:"MaxIdleConns" validate:"min=0"`
@@ -48,7 +49,7 @@ type YamlConfig struct {
 	SyncLogMethods []shardingconfig.SyncLogMethod `yaml:"SyncLogMethods,omitempty"`
 	Client         *shardingconfig.ClientConfig   `yaml:"Client,omitempty"`
 	Logging        logconfig.LoggingConfig        `yaml:"Logging,omitempty"`
-	Metrics        metrics.Config           `yaml:"Metrics,omitempty"`
+	Metrics        metrics.Config                 `yaml:"Metrics,omitempty"`
 	// Should we keep alive connections with backend servers
 	DisableKeepAlives bool `yaml:"DisableKeepAlives"`
 }
@@ -159,10 +160,13 @@ func setupSyncLogThread(conf *Config, methods []interface{}) {
 }
 
 // ValidateConf validate configuration from YAML file
-func ValidateConf(conf YamlConfig) (bool, map[string][]error) {
+func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[string][]error) {
 	validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
 	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
 	valid, validationErrors := validator.Validate(conf)
+	if enableLogicalValidator {
+		conf.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
+	}
 	for propertyName, validatorMessage := range validationErrors {
 		log.Printf("[ ERROR ] YAML config validation -> propertyName: '%s', validatorMessage: '%s'\n", propertyName, validatorMessage)
 	}

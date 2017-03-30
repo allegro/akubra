@@ -49,7 +49,7 @@ func main() {
 		log.Fatalf("Improperly configured %s", err)
 	}
 
-	valid, errs := config.ValidateConf(conf.YamlConfig)
+	valid, errs := config.ValidateConf(conf.YamlConfig, true)
 	if !valid {
 		log.Println("Custom YAML Configuration validation error:", errs)
 		os.Exit(YamlValidationErrorExitCode)
