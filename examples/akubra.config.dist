@@ -23,7 +23,7 @@ MaxIdleConnsPerHost: 100
 # Default 0 (no limit)
 IdleConnTimeout: 0s
 # ResponseHeaderTimeout see: https://golang.org/pkg/net/http/#Transport
-# Default 5s (no limit)
+# Default 5s
 ResponseHeaderTimeout: 5s
 # DisableKeepAlives see: https://golang.org/pkg/net/http/#Transport
 # Default false

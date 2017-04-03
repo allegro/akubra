@@ -13,10 +13,10 @@ import (
 
 	"github.com/allegro/akubra/log"
 
+	fqdn "github.com/ShowMax/go-fqdn"
 	graphite "github.com/cyberdelia/go-metrics-graphite"
 	metrics "github.com/rcrowley/go-metrics"
 
-	"github.com/ShowMax/go-fqdn"
 	"github.com/rcrowley/go-metrics/exp"
 )
 
