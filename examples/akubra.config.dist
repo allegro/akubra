@@ -5,13 +5,13 @@ AdditionalResponseHeaders:
     'Access-Control-Allow-Origin': "*"
     'Access-Control-Allow-Credentials': "true"
     'Access-Control-Allow-Methods': "GET, POST, OPTIONS"
-    'Access-Control-Allow-Headers': "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type"
+    'Access-Control-Allow-Headers': 'DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,X-CSRFToken'
 # Additional headers added to backend response
 AdditionalRequestHeaders:
     'Cache-Control': "public, s-maxage=600, max-age=600"
     'X-Akubra-Version': '0.9.26'
 # Maximum accepted body size
-BodyMaxSize: "100M"
+BodyMaxSize: "100MB"
 # Backend in maintenance mode. Akubra will skip this endpoint
 # MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
 # Default 0 (no limit)

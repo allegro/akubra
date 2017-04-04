@@ -83,7 +83,7 @@ the pool and error is logged.
 Configuration is read from a YAML configuration file with the following fields:
 
 ```yaml
-# Listen interface and port e.g. "0:8000", "localhost:9090", ":80"
+# Listen interface and port e.g. "127.0.0.1:9090", ":80"
 Listen: ":8080"
 # Additional not AWS S3 specific headers proxy will add to original request
 AdditionalResponseHeaders:

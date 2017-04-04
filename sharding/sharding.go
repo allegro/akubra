@@ -9,21 +9,21 @@ import (
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
+	shardingconfig "github.com/allegro/akubra/sharding/config"
 	"github.com/allegro/akubra/transport"
-	units "github.com/docker/go-units"
 	"github.com/serialx/hashring"
 )
 
 type cluster struct {
 	http.RoundTripper
 	weight   int
-	backends []config.YAMLURL
+	backends []shardingconfig.YAMLUrl
 	name     string
 }
 
 func newMultiBackendCluster(transp http.RoundTripper,
 	multiResponseHandler transport.MultipleResponsesHandler,
-	clusterConf config.ClusterConfig, name string, maintainedBackends []config.YAMLURL) cluster {
+	clusterConf shardingconfig.ClusterConfig, name string, maintainedBackends []shardingconfig.YAMLUrl) cluster {
 	backends := make([]url.URL, len(clusterConf.Backends))
 
 	for i, backend := range clusterConf.Backends {
@@ -72,8 +72,8 @@ func (rf ringFactory) getCluster(name string) (cluster, error) {
 	return s3cluster, nil
 }
 
-func (rf ringFactory) uniqBackends(clientCfg config.ClientConfig) ([]url.URL, error) {
-	allBackendsSet := make(map[config.YAMLURL]bool)
+func (rf ringFactory) uniqBackends(clientCfg shardingconfig.ClientConfig) ([]url.URL, error) {
+	allBackendsSet := make(map[shardingconfig.YAMLUrl]bool)
 	log.Debugf("client %v", clientCfg.Clusters)
 	for _, name := range clientCfg.Clusters {
 		log.Debugf("cluster %s", name)
@@ -93,7 +93,7 @@ func (rf ringFactory) uniqBackends(clientCfg config.ClientConfig) ([]url.URL, er
 	return uniqBackendsSlice, nil
 }
 
-func (rf ringFactory) getClientClusters(clientCfg config.ClientConfig) map[string]int {
+func (rf ringFactory) getClientClusters(clientCfg shardingconfig.ClientConfig) map[string]int {
 	res := make(map[string]int)
 	for _, clusterName := range clientCfg.Clusters {
 		cluster := rf.conf.Clusters[clusterName]
@@ -130,7 +130,7 @@ func (rf ringFactory) createRegressionMap(clusters []string) (map[string]cluster
 	return regressionMap, nil
 }
 
-func (rf ringFactory) clientRing(clientCfg config.ClientConfig) (shardsRing, error) {
+func (rf ringFactory) clientRing(clientCfg shardingconfig.ClientConfig) (shardsRing, error) {
 	clientClusters := rf.getClientClusters(clientCfg)
 
 	shardClusterMap, err := rf.makeClusterMap(clientClusters)
@@ -196,10 +196,6 @@ func NewHandler(conf config.Config) (http.Handler, error) {
 	conf.Mainlog.Printf("Ring sharded into %d partitions", len(ring.shardClusterMap))
 
 	roundTripper := httphandler.DecorateRoundTripper(conf, ring)
-	bodyMaxSize, err := units.FromHumanSize(conf.BodyMaxSize)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to parse BodyMaxSize: %s" + err.Error())
-	}
 
-	return httphandler.NewHandlerWithRoundTripper(roundTripper, bodyMaxSize)
+	return httphandler.NewHandlerWithRoundTripper(roundTripper, conf.BodyMaxSize.SizeInBytes)
 }
