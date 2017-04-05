@@ -8,12 +8,12 @@ import (
 	"os"
 	"time"
 
-	graceful "gopkg.in/tylerb/graceful.v1"
-
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/sharding"
+	_ "github.com/lib/pq"
+	graceful "gopkg.in/tylerb/graceful.v1"
 )
 
 // YamlValidationErrorExitCode for problems with YAML config validation
