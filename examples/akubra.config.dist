@@ -1,12 +1,12 @@
 # Listen interface and port e.g. "0:8000", "localhost:9090", ":80"
 Listen: ":8080"
-# Additional not AWS S3 specific headers proxy will add to original request
+# Additional headers added to backend response
 AdditionalResponseHeaders:
     'Access-Control-Allow-Origin': "*"
     'Access-Control-Allow-Credentials': "true"
     'Access-Control-Allow-Methods': "GET, POST, OPTIONS"
     'Access-Control-Allow-Headers': 'DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,X-CSRFToken'
-# Additional headers added to backend response
+# Additional not AWS S3 specific headers proxy will add to original request
 AdditionalRequestHeaders:
     'Cache-Control': "public, s-maxage=600, max-age=600"
     'X-Akubra-Version': '0.9.26'
