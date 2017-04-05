@@ -49,11 +49,11 @@ func NewSyncLogDBHook(db *sql.DB, config DBConfig) (logrus.Hook, error) {
 		if errt != nil {
 			return errt
 		}
-		_, err = tx.Exec(query)
+		_, erre := tx.Exec(query)
 		if erre != nil {
 			return erre
 		}
-		errc = tx.Commit()
+		errc := tx.Commit()
 		return errc
 	}
 	return hook, err
