@@ -65,3 +65,9 @@ testImports:
   subpackages:
   - assert
   - require
+- name: github.com/go-validator/validator
+  version: 4379dff89709877fa1b057d23b11bfe0c361dfd3
+- name: gopkg.in/yaml.v2
+  version: a3f3340b5840cee44f372bddb5880fcbc419b46a
+- name: github.com/rcrowley/go-metrics
+  version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c

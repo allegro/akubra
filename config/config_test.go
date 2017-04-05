@@ -8,6 +8,7 @@ import (
 	logconfig "github.com/allegro/akubra/log/config"
 	"github.com/allegro/akubra/metrics"
 	shardingconfig "github.com/allegro/akubra/sharding/config"
+	"github.com/go-yaml/yaml"
 	"github.com/stretchr/testify/assert"
 	yaml "gopkg.in/yaml.v2"
 )

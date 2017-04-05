@@ -58,33 +58,33 @@ func TestShouldNotValidateWhenValuesInSliceAreEmpty(t *testing.T) {
 	assert.False(t, valid, "Should be false")
 }
 
-func TestShouldValidClientClustersEntryLogicalValidator(t *testing.T) {
-	existsClusterName := "cluster1test"
+func TestShouldPassClientClustersEntryLogicalValidator(t *testing.T) {
+	existingClusterName := "cluster1test"
 	valid := true
 	validationErrors := make(map[string][]error)
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", "client1", []string{existsClusterName})
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", "client1", []string{existingClusterName})
 	yamlConfig.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
 
 	assert.Len(t, validationErrors, 0, "Should not be errors")
 	assert.True(t, valid, "Should be true")
 }
 
-func TestShouldNotValidClientClustersEntryLogicalValidatorWhenNotExistsCluster(t *testing.T) {
-	noExistsClusterName := "noExistsClusterName"
+func TestShouldNotPassClientClustersEntryLogicalValidatorWhenClusterDoesNotExist(t *testing.T) {
+	notExistingClusterName := "notExistingClusterName"
 	valid := true
 	validationErrors := make(map[string][]error)
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", "client1", []string{noExistsClusterName})
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", "client1", []string{notExistingClusterName})
 	yamlConfig.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
 
-	assert.Len(t, validationErrors, 1, "Should not be errors")
+	assert.Len(t, validationErrors, 1, "Should be one error")
 	assert.False(t, valid, "Should be false")
 }
 
-func TestShouldNotValidClientClustersEntryLogicalValidatorWhenEmptyClustersDefinition(t *testing.T) {
+func TestShouldNotPassClientClustersEntryLogicalValidatorWhenEmptyClustersDefinition(t *testing.T) {
 	valid := true
 	validationErrors := make(map[string][]error)
 	var size shardingconfig.HumanSizeUnits
@@ -92,6 +92,6 @@ func TestShouldNotValidClientClustersEntryLogicalValidatorWhenEmptyClustersDefin
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", "client1", []string{})
 	yamlConfig.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
 
-	assert.Len(t, validationErrors, 1, "Should not be errors")
+	assert.Len(t, validationErrors, 1, "Should be one error")
 	assert.False(t, valid, "Should be false")
 }

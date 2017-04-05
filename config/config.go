@@ -9,7 +9,6 @@ import (
 	logconfig "github.com/allegro/akubra/log/config"
 	"github.com/allegro/akubra/metrics"
 	shardingconfig "github.com/allegro/akubra/sharding/config"
-
 	set "github.com/deckarep/golang-set"
 	"github.com/go-validator/validator"
 	yaml "gopkg.in/yaml.v2"
