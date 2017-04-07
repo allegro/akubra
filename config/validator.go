@@ -78,6 +78,20 @@ func (c *YamlConfig) ClientClustersEntryLogicalValidator(valid *bool, validation
 	*validationErrors = mergeErrors(*validationErrors, errorsList)
 }
 
+// ListenPortsLogicalValidator make sure that listen port and technical listen port are not equal
+func (c *YamlConfig) ListenPortsLogicalValidator(valid *bool, validationErrors *map[string][]error) {
+	errorsList := make(map[string][]error)
+	listenParts := strings.Split(c.Listen, ":")
+	listenTechnicalParts := strings.Split(c.TechnicalEndpointListen, ":")
+
+	if listenParts[0] == listenTechnicalParts[0] && listenParts[1] == listenTechnicalParts[1] {
+		*valid = false
+		errorDetail := []error{errors.New("Listen and TechnicalEndpointListen has the same port")}
+		errorsList["ListenPortsLogicalValidator"] = errorDetail
+	}
+	*validationErrors = mergeErrors(*validationErrors, errorsList)
+}
+
 func mergeErrors(maps ...map[string][]error) (output map[string][]error) {
 	size := len(maps)
 	if size == 0 {

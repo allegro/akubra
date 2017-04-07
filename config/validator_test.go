@@ -64,7 +64,7 @@ func TestShouldPassClientClustersEntryLogicalValidator(t *testing.T) {
 	validationErrors := make(map[string][]error)
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", "client1", []string{existingClusterName})
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", ":81", "client1", []string{existingClusterName})
 	yamlConfig.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
 
 	assert.Len(t, validationErrors, 0, "Should not be errors")
@@ -77,7 +77,7 @@ func TestShouldNotPassClientClustersEntryLogicalValidatorWhenClusterDoesNotExist
 	validationErrors := make(map[string][]error)
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", "client1", []string{notExistingClusterName})
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", ":81", "client1", []string{notExistingClusterName})
 	yamlConfig.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
 
 	assert.Len(t, validationErrors, 1, "Should be one error")
@@ -89,8 +89,37 @@ func TestShouldNotPassClientClustersEntryLogicalValidatorWhenEmptyClustersDefini
 	validationErrors := make(map[string][]error)
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", "client1", []string{})
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", ":81", "client1", []string{})
 	yamlConfig.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
+
+	assert.Len(t, validationErrors, 1, "Should be one error")
+	assert.False(t, valid, "Should be false")
+}
+
+func TestShouldPassListenPortsLogicalValidator(t *testing.T) {
+	listen := ":8080"
+	listenTechnicalEndpoint := ":8081"
+	existingClusterName := "cluster1test"
+	valid := true
+	validationErrors := make(map[string][]error)
+	var size shardingconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", listen, listenTechnicalEndpoint, "client1", []string{existingClusterName})
+	yamlConfig.ListenPortsLogicalValidator(&valid, &validationErrors)
+
+	assert.Len(t, validationErrors, 0, "Should not be errors")
+	assert.True(t, valid, "Should be true")
+}
+func TestShouldNotPassListenPortsLogicalValidatorWhenPortsAreEqual(t *testing.T) {
+	listen := "127.0.0.1:8080"
+	listenTechnicalEndpoint := listen
+	existingClusterName := "cluster1test"
+	valid := true
+	validationErrors := make(map[string][]error)
+	var size shardingconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", listen, listenTechnicalEndpoint, "client1", []string{existingClusterName})
+	yamlConfig.ListenPortsLogicalValidator(&valid, &validationErrors)
 
 	assert.Len(t, validationErrors, 1, "Should be one error")
 	assert.False(t, valid, "Should be false")

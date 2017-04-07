@@ -3,8 +3,10 @@ package config
 import (
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 
+	"fmt"
 	"github.com/allegro/akubra/log"
 	logconfig "github.com/allegro/akubra/log/config"
 	"github.com/allegro/akubra/metrics"
@@ -17,7 +19,7 @@ import (
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
 	// Listen interface and port e.g. "0.0.0.0:8000", "127.0.0.1:9090", ":80"
-	Listen string `yaml:"Listen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
+	Listen                  string `yaml:"Listen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
 	TechnicalEndpointListen string `yaml:"TechnicalEndpointListen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
 	// List of backend URI's e.g. "http://s3.mydatacenter.org"
 	Backends []shardingconfig.YAMLUrl `yaml:"Backends,omitempty,flow"`
@@ -165,11 +167,47 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 	validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
 	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
 	valid, validationErrors := validator.Validate(conf)
-	if enableLogicalValidator {
+	if enableLogicalValidator && validationErrors != nil {
 		conf.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
+		conf.ListenPortsLogicalValidator(&valid, &validationErrors)
 	}
 	for propertyName, validatorMessage := range validationErrors {
 		log.Printf("[ ERROR ] YAML config validation -> propertyName: '%s', validatorMessage: '%s'\n", propertyName, validatorMessage)
 	}
 	return valid, validationErrors
+}
+
+func ValidateConfigurationHttpHandler(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		w.WriteHeader(http.StatusNotAcceptable)
+		return
+	}
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		fmt.Printf("Error: %s\n", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var yamlConfig YamlConfig
+	err = yaml.Unmarshal(body, &yamlConfig)
+	if err != nil {
+		fmt.Fprintf(w, "YAML Unmarshal Error: %s", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	defer req.Body.Close()
+
+	valid, errs := ValidateConf(yamlConfig, true)
+	if !valid {
+		log.Println("YAML validation - by technical endpoint - errors:", errs)
+		fmt.Fprintf(w, fmt.Sprintf("%s", errs))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	log.Println("Configuration checked (by technical endpoint) - OK.")
+	fmt.Fprintf(w, "Configuration checked - OK.")
+
+	w.WriteHeader(http.StatusOK)
+	return
 }

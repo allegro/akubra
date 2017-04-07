@@ -25,7 +25,7 @@ type YamlConfigTest struct {
 func (t *YamlConfigTest) NewYamlConfigTest() *YamlConfig {
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	t.YamlConfig = PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", "client1", []string{"cluster1test"})
+	t.YamlConfig = PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", ":81", "client1", []string{"cluster1test"})
 	return &t.YamlConfig
 }
 
@@ -69,6 +69,26 @@ func TestShouldValidateListenConf(t *testing.T) {
 		assert.True(t, result, "Should be true")
 	}
 }
+
+func TestTechnicalEndpointListenYamlParameterValidation(t *testing.T) {
+	incorrect := []byte(`TechnicalEndpointListen: ":8080"`)
+	testyaml := TestYaml{}
+	err := yaml.Unmarshal(incorrect, &testyaml)
+	assert.NoError(t, err, "Should not even try to parse")
+	assert.Nil(t, testyaml.Field.URL, "Should be nil")
+}
+
+func TestShouldValidateTechnicalEndpointListenConf(t *testing.T) {
+	var testConf YamlConfigTest
+	testListenData := []string{"127.0.0.1:8080", ":8080"}
+
+	for _, listenValue := range testListenData {
+		testConf.NewYamlConfigTest().Listen = listenValue
+		result, _ := ValidateConf(testConf.YamlConfig, false)
+		assert.True(t, result, "Should be true")
+	}
+}
+
 func TestShouldNotValidateListenConf(t *testing.T) {
 	var testConf YamlConfigTest
 	testWrongListenData := []string{"", "-", " ", "aaa", ":bbb", "c:"}
@@ -84,7 +104,7 @@ func TestShouldValidateConfMaintainedBackendWhenNotEmpty(t *testing.T) {
 	maintainedBackendHost := "127.0.0.1:85"
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", "client1", []string{"cluster1test"})
+	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", ":81", "client1", []string{"cluster1test"})
 
 	result, _ := ValidateConf(testConfData, false)
 
@@ -95,7 +115,7 @@ func TestShouldValidateConfMaintainedBackendWhenEmpty(t *testing.T) {
 	maintainedBackendHost := ""
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 4096
-	testConfData := PrepareYamlConfig(size, 22, 33, maintainedBackendHost, ":80", "client1", []string{"cluster1test"})
+	testConfData := PrepareYamlConfig(size, 22, 33, maintainedBackendHost, ":80", ":81", "client1", []string{"cluster1test"})
 
 	result, _ := ValidateConf(testConfData, false)
 
@@ -248,7 +268,7 @@ func TestShouldNotValidateBodyMaxSizeWithZero(t *testing.T) {
 }
 
 func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeoutInp time.Duration, responseHeaderTimeoutInp time.Duration,
-	maintainedBackendHost string, listen string, clientCfgName string,
+	maintainedBackendHost string, listen string, technicalEndpointListen string, clientCfgName string,
 	clientClusters []string) YamlConfig {
 
 	syncLogMethods := []shardingconfig.SyncLogMethod{{Method: "POST"}}
@@ -286,6 +306,7 @@ func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeou
 
 	return YamlConfig{
 		listen,
+		technicalEndpointListen,
 		[]shardingconfig.YAMLUrl{},
 		bodyMaxSize,
 		maxIdleConns,
