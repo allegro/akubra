@@ -69,7 +69,7 @@ func NewSyncLogPsqlHook(config DBConfig) (logrus.Hook, error) {
 }
 
 func buildQuery(tmpl *template.Template, jsonStr string) (string, error) {
-	substitutionMap := make(map[string]string)
+	substitutionMap := make(map[string]interface{})
 	err := json.Unmarshal([]byte(jsonStr), &substitutionMap)
 	if err != nil {
 		return "", err

@@ -42,7 +42,7 @@ func TestFakeDBHook(t *testing.T) {
 	mock.ExpectExec("insert into entry\\(source, dest\\) values.*").WillReturnResult(result)
 	mock.ExpectCommit()
 
-	logger.Println(fmt.Sprintf("{%q:%q, %q:%q}", "source", "ss", "dest", "dd"))
+	logger.Println(fmt.Sprintf("{%q:%q, %q:%q, \"num\": 1}", "source", "ss", "dest", "dd"))
 
 	err = mock.ExpectationsWereMet()
 	assert.NoError(t, err)
