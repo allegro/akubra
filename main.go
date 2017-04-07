@@ -111,7 +111,7 @@ func (s *service) startTechnicalEndpoint(conf config.Config) {
 	serveMuxHandler := http.NewServeMux()
 	serveMuxHandler.HandleFunc(
 		"/validate/configuration",
-		config.ValidateConfigurationHttpHandler,
+		config.ValidateConfigurationHTTPHandler,
 	)
 	graceful.Run(
 		conf.TechnicalEndpointListen,

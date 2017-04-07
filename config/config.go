@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"fmt"
+
 	"github.com/allegro/akubra/log"
 	logconfig "github.com/allegro/akubra/log/config"
 	"github.com/allegro/akubra/metrics"
@@ -177,7 +178,8 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 	return valid, validationErrors
 }
 
-func ValidateConfigurationHttpHandler(w http.ResponseWriter, req *http.Request) {
+// ValidateConfigurationHTTPHandler is used in technical HTTP endpoint for config file validation
+func ValidateConfigurationHTTPHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		w.WriteHeader(http.StatusNotAcceptable)
 		return
