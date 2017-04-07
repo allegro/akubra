@@ -18,6 +18,7 @@ import (
 type YamlConfig struct {
 	// Listen interface and port e.g. "0.0.0.0:8000", "127.0.0.1:9090", ":80"
 	Listen string `yaml:"Listen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
+	TechnicalEndpointListen string `yaml:"TechnicalEndpointListen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
 	// List of backend URI's e.g. "http://s3.mydatacenter.org"
 	Backends []shardingconfig.YAMLUrl `yaml:"Backends,omitempty,flow"`
 	// Maximum accepted body size

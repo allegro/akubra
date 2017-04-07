@@ -14,6 +14,7 @@ import (
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/sharding"
+	"io/ioutil"
 )
 
 // YamlValidationErrorExitCode for problems with YAML config validation
@@ -65,6 +66,7 @@ func main() {
 	mainlog.Printf("backends %s", conf.Backends)
 
 	srv := newService(conf)
+	srv.startTechnicalEndpoint(conf)
 	startErr := srv.start()
 	if startErr != nil {
 		mainlog.Fatalf("Could not start service, reason: %q", startErr.Error())
@@ -103,4 +105,32 @@ func (s *service) start() error {
 
 func newService(cfg config.Config) *service {
 	return &service{conf: cfg}
+}
+
+func  (s *service) startTechnicalEndpoint(conf config.Config) {
+	log.Printf("Starting technical HTTP endpoint on port: %q", conf.TechnicalEndpointListen)
+	serveMuxHandler := http.NewServeMux()
+	serveMuxHandler.HandleFunc(
+		"/validate/configuration",
+		func(w http.ResponseWriter, req *http.Request) {
+			if req.Method == http.MethodPost {
+				body, err := ioutil.ReadAll(req.Body)
+				if err != nil {
+					fmt.Printf("Error: %s\n", err)
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				fmt.Fprintf(w, string(body))
+			}
+
+			w.WriteHeader(http.StatusNotAcceptable)
+			return
+	})
+
+	graceful.Run(
+		conf.TechnicalEndpointListen,
+		10 * time.Second,
+		serveMuxHandler,
+	)
+	log.Println("Technical HTTP endpoint is running.")
 }
