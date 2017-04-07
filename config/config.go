@@ -168,7 +168,7 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 	validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
 	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
 	valid, validationErrors := validator.Validate(conf)
-	if enableLogicalValidator && validationErrors != nil {
+	if valid && enableLogicalValidator {
 		conf.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
 		conf.ListenPortsLogicalValidator(&valid, &validationErrors)
 	}
@@ -180,22 +180,24 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 
 // ValidateConfigurationHTTPHandler is used in technical HTTP endpoint for config file validation
 func ValidateConfigurationHTTPHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+
 	if req.Method != http.MethodPost {
 		w.WriteHeader(http.StatusNotAcceptable)
 		return
 	}
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		fmt.Printf("Error: %s\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, fmt.Sprintf("Request Body Read Error: %s\n", err))
 		return
 	}
 
 	var yamlConfig YamlConfig
 	err = yaml.Unmarshal(body, &yamlConfig)
 	if err != nil {
-		fmt.Fprintf(w, "YAML Unmarshal Error: %s", err)
 		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("YAML Unmarshal Error: %s", err))
 		return
 	}
 	defer req.Body.Close()
@@ -203,8 +205,8 @@ func ValidateConfigurationHTTPHandler(w http.ResponseWriter, req *http.Request) 
 	valid, errs := ValidateConf(yamlConfig, true)
 	if !valid {
 		log.Println("YAML validation - by technical endpoint - errors:", errs)
-		fmt.Fprintf(w, fmt.Sprintf("%s", errs))
 		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("%s", errs))
 		return
 	}
 	log.Println("Configuration checked (by technical endpoint) - OK.")
