@@ -105,18 +105,29 @@ func (s *service) start() error {
 func newService(cfg config.Config) *service {
 	return &service{conf: cfg}
 }
-
 func (s *service) startTechnicalEndpoint(conf config.Config) {
 	log.Printf("Starting technical HTTP endpoint on port: %q", conf.TechnicalEndpointListen)
 	serveMuxHandler := http.NewServeMux()
 	serveMuxHandler.HandleFunc(
-		"/validate/configuration",
+		"/configuration/validate",
 		config.ValidateConfigurationHTTPHandler,
 	)
-	graceful.Run(
-		conf.TechnicalEndpointListen,
-		10*time.Second,
-		serveMuxHandler,
-	)
+	go func() {
+		srv := &graceful.Server{
+			Server: &http.Server{
+				Addr:           conf.TechnicalEndpointListen,
+				Handler:        serveMuxHandler,
+				MaxHeaderBytes: 512,
+				WriteTimeout:   5 * time.Second,
+				ReadTimeout:    10 * time.Second,
+			},
+			Timeout:      10 * time.Second,
+			ListenLimit:  10,
+			TCPKeepAlive: 1 * time.Minute,
+			Logger:       graceful.DefaultLogger(),
+		}
+
+		log.Fatal(srv.ListenAndServe())
+	}()
 	log.Println("Technical HTTP endpoint is running.")
 }
