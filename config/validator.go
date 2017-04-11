@@ -6,6 +6,9 @@ import (
 	"reflect"
 	"strings"
 
+	"net/http"
+	"strconv"
+
 	set "github.com/deckarep/golang-set"
 )
 
@@ -107,4 +110,33 @@ func mergeErrors(maps ...map[string][]error) (output map[string][]error) {
 		}
 	}
 	return output
+}
+
+// RequestHeaderContentLengthValidator for Content-Length header in request
+func RequestHeaderContentLengthValidator(req http.Request, bodyMaxSize int64) int {
+	var contentLength int64
+	contentLengthHeader := req.Header.Get("Content-Length")
+	if contentLengthHeader != "" {
+		var err error
+		contentLength, err = strconv.ParseInt(contentLengthHeader, 10, 64)
+		if err != nil {
+			return http.StatusBadRequest
+		}
+	}
+	if contentLength > bodyMaxSize || req.ContentLength > bodyMaxSize {
+		return http.StatusRequestEntityTooLarge
+	}
+	return 0
+}
+
+// RequestHeaderContentTypeValidator for Content-Type header in request
+func RequestHeaderContentTypeValidator(req http.Request, requiredContentType string) int {
+	contentTypeHeader := req.Header.Get("Content-Type")
+	if contentTypeHeader == "" {
+		return http.StatusBadRequest
+	}
+	if contentTypeHeader != requiredContentType {
+		return http.StatusUnsupportedMediaType
+	}
+	return 0
 }

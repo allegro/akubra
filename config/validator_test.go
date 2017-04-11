@@ -3,8 +3,12 @@ package config
 import (
 	"testing"
 
+	"net/http"
+	"net/http/httptest"
+
 	shardingconfig "github.com/allegro/akubra/sharding/config"
 	"github.com/go-validator/validator"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -110,6 +114,7 @@ func TestShouldPassListenPortsLogicalValidator(t *testing.T) {
 	assert.Len(t, validationErrors, 0, "Should not be errors")
 	assert.True(t, valid, "Should be true")
 }
+
 func TestShouldNotPassListenPortsLogicalValidatorWhenPortsAreEqual(t *testing.T) {
 	listen := "127.0.0.1:8080"
 	listenTechnicalEndpoint := listen
@@ -123,4 +128,52 @@ func TestShouldNotPassListenPortsLogicalValidatorWhenPortsAreEqual(t *testing.T)
 
 	assert.Len(t, validationErrors, 1, "Should be one error")
 	assert.False(t, valid, "Should be false")
+}
+
+func TestShouldPassHeaderContentLengthValidator(t *testing.T) {
+	var bodySizeLimit int64 = 128
+	request := httptest.NewRequest("POST", "http://somepath", nil)
+	request.Header.Set("Content-Length", "128")
+	result := RequestHeaderContentLengthValidator(*request, bodySizeLimit)
+	assert.Equal(t, 0, result)
+}
+
+func TestShouldNotPassHeaderContentLengthValidatorAndReturnEntityTooLargeCode(t *testing.T) {
+	var bodySizeLimit int64 = 1024
+	request := httptest.NewRequest("POST", "http://somepath", nil)
+	request.Header.Set("Content-Length", "1025")
+	result := RequestHeaderContentLengthValidator(*request, bodySizeLimit)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, result)
+}
+
+func TestShouldNotPassHeaderContentLengthValidatorAndReturnBadRequestOnUnparsableContentLengthHeader(t *testing.T) {
+	var bodySizeLimit int64 = 64
+	request := httptest.NewRequest("POST", "http://somepath", nil)
+	request.Header.Set("Content-Length", "strange-content-header")
+	result := RequestHeaderContentLengthValidator(*request, bodySizeLimit)
+	assert.Equal(t, http.StatusBadRequest, result)
+}
+
+func TestShouldPassRequestHeaderContentTypeValidator(t *testing.T) {
+	requiredContentType := "application/yaml"
+	request := httptest.NewRequest("POST", "http://somepath", nil)
+	request.Header.Set("Content-Type", "application/yaml")
+	result := RequestHeaderContentTypeValidator(*request, requiredContentType)
+	assert.Equal(t, 0, result)
+}
+
+func TestShouldNotPassRequestHeaderContentTypeValidatorWhenContentTypeIsEmpty(t *testing.T) {
+	requiredContentType := "application/yaml"
+	request := httptest.NewRequest("POST", "http://somepath", nil)
+	request.Header.Set("Content-Type", "")
+	result := RequestHeaderContentTypeValidator(*request, requiredContentType)
+	assert.Equal(t, http.StatusBadRequest, result)
+}
+
+func TestShouldNotPassRequestHeaderContentTypeValidatorWhenContentTypeIsUnsupported(t *testing.T) {
+	requiredContentType := "application/yaml"
+	request := httptest.NewRequest("POST", "http://somepath", nil)
+	request.Header.Set("Content-Type", "application/json")
+	result := RequestHeaderContentTypeValidator(*request, requiredContentType)
+	assert.Equal(t, http.StatusUnsupportedMediaType, result)
 }

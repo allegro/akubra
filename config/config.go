@@ -17,6 +17,12 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+// TechnicalEndpointBodyMaxSize for /configuration/validate endpoint
+const TechnicalEndpointBodyMaxSize = 8 * 1024
+
+// TechnicalEndpointHeaderContentType for /configuration/validate endpoint
+const TechnicalEndpointHeaderContentType = "application/yaml"
+
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
 	// Listen interface and port e.g. "0.0.0.0:8000", "127.0.0.1:9090", ":80"
@@ -180,6 +186,18 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 
 // ValidateConfigurationHTTPHandler is used in technical HTTP endpoint for config file validation
 func ValidateConfigurationHTTPHandler(w http.ResponseWriter, req *http.Request) {
+	validationResult := RequestHeaderContentLengthValidator(*req, TechnicalEndpointBodyMaxSize)
+	if validationResult > 0 {
+		w.WriteHeader(validationResult)
+		return
+	}
+
+	validationResult = RequestHeaderContentTypeValidator(*req, TechnicalEndpointHeaderContentType)
+	if validationResult > 0 {
+		w.WriteHeader(validationResult)
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	if req.Method != http.MethodPost {

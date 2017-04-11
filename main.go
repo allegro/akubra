@@ -19,6 +19,9 @@ import (
 // YamlValidationErrorExitCode for problems with YAML config validation
 const YamlValidationErrorExitCode = 20
 
+// TechnicalEndpointGeneralTimeout for /configuration/validate endpoint
+const TechnicalEndpointGeneralTimeout = 5 * time.Second
+
 type service struct {
 	conf config.Config
 }
@@ -118,11 +121,10 @@ func (s *service) startTechnicalEndpoint(conf config.Config) {
 				Addr:           conf.TechnicalEndpointListen,
 				Handler:        serveMuxHandler,
 				MaxHeaderBytes: 512,
-				WriteTimeout:   5 * time.Second,
-				ReadTimeout:    10 * time.Second,
+				WriteTimeout:   TechnicalEndpointGeneralTimeout,
+				ReadTimeout:    TechnicalEndpointGeneralTimeout,
 			},
-			Timeout:      10 * time.Second,
-			ListenLimit:  10,
+			Timeout:      TechnicalEndpointGeneralTimeout,
 			TCPKeepAlive: 1 * time.Minute,
 			Logger:       graceful.DefaultLogger(),
 		}
