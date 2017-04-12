@@ -185,51 +185,51 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 }
 
 // ValidateConfigurationHTTPHandler is used in technical HTTP endpoint for config file validation
-func ValidateConfigurationHTTPHandler(response http.ResponseWriter, request *http.Request) {
-	if request.Method != http.MethodPost {
-		response.WriteHeader(http.StatusMethodNotAllowed)
+func ValidateConfigurationHTTPHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
-	validationResult := RequestHeaderContentLengthValidator(*request, TechnicalEndpointBodyMaxSize)
+	validationResult := RequestHeaderContentLengthValidator(*r, TechnicalEndpointBodyMaxSize)
 	if validationResult > 0 {
-		response.WriteHeader(validationResult)
+		w.WriteHeader(validationResult)
 		return
 	}
 
-	validationResult = RequestHeaderContentTypeValidator(*request, TechnicalEndpointHeaderContentType)
+	validationResult = RequestHeaderContentTypeValidator(*r, TechnicalEndpointHeaderContentType)
 	if validationResult > 0 {
-		response.WriteHeader(validationResult)
+		w.WriteHeader(validationResult)
 		return
 	}
 
-	response.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	body, err := ioutil.ReadAll(request.Body)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		response.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(response, fmt.Sprintf("Request Body Read Error: %s\n", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, fmt.Sprintf("Request Body Read Error: %s\n", err))
 		return
 	}
 
 	var yamlConfig YamlConfig
 	err = yaml.Unmarshal(body, &yamlConfig)
 	if err != nil {
-		response.WriteHeader(http.StatusBadRequest)
-		io.WriteString(response, fmt.Sprintf("YAML Unmarshal Error: %s", err))
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("YAML Unmarshal Error: %s", err))
 		return
 	}
-	defer request.Body.Close()
+	defer r.Body.Close()
 
 	valid, errs := ValidateConf(yamlConfig, true)
 	if !valid {
 		log.Println("YAML validation - by technical endpoint - errors:", errs)
-		response.WriteHeader(http.StatusBadRequest)
-		io.WriteString(response, fmt.Sprintf("%s", errs))
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("%s", errs))
 		return
 	}
 	log.Println("Configuration checked (by technical endpoint) - OK.")
-	fmt.Fprintf(response, "Configuration checked - OK.")
+	fmt.Fprintf(w, "Configuration checked - OK.")
 
-	response.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusOK)
 	return
 }
