@@ -8,7 +8,7 @@ import (
 	"text/template"
 
 	"github.com/Sirupsen/logrus"
-
+	"github.com/allegro/akubra/metrics"
 	pglogrus "gopkg.in/gemnasium/logrus-postgresql-hook.v1"
 )
 
@@ -43,17 +43,23 @@ func NewSyncLogDBHook(db *sql.DB, config DBConfig) (logrus.Hook, error) {
 	hook.InsertFunc = func(db *sql.DB, entry *logrus.Entry) error {
 		query, errq := buildQuery(tmpl, entry.Message)
 		if errq != nil {
+			metrics.Mark("reqs.global.inconsistencies.store-failure")
 			return errq
 		}
 		tx, errt := db.Begin()
 		if errt != nil {
+			metrics.Mark("reqs.global.inconsistencies.store-failure")
 			return errt
 		}
 		_, erre := tx.Exec(query)
 		if erre != nil {
+			metrics.Mark("reqs.global.inconsistencies.store-failure")
 			return erre
 		}
 		errc := tx.Commit()
+		if errc != nil {
+			metrics.Mark("reqs.global.inconsistencies.store-success")
+		}
 		return errc
 	}
 	return hook, err
