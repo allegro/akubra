@@ -85,16 +85,15 @@ Configuration is read from a YAML configuration file with the following fields:
 ```yaml
 # Listen interface and port e.g. "127.0.0.1:9090", ":80"
 Listen: ":8080"
-# Additional not AWS S3 specific headers proxy will add to original request
+# Additional headers added to backend response
 AdditionalResponseHeaders:
     'Access-Control-Allow-Origin': "*"
     'Access-Control-Allow-Credentials': "true"
     'Access-Control-Allow-Methods': "GET, POST, OPTIONS"
     'Access-Control-Allow-Headers': "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type"
-# Additional headers added to backend response
+# Additional not AWS S3 specific headers proxy will add to original request
 AdditionalRequestHeaders:
     'Cache-Control': "public, s-maxage=600, max-age=600"
-    'X-Akubra-Version': '0.9.26'
 # MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
 # Default 0 (no limit)
 MaxIdleConns: 0
@@ -105,7 +104,7 @@ MaxIdleConnsPerHost: 100
 # Default 0 (no limit)
 IdleConnTimeout: 0s
 # ResponseHeaderTimeout see: https://golang.org/pkg/net/http/#Transport
-# Default 5s (no limit)
+# Default 5s
 ResponseHeaderTimeout: 5s
 # DisableKeepAlives see: https://golang.org/pkg/net/http/#Transport
 # Default false
@@ -151,6 +150,16 @@ Logging:
   #  stdout: false  # default: false
   #  file: "/var/log/akubra/sync.log"  # default: ""
   #  syslog: LOG_LOCAL1  # default: LOG_LOCAL1
+  #  database:
+  #    user: dbUser
+  #    password: ""
+  #    dbname: dbName
+  #    host: localhost
+  #    inserttmpl: |
+  #      INSERT INTO tablename(path, successhost, failedhost, ts,
+  #       method, useragent, error)
+  #      VALUES ('new','{{.path}}','{{.successhost}}','{{.failedhost}}',
+  #      '{{.ts}}'::timestamp, '{{.method}}','{{.useragent}}','{{.error}}');
 
   Mainlog:
     stderr: true

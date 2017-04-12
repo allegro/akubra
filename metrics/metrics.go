@@ -4,6 +4,7 @@ package metrics
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -11,12 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/allegro/akubra/log"
-
+	fqdn "github.com/ShowMax/go-fqdn"
 	graphite "github.com/cyberdelia/go-metrics-graphite"
 	metrics "github.com/rcrowley/go-metrics"
 
-	"github.com/ShowMax/go-fqdn"
 	"github.com/rcrowley/go-metrics/exp"
 )
 
@@ -24,7 +23,6 @@ var pfx string
 
 // Clear removes all metrics in Registry
 func Clear() {
-	log.Print("Unregistering all metrics.")
 	metrics.DefaultRegistry.UnregisterAll()
 }
 
@@ -80,13 +78,11 @@ func Init(cfg Config) (err error) {
 
 	switch cfg.Target {
 	case "stdout":
-		log.Print("Sending metrics to stdout")
 		return initStdout(cfg.Interval.Duration)
 	case "graphite":
 		if cfg.Addr == "" {
 			return errors.New("metrics: graphite addr missing")
 		}
-		log.Printf("Sending metrics to Graphite on %s as %q", cfg.Addr, pfx)
 		percentiles := cfg.Percentiles
 		if len(percentiles) == 0 {
 			percentiles = append(percentiles, []float64{0.75, 0.95, 0.99, 0.999}...)
@@ -94,22 +90,22 @@ func Init(cfg Config) (err error) {
 		return initGraphite(cfg.Addr, cfg.Interval.Duration, percentiles)
 	case "expvar":
 		handler := exp.ExpHandler(metrics.DefaultRegistry)
-		go startExpvar(cfg, handler)
-		return nil
+		return startExpvar(cfg, handler)
 
 	case "":
-		log.Printf("Metrics disabled")
 		return nil
 	default:
 		return fmt.Errorf("Invalid metrics target %s", cfg.Target)
 	}
 }
 
-func startExpvar(cfg Config, handler http.Handler) {
-	err := http.ListenAndServe(cfg.ExpAddr, handler)
-	if err != nil {
-		log.Printf("Could not start exp server: %q", err.Error())
-	}
+func startExpvar(cfg Config, handler http.Handler) error {
+	started := make(chan error)
+	go func() {
+		err := http.ListenAndServe(cfg.ExpAddr, handler)
+		started <- err
+	}()
+	return <-started
 }
 
 // Clean replaces metrics path compound special chars with underscore
@@ -139,7 +135,7 @@ func defaultPrefix() string {
 }
 
 func initStdout(interval time.Duration) error {
-	go metrics.LogScaled(metrics.DefaultRegistry, interval, time.Second, log.DefaultLogger)
+	go metrics.LogScaled(metrics.DefaultRegistry, interval, time.Second, log.New(os.Stdout, "", log.Lshortfile))
 	return nil
 }
 
