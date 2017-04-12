@@ -5,6 +5,13 @@ import (
 	"testing"
 	"time"
 
+	"bytes"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+
+	"strings"
+
 	logconfig "github.com/allegro/akubra/log/config"
 	"github.com/allegro/akubra/metrics"
 	shardingconfig "github.com/allegro/akubra/sharding/config"
@@ -265,6 +272,79 @@ func TestShouldNotValidateBodyMaxSizeWithZero(t *testing.T) {
 	err := yaml.Unmarshal(correct, &testyaml)
 
 	assert.Error(t, err, "Missing BodyMaxSize should return error")
+}
+
+func TestShouldPassValidateConfigurationHTTPHandler(t *testing.T) {
+	correctEndpointURL := "http://127.0.0.1:8071/configuration/validate"
+	correctYamlData := `
+Listen: :80
+TechnicalEndpointListen: :81
+BodyMaxSize: 2048
+MaxIdleConns: 1
+MaxIdleConnsPerHost: 2
+IdleConnTimeout: 3s
+ResponseHeaderTimeout: 4s
+Clusters:
+  cluster1test:
+    Backends:
+      - "http://127.0.0.1:8080"
+    Type: replicator
+    Weight: 1
+AdditionalRequestHeaders:
+  Cache-Control: public, s-maxage=600, max-age=600
+AdditionalResponseHeaders:
+  Access-Control-Allow-Methods: GET, POST, OPTIONS
+SyncLogMethods:
+  - POST
+Client:
+  Name: client1
+  Clusters:
+  - cluster1test
+DisableKeepAlives: false
+`
+	bodyReader := bytes.NewBufferString(string(correctYamlData))
+	request := httptest.NewRequest(http.MethodPost, correctEndpointURL, bodyReader)
+	request.Header.Set("Content-Length", fmt.Sprintf("%d", len(correctYamlData)))
+	request.Header.Set("Content-Type", "application/yaml")
+	writer := httptest.NewRecorder()
+
+	ValidateConfigurationHTTPHandler(writer, request)
+
+	assert.Equal(t, http.StatusOK, writer.Code)
+}
+
+func TestShouldNotPassValidateConfigurationHTTPHandlerWithWrongRequests(t *testing.T) {
+	correctEndpointURL := "http://127.0.0.1:8071/configuration/validate"
+	correctContentType := "application/yaml"
+	incorrectRequestData := []struct {
+		expectedStatusCode int
+		method             string
+		contentType        string
+		url                string
+		body               string
+		contentLen         int
+	}{
+		{http.StatusBadRequest, http.MethodPost, correctContentType, correctEndpointURL, "", 0},
+		{http.StatusBadRequest, http.MethodPost, "", correctEndpointURL, "", 0},
+		{http.StatusBadRequest, http.MethodPost, correctContentType, correctEndpointURL + "/wrongpath", "", 0},
+		{http.StatusRequestEntityTooLarge, http.MethodPost, correctContentType, correctEndpointURL, strings.Repeat("#", TechnicalEndpointBodyMaxSize+1), TechnicalEndpointBodyMaxSize},
+		{http.StatusUnsupportedMediaType, http.MethodPost, "application/json", correctEndpointURL, "Listen: :8080\n", 14},
+		{http.StatusMethodNotAllowed, http.MethodDelete, correctContentType, correctEndpointURL, "", 0},
+		{http.StatusMethodNotAllowed, http.MethodPut, correctContentType, correctEndpointURL, "", 0},
+		{http.StatusMethodNotAllowed, http.MethodGet, correctContentType, correctEndpointURL, "", 0},
+	}
+
+	for _, testData := range incorrectRequestData {
+		bodyReader := bytes.NewBufferString(testData.body)
+		request := httptest.NewRequest(testData.method, testData.url, bodyReader)
+		request.Header.Set("Content-Length", fmt.Sprintf("%d", testData.contentLen))
+		request.Header.Set("Content-Type", testData.contentType)
+		writer := httptest.NewRecorder()
+
+		ValidateConfigurationHTTPHandler(writer, request)
+
+		assert.Equal(t, testData.expectedStatusCode, writer.Code)
+	}
 }
 
 func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeoutInp time.Duration, responseHeaderTimeoutInp time.Duration,
