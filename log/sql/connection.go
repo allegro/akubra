@@ -57,12 +57,12 @@ func NewSyncLogDBHook(db *sql.DB, config DBConfig) (logrus.Hook, error) {
 			return erre
 		}
 		errc := tx.Commit()
-		if errc == nil {
-			metrics.Mark("reqs.global.inconsistencies.store-success")
-		} else {
+		if errc != nil {
 			metrics.Mark("reqs.global.inconsistencies.store-failure")
+			return errc
 		}
-		return errc
+		metrics.Mark("reqs.global.inconsistencies.store-success")
+		return nil
 	}
 	return hook, err
 }
