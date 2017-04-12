@@ -75,6 +75,16 @@ Logging:
   #  stdout: false  # default: false
   #  file: "/var/log/akubra/access.log"  # default: ""
   #  syslog: LOG_LOCAL3  # default: LOG_LOCAL3
+  #   database:
+  #     user: dbUser
+  #     password: ""
+  #     dbname: dbName
+  #     host: localhost
+  #     inserttmpl: |
+  #       INSERT INTO tablename(path, successhost, failedhost, ts,
+  #        method, useragent, error)
+  #       VALUES ('new','{{.path}}','{{.successhost}}','{{.failedhost}}',
+  #       '{{.ts}}'::timestamp, '{{.method}}','{{.useragent}}','{{.error}}');
 
 Metrics:
   Target: expvar

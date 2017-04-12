@@ -150,6 +150,16 @@ Logging:
   #  stdout: false  # default: false
   #  file: "/var/log/akubra/sync.log"  # default: ""
   #  syslog: LOG_LOCAL1  # default: LOG_LOCAL1
+  #  database:
+  #    user: dbUser
+  #    password: ""
+  #    dbname: dbName
+  #    host: localhost
+  #    inserttmpl: |
+  #      INSERT INTO tablename(path, successhost, failedhost, ts,
+  #       method, useragent, error)
+  #      VALUES ('new','{{.path}}','{{.successhost}}','{{.failedhost}}',
+  #      '{{.ts}}'::timestamp, '{{.method}}','{{.useragent}}','{{.error}}');
 
   Mainlog:
     stderr: true
