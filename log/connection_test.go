@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/Sirupsen/logrus"
 	"github.com/allegro/akubra/log/sql"
 	"github.com/stretchr/testify/assert"
