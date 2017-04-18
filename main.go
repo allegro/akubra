@@ -19,6 +19,9 @@ import (
 // YamlValidationErrorExitCode for problems with YAML config validation
 const YamlValidationErrorExitCode = 20
 
+// TechnicalEndpointGeneralTimeout for /configuration/validate endpoint
+const TechnicalEndpointGeneralTimeout = 5 * time.Second
+
 type service struct {
 	conf config.Config
 }
@@ -65,6 +68,7 @@ func main() {
 	mainlog.Printf("backends %s", conf.Backends)
 
 	srv := newService(conf)
+	srv.startTechnicalEndpoint(conf)
 	startErr := srv.start()
 	if startErr != nil {
 		mainlog.Fatalf("Could not start service, reason: %q", startErr.Error())
@@ -103,4 +107,29 @@ func (s *service) start() error {
 
 func newService(cfg config.Config) *service {
 	return &service{conf: cfg}
+}
+func (s *service) startTechnicalEndpoint(conf config.Config) {
+	log.Printf("Starting technical HTTP endpoint on port: %q", conf.TechnicalEndpointListen)
+	serveMuxHandler := http.NewServeMux()
+	serveMuxHandler.HandleFunc(
+		"/configuration/validate",
+		config.ValidateConfigurationHTTPHandler,
+	)
+	go func() {
+		srv := &graceful.Server{
+			Server: &http.Server{
+				Addr:           conf.TechnicalEndpointListen,
+				Handler:        serveMuxHandler,
+				MaxHeaderBytes: 512,
+				WriteTimeout:   TechnicalEndpointGeneralTimeout,
+				ReadTimeout:    TechnicalEndpointGeneralTimeout,
+			},
+			Timeout:      TechnicalEndpointGeneralTimeout,
+			TCPKeepAlive: 1 * time.Minute,
+			Logger:       graceful.DefaultLogger(),
+		}
+
+		log.Fatal(srv.ListenAndServe())
+	}()
+	log.Println("Technical HTTP endpoint is running.")
 }

@@ -3,7 +3,10 @@ package config
 import (
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
+
+	"fmt"
 
 	"github.com/allegro/akubra/log"
 	logconfig "github.com/allegro/akubra/log/config"
@@ -14,10 +17,17 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+// TechnicalEndpointBodyMaxSize for /configuration/validate endpoint
+const TechnicalEndpointBodyMaxSize = 8 * 1024
+
+// TechnicalEndpointHeaderContentType for /configuration/validate endpoint
+const TechnicalEndpointHeaderContentType = "application/yaml"
+
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
 	// Listen interface and port e.g. "0.0.0.0:8000", "127.0.0.1:9090", ":80"
-	Listen string `yaml:"Listen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
+	Listen                  string `yaml:"Listen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
+	TechnicalEndpointListen string `yaml:"TechnicalEndpointListen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
 	// List of backend URI's e.g. "http://s3.mydatacenter.org"
 	Backends []shardingconfig.YAMLUrl `yaml:"Backends,omitempty,flow"`
 	// Maximum accepted body size
@@ -164,11 +174,62 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 	validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
 	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
 	valid, validationErrors := validator.Validate(conf)
-	if enableLogicalValidator {
+	if valid && enableLogicalValidator {
 		conf.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
+		conf.ListenPortsLogicalValidator(&valid, &validationErrors)
 	}
 	for propertyName, validatorMessage := range validationErrors {
 		log.Printf("[ ERROR ] YAML config validation -> propertyName: '%s', validatorMessage: '%s'\n", propertyName, validatorMessage)
 	}
 	return valid, validationErrors
+}
+
+// ValidateConfigurationHTTPHandler is used in technical HTTP endpoint for config file validation
+func ValidateConfigurationHTTPHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	validationResult := RequestHeaderContentLengthValidator(*r, TechnicalEndpointBodyMaxSize)
+	if validationResult > 0 {
+		w.WriteHeader(validationResult)
+		return
+	}
+
+	validationResult = RequestHeaderContentTypeValidator(*r, TechnicalEndpointHeaderContentType)
+	if validationResult > 0 {
+		w.WriteHeader(validationResult)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, fmt.Sprintf("Request Body Read Error: %s\n", err))
+		return
+	}
+
+	var yamlConfig YamlConfig
+	err = yaml.Unmarshal(body, &yamlConfig)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("YAML Unmarshal Error: %s", err))
+		return
+	}
+	defer r.Body.Close()
+
+	valid, errs := ValidateConf(yamlConfig, true)
+	if !valid {
+		log.Println("YAML validation - by technical endpoint - errors:", errs)
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, fmt.Sprintf("%s", errs))
+		return
+	}
+	log.Println("Configuration checked (by technical endpoint) - OK.")
+	fmt.Fprintf(w, "Configuration checked - OK.")
+
+	w.WriteHeader(http.StatusOK)
+	return
 }
