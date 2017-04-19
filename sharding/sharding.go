@@ -8,7 +8,6 @@ import (
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/httphandler"
-	"github.com/allegro/akubra/log"
 	shardingconfig "github.com/allegro/akubra/sharding/config"
 	"github.com/allegro/akubra/transport"
 	"github.com/serialx/hashring"
@@ -17,8 +16,8 @@ import (
 type cluster struct {
 	http.RoundTripper
 	weight   int
-	backends []shardingconfig.YAMLUrl
-	name     string
+	Backends []shardingconfig.YAMLUrl
+	Name     string
 }
 
 func newMultiBackendCluster(transp http.RoundTripper,
@@ -74,15 +73,12 @@ func (rf ringFactory) getCluster(name string) (cluster, error) {
 
 func (rf ringFactory) uniqBackends(clientCfg shardingconfig.ClientConfig) ([]url.URL, error) {
 	allBackendsSet := make(map[shardingconfig.YAMLUrl]bool)
-	log.Debugf("client %v", clientCfg.Clusters)
 	for _, name := range clientCfg.Clusters {
-		log.Debugf("cluster %s", name)
 		clientCluster, err := rf.getCluster(name)
 		if err != nil {
 			return nil, err
 		}
-		for _, backendURL := range clientCluster.backends {
-			log.Debugf("backend %s", backendURL.Host)
+		for _, backendURL := range clientCluster.Backends {
 			allBackendsSet[backendURL] = true
 		}
 	}
@@ -130,18 +126,18 @@ func (rf ringFactory) createRegressionMap(clusters []string) (map[string]cluster
 	return regressionMap, nil
 }
 
-func (rf ringFactory) clientRing(clientCfg shardingconfig.ClientConfig) (shardsRing, error) {
+func (rf ringFactory) ClientRing(clientCfg shardingconfig.ClientConfig) (ShardsRing, error) {
 	clientClusters := rf.getClientClusters(clientCfg)
 
 	shardClusterMap, err := rf.makeClusterMap(clientClusters)
 	if err != nil {
-		return shardsRing{}, err
+		return ShardsRing{}, err
 	}
 
 	cHashMap := hashring.NewWithWeights(clientClusters)
 	allBackendsSlice, err := rf.uniqBackends(clientCfg)
 	if err != nil {
-		return shardsRing{}, err
+		return ShardsRing{}, err
 	}
 
 	respHandler := httphandler.LateResponseHandler(rf.conf)
@@ -151,12 +147,11 @@ func (rf ringFactory) clientRing(clientCfg shardingconfig.ClientConfig) (shardsR
 		allBackendsSlice,
 		respHandler,
 		rf.conf.MaintainedBackends)
-	log.Debugf("All backends %v", allBackendsSlice)
 	regressionMap, err := rf.createRegressionMap(clientCfg.Clusters)
 	if err != nil {
-		return shardsRing{}, nil
+		return ShardsRing{}, nil
 	}
-	return shardsRing{
+	return ShardsRing{
 		cHashMap,
 		shardClusterMap,
 		allBackendsRoundTripper,
@@ -164,7 +159,7 @@ func (rf ringFactory) clientRing(clientCfg shardingconfig.ClientConfig) (shardsR
 		rf.conf.ClusterSyncLog}, nil
 }
 
-func newRingFactory(conf config.Config, transport http.RoundTripper) ringFactory {
+func NewRingFactory(conf config.Config, transport http.RoundTripper) ringFactory {
 	return ringFactory{
 		conf:      conf,
 		transport: transport,
@@ -186,9 +181,9 @@ func NewHandler(conf config.Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	rings := newRingFactory(conf, httptransp)
+	rings := NewRingFactory(conf, httptransp)
 	// TODO: Multiple clients
-	ring, err := rings.clientRing(*conf.Client)
+	ring, err := rings.ClientRing(*conf.Client)
 	if err != nil {
 		return nil, err
 	}

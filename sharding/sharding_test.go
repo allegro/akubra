@@ -96,7 +96,7 @@ func makeRingFactory(conf config.Config) (ringFactory, error) {
 	if err != nil {
 		return ringFactory{}, err
 	}
-	return newRingFactory(conf, httptransp), nil
+	return NewRingFactory(conf, httptransp), nil
 }
 
 func TestSingleClusterOnRing(t *testing.T) {
