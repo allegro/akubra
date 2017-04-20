@@ -184,6 +184,25 @@ Metrics:
   Debug: false
 ```
 
+### Configuration validate for CI automation
+
+Internally we validating config file for syntaxes and logical errors.
+For CI automation proccess we have technical/validation HTTP endpoint for validation Akubra Yaml configuration.
+In config Yaml file we have attribute `TechnicalEndpointListen` for endpoint host:port.
+
+##### When we POST akubra config file like this:
+```
+curl -vv -X POST -H "Content-Type: application/yaml" --data-binary @akubra.cfg.yaml http://127.0.0.1:8071/validate/configuration
+```
+W got possible responses like this:
+* HTTP 200 - on success
+```
+Configuration checked - OK.
+```
+* HTTP 400, 405, 413, 415 and info in body about validation errors
+```
+
+
 ## Limitations
 
  * User's credentials have to be identical on every backend
