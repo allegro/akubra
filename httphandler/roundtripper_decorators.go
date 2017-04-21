@@ -2,10 +2,12 @@ package httphandler
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/allegro/akubra/log"
+	shardingconfig "github.com/allegro/akubra/sharding/config"
 )
 
 // Decorator is http.RoundTripper interface wrapper
@@ -13,12 +15,12 @@ type Decorator func(http.RoundTripper) http.RoundTripper
 
 type loggingRoundTripper struct {
 	roundTripper http.RoundTripper
-	accessLog    *log.Logger
+	accessLog    log.Logger
 }
 
 func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-	timeStart := time.Now()
 
+	timeStart := time.Now()
 	resp, err = lrt.roundTripper.RoundTrip(req)
 
 	duration := time.Since(timeStart).Seconds()
@@ -32,7 +34,6 @@ func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Respons
 	if err != nil {
 		errStr = err.Error()
 	}
-
 	accessLogMessage := NewAccessLogMessage(*req,
 		statusCode,
 		duration,
@@ -47,15 +48,15 @@ func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Respons
 }
 
 // AccessLogging creares Decorator with access log collector
-func AccessLogging(logger *log.Logger) Decorator {
+func AccessLogging(logger log.Logger) Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
 		return &loggingRoundTripper{roundTripper: rt, accessLog: logger}
 	}
 }
 
 type headersSuplier struct {
-	requestHeaders  map[string]string
-	responseHeaders map[string]string
+	requestHeaders  shardingconfig.AdditionalHeaders
+	responseHeaders shardingconfig.AdditionalHeaders
 	roundTripper    http.RoundTripper
 }
 
@@ -94,7 +95,7 @@ func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err
 }
 
 // HeadersSuplier creates Decorator which adds headers to request and response
-func HeadersSuplier(requestHeaders, responseHeaders map[string]string) Decorator {
+func HeadersSuplier(requestHeaders, responseHeaders shardingconfig.AdditionalHeaders) Decorator {
 	return func(roundTripper http.RoundTripper) http.RoundTripper {
 		return &headersSuplier{
 			requestHeaders:  requestHeaders,

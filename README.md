@@ -8,24 +8,34 @@
 [GoDoc]: https://godoc.org/github.com/allegro/akubra
 [GoDoc Widget]: https://godoc.org/github.com/allegro/akubra?status.svg
 
-## Goal
+## Goals
+
+### Redundancy
 
 Akubra is a simple solution to keep an independent S3 storages in sync - almost
 realtime, eventually consistent.
 
-Keeping redundant storage clusters, which handle great volume of new objects
+Keeping synchronized storage clusters, which handles great volume of new objects
 (about 300k obj/h), is the most efficient by feeding them with all incoming data
 at once. That's what Akubra does, with a minimum memory and cpu footprint.
 
 Synchronizing S3 storages offline is almost impossible with a high volume traffic.
 It would require keeping track of new objects (or periodical bucket listing),
 downloading and uploading them to other storage. It's slow, expensive and hard
-to implement.
+to implement robustly.
 
 Akubra way is to put files in all storages at once by copying requests to multiple
-backends. Sometimes one of clusters may reject request for various reason, but
-that's not a big deal: we simply log that event, and sync that object in an
-independent process.
+backends. I case one of clusters rejects request it logs that event, and syncronizes
+troublesome object with an independent process.
+
+### Seamless storage space extension with new storage clusters
+Akubra has sharding capabilities. You may easily configure new backends with
+weigths and append them to clients clusters pool.
+
+Based on clusters weights akubra splits all operations between clusters in pool.
+It also backtracks to older cluster when requested for not existing object on
+target cluster. This kind of events are logged, so it's possible to rebalance
+clusters in background.
 
 ## Build
 
@@ -83,38 +93,125 @@ the pool and error is logged.
 Configuration is read from a YAML configuration file with the following fields:
 
 ```yaml
-# Listen interface and port e.g. "0:8000", "localhost:9090", ":80"
+# Listen interface and port e.g. "127.0.0.1:9090", ":80"
 Listen: ":8080"
-# List of backend URI's e.g. "http://s3.mydaracenter.org"
-Backends:
-  - "http://s3.dc1.internal"
-  - "http://s3.dc2.internal"
-# Limit of outgoing connections. When limit is reached, Akubra will omit external backend
-# with greatest number of stalled connections
-ConnLimit: 100
+# Technical endpoint interface
+TechnicalEndpointListen: ":8071"
 # Additional not AWS S3 specific headers proxy will add to original request
+AdditionalRequestHeaders:
+    'Cache-Control': "public, s-maxage=600, max-age=600"
+    'X-Akubra-Version': '0.9.26'
+# Additional headers added to backend response
 AdditionalResponseHeaders:
     'Access-Control-Allow-Origin': "*"
     'Access-Control-Allow-Credentials': "true"
     'Access-Control-Allow-Methods': "GET, POST, OPTIONS"
     'Access-Control-Allow-Headers': "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type"
-# Additional headers added to backend response
-AdditionalRequestHeaders:
-    'Cache-Control': "public, s-maxage=600, max-age=600"
-    'X-Akubra-Version': '0.9.26'
-# Read timeout on outgoing connections
-ConnectionTimeout: "3s"
-# Dial timeout on outgoing connections
-ConnectionDialTimeout: "1s"
+# MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
+# Default 0 (no limit)
+MaxIdleConns: 0
+# MaxIdleConnsPerHost see: https://golang.org/pkg/net/http/#Transport
+# Default 100
+MaxIdleConnsPerHost: 100
+# IdleConnTimeout see: https://golang.org/pkg/net/http/#Transport
+# Default 0 (no limit)
+IdleConnTimeout: 0s
+# ResponseHeaderTimeout see: https://golang.org/pkg/net/http/#Transport
+# Default 5s (no limit)
+ResponseHeaderTimeout: 5s
+# DisableKeepAlives see: https://golang.org/pkg/net/http/#Transport
+# Default false
+
+DisableKeepAlives: false
+
+# Maximum accepted body size
+BodyMaxSize: "100M"
 # Backend in maintenance mode. Akubra will skip this endpoint
 
-# MaintainedBackend: "http://s3.dc2.internal"
+# MaintainedBackends:
+#  - "http://s3.dc2.internal"
 
 # List request methods to be logged in synclog in case of backend failure
 SyncLogMethods:
   - PUT
   - DELETE
+# Configure sharding
+Clusters:
+  # Cluster label
+  cluster1:
+    # Set type, available: replicator
+    Type: "replicator"
+    # Weight
+    Weight: 1
+    Backends:
+      - http://s3.dc1.internal
+  cluster2:
+    Type: "replicator"
+    Weight: 1
+    Backends:
+      - http://s3.dc2.internal
+Client:
+  Name: client1
+  Clusters:
+    - cluster1
+    - cluster2
+  ShardsCount: 10000
+
+Logging:
+  Synclog:
+    stderr: true
+  #  stdout: false  # default: false
+  #  file: "/var/log/akubra/sync.log"  # default: ""
+  #  syslog: LOG_LOCAL1  # default: LOG_LOCAL1
+
+  Mainlog:
+    stderr: true
+  #  stdout: false  # default: false
+  #  file: "/var/log/akubra/akubra.log"  # default: ""
+  #  syslog: LOG_LOCAL2  # default: LOG_LOCAL2
+  #  level: Error   # default: Debug
+
+  Accesslog:
+    stderr: true  # default: false
+  #  stdout: false  # default: false
+  #  file: "/var/log/akubra/access.log"  # default: ""
+  #  syslog: LOG_LOCAL3  # default: LOG_LOCAL3
+
+# Enable metrics collection
+Metrics:
+  # Possible targets: "graphite", "expvar", "stdout"
+  Target: graphite
+  # Expvar handler listener address
+  ExpAddr: ":8080"
+  # How often metrics should be released, applicable for "graphite" and "stdout"
+  Interval: 30s
+  # Graphite metrics prefix path
+  Prefix: my.metrics
+  # Shall prefix be suffixed with "<hostname>.<process>"
+  AppendDefaults: true
+  # Graphite collector address
+  Addr: graphite.addr.internal:2003
+  # Debug includes runtime.MemStats metrics
+  Debug: false
 ```
+
+## Configuration validation for CI
+
+Akubra has technical http endpoint for configuration validation puroposes.
+It's configured with TechnicalEndpointListen property.
+
+### Example usage
+
+    curl -vv -X POST -H "Content-Type: application/yaml" --data-binary @akubra.cfg.yaml http://127.0.0.1:8071/validate/configuration
+
+Possible resposes:
+
+    * HTTP 200
+    Configuration checked - OK.
+or:
+
+    * HTTP 400, 405, 413, 415 and info in body with validation error message
+
 
 ## Limitations
 

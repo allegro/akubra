@@ -2,21 +2,24 @@ package httphandler
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 
+	"github.com/allegro/akubra/config"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/transport"
 	set "github.com/deckarep/golang-set"
 )
 
 type responseMerger struct {
-	syncerrlog      *log.Logger
-	runtimeLog      *log.Logger
+	syncerrlog      log.Logger
 	methodSetFilter set.Set
+	fifo            bool
 }
 
-func (rd *responseMerger) synclog(r, successfulTup *transport.ReqResErrTuple) {
+func (rd *responseMerger) synclog(r, successfulTup transport.ReqResErrTuple) {
 	// don't log if request method was not included in configuration
 	if rd.methodSetFilter == nil || !rd.methodSetFilter.Contains(r.Req.Method) {
 		return
@@ -26,7 +29,7 @@ func (rd *responseMerger) synclog(r, successfulTup *transport.ReqResErrTuple) {
 		return
 	}
 	// do not log if there was no successful response
-	if successfulTup == nil {
+	if (successfulTup == transport.ReqResErrTuple{}) {
 		return
 	}
 	// log error entry
@@ -34,13 +37,20 @@ func (rd *responseMerger) synclog(r, successfulTup *transport.ReqResErrTuple) {
 	if r.Err != nil {
 		errorMsg = r.Err.Error()
 	}
+
+	contentLength := successfulTup.Res.ContentLength
+
+	reqID := r.Req.Context().Value(log.ContextreqIDKey).(string)
 	syncLogMsg := NewSyncLogMessageData(
 		r.Req.Method,
 		r.Req.Host,
 		successfulTup.Req.URL.Path,
 		successfulTup.Req.Host,
 		r.Req.Header.Get("User-Agent"),
-		errorMsg)
+		reqID,
+		errorMsg,
+		contentLength)
+	metrics.Mark(fmt.Sprintf("reqs.inconsistencies.%s.method-%s", metrics.Clean(r.Req.Host), r.Req.Method))
 	logMsg, err := json.Marshal(syncLogMsg)
 	if err != nil {
 		return
@@ -49,25 +59,13 @@ func (rd *responseMerger) synclog(r, successfulTup *transport.ReqResErrTuple) {
 }
 
 func (rd *responseMerger) handleFailedResponces(
-	tups []*transport.ReqResErrTuple,
-	out chan<- *transport.ReqResErrTuple,
+	tups []transport.ReqResErrTuple,
+	out chan<- transport.ReqResErrTuple,
 	alreadysent bool,
-	successfulTup *transport.ReqResErrTuple,
+	successfulTup transport.ReqResErrTuple,
 	logMethodSet set.Set) bool {
 
 	for _, r := range tups {
-		errorMsg := "No error"
-		if r.Err != nil {
-			errorMsg = r.Err.Error()
-		}
-
-		rd.runtimeLog.Printf("RGW resp %q, %q, %q, %t, %q",
-			r.Req.URL.Path,
-			r.Req.Method,
-			r.Req.Host,
-			r.Failed,
-			errorMsg)
-
 		rd.synclog(r, successfulTup)
 
 		if !alreadysent {
@@ -79,7 +77,11 @@ func (rd *responseMerger) handleFailedResponces(
 		if r.Res != nil && r.Res.Body != nil {
 			_, err := io.Copy(ioutil.Discard, r.Res.Body)
 			if err != nil {
-				rd.runtimeLog.Printf("Could not discard body %s", err)
+				log.Printf("Could not discard body %s", err)
+			}
+			err = r.Res.Body.Close()
+			if err != nil {
+				log.Printf("Could not close body %s", err)
 			}
 		}
 	}
@@ -87,23 +89,38 @@ func (rd *responseMerger) handleFailedResponces(
 	return alreadysent
 }
 
-func (rd *responseMerger) _handle(in <-chan *transport.ReqResErrTuple, out chan<- *transport.ReqResErrTuple) {
-	var successfulTup *transport.ReqResErrTuple
-	errs := []*transport.ReqResErrTuple{}
-	nonErrs := []*transport.ReqResErrTuple{}
-	respPassed := false
+func (rd *responseMerger) _handle(in <-chan transport.ReqResErrTuple, out chan<- transport.ReqResErrTuple) {
+	var successfulTup transport.ReqResErrTuple
+	errs := []transport.ReqResErrTuple{}
+	nonErrs := []transport.ReqResErrTuple{}
+	firstPassed := false
 
 	for {
 		r, hasMore := <-in
 		if !hasMore {
 			break
 		}
-		// pass first successful answer to client
-		if !r.Failed && !respPassed {
-			// append additional headers
+
+		statusCode := 0
+		if r.Res != nil {
+			statusCode = r.Res.StatusCode
+		}
+
+		reqID, _ := r.Req.Context().Value(log.ContextreqIDKey).(string)
+		log.Debugf("Got response %s from backend %s, status: %d, method: %s, path %s, error: %q",
+			reqID,
+			r.Req.Host,
+			statusCode,
+			r.Req.Method,
+			r.Req.URL.Path,
+			r.Err)
+
+		if !r.Failed && !firstPassed {
 			successfulTup = r
-			out <- r
-			respPassed = true
+			if rd.fifo {
+				out <- r
+			}
+			firstPassed = true
 			continue
 		}
 		if r.Err != nil {
@@ -113,15 +130,42 @@ func (rd *responseMerger) _handle(in <-chan *transport.ReqResErrTuple, out chan<
 		}
 	}
 
-	respPassed = rd.handleFailedResponces(nonErrs, out, respPassed, successfulTup, rd.methodSetFilter)
-	rd.handleFailedResponces(errs, out, respPassed, successfulTup, rd.methodSetFilter)
+	if !rd.fifo && firstPassed {
+		out <- successfulTup
+	}
+
+	firstPassed = rd.handleFailedResponces(nonErrs, out, firstPassed, successfulTup, rd.methodSetFilter)
+	rd.handleFailedResponces(errs, out, firstPassed, successfulTup, rd.methodSetFilter)
 }
 
-func (rd *responseMerger) handleResponses(in <-chan *transport.ReqResErrTuple) *transport.ReqResErrTuple {
-	out := make(chan *transport.ReqResErrTuple, 1)
+func (rd *responseMerger) handleResponses(in <-chan transport.ReqResErrTuple) transport.ReqResErrTuple {
+	out := make(chan transport.ReqResErrTuple, 1)
 	go func() {
 		rd._handle(in, out)
 		close(out)
 	}()
 	return <-out
+}
+
+// EarliestResponseHandler returns a function which handles multiple
+// responses, returns first successful response to caller
+func EarliestResponseHandler(conf config.Config) transport.MultipleResponsesHandler {
+	rh := responseMerger{
+		conf.Synclog,
+		conf.SyncLogMethodsSet,
+		true,
+	}
+	return rh.handleResponses
+}
+
+// LateResponseHandler returns a function which handles multiple
+// responses and returns first successful response to caller after
+// all other responces received
+func LateResponseHandler(conf config.Config) transport.MultipleResponsesHandler {
+	rh := responseMerger{
+		conf.Synclog,
+		conf.SyncLogMethodsSet,
+		false,
+	}
+	return rh.handleResponses
 }

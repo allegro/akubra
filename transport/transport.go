@@ -1,15 +1,20 @@
 package transport
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
+
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/metrics"
+	shardingconfig "github.com/allegro/akubra/sharding/config"
 )
 
 // ReqResErrTuple is intermediate structure for internal use of
@@ -25,27 +30,13 @@ type ReqResErrTuple struct {
 	Failed bool
 }
 
-// Create io.Writer and num []io.ReadCloser where all writer writes will be
-// accessible by readers
-func multiplicateReadClosers(num int) (writer io.Writer, readers []io.ReadCloser) {
-	readers = make([]io.ReadCloser, 0, num)
-	writers := make([]io.Writer, 0, num)
-	for i := 0; i < num; i++ {
-		pr, pw := io.Pipe()
-		readers = append(readers, pr)
-		writers = append(writers, pw)
-	}
-	writer = io.MultiWriter(writers...)
-	return writer, readers
-}
-
 // MultipleResponsesHandler should handle chan of incomming ReqResErrTuple
 // returned value's response and error will be passed to client
-type MultipleResponsesHandler func(in <-chan *ReqResErrTuple) *ReqResErrTuple
+type MultipleResponsesHandler func(in <-chan ReqResErrTuple) ReqResErrTuple
 
-func defaultHandleResponses(in <-chan *ReqResErrTuple, out chan<- *ReqResErrTuple) {
-	errs := []*ReqResErrTuple{}
-	clearBody := []*ReqResErrTuple{}
+func defaultHandleResponses(in <-chan ReqResErrTuple, out chan<- ReqResErrTuple) {
+	errs := []ReqResErrTuple{}
+	clearBody := []ReqResErrTuple{}
 	respPassed := false
 	for {
 		r, ok := <-in
@@ -83,7 +74,7 @@ func defaultHandleResponses(in <-chan *ReqResErrTuple, out chan<- *ReqResErrTupl
 
 }
 
-func clearResponsesBody(respTups []*ReqResErrTuple) {
+func clearResponsesBody(respTups []ReqResErrTuple) {
 	for _, rtup := range respTups {
 		if rtup.Res != nil {
 			_, err := io.Copy(ioutil.Discard, rtup.Res.Body)
@@ -97,8 +88,8 @@ func clearResponsesBody(respTups []*ReqResErrTuple) {
 // DefaultHandleResponses is default way of handling multiple responses.
 // It will pass first success response or any error if no
 // success occured
-func DefaultHandleResponses(in <-chan *ReqResErrTuple) *ReqResErrTuple {
-	out := make(chan *ReqResErrTuple, 1)
+func DefaultHandleResponses(in <-chan ReqResErrTuple) ReqResErrTuple {
+	out := make(chan ReqResErrTuple, 1)
 	go defaultHandleResponses(in, out)
 	return <-out
 }
@@ -142,7 +133,8 @@ type RequestProcessor func(orig *http.Request, copies []*http.Request)
 type MultiTransport struct {
 	http.RoundTripper
 	// Backends is list of target endpoints URL
-	Backends []*url.URL
+	Backends     []url.URL
+	SkipBackends map[string]bool
 	// Response handler will get `ReqResErrTuple` in `in` channel
 	// should process all responses and send one to out chan.
 	// Response senf to out chan will be returned from RoundTrip.
@@ -150,7 +142,7 @@ type MultiTransport struct {
 	// Keep-Alives won't function properly
 	//
 	// If `HandleResponses` is nil will pass first successful
-	//(with status >= 200 & < 300) response or last failed.
+	// (with status >= 200 & < 300) response or last failed.
 	HandleResponses MultipleResponsesHandler
 	// Process request between replication and sending, useful for changing request headers
 	PreProcessRequest RequestProcessor
@@ -163,12 +155,23 @@ func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context
 	copiesCount := len(mt.Backends)
 	reqs = make([]*http.Request, 0, copiesCount)
 	// We need some read closers
-	writer, readers := multiplicateReadClosers(copiesCount)
+	bodyBuffer := &bytes.Buffer{}
+	bodyReader := &TimeoutReader{
+		io.LimitReader(req.Body, req.ContentLength),
+		time.Second}
 
-	for i, reader := range readers {
-		req.URL.Host = mt.Backends[i].Host
-		body := io.LimitReader(reader, req.ContentLength)
-		r, rerr := http.NewRequest(req.Method, req.URL.String(), body)
+	n, cerr := io.Copy(bodyBuffer, bodyReader)
+
+	if cerr != nil || n < req.ContentLength {
+		cancelFun()
+		return nil, cerr
+	}
+
+	for _, backend := range mt.Backends {
+		req.URL.Host = backend.Host
+		log.Debugf("Replicate request %s, for %s", req.Context().Value(log.ContextreqIDKey), backend.Host)
+		newBody := ioutil.NopCloser(bytes.NewReader(bodyBuffer.Bytes()))
+		r, rerr := http.NewRequest(req.Method, req.URL.String(), newBody)
 		// Copy request data
 		if rerr != nil {
 			return nil, rerr
@@ -182,39 +185,55 @@ func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context
 		r.TransferEncoding = req.TransferEncoding
 		reqs = append(reqs, r)
 	}
-	go func() {
-		// Copy original request body to replicated requests bodies
-		if req.Body != nil {
-			bodyReader := &TimeoutReader{
-				io.LimitReader(req.Body, req.ContentLength),
-				time.Second}
-			n, cerr := io.Copy(bufio.NewWriterSize(writer, int(req.ContentLength)), bodyReader)
-
-			if cerr != nil || n < req.ContentLength {
-				cancelFun()
-			}
-		}
-	}()
 
 	return reqs, err
 }
 
+func collectMetrics(req *http.Request, reqresperr ReqResErrTuple, since time.Time) {
+	host := metrics.Clean(req.URL.Host)
+	metrics.UpdateSince("reqs.backend."+host+".all", since)
+	if reqresperr.Err != nil {
+		metrics.UpdateSince("reqs.backend."+host+".err", since)
+	}
+	if reqresperr.Res != nil {
+		statusName := fmt.Sprintf("reqs.backend."+host+".status_%d", reqresperr.Res.StatusCode)
+		metrics.UpdateSince(statusName, since)
+	}
+	if reqresperr.Req != nil {
+		methodName := fmt.Sprintf("reqs.backend."+host+".method_%s", reqresperr.Req.Method)
+		metrics.UpdateSince(methodName, since)
+	}
+}
+
 func (mt *MultiTransport) sendRequest(
 	req *http.Request,
-	out chan *ReqResErrTuple) {
+	out chan ReqResErrTuple) {
+	since := time.Now()
 	ctx := req.Context()
-	o := make(chan *ReqResErrTuple)
+	o := make(chan ReqResErrTuple)
 	go func() {
-		resp, err := mt.RoundTripper.RoundTrip(req)
+		if mt.SkipBackends[req.URL.Host] {
+			log.Debugf("Skipping request %s, for %s", req.Context().Value(log.ContextreqIDKey), req.URL.Host)
+			r := ReqResErrTuple{req, nil, fmt.Errorf("Maintained Backend %s", req.URL.Host), true}
+			o <- r
+			return
+		}
+		resp, err := mt.RoundTripper.RoundTrip(req.WithContext(context.Background()))
 		// report Non 2XX status codes as errors
+		if err != nil {
+			log.Debugf("Send request error %s, %s", err.Error(), ctx.Value(log.ContextreqIDKey))
+		}
 		failed := err != nil || resp != nil && (resp.StatusCode < 200 || resp.StatusCode > 399)
-		r := &ReqResErrTuple{req, resp, err, failed}
+		r := ReqResErrTuple{req, resp, err, failed}
 		o <- r
 	}()
-	var reqresperr *ReqResErrTuple
+	var reqresperr ReqResErrTuple
+	defer collectMetrics(req, reqresperr, since)
+
 	select {
 	case <-ctx.Done():
-		reqresperr = &ReqResErrTuple{req, nil, ErrBodyContentLengthMismatch, true}
+		log.Debugf("Ctx Done reqID %s ", ctx.Value(log.ContextreqIDKey))
+		reqresperr = ReqResErrTuple{req, nil, ErrBodyContentLengthMismatch, true}
 	case reqresperr = <-o:
 		break
 	}
@@ -224,13 +243,13 @@ func (mt *MultiTransport) sendRequest(
 // RoundTrip satisfies http.RoundTripper interface
 func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	bctx, cancelFunc := context.WithCancel(context.Background())
-
+	bctx = context.WithValue(bctx, log.ContextreqIDKey, req.Context().Value(log.ContextreqIDKey))
 	reqs, err := mt.ReplicateRequests(req, cancelFunc)
 	if err != nil {
 		return nil, err
 	}
 
-	c := make(chan *ReqResErrTuple, len(reqs))
+	c := make(chan ReqResErrTuple, len(reqs))
 	if len(reqs) == 0 {
 		return nil, errors.New("No requests provided")
 	}
@@ -257,17 +276,23 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 // NewMultiTransport creates *MultiTransport. If requestsPreprocesor or responseHandler
 // are nil will use default ones
 func NewMultiTransport(roundTripper http.RoundTripper,
-	backends []*url.URL,
-	responsesHandler MultipleResponsesHandler) *MultiTransport {
+	backends []url.URL,
+	responsesHandler MultipleResponsesHandler,
+	maintainedBackends []shardingconfig.YAMLUrl) *MultiTransport {
 	if responsesHandler == nil {
 		responsesHandler = DefaultHandleResponses
 	}
 	if roundTripper == nil {
 		roundTripper = http.DefaultTransport
 	}
+	mb := make(map[string]bool, len(maintainedBackends))
+	for _, yurl := range maintainedBackends {
+		mb[yurl.Host] = true
+	}
 
 	return &MultiTransport{
 		RoundTripper:    roundTripper,
 		Backends:        backends,
+		SkipBackends:    mb,
 		HandleResponses: responsesHandler}
 }
