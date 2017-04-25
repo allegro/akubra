@@ -88,13 +88,13 @@ func configure(backends []shardingconfig.YAMLUrl) config.Config {
 	}
 }
 
-func makeRingFactory(conf config.Config) (ringFactory, error) {
+func makeRingFactory(conf config.Config) (RingFactory, error) {
 	httptransp, err := httphandler.ConfigureHTTPTransport(conf)
 	if err != nil {
-		return ringFactory{}, err
+		return RingFactory{}, err
 	}
 	if err != nil {
-		return ringFactory{}, err
+		return RingFactory{}, err
 	}
 	return NewRingFactory(conf, httptransp), nil
 }
@@ -106,7 +106,7 @@ func TestSingleClusterOnRing(t *testing.T) {
 	ringFactory, err := makeRingFactory(conf)
 	require.NoError(t, err)
 
-	clientRing, err := ringFactory.clientRing(*conf.Client)
+	clientRing, err := ringFactory.ClientRing(*conf.Client)
 	require.NoError(t, err)
 
 	req, _ := http.NewRequest("GET", "http://example.com/f/a", nil)
@@ -138,7 +138,7 @@ func TestTwoClustersOnRing(t *testing.T) {
 	ringFactory, err := makeRingFactory(conf)
 	require.NoError(t, err)
 
-	clientRing, err := ringFactory.clientRing(*conf.Client)
+	clientRing, err := ringFactory.ClientRing(*conf.Client)
 	require.NoError(t, err)
 
 	reader := bytes.NewBuffer([]byte{})
@@ -163,7 +163,7 @@ func TestTwoClustersOnRing(t *testing.T) {
 }
 
 func TestBucketOpDetection(t *testing.T) {
-	sr := shardsRing{}
+	sr := ShardsRing{}
 	testCases := []struct {
 		path     string
 		expected bool
@@ -201,7 +201,7 @@ func TestTwoClustersOnRingBucketOp(t *testing.T) {
 	ringFactory, err := makeRingFactory(conf)
 	require.NoError(t, err)
 
-	clientRing, err := ringFactory.clientRing(*conf.Client)
+	clientRing, err := ringFactory.ClientRing(*conf.Client)
 	require.NoError(t, err)
 
 	reader := bytes.NewBuffer([]byte{})
@@ -231,7 +231,7 @@ func TestTwoClustersOnRingBucketSharding(t *testing.T) {
 	ringFactory, err := makeRingFactory(conf)
 	require.NoError(t, err)
 
-	clientRing, err := ringFactory.clientRing(*conf.Client)
+	clientRing, err := ringFactory.ClientRing(*conf.Client)
 	require.NoError(t, err)
 
 	reader := bytes.NewBuffer([]byte{})
@@ -260,7 +260,7 @@ func TestBacktracking(t *testing.T) {
 	ringFactory, err := makeRingFactory(conf)
 	require.NoError(t, err)
 
-	clientRing, err := ringFactory.clientRing(*conf.Client)
+	clientRing, err := ringFactory.ClientRing(*conf.Client)
 	require.NoError(t, err)
 
 	req, _ := http.NewRequest("GET", "http://example.com/index/a", nil)
@@ -290,7 +290,7 @@ func TestDeletePassToAllBackends(t *testing.T) {
 	ringFactory, err := makeRingFactory(conf)
 	require.NoError(t, err)
 
-	clientRing, err := ringFactory.clientRing(*conf.Client)
+	clientRing, err := ringFactory.ClientRing(*conf.Client)
 	require.NoError(t, err)
 
 	req, _ := http.NewRequest("DELETE", "http://example.com/index/a", nil)
@@ -334,7 +334,7 @@ func TestBodyResend(t *testing.T) {
 	ringFactory, err := makeRingFactory(conf)
 	require.NoError(t, err)
 
-	clientRing, err := ringFactory.clientRing(*conf.Client)
+	clientRing, err := ringFactory.ClientRing(*conf.Client)
 	require.NoError(t, err)
 
 	body := bytes.NewReader([]byte("12345678901234567890"))

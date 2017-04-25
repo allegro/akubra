@@ -16,11 +16,13 @@ import (
 	"github.com/serialx/hashring"
 )
 
+// ShardsRing implements http.RoundTripper interface,
+// and directs requests to determined shard
 type ShardsRing struct {
 	ring                    *hashring.HashRing
-	shardClusterMap         map[string]cluster
+	shardClusterMap         map[string]Cluster
 	allClustersRoundTripper http.RoundTripper
-	clusterRegressionMap    map[string]cluster
+	clusterRegressionMap    map[string]Cluster
 	inconsistencyLog        log.Logger
 }
 
@@ -29,16 +31,17 @@ func (sr ShardsRing) isBucketPath(path string) bool {
 	return len(strings.Split(trimmedPath, "/")) == 1
 }
 
-func (sr ShardsRing) Pick(key string) (cluster, error) {
+// Pick finds cluster for given relative uri
+func (sr ShardsRing) Pick(key string) (Cluster, error) {
 	var shardName string
 
 	shardName, ok := sr.ring.GetNode(key)
 	if !ok {
-		return cluster{}, fmt.Errorf("no shard for key %s", key)
+		return Cluster{}, fmt.Errorf("no shard for key %s", key)
 	}
 	shardCluster, ok := sr.shardClusterMap[shardName]
 	if !ok {
-		return cluster{}, fmt.Errorf("no cluster for shard %s, cannot handle key %s", shardName, key)
+		return Cluster{}, fmt.Errorf("no cluster for shard %s, cannot handle key %s", shardName, key)
 	}
 
 	return shardCluster, nil
@@ -95,7 +98,7 @@ func (sr ShardsRing) send(roundTripper http.RoundTripper, req *http.Request) (*h
 	return roundTripper.RoundTrip(req)
 }
 
-func (sr ShardsRing) regressionCall(cl cluster, req *http.Request) (string, *http.Response, error) {
+func (sr ShardsRing) regressionCall(cl Cluster, req *http.Request) (string, *http.Response, error) {
 	resp, err := sr.send(cl, req)
 	// Do regression call if response status is > 400
 	if (err != nil || resp.StatusCode > 400) && req.Method != http.MethodPut {
@@ -130,6 +133,7 @@ func (sr *ShardsRing) logInconsistency(key, expectedClusterName, actualClusterNa
 	}
 }
 
+// RoundTrip performs http requests
 func (sr ShardsRing) RoundTrip(req *http.Request) (resp *http.Response, rerr error) {
 	since := time.Now()
 	defer func() {

@@ -8,12 +8,14 @@ import (
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/log"
 	shardingconfig "github.com/allegro/akubra/sharding/config"
 	"github.com/allegro/akubra/transport"
 	"github.com/serialx/hashring"
 )
 
-type cluster struct {
+// Cluster stores information about cluster backends
+type Cluster struct {
 	http.RoundTripper
 	weight   int
 	Backends []shardingconfig.YAMLUrl
@@ -22,7 +24,7 @@ type cluster struct {
 
 func newMultiBackendCluster(transp http.RoundTripper,
 	multiResponseHandler transport.MultipleResponsesHandler,
-	clusterConf shardingconfig.ClusterConfig, name string, maintainedBackends []shardingconfig.YAMLUrl) cluster {
+	clusterConf shardingconfig.ClusterConfig, name string, maintainedBackends []shardingconfig.YAMLUrl) Cluster {
 	backends := make([]url.URL, len(clusterConf.Backends))
 
 	for i, backend := range clusterConf.Backends {
@@ -35,7 +37,7 @@ func newMultiBackendCluster(transp http.RoundTripper,
 		multiResponseHandler,
 		maintainedBackends)
 
-	return cluster{
+	return Cluster{
 		multiTransport,
 		clusterConf.Weight,
 		clusterConf.Backends,
@@ -43,22 +45,23 @@ func newMultiBackendCluster(transp http.RoundTripper,
 	}
 }
 
-type ringFactory struct {
+// RingFactory produces clients ShardsRing
+type RingFactory struct {
 	conf      config.Config
 	transport http.RoundTripper
-	clusters  map[string]cluster
+	clusters  map[string]Cluster
 }
 
-func (rf ringFactory) initCluster(name string) (cluster, error) {
+func (rf RingFactory) initCluster(name string) (Cluster, error) {
 	clusterConf, ok := rf.conf.Clusters[name]
 	if !ok {
-		return cluster{}, fmt.Errorf("no cluster %q in configuration", name)
+		return Cluster{}, fmt.Errorf("no cluster %q in configuration", name)
 	}
 	respHandler := httphandler.EarliestResponseHandler(rf.conf)
 	return newMultiBackendCluster(rf.transport, respHandler, clusterConf, name, rf.conf.MaintainedBackends), nil
 }
 
-func (rf ringFactory) getCluster(name string) (cluster, error) {
+func (rf RingFactory) getCluster(name string) (Cluster, error) {
 	s3cluster, ok := rf.clusters[name]
 	if ok {
 		return s3cluster, nil
@@ -71,9 +74,11 @@ func (rf ringFactory) getCluster(name string) (cluster, error) {
 	return s3cluster, nil
 }
 
-func (rf ringFactory) uniqBackends(clientCfg shardingconfig.ClientConfig) ([]url.URL, error) {
+func (rf RingFactory) uniqBackends(clientCfg shardingconfig.ClientConfig) ([]url.URL, error) {
 	allBackendsSet := make(map[shardingconfig.YAMLUrl]bool)
+	log.Debugf("client %v", clientCfg.Clusters)
 	for _, name := range clientCfg.Clusters {
+		log.Debugf("cluster %s", name)
 		clientCluster, err := rf.getCluster(name)
 		if err != nil {
 			return nil, err
@@ -89,7 +94,7 @@ func (rf ringFactory) uniqBackends(clientCfg shardingconfig.ClientConfig) ([]url
 	return uniqBackendsSlice, nil
 }
 
-func (rf ringFactory) getClientClusters(clientCfg shardingconfig.ClientConfig) map[string]int {
+func (rf RingFactory) getClientClusters(clientCfg shardingconfig.ClientConfig) map[string]int {
 	res := make(map[string]int)
 	for _, clusterName := range clientCfg.Clusters {
 		cluster := rf.conf.Clusters[clusterName]
@@ -98,8 +103,8 @@ func (rf ringFactory) getClientClusters(clientCfg shardingconfig.ClientConfig) m
 	return res
 }
 
-func (rf ringFactory) makeClusterMap(clientClusters map[string]int) (map[string]cluster, error) {
-	res := make(map[string]cluster, len(clientClusters))
+func (rf RingFactory) makeClusterMap(clientClusters map[string]int) (map[string]Cluster, error) {
+	res := make(map[string]Cluster, len(clientClusters))
 	for name := range clientClusters {
 		cl, err := rf.getCluster(name)
 		if err != nil {
@@ -110,9 +115,9 @@ func (rf ringFactory) makeClusterMap(clientClusters map[string]int) (map[string]
 	return res, nil
 }
 
-func (rf ringFactory) createRegressionMap(clusters []string) (map[string]cluster, error) {
-	regressionMap := make(map[string]cluster)
-	var previousCluster cluster
+func (rf RingFactory) createRegressionMap(clusters []string) (map[string]Cluster, error) {
+	regressionMap := make(map[string]Cluster)
+	var previousCluster Cluster
 	for i, name := range clusters {
 		clientCluster, err := rf.getCluster(name)
 		if err != nil {
@@ -126,7 +131,8 @@ func (rf ringFactory) createRegressionMap(clusters []string) (map[string]cluster
 	return regressionMap, nil
 }
 
-func (rf ringFactory) ClientRing(clientCfg shardingconfig.ClientConfig) (ShardsRing, error) {
+// ClientRing returns clients ShardsRing
+func (rf RingFactory) ClientRing(clientCfg shardingconfig.ClientConfig) (ShardsRing, error) {
 	clientClusters := rf.getClientClusters(clientCfg)
 
 	shardClusterMap, err := rf.makeClusterMap(clientClusters)
@@ -159,11 +165,12 @@ func (rf ringFactory) ClientRing(clientCfg shardingconfig.ClientConfig) (ShardsR
 		rf.conf.ClusterSyncLog}, nil
 }
 
-func NewRingFactory(conf config.Config, transport http.RoundTripper) ringFactory {
-	return ringFactory{
+// NewRingFactory returns sharding ring factory
+func NewRingFactory(conf config.Config, transport http.RoundTripper) RingFactory {
+	return RingFactory{
 		conf:      conf,
 		transport: transport,
-		clusters:  make(map[string]cluster),
+		clusters:  make(map[string]Cluster),
 	}
 }
 
