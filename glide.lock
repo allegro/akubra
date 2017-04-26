@@ -1,10 +1,10 @@
 hash: 04750fc1f58f30259f6fc6be738f662eb14ca0480b183649149594312b5c8bfd
-updated: 2017-04-04T07:46:03.838864126+02:00
+updated: 2017-04-26T10:32:11.148554664+02:00
 imports:
 - name: github.com/alecthomas/gometalinter
   version: 8f447961c7bbced95e0612a6a89c764b3c13d291
 - name: github.com/alecthomas/kingpin
-  version: e9044be3ab2a8e11d4e1f418d12f0790d57e8d70
+  version: 7f0871f2e17818990e4eed73f9b5c2f429501228
 - name: github.com/alecthomas/template
   version: a0175ee3bccc567396460bf5acd36800cb10c49c
   subpackages:
@@ -48,7 +48,7 @@ imports:
 - name: gopkg.in/tylerb/graceful.v1
   version: 4654dfbb6ad53cb5e27f37d99b02e16c1872fbbb
 - name: gopkg.in/yaml.v2
-  version: a3f3340b5840cee44f372bddb5880fcbc419b46a
+  version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
 testImports:
 - name: github.com/davecgh/go-spew
   version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
@@ -63,9 +63,3 @@ testImports:
   subpackages:
   - assert
   - require
-- name: github.com/go-validator/validator
-  version: 4379dff89709877fa1b057d23b11bfe0c361dfd3
-- name: gopkg.in/yaml.v2
-  version: a3f3340b5840cee44f372bddb5880fcbc419b46a
-- name: github.com/rcrowley/go-metrics
-  version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
