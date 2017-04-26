@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"io"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/allegro/akubra/config"
@@ -74,19 +73,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) validateIncomingRequest(req *http.Request) int {
-	var contentLength int64
-	contentLengthHeader := req.Header.Get("Content-Length")
-	if contentLengthHeader != "" {
-		var err error
-		contentLength, err = strconv.ParseInt(contentLengthHeader, 10, 64)
-		if err != nil {
-			return http.StatusBadRequest
-		}
-	}
-	if contentLength > h.bodyMaxSize || req.ContentLength > h.bodyMaxSize {
-		return http.StatusRequestEntityTooLarge
-	}
-	return 0
+	return config.RequestHeaderContentLengthValidator(*req, h.bodyMaxSize)
 }
 
 // ConfigureHTTPTransport returns http.Transport with customized dialer,

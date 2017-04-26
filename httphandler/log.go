@@ -40,7 +40,7 @@ func NewAccessLogMessage(req http.Request,
 		req.Host,
 		req.URL.Path,
 		req.Header.Get("User-Agent"),
-		statusCode, duration, respErr,
+		statusCode, duration * 1000, respErr,
 		reqID, ts}
 }
 
