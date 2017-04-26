@@ -4,14 +4,13 @@ package metrics
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/allegro/akubra/log"
 
 	graphite "github.com/cyberdelia/go-metrics-graphite"
 	metrics "github.com/rcrowley/go-metrics"
@@ -139,7 +138,7 @@ func defaultPrefix() string {
 }
 
 func initStdout(interval time.Duration) error {
-	go metrics.LogScaled(metrics.DefaultRegistry, interval, time.Second, log.DefaultLogger)
+	go metrics.LogScaled(metrics.DefaultRegistry, interval, time.Second, log.New(os.Stdout, "", log.Lshortfile))
 	return nil
 }
 
