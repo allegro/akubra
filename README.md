@@ -117,7 +117,7 @@ MaxIdleConnsPerHost: 100
 # Default 0 (no limit)
 IdleConnTimeout: 0s
 # ResponseHeaderTimeout see: https://golang.org/pkg/net/http/#Transport
-# Default 5s (no limit)
+# Default 5s
 ResponseHeaderTimeout: 5s
 # DisableKeepAlives see: https://golang.org/pkg/net/http/#Transport
 # Default false
@@ -163,6 +163,16 @@ Logging:
   #  stdout: false  # default: false
   #  file: "/var/log/akubra/sync.log"  # default: ""
   #  syslog: LOG_LOCAL1  # default: LOG_LOCAL1
+  #  database:
+  #    user: dbUser
+  #    password: ""
+  #    dbname: dbName
+  #    host: localhost
+  #    inserttmpl: |
+  #      INSERT INTO tablename(path, successhost, failedhost, ts,
+  #       method, useragent, error)
+  #      VALUES ('new','{{.path}}','{{.successhost}}','{{.failedhost}}',
+  #      '{{.ts}}'::timestamp, '{{.method}}','{{.useragent}}','{{.error}}');
 
   Mainlog:
     stderr: true
