@@ -21,6 +21,7 @@ deps-lint: deps
 	gometalinter --install
 
 build: deps lint
+        # Enable netcgo, then name resolution will use systems dns caches
 	go build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1'.
 
 test: deps
