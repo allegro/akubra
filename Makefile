@@ -21,7 +21,7 @@ deps-lint: deps
 	gometalinter --install
 
 build: deps lint
-	go build -v -ldflags "$(LDFLAGS)" .
+	go build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1'.
 
 test: deps
 	go test -v -race -cover $$(go list ./... | grep -v /vendor/)
