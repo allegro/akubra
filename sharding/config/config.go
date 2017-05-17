@@ -49,7 +49,7 @@ type HumanSizeUnits struct {
 }
 
 // UnmarshalYAML for YAMLUrl
-func (j *YAMLUrl) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (yurl *YAMLUrl) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err
@@ -58,12 +58,12 @@ func (j *YAMLUrl) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if url.Host == "" {
 		return fmt.Errorf("url should match proto://host[:port]/path scheme - got %q", s)
 	}
-	j.URL = url
+	yurl.URL = url
 	return err
 }
 
 // UnmarshalYAML for SyncLogMethod
-func (j *SyncLogMethod) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (slm *SyncLogMethod) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err
@@ -75,30 +75,32 @@ func (j *SyncLogMethod) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	default:
 		return fmt.Errorf("Sync log method should be one from [GET, POST, DELETE, HEAD, OPTIONS] - got %q", s)
 	}
-	j.Method = method
+	slm.Method = method
 	return nil
 }
 
 // UnmarshalYAML for AdditionalHeaders
-func (j *AdditionalHeaders) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (ah *AdditionalHeaders) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var headers map[string]string
 	if err := unmarshal(&headers); err != nil {
 		return err
 	}
-
 	for key, value := range headers {
+
 		if strings.TrimSpace(key) == "" {
 			return fmt.Errorf("Empty additional header with value: %q", value)
 		}
 		if strings.TrimSpace(value) == "" {
 			return fmt.Errorf("Empty additional header with key: %q", key)
 		}
+
 	}
+	*ah = AdditionalHeaders(headers)
 	return nil
 }
 
 // UnmarshalYAML for HumanSizeUnits
-func (j *HumanSizeUnits) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (hsu *HumanSizeUnits) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var size string
 	if err := unmarshal(&size); err != nil {
 		return err
@@ -110,6 +112,6 @@ func (j *HumanSizeUnits) UnmarshalYAML(unmarshal func(interface{}) error) error 
 	if value < 1 {
 		return errors.New("BodyMaxSize must be greater than zero")
 	}
-	j.SizeInBytes = value
+	hsu.SizeInBytes = value
 	return nil
 }

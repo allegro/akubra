@@ -82,9 +82,6 @@ func parseConf(file io.Reader) (YamlConfig, error) {
 		return rc, err
 	}
 	err = yaml.Unmarshal(bs, &rc)
-	if err != nil {
-		return rc, err
-	}
 	return rc, err
 }
 
