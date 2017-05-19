@@ -170,7 +170,12 @@ func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context
 	for _, backend := range mt.Backends {
 		req.URL.Host = backend.Host
 		log.Debugf("Replicate request %s, for %s", req.Context().Value(log.ContextreqIDKey), backend.Host)
-		newBody := ioutil.NopCloser(bytes.NewReader(bodyBuffer.Bytes()))
+
+		bodyContent := bodyBuffer.Bytes()
+		var newBody io.Reader
+		if len(bodyContent) > 0 {
+			newBody = ioutil.NopCloser(bytes.NewReader(bodyContent))
+		}
 		r, rerr := http.NewRequest(req.Method, req.URL.String(), newBody)
 		// Copy request data
 		if rerr != nil {

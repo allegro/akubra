@@ -1,5 +1,6 @@
 VERSION := `cat VERSION`
 LDFLAGS := -X main.version=$(VERSION)
+GO := "$(GOROOT)/bin/go"
 
 all: lint test build
 
@@ -13,19 +14,19 @@ lint: deps-lint
         --fast
 
 deps:
-	go get github.com/Masterminds/glide
+	$(GO) get github.com/Masterminds/glide
 	glide install
 
 deps-lint: deps
-	go get github.com/alecthomas/gometalinter
+	$(GO) get github.com/alecthomas/gometalinter
 	gometalinter --install
 
 build: deps lint
         # Enable netcgo, then name resolution will use systems dns caches
-	go build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1'.
+	$(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1'.
 
 test: deps
-	go test -v -race -cover $$(go list ./... | grep -v /vendor/)
+	$(GO) test -v -race -cover $$(go list ./... | grep -v /vendor/)
 
 clean:
-	go clean .
+	$(GO) clean .
