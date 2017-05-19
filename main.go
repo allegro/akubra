@@ -90,8 +90,10 @@ func (s *service) start() error {
 
 	srv := &graceful.Server{
 		Server: &http.Server{
-			Addr:    s.conf.Listen,
-			Handler: handler,
+			Addr:         s.conf.Listen,
+			Handler:      handler,
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 10 * time.Second,
 		},
 		Timeout: 10 * time.Second,
 	}
