@@ -92,6 +92,8 @@ func (s *service) start() error {
 		Server: &http.Server{
 			Addr:    s.conf.Listen,
 			Handler: handler,
+			ReadTimeout: 5 * time.Second,
+			WriteTimeout: 10 * time.Second,
 		},
 		Timeout: 10 * time.Second,
 	}
