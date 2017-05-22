@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"io"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/allegro/akubra/config"
@@ -19,11 +20,23 @@ const (
 
 // Handler implements http.Handler interface
 type Handler struct {
-	roundTripper http.RoundTripper
-	bodyMaxSize  int64
+	roundTripper          http.RoundTripper
+	bodyMaxSize           int64
+	maxConcurrentRequests int32
+	runningRequestCount   int32
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	canServe := true
+	if atomic.AddInt32(&h.runningRequestCount, 1) > h.maxConcurrentRequests {
+		canServe = false
+	}
+	defer atomic.AddInt32(&h.runningRequestCount, -1)
+	if !canServe {
+		log.Printf("Rejected request from %s - too many other requests in progress.", req.Host)
+		http.Error(w, "Too many requests in progress.", http.StatusServiceUnavailable)
+		return
+	}
 
 	randomID := make([]byte, 12)
 	_, err := rand.Read(randomID)
@@ -112,9 +125,10 @@ func DecorateRoundTripper(conf config.Config, rt http.RoundTripper) http.RoundTr
 }
 
 // NewHandlerWithRoundTripper returns Handler, but will not construct transport.MultiTransport by itself
-func NewHandlerWithRoundTripper(roundTripper http.RoundTripper, bodyMaxSize int64) (http.Handler, error) {
+func NewHandlerWithRoundTripper(roundTripper http.RoundTripper, bodyMaxSize int64, maxConcurrentRequests int32) (http.Handler, error) {
 	return &Handler{
-		roundTripper: roundTripper,
-		bodyMaxSize:  bodyMaxSize,
+		roundTripper:          roundTripper,
+		bodyMaxSize:           bodyMaxSize,
+		maxConcurrentRequests: maxConcurrentRequests,
 	}, nil
 }
