@@ -60,22 +60,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	wh := w.Header()
-	for k, v := range resp.Header {
-		wh[k] = v
-	}
-
-	w.WriteHeader(resp.StatusCode)
-	_, copyErr := io.Copy(w, resp.Body)
-
-	defer func() {
-		if copyErr != nil {
-			log.Printf("Cannot send response body reason: %q",
-				copyErr.Error())
-		}
-	}()
-
 	defer func() {
 		closeErr := resp.Body.Close()
 		if closeErr != nil {
@@ -83,6 +67,17 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				closeErr.Error())
 		}
 	}()
+
+	wh := w.Header()
+	for k, v := range resp.Header {
+		wh[k] = v
+	}
+
+	w.WriteHeader(resp.StatusCode)
+	if _, copyErr := io.Copy(w, resp.Body); copyErr != nil {
+		log.Printf("Cannot send response body reason: %q",
+			copyErr.Error())
+	}
 }
 
 func (h *Handler) validateIncomingRequest(req *http.Request) int {
