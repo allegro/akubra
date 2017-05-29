@@ -44,6 +44,8 @@ type YamlConfig struct {
 	// ResponseHeaderTimeout see: https://golang.org/pkg/net/http/#Transport
 	// Default 5s (no limit)
 	ResponseHeaderTimeout metrics.Interval `yaml:"ResponseHeaderTimeout"`
+	// Max number of incoming requests to process in parallel
+	MaxConcurrentRequests int32 `yaml:"MaxConcurrentRequests" validate:"min=1"`
 
 	Clusters map[string]shardingconfig.ClusterConfig `yaml:"Clusters,omitempty"`
 	// Additional not amazon specific headers proxy will add to original request

@@ -283,6 +283,7 @@ MaxIdleConns: 1
 MaxIdleConnsPerHost: 2
 IdleConnTimeout: 3s
 ResponseHeaderTimeout: 4s
+MaxConcurrentRequests: 200
 Clusters:
   cluster1test:
     Backends:
@@ -360,6 +361,7 @@ func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeou
 
 	maxIdleConns := 1
 	maxIdleConnsPerHost := 2
+	maxConcurrentRequests := int32(200)
 	clusters := map[string]shardingconfig.ClusterConfig{"cluster1test": {
 		yamlURL,
 		"replicator",
@@ -392,6 +394,7 @@ func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeou
 		maxIdleConnsPerHost,
 		metrics.Interval{idleConnTimeoutInp},
 		metrics.Interval{responseHeaderTimeoutInp},
+		maxConcurrentRequests,
 		clusters,
 		additionalRequestHeaders,
 		additionalResponseHeaders,
