@@ -38,32 +38,29 @@ type YamlConfig struct {
 	// MaxIdleConnsPerHost see: https://golang.org/pkg/net/http/#Transport
 	// Default 100
 	MaxIdleConnsPerHost int `yaml:"MaxIdleConnsPerHost" validate:"min=0"`
+	// Max number of incoming requests to process in parallel
+	MaxConcurrentRequests int32 `yaml:"MaxConcurrentRequests" validate:"min=1"`
+	// Should we keep alive connections with backend servers
+	DisableKeepAlives bool `yaml:"DisableKeepAlives"`
 	// IdleConnTimeout see: https://golang.org/pkg/net/http/#Transport
 	// Default 0 (no limit)
 	IdleConnTimeout metrics.Interval `yaml:"IdleConnTimeout"`
 	// ResponseHeaderTimeout see: https://golang.org/pkg/net/http/#Transport
 	// Default 5s (no limit)
 	ResponseHeaderTimeout metrics.Interval `yaml:"ResponseHeaderTimeout"`
-	// Max number of incoming requests to process in parallel
-	MaxConcurrentRequests int32 `yaml:"MaxConcurrentRequests" validate:"min=1"`
 
 	Clusters map[string]shardingconfig.ClusterConfig `yaml:"Clusters,omitempty"`
 	// Additional not amazon specific headers proxy will add to original request
 	AdditionalRequestHeaders shardingconfig.AdditionalHeaders `yaml:"AdditionalRequestHeaders,omitempty"`
 	// Additional headers added to backend response
 	AdditionalResponseHeaders shardingconfig.AdditionalHeaders `yaml:"AdditionalResponseHeaders,omitempty"`
-	// Read timeout on outgoing connections
-
 	// Backend in maintenance mode. Akubra will not send data there
 	MaintainedBackends []shardingconfig.YAMLUrl `yaml:"MaintainedBackends,omitempty"`
-
 	// List request methods to be logged in synclog in case of backend failure
 	SyncLogMethods []shardingconfig.SyncLogMethod `yaml:"SyncLogMethods,omitempty"`
-	Client         *shardingconfig.ClientConfig   `yaml:"Client,omitempty"`
+	Client         shardingconfig.ClientConfig    `yaml:"Client,omitempty"`
 	Logging        logconfig.LoggingConfig        `yaml:"Logging,omitempty"`
 	Metrics        metrics.Config                 `yaml:"Metrics,omitempty"`
-	// Should we keep alive connections with backend servers
-	DisableKeepAlives bool `yaml:"DisableKeepAlives"`
 }
 
 // Config contains processed YamlConfig data
@@ -135,6 +132,16 @@ func setupLoggers(conf *Config) (err error) {
 	return err
 }
 
+func close(c io.Closer) {
+	if c == nil {
+		log.Println("Cannot close nil")
+	}
+	err := c.Close()
+	if err != nil {
+		log.Printf("Error while closing %s", err)
+	}
+}
+
 // Configure parse configuration file
 func Configure(configFilePath string) (conf Config, err error) {
 	confFile, err := os.Open(configFilePath)
@@ -142,7 +149,7 @@ func Configure(configFilePath string) (conf Config, err error) {
 		log.Fatalf("[ ERROR ] Problem with opening config file: '%s' - err: %v !", configFilePath, err)
 		return conf, err
 	}
-	defer confFile.Close()
+	defer close(confFile)
 
 	yconf, err := parseConf(confFile)
 	if err != nil {
@@ -170,8 +177,14 @@ func setupSyncLogThread(conf *Config, methods []interface{}) {
 
 // ValidateConf validate configuration from YAML file
 func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[string][]error) {
-	validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
-	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
+	err := validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
+	if err != nil {
+		log.Printf("Cannot set NoEmptyValuesSlice, reason: %s", err)
+	}
+	err = validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
+	if err != nil {
+		log.Printf("Cannot set NoEmptyValuesSlice, reason: %s", err)
+	}
 	valid, validationErrors := validator.Validate(conf)
 	if valid && enableLogicalValidator {
 		conf.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
@@ -206,7 +219,10 @@ func ValidateConfigurationHTTPHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, fmt.Sprintf("Request Body Read Error: %s\n", err))
+		_, werr := io.WriteString(w, fmt.Sprintf("Request Body Read Error: %s\n", err))
+		if werr != nil {
+			log.Println("Write String failure %q", werr)
+		}
 		return
 	}
 
@@ -214,16 +230,22 @@ func ValidateConfigurationHTTPHandler(w http.ResponseWriter, r *http.Request) {
 	err = yaml.Unmarshal(body, &yamlConfig)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("YAML Unmarshal Error: %s", err))
+		_, werr := io.WriteString(w, fmt.Sprintf("YAML Unmarshal Error: %s", err))
+		if werr != nil {
+			log.Println("Write String failure %q", werr)
+		}
 		return
 	}
-	defer r.Body.Close()
+	defer close(r.Body)
 
 	valid, errs := ValidateConf(yamlConfig, true)
 	if !valid {
 		log.Println("YAML validation - by technical endpoint - errors:", errs)
 		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("%s", errs))
+		_, werr := io.WriteString(w, fmt.Sprintf("%s", errs))
+		if werr != nil {
+			log.Println("Write String failure %q", werr)
+		}
 		return
 	}
 	log.Println("Configuration checked (by technical endpoint) - OK.")

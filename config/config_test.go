@@ -380,29 +380,29 @@ func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeou
 		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 	}
 
-	clientCfg := &shardingconfig.ClientConfig{
+	clientCfg := shardingconfig.ClientConfig{
 		Name:     clientCfgName,
 		Clusters: clientClusters,
 	}
 
 	return YamlConfig{
-		listen,
-		technicalEndpointListen,
-		[]shardingconfig.YAMLUrl{},
-		bodyMaxSize,
-		maxIdleConns,
-		maxIdleConnsPerHost,
-		metrics.Interval{idleConnTimeoutInp},
-		metrics.Interval{responseHeaderTimeoutInp},
-		maxConcurrentRequests,
-		clusters,
-		additionalRequestHeaders,
-		additionalResponseHeaders,
-		maintainedBackends,
-		syncLogMethods,
-		clientCfg,
-		logconfig.LoggingConfig{},
-		metrics.Config{},
-		false,
+		Listen:                    listen,
+		TechnicalEndpointListen:   technicalEndpointListen,
+		Backends:                  []shardingconfig.YAMLUrl{},
+		BodyMaxSize:               bodyMaxSize,
+		MaxIdleConns:              maxIdleConns,
+		MaxIdleConnsPerHost:       maxIdleConnsPerHost,
+		IdleConnTimeout:           metrics.Interval{idleConnTimeoutInp},
+		ResponseHeaderTimeout:     metrics.Interval{responseHeaderTimeoutInp},
+		MaxConcurrentRequests:     maxConcurrentRequests,
+		Clusters:                  clusters,
+		AdditionalRequestHeaders:  additionalRequestHeaders,
+		AdditionalResponseHeaders: additionalResponseHeaders,
+		MaintainedBackends:        maintainedBackends,
+		SyncLogMethods:            syncLogMethods,
+		Client:                    clientCfg,
+		Logging:                   logconfig.LoggingConfig{},
+		Metrics:                   metrics.Config{},
+		DisableKeepAlives:         false,
 	}
 }
