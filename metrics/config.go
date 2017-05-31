@@ -28,18 +28,18 @@ func (interval *Interval) UnmarshalYAML(unmarshal func(interface{}) error) error
 type Config struct {
 	// Target, possible values: "graphite", "expvar", "stdout"
 	Target string `yaml:"Target,omitempty"`
-	// Interval determines how often metrics should be released, applicable for "graphite" and "stdout"
-	Interval Interval `yaml:"Interval,omitempty"`
 	// Addr points graphite collector address
 	Addr string `yaml:"Addr,omitempty"`
 	// ExpAddr is expvar server adress
 	ExpAddr string `yaml:"ExpAddr,omitempty"`
 	// Prefix graphite metrics
 	Prefix string `yaml:"Prefix,omitempty"`
-	// AppendDefaults adds "<hostname>.<process>"  suffix
-	AppendDefaults bool `yaml:"AppendDefaults,omitempty"`
 	// Percentiles customizes metrics sent to graphite default: 0.75, 0.95, 0.99, 0.999
 	Percentiles []float64 `yaml:"Percentiles"`
+	// AppendDefaults adds "<hostname>.<process>"  suffix
+	AppendDefaults bool `yaml:"AppendDefaults,omitempty"`
 	// Debug includes runtime.MemStats metrics
 	Debug bool `yaml:"Debug"`
+	// Interval determines how often metrics should be released, applicable for "graphite" and "stdout"
+	Interval Interval `yaml:"Interval,omitempty"`
 }

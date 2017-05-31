@@ -190,7 +190,7 @@ func NewHandler(conf config.Config) (http.Handler, error) {
 
 	rings := NewRingFactory(conf, httptransp)
 	// TODO: Multiple clients
-	ring, err := rings.ClientRing(*conf.Client)
+	ring, err := rings.ClientRing(conf.Client)
 	if err != nil {
 		return nil, err
 	}
