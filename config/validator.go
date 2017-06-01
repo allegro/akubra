@@ -61,25 +61,25 @@ func UniqueValuesInSliceValidator(v interface{}, param string) error {
 }
 
 // ClientClustersEntryLogicalValidator validate Client->Clusters entry and make sure that all required clusters are defined
-func (c *YamlConfig) ClientClustersEntryLogicalValidator(valid *bool, validationErrors *map[string][]error) {
-	errorsList := make(map[string][]error)
-
-	if len(c.Client.Clusters) == 0 {
-		*valid = false
-		errorDetail := []error{errors.New("Empty clusters definition")}
-		errorsList["ClientClustersEntryLogicalValidator"] = errorDetail
-	} else {
-		for _, clusterName := range c.Client.Clusters {
-			_, exists := c.Clusters[clusterName]
-			if !exists {
-				*valid = false
-				errorDetail := []error{fmt.Errorf("Undefined cluster: %q - not all required clusters are defined", clusterName)}
-				errorsList["ClientClustersEntryLogicalValidator"] = errorDetail
-			}
-		}
-	}
-	*validationErrors = mergeErrors(*validationErrors, errorsList)
-}
+//func (c *YamlConfig) ClientClustersEntryLogicalValidator(valid *bool, validationErrors *map[string][]error) {
+//	errorsList := make(map[string][]error)
+//
+//	if len(c.Client.Clusters) == 0 {
+//		*valid = false
+//		errorDetail := []error{errors.New("Empty clusters definition")}
+//		errorsList["ClientClustersEntryLogicalValidator"] = errorDetail
+//	} else {
+//		for _, clusterName := range c.Client.Clusters {
+//			_, exists := c.Clusters[clusterName]
+//			if !exists {
+//				*valid = false
+//				errorDetail := []error{fmt.Errorf("Undefined cluster: %q - not all required clusters are defined", clusterName)}
+//				errorsList["ClientClustersEntryLogicalValidator"] = errorDetail
+//			}
+//		}
+//	}
+//	*validationErrors = mergeErrors(*validationErrors, errorsList)
+//}
 
 // ListenPortsLogicalValidator make sure that listen port and technical listen port are not equal
 func (c *YamlConfig) ListenPortsLogicalValidator(valid *bool, validationErrors *map[string][]error) {

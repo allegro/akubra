@@ -13,21 +13,17 @@ import (
 // ClusterConfig defines cluster configuration
 type ClusterConfig struct {
 	// Backends should contain s3 backend urls
-	Backends []YAMLUrl `yaml:"Backends,omitempty"`
-	// Type, currently replicator is only option
-	Type string `yaml:"Type,omitempty"`
-	// Points how much load cluster should handle
-	Weight int `yaml:"Weight,omitempty"`
-	// Cluster type specific options
-	Options map[string]string `yaml:"Options,omitempty"`
+	Backends []YAMLUrl `yaml:"Backends"`
 }
 
-// ClientConfig keeps information about client setup
-type ClientConfig struct {
-	// Client name
-	Name string `yaml:"Name,omitempty" validate:"regexp=^([a-zA-Z0-9_-]+)$"`
-	// List of clusters name
-	Clusters []string `yaml:"Clusters,omitempty" validate:"NoEmptyValuesSlice=Clusters,UniqueValuesSlice=Clusters"`
+type MultiClusterConfig struct {
+	Cluster string `yaml:"Cluster"`
+	Weight int `yaml:"Weight"`
+}
+
+type RegionConfig struct {
+	Clusters []MultiClusterConfig `yaml:"Clusters"`
+	Domains []string `yaml:"Domains"`
 }
 
 // YAMLUrl type fields in yaml configuration will parse urls
