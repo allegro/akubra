@@ -3,26 +3,21 @@ package sharding
 import (
 	"net/url"
 
-	"github.com/allegro/akubra/config"
-	//"github.com/allegro/akubra/httphandler"
-	//"github.com/allegro/akubra/log"
-	shardingconfig "github.com/allegro/akubra/sharding/config"
-	"github.com/allegro/akubra/transport"
-	//"github.com/serialx/hashring"
-	//"github.com/allegro/akubra/httphandler"
-	"github.com/allegro/akubra/httphandler"
-	//"github.com/serialx/hashring"
-	"github.com/serialx/hashring"
-	"github.com/allegro/akubra/storages"
 	"net/http"
+
+	"github.com/allegro/akubra/config"
+	"github.com/allegro/akubra/httphandler"
+	shardingconfig "github.com/allegro/akubra/sharding/config"
+	"github.com/allegro/akubra/storages"
+	"github.com/allegro/akubra/transport"
+	"github.com/serialx/hashring"
 )
 
 // RingFactory produces clients ShardsRing
 type RingFactory struct {
 	conf      config.Config
 	transport http.RoundTripper
-	//clusters  map[string]Cluster
-	storages *storages.Storages
+	storages  *storages.Storages
 }
 
 func (rf RingFactory) uniqBackends(regionCfg shardingconfig.RegionConfig) ([]url.URL, error) {
@@ -113,8 +108,8 @@ func (rf RingFactory) RegionRing(regionCfg shardingconfig.RegionConfig) (ShardsR
 
 func NewRingFactory(conf config.Config, storages *storages.Storages, transport http.RoundTripper) RingFactory {
 	return RingFactory{
-		conf:conf,
-		storages:storages,
-		transport:transport,
+		conf:      conf,
+		storages:  storages,
+		transport: transport,
 	}
 }

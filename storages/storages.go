@@ -56,8 +56,6 @@ func (st Storages) initCluster(name string) (Cluster, error) {
 }
 
 func (st Storages) GetCluster(name string) (Cluster, error) {
-	fmt.Println("CLUSTERS GET:")
-	fmt.Println(st.Clusters)
 	s3cluster, ok := st.Clusters[name]
 	if ok {
 		return s3cluster, nil
