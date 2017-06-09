@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"testing"
 
+	"sync/atomic"
+
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
@@ -14,7 +16,6 @@ import (
 	"github.com/allegro/akubra/storages"
 	set "github.com/deckarep/golang-set"
 	"github.com/stretchr/testify/assert"
-	"sync/atomic"
 )
 
 func makePrimaryConfiguration() config.Config {
@@ -50,12 +51,12 @@ func makeRegionRing(clusterWeights []int, t *testing.T, handlerfunc func(w http.
 		//"Clusters" part...
 		handlerfun := http.HandlerFunc(handlerfunc)
 		ts := httptest.NewServer(handlerfun)
-		backendUrl, err := url.Parse(ts.URL)
+		backendURL, err := url.Parse(ts.URL)
 		if err != nil {
 			t.Error(err)
 		}
-		backendYamlUrl := &shardingconfig.YAMLUrl{URL: backendUrl}
-		backends := []shardingconfig.YAMLUrl{*backendYamlUrl}
+		backendYamlURL := &shardingconfig.YAMLUrl{URL: backendURL}
+		backends := []shardingconfig.YAMLUrl{*backendYamlURL}
 		clusterConfig := shardingconfig.ClusterConfig{
 			Backends: backends,
 		}
@@ -99,9 +100,9 @@ func TestGetWithOneCluster(t *testing.T) {
 		atomic.AddInt32(&callCount, 1)
 	}
 	regionRing := makeRegionRing([]int{1}, t, f)
-	reqUrl, _ := url.Parse("http://allegro.pl/b/o")
+	reqURL, _ := url.Parse("http://allegro.pl/b/o")
 	request := &http.Request{
-		URL:    reqUrl,
+		URL:    reqURL,
 		Method: "GET",
 	}
 	response, _ := regionRing.DoRequest(request)
@@ -116,9 +117,9 @@ func TestGetWithTwoClusters(t *testing.T) {
 		atomic.AddInt32(&callCount, 1)
 	}
 	regionRing := makeRegionRing([]int{1, 1}, t, f)
-	reqUrl, _ := url.Parse("http://allegro.pl/b/o")
+	reqURL, _ := url.Parse("http://allegro.pl/b/o")
 	request := &http.Request{
-		URL:    reqUrl,
+		URL:    reqURL,
 		Method: "GET",
 	}
 	response, _ := regionRing.DoRequest(request)
@@ -133,9 +134,9 @@ func TestGetWithTwoClustersAndRegression(t *testing.T) {
 		atomic.AddInt32(&callCount, 1)
 	}
 	regionRing := makeRegionRing([]int{0, 1}, t, f)
-	reqUrl, _ := url.Parse("http://allegro.pl/b/o")
+	reqURL, _ := url.Parse("http://allegro.pl/b/o")
 	request := &http.Request{
-		URL:    reqUrl,
+		URL:    reqURL,
 		Method: "GET",
 	}
 	response, _ := regionRing.DoRequest(request)
@@ -150,9 +151,9 @@ func TestDeleteWithTwoClusters(t *testing.T) {
 		atomic.AddInt32(&callCount, 1)
 	}
 	regionRing := makeRegionRing([]int{1, 1}, t, f)
-	reqUrl, _ := url.Parse("http://allegro.pl/b/o")
+	reqURL, _ := url.Parse("http://allegro.pl/b/o")
 	request := &http.Request{
-		URL:    reqUrl,
+		URL:    reqURL,
 		Method: "DELETE",
 	}
 	response, _ := regionRing.DoRequest(request)
@@ -167,9 +168,9 @@ func TestPutWithTwoClustersAndBucketOnly(t *testing.T) {
 		atomic.AddInt32(&callCount, 1)
 	}
 	regionRing := makeRegionRing([]int{1, 1}, t, f)
-	reqUrl, _ := url.Parse("http://allegro.pl/b")
+	reqURL, _ := url.Parse("http://allegro.pl/b")
 	request := &http.Request{
-		URL:    reqUrl,
+		URL:    reqURL,
 		Method: "PUT",
 	}
 	response, _ := regionRing.DoRequest(request)

@@ -13,13 +13,15 @@ import (
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
-	"github.com/serialx/hashring"
 	"github.com/allegro/akubra/storages"
+	"github.com/serialx/hashring"
 )
 
-type ShardsRingApi interface {
+//ShardsRingAPI interface
+type ShardsRingAPI interface {
 	DoRequest(req *http.Request) (resp *http.Response, rerr error)
 }
+
 // ShardsRing implements http.RoundTripper interface,
 // and directs requests to determined shard
 type ShardsRing struct {
@@ -137,7 +139,7 @@ func (sr *ShardsRing) logInconsistency(key, expectedClusterName, actualClusterNa
 	}
 }
 
-// RoundTrip performs http requests
+//DoRequest performs http requests
 func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr error) {
 	since := time.Now()
 	defer func() {

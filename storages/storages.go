@@ -1,32 +1,33 @@
 package storages
 
 import (
-	"github.com/allegro/akubra/transport"
-	"net/url"
 	"fmt"
-	"github.com/allegro/akubra/httphandler"
-	"github.com/allegro/akubra/config"
 	"net/http"
-	shardingconfig "github.com/allegro/akubra/sharding/config"
-)
+	"net/url"
 
+	"github.com/allegro/akubra/config"
+	"github.com/allegro/akubra/httphandler"
+	shardingconfig "github.com/allegro/akubra/sharding/config"
+	"github.com/allegro/akubra/transport"
+)
 
 // Cluster stores information about cluster backends
 type Cluster struct {
 	http.RoundTripper
 	Backends []shardingconfig.YAMLUrl
 	Name     string
-
 }
+
+//Storages config
 type Storages struct {
-	Conf config.Config
+	Conf      config.Config
 	Transport http.RoundTripper
-	Clusters map[string]Cluster
+	Clusters  map[string]Cluster
 }
 
 func newMultiBackendCluster(transp http.RoundTripper,
-multiResponseHandler transport.MultipleResponsesHandler,
-clusterConf shardingconfig.ClusterConfig, name string, maintainedBackends []shardingconfig.YAMLUrl) Cluster {
+	multiResponseHandler transport.MultipleResponsesHandler,
+	clusterConf shardingconfig.ClusterConfig, name string, maintainedBackends []shardingconfig.YAMLUrl) Cluster {
 	backends := make([]url.URL, len(clusterConf.Backends))
 
 	for i, backend := range clusterConf.Backends {
@@ -55,6 +56,7 @@ func (st Storages) initCluster(name string) (Cluster, error) {
 	return newMultiBackendCluster(st.Transport, respHandler, clusterConf, name, st.Conf.MaintainedBackends), nil
 }
 
+//GetCluster gets cluster by name
 func (st Storages) GetCluster(name string) (Cluster, error) {
 	s3cluster, ok := st.Clusters[name]
 	if ok {

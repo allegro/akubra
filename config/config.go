@@ -46,7 +46,7 @@ type YamlConfig struct {
 	ResponseHeaderTimeout metrics.Interval `yaml:"ResponseHeaderTimeout"`
 
 	Clusters map[string]shardingconfig.ClusterConfig `yaml:"Clusters,omitempty"`
-	Regions map[string]shardingconfig.RegionConfig `yaml:"Regions,omitempty"`
+	Regions  map[string]shardingconfig.RegionConfig  `yaml:"Regions,omitempty"`
 	// Additional not amazon specific headers proxy will add to original request
 	AdditionalRequestHeaders shardingconfig.AdditionalHeaders `yaml:"AdditionalRequestHeaders,omitempty"`
 	// Additional headers added to backend response
@@ -172,7 +172,7 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
 	valid, validationErrors := validator.Validate(conf)
 	if valid && enableLogicalValidator {
-		//conf.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
+		conf.RegionsEntryLogicalValidator(&valid, &validationErrors)
 		conf.ListenPortsLogicalValidator(&valid, &validationErrors)
 	}
 	for propertyName, validatorMessage := range validationErrors {

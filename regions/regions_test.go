@@ -1,9 +1,10 @@
 package regions
 
 import (
-	"testing"
-	"github.com/allegro/akubra/sharding"
 	"net/http"
+	"testing"
+
+	"github.com/allegro/akubra/sharding"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -19,13 +20,13 @@ func (sro *ShardsRingMock) DoRequest(req *http.Request) (resp *http.Response, re
 }
 
 func TestCode404OnNotSupportedDomain(t *testing.T) {
-	shardsMap := make(map[string]sharding.ShardsRingApi)
+	shardsMap := make(map[string]sharding.ShardsRingAPI)
 	regions := &Regions{
 		multiCluters: shardsMap,
 	}
 	shardsRing := &sharding.ShardsRing{}
 	regions.assignShardsRing("test1.qxlint", *shardsRing)
-	request := &http.Request{Host:"test2.qxlint"}
+	request := &http.Request{Host: "test2.qxlint"}
 
 	response, _ := regions.RoundTrip(request)
 
@@ -33,15 +34,15 @@ func TestCode404OnNotSupportedDomain(t *testing.T) {
 }
 
 func TestShouldReturnResponseFromShardsRing(t *testing.T) {
-	shardsMap := make(map[string]sharding.ShardsRingApi)
+	shardsMap := make(map[string]sharding.ShardsRingAPI)
 	regions := &Regions{
 		multiCluters: shardsMap,
 	}
-	request := &http.Request{Host:"test1.qxlint"}
+	request := &http.Request{Host: "test1.qxlint"}
 	expectedResponse := &http.Response{
-		Status: "200 OK",
+		Status:     "200 OK",
 		StatusCode: 200,
-		}
+	}
 	shardsRingMock := &ShardsRingMock{}
 	shardsRingMock.On("DoRequest", request).Return(expectedResponse)
 	regions.assignShardsRing("test1.qxlint", shardsRingMock)
@@ -53,13 +54,13 @@ func TestShouldReturnResponseFromShardsRing(t *testing.T) {
 }
 
 func TestShouldReturnResponseFromShardsRingOnHostWithPort(t *testing.T) {
-	shardsMap := make(map[string]sharding.ShardsRingApi)
+	shardsMap := make(map[string]sharding.ShardsRingAPI)
 	regions := &Regions{
 		multiCluters: shardsMap,
 	}
-	request := &http.Request{Host:"test1.qxlint:1234"}
+	request := &http.Request{Host: "test1.qxlint:1234"}
 	expectedResponse := &http.Response{
-		Status: "200 OK",
+		Status:     "200 OK",
 		StatusCode: 200,
 	}
 	shardsRingMock := &ShardsRingMock{}

@@ -9,6 +9,8 @@ import (
 	shardingconfig "github.com/allegro/akubra/sharding/config"
 	"github.com/go-validator/validator"
 
+	"errors"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -62,53 +64,15 @@ func TestShouldNotValidateWhenValuesInSliceAreEmpty(t *testing.T) {
 	assert.False(t, valid, "Should be false")
 }
 
-func TestShouldPassClientClustersEntryLogicalValidator(t *testing.T) {
-	existingClusterName := "cluster1test"
-	valid := true
-	validationErrors := make(map[string][]error)
-	var size shardingconfig.HumanSizeUnits
-	size.SizeInBytes = 2048
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", ":81", "client1", []string{existingClusterName})
-	yamlConfig.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
-
-	assert.Len(t, validationErrors, 0, "Should not be errors")
-	assert.True(t, valid, "Should be true")
-}
-
-func TestShouldNotPassClientClustersEntryLogicalValidatorWhenClusterDoesNotExist(t *testing.T) {
-	notExistingClusterName := "notExistingClusterName"
-	valid := true
-	validationErrors := make(map[string][]error)
-	var size shardingconfig.HumanSizeUnits
-	size.SizeInBytes = 2048
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", ":81", "client1", []string{notExistingClusterName})
-	yamlConfig.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
-
-	assert.Len(t, validationErrors, 1, "Should be one error")
-	assert.False(t, valid, "Should be false")
-}
-
-func TestShouldNotPassClientClustersEntryLogicalValidatorWhenEmptyClustersDefinition(t *testing.T) {
-	valid := true
-	validationErrors := make(map[string][]error)
-	var size shardingconfig.HumanSizeUnits
-	size.SizeInBytes = 2048
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", ":81", "client1", []string{})
-	yamlConfig.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
-
-	assert.Len(t, validationErrors, 1, "Should be one error")
-	assert.False(t, valid, "Should be false")
-}
-
 func TestShouldPassListenPortsLogicalValidator(t *testing.T) {
 	listen := ":8080"
 	listenTechnicalEndpoint := ":8081"
-	existingClusterName := "cluster1test"
 	valid := true
 	validationErrors := make(map[string][]error)
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", listen, listenTechnicalEndpoint, "client1", []string{existingClusterName})
+	regionConfig := &shardingconfig.RegionConfig{}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", listen, listenTechnicalEndpoint, map[string]shardingconfig.RegionConfig{"region": *regionConfig})
 	yamlConfig.ListenPortsLogicalValidator(&valid, &validationErrors)
 
 	assert.Len(t, validationErrors, 0, "Should not be errors")
@@ -118,12 +82,13 @@ func TestShouldPassListenPortsLogicalValidator(t *testing.T) {
 func TestShouldNotPassListenPortsLogicalValidatorWhenPortsAreEqual(t *testing.T) {
 	listen := "127.0.0.1:8080"
 	listenTechnicalEndpoint := listen
-	existingClusterName := "cluster1test"
+	//existingClusterName := "cluster1test"
 	valid := true
 	validationErrors := make(map[string][]error)
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", listen, listenTechnicalEndpoint, "client1", []string{existingClusterName})
+	regionConfig := &shardingconfig.RegionConfig{}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", listen, listenTechnicalEndpoint, map[string]shardingconfig.RegionConfig{"region": *regionConfig})
 	yamlConfig.ListenPortsLogicalValidator(&valid, &validationErrors)
 
 	assert.Len(t, validationErrors, 1, "Should be one error")
@@ -176,4 +141,110 @@ func TestShouldNotPassRequestHeaderContentTypeValidatorWhenContentTypeIsUnsuppor
 	request.Header.Set("Content-Type", "application/json")
 	result := RequestHeaderContentTypeValidator(*request, requiredContentType)
 	assert.Equal(t, http.StatusUnsupportedMediaType, result)
+}
+
+func TestValidatorShouldPassWithValidRegionConfig(t *testing.T) {
+	multiClusterConfig := &shardingconfig.MultiClusterConfig{
+		Cluster: "cluster1test",
+		Weight:  1,
+	}
+	regionConfig := &shardingconfig.RegionConfig{
+		Clusters: []shardingconfig.MultiClusterConfig{*multiClusterConfig},
+		Domains:  []string{"domain.dc"},
+	}
+	var size shardingconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	regions := map[string]shardingconfig.RegionConfig{"testregion": *regionConfig}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
+	valid := false
+	validationErrors := make(map[string][]error)
+	yamlConfig.RegionsEntryLogicalValidator(&valid, &validationErrors)
+	assert.True(t, valid)
+	assert.Empty(t, validationErrors)
+}
+
+func TestValidatorShouldFailWithMissingCluster(t *testing.T) {
+	multiClusterConfig := &shardingconfig.MultiClusterConfig{
+		Cluster: "someothercluster",
+		Weight:  1,
+	}
+	regionConfig := &shardingconfig.RegionConfig{
+		Clusters: []shardingconfig.MultiClusterConfig{*multiClusterConfig},
+		Domains:  []string{"domain.dc"},
+	}
+	var size shardingconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	regions := map[string]shardingconfig.RegionConfig{"testregion": *regionConfig}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
+	valid := false
+	validationErrors := make(map[string][]error)
+	yamlConfig.RegionsEntryLogicalValidator(&valid, &validationErrors)
+	assert.False(t, false)
+	assert.Equal(
+		t,
+		errors.New("Cluster \"testregion\" is region \"someothercluster\" is not defined."),
+		validationErrors["ClientClustersEntryLogicalValidator"][0])
+}
+
+func TestValidatorShouldFailWithInvalidWeight(t *testing.T) {
+	multiClusterConfig := &shardingconfig.MultiClusterConfig{
+		Cluster: "cluster1test",
+		Weight:  199,
+	}
+	regionConfig := &shardingconfig.RegionConfig{
+		Clusters: []shardingconfig.MultiClusterConfig{*multiClusterConfig},
+		Domains:  []string{"domain.dc"},
+	}
+	var size shardingconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	regions := map[string]shardingconfig.RegionConfig{"testregion": *regionConfig}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
+	valid := false
+	validationErrors := make(map[string][]error)
+	yamlConfig.RegionsEntryLogicalValidator(&valid, &validationErrors)
+	assert.False(t, false)
+	assert.Equal(
+		t,
+		errors.New("Weight for cluster \"cluster1test\" in region \"testregion\" is not valid."),
+		validationErrors["ClientClustersEntryLogicalValidator"][0])
+}
+
+func TestValidatorShouldFailWithMissingClusterDomain(t *testing.T) {
+	multiClusterConfig := &shardingconfig.MultiClusterConfig{
+		Cluster: "cluster1test",
+		Weight:  1,
+	}
+	regionConfig := &shardingconfig.RegionConfig{
+		Clusters: []shardingconfig.MultiClusterConfig{*multiClusterConfig},
+	}
+	var size shardingconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	regions := map[string]shardingconfig.RegionConfig{"testregion": *regionConfig}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
+	valid := false
+	validationErrors := make(map[string][]error)
+	yamlConfig.RegionsEntryLogicalValidator(&valid, &validationErrors)
+	assert.False(t, false)
+	assert.Equal(
+		t,
+		errors.New("No domain defined for region \"testregion\"."),
+		validationErrors["ClientClustersEntryLogicalValidator"][0])
+}
+
+func TestValidatorShouldFailWithMissingClusterDefinition(t *testing.T) {
+	regionConfig := &shardingconfig.RegionConfig{
+		Domains: []string{"domain.dc"},
+	}
+	var size shardingconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	regions := map[string]shardingconfig.RegionConfig{"testregion": *regionConfig}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
+	valid := false
+	validationErrors := make(map[string][]error)
+	yamlConfig.RegionsEntryLogicalValidator(&valid, &validationErrors)
+	assert.False(t, false)
+	assert.Equal(
+		t,
+		errors.New("No clusters defined for region \"testregion\"."),
+		validationErrors["ClientClustersEntryLogicalValidator"][0])
 }

@@ -74,7 +74,7 @@ func (rf RingFactory) createRegressionMap(regionConfig shardingconfig.RegionConf
 	return regressionMap, nil
 }
 
-// ClientRing returns clients ShardsRing
+// RegionRing returns ShardsRing for region
 func (rf RingFactory) RegionRing(regionCfg shardingconfig.RegionConfig) (ShardsRing, error) {
 	clientClusters := rf.getRegionClusters(regionCfg)
 	shardClusterMap, err := rf.makeClusterMap(clientClusters)
@@ -106,6 +106,7 @@ func (rf RingFactory) RegionRing(regionCfg shardingconfig.RegionConfig) (ShardsR
 		rf.conf.ClusterSyncLog}, nil
 }
 
+//NewRingFactory creates ring factory
 func NewRingFactory(conf config.Config, storages *storages.Storages, transport http.RoundTripper) RingFactory {
 	return RingFactory{
 		conf:      conf,

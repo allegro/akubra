@@ -16,13 +16,19 @@ type ClusterConfig struct {
 	Backends []YAMLUrl `yaml:"Backends"`
 }
 
+//MultiClusterConfig defines region settings for multicluster
 type MultiClusterConfig struct {
+	//Cluster name
 	Cluster string `yaml:"Cluster"`
+	//Cluster weight
 	Weight int `yaml:"Weight"`
 }
 
+//RegionConfig region configuration
 type RegionConfig struct {
+	//Multi cluster config
 	Clusters []MultiClusterConfig `yaml:"Clusters"`
+	//domains used for region matching
 	Domains []string `yaml:"Domains"`
 }
 

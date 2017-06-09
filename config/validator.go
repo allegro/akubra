@@ -60,26 +60,39 @@ func UniqueValuesInSliceValidator(v interface{}, param string) error {
 	return nil
 }
 
-// ClientClustersEntryLogicalValidator validate Client->Clusters entry and make sure that all required clusters are defined
-//func (c *YamlConfig) ClientClustersEntryLogicalValidator(valid *bool, validationErrors *map[string][]error) {
-//	errorsList := make(map[string][]error)
-//
-//	if len(c.Client.Clusters) == 0 {
-//		*valid = false
-//		errorDetail := []error{errors.New("Empty clusters definition")}
-//		errorsList["ClientClustersEntryLogicalValidator"] = errorDetail
-//	} else {
-//		for _, clusterName := range c.Client.Clusters {
-//			_, exists := c.Clusters[clusterName]
-//			if !exists {
-//				*valid = false
-//				errorDetail := []error{fmt.Errorf("Undefined cluster: %q - not all required clusters are defined", clusterName)}
-//				errorsList["ClientClustersEntryLogicalValidator"] = errorDetail
-//			}
-//		}
-//	}
-//	*validationErrors = mergeErrors(*validationErrors, errorsList)
-//}
+//RegionsEntryLogicalValidator validator for Regions part
+func (c *YamlConfig) RegionsEntryLogicalValidator(valid *bool, validationErrors *map[string][]error) {
+	errList := make([]error, 0)
+	if len(c.Regions) == 0 {
+		errList = append(errList, errors.New("Empty regions definition."))
+	} else {
+		for regionName, clusterDef := range c.Regions {
+			if len(clusterDef.Clusters) == 0 {
+				errList = append(errList, fmt.Errorf("No clusters defined for region \"%s\".", regionName))
+			}
+			for _, singleCluster := range clusterDef.Clusters {
+				_, exists := c.Clusters[singleCluster.Cluster]
+				if !exists {
+					errList = append(errList, fmt.Errorf("Cluster \"%s\" is region \"%s\" is not defined.", regionName, singleCluster.Cluster))
+				}
+				if singleCluster.Weight < 0 || singleCluster.Weight > 1 {
+					errList = append(errList, fmt.Errorf("Weight for cluster \"%s\" in region \"%s\" is not valid.", singleCluster.Cluster, regionName))
+				}
+			}
+			if len(clusterDef.Domains) == 0 {
+				errList = append(errList, fmt.Errorf("No domain defined for region \"%s\".", regionName))
+			}
+		}
+	}
+	if len(errList) > 0 {
+		*valid = false
+		errorsList := make(map[string][]error)
+		errorsList["ClientClustersEntryLogicalValidator"] = errList
+		*validationErrors = mergeErrors(*validationErrors, errorsList)
+	} else {
+		*valid = true
+	}
+}
 
 // ListenPortsLogicalValidator make sure that listen port and technical listen port are not equal
 func (c *YamlConfig) ListenPortsLogicalValidator(valid *bool, validationErrors *map[string][]error) {

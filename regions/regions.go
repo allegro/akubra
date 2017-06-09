@@ -1,38 +1,40 @@
 package regions
 
 import (
+	"bytes"
+	"io/ioutil"
+	"net"
 	"net/http"
+
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/httphandler"
-	"github.com/allegro/akubra/storages"
 	"github.com/allegro/akubra/sharding"
-	"net"
-	"io/ioutil"
-	"bytes"
+	"github.com/allegro/akubra/storages"
 )
 
+//Regions container for multiclusters
 type Regions struct {
-	multiCluters map[string]sharding.ShardsRingApi
+	multiCluters map[string]sharding.ShardsRingAPI
 }
 
-func (rg Regions) assignShardsRing(domain string, shardRing sharding.ShardsRingApi) {
+func (rg Regions) assignShardsRing(domain string, shardRing sharding.ShardsRingAPI) {
 	rg.multiCluters[domain] = shardRing
 }
 
-func (rg Regions) getNoSuchDomainResponse(req *http.Request) (*http.Response) {
+func (rg Regions) getNoSuchDomainResponse(req *http.Request) *http.Response {
 	body := "No region found for this domain."
 	return &http.Response{
-		Status: "404 Not found",
-		StatusCode: 404,
-		Proto: req.Proto,
-		Body: ioutil.NopCloser(bytes.NewBufferString(body)),
-		ContentLength:int64(len(body)),
-		Request:req,
-		Header: make(http.Header, 0),
-		
+		Status:        "404 Not found",
+		StatusCode:    404,
+		Proto:         req.Proto,
+		Body:          ioutil.NopCloser(bytes.NewBufferString(body)),
+		ContentLength: int64(len(body)),
+		Request:       req,
+		Header:        make(http.Header, 0),
 	}
 }
 
+//RoundTrip performs round trip to target
 func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	reqHost, _, err := net.SplitHostPort(req.Host)
 	if err != nil {
@@ -41,24 +43,24 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	shardsRing, ok := rg.multiCluters[reqHost]
 	if ok {
 		return shardsRing.DoRequest(req)
-	} else {
-		return rg.getNoSuchDomainResponse(req), nil
 	}
+	return rg.getNoSuchDomainResponse(req), nil
 }
 
+//NewHandler build new region handler
 func NewHandler(conf config.Config) (http.Handler, error) {
 	httptransp, err := httphandler.ConfigureHTTPTransport(conf)
 	if err != nil {
 		return nil, err
 	}
 	allStorages := &storages.Storages{
-		Conf: conf,
+		Conf:      conf,
 		Transport: httptransp,
 		Clusters:  make(map[string]storages.Cluster),
 	}
 	ringFactory := sharding.NewRingFactory(conf, allStorages, httptransp)
 	regions := &Regions{
-		multiCluters: make(map[string]sharding.ShardsRingApi),
+		multiCluters: make(map[string]sharding.ShardsRingAPI),
 	}
 
 	for _, regionConfig := range conf.Regions {
