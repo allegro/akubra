@@ -11,7 +11,6 @@ import (
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/metrics"
-	//"github.com/allegro/akubra/sharding"
 	"github.com/allegro/akubra/regions"
 	_ "github.com/lib/pq"
 	graceful "gopkg.in/tylerb/graceful.v1"

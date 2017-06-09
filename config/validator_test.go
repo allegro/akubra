@@ -82,7 +82,6 @@ func TestShouldPassListenPortsLogicalValidator(t *testing.T) {
 func TestShouldNotPassListenPortsLogicalValidatorWhenPortsAreEqual(t *testing.T) {
 	listen := "127.0.0.1:8080"
 	listenTechnicalEndpoint := listen
-	//existingClusterName := "cluster1test"
 	valid := true
 	validationErrors := make(map[string][]error)
 	var size shardingconfig.HumanSizeUnits

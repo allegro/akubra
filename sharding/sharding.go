@@ -1,9 +1,8 @@
 package sharding
 
 import (
-	"net/url"
-
 	"net/http"
+	"net/url"
 
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/httphandler"
