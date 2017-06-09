@@ -64,23 +64,23 @@ func UniqueValuesInSliceValidator(v interface{}, param string) error {
 func (c *YamlConfig) RegionsEntryLogicalValidator(valid *bool, validationErrors *map[string][]error) {
 	errList := make([]error, 0)
 	if len(c.Regions) == 0 {
-		errList = append(errList, errors.New("Empty regions definition."))
+		errList = append(errList, errors.New("Empty regions definition"))
 	} else {
 		for regionName, clusterDef := range c.Regions {
 			if len(clusterDef.Clusters) == 0 {
-				errList = append(errList, fmt.Errorf("No clusters defined for region \"%s\".", regionName))
+				errList = append(errList, fmt.Errorf("No clusters defined for region \"%s\"", regionName))
 			}
 			for _, singleCluster := range clusterDef.Clusters {
 				_, exists := c.Clusters[singleCluster.Cluster]
 				if !exists {
-					errList = append(errList, fmt.Errorf("Cluster \"%s\" is region \"%s\" is not defined.", regionName, singleCluster.Cluster))
+					errList = append(errList, fmt.Errorf("Cluster \"%s\" is region \"%s\" is not defined", regionName, singleCluster.Cluster))
 				}
 				if singleCluster.Weight < 0 || singleCluster.Weight > 1 {
-					errList = append(errList, fmt.Errorf("Weight for cluster \"%s\" in region \"%s\" is not valid.", singleCluster.Cluster, regionName))
+					errList = append(errList, fmt.Errorf("Weight for cluster \"%s\" in region \"%s\" is not valid", singleCluster.Cluster, regionName))
 				}
 			}
 			if len(clusterDef.Domains) == 0 {
-				errList = append(errList, fmt.Errorf("No domain defined for region \"%s\".", regionName))
+				errList = append(errList, fmt.Errorf("No domain defined for region \"%s\"", regionName))
 			}
 		}
 	}
