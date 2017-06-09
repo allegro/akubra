@@ -126,6 +126,8 @@ DisableKeepAlives: false
 
 # Maximum accepted body size
 BodyMaxSize: "100M"
+# Maximum number of incoming requests to process at once
+MaxConcurrentRequests: 200
 # Backend in maintenance mode. Akubra will skip this endpoint
 
 # MaintainedBackends:

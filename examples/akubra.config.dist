@@ -29,6 +29,8 @@ ResponseHeaderTimeout: 5s
 # DisableKeepAlives see: https://golang.org/pkg/net/http/#Transport
 # Default false
 DisableKeepAlives: false
+# Maximum number of incoming requests to process at once
+MaxConcurrentRequests: 200
 # MaintainedBackends:
 #   - "http://127.0.0.1:9002"
 

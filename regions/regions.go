@@ -73,5 +73,5 @@ func NewHandler(conf config.Config) (http.Handler, error) {
 		}
 	}
 	roundTripper := httphandler.DecorateRoundTripper(conf, regions)
-	return httphandler.NewHandlerWithRoundTripper(roundTripper, conf.BodyMaxSize.SizeInBytes)
+	return httphandler.NewHandlerWithRoundTripper(roundTripper, conf.BodyMaxSize.SizeInBytes, conf.MaxConcurrentRequests)
 }

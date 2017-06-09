@@ -105,6 +105,7 @@ func (s *service) start() error {
 	if err != nil {
 		log.Fatalln(err)
 	}
+
 	return srv.Serve(listener)
 }
 
