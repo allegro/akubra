@@ -56,7 +56,7 @@ func (st Storages) initCluster(name string) (Cluster, error) {
 	return newMultiBackendCluster(st.Transport, respHandler, clusterConf, name, st.Conf.MaintainedBackends), nil
 }
 
-//GetCluster gets cluster by name
+//GetCluster gets cluster by name or nil if cluster with given name was not found
 func (st Storages) GetCluster(name string) (Cluster, error) {
 	s3cluster, ok := st.Clusters[name]
 	if ok {

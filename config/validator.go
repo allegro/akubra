@@ -60,7 +60,7 @@ func UniqueValuesInSliceValidator(v interface{}, param string) error {
 	return nil
 }
 
-//RegionsEntryLogicalValidator validator for Regions part
+//RegionsEntryLogicalValidator checks the correctness of "Regions" part of configuration file
 func (c *YamlConfig) RegionsEntryLogicalValidator(valid *bool, validationErrors *map[string][]error) {
 	errList := make([]error, 0)
 	if len(c.Regions) == 0 {

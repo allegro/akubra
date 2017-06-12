@@ -139,7 +139,7 @@ func (sr *ShardsRing) logInconsistency(key, expectedClusterName, actualClusterNa
 	}
 }
 
-//DoRequest performs http requests
+//DoRequest performs http requests to all backends that should be reached within this shards ring and with given method
 func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr error) {
 	since := time.Now()
 	defer func() {

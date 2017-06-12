@@ -28,7 +28,7 @@ type MultiClusterConfig struct {
 type RegionConfig struct {
 	//Multi cluster config
 	Clusters []MultiClusterConfig `yaml:"Clusters"`
-	//domains used for region matching
+	//Domains used for region matching
 	Domains []string `yaml:"Domains"`
 }
 
