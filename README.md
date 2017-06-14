@@ -30,7 +30,7 @@ troublesome object with an independent process.
 
 ### Seamless storage space extension with new storage clusters
 Akubra has sharding capabilities. You may easily configure new backends with
-weigths and append them to clients clusters pool.
+weigths and append them to regions cluster pool.
 
 Based on clusters weights akubra splits all operations between clusters in pool.
 It also backtracks to older cluster when requested for not existing object on
@@ -139,25 +139,21 @@ SyncLogMethods:
   - DELETE
 # Configure sharding
 Clusters:
-  # Cluster label
   cluster1:
-    # Set type, available: replicator
-    Type: "replicator"
-    # Weight
-    Weight: 1
     Backends:
-      - http://s3.dc1.internal
+      - http://127.0.0.1:9001
   cluster2:
-    Type: "replicator"
-    Weight: 1
     Backends:
-      - http://s3.dc2.internal
-Client:
-  Name: client1
-  Clusters:
-    - cluster1
-    - cluster2
-  ShardsCount: 10000
+      - http://127.0.0.1:9002
+Regions:
+  myregion:
+    Clusters:
+      - Cluster: cluster1
+        Weight: 0
+      - Cluster: cluster2
+        Weight: 1
+    Domains:
+      - myregion.internal
 
 Logging:
   Synclog:

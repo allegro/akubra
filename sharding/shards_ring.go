@@ -13,16 +13,22 @@ import (
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
+	"github.com/allegro/akubra/storages"
 	"github.com/serialx/hashring"
 )
+
+//ShardsRingAPI interface
+type ShardsRingAPI interface {
+	DoRequest(req *http.Request) (resp *http.Response, rerr error)
+}
 
 // ShardsRing implements http.RoundTripper interface,
 // and directs requests to determined shard
 type ShardsRing struct {
 	ring                    *hashring.HashRing
-	shardClusterMap         map[string]Cluster
+	shardClusterMap         map[string]storages.Cluster
 	allClustersRoundTripper http.RoundTripper
-	clusterRegressionMap    map[string]Cluster
+	clusterRegressionMap    map[string]storages.Cluster
 	inconsistencyLog        log.Logger
 }
 
@@ -32,16 +38,16 @@ func (sr ShardsRing) isBucketPath(path string) bool {
 }
 
 // Pick finds cluster for given relative uri
-func (sr ShardsRing) Pick(key string) (Cluster, error) {
+func (sr ShardsRing) Pick(key string) (storages.Cluster, error) {
 	var shardName string
 
 	shardName, ok := sr.ring.GetNode(key)
 	if !ok {
-		return Cluster{}, fmt.Errorf("no shard for key %s", key)
+		return storages.Cluster{}, fmt.Errorf("no shard for key %s", key)
 	}
 	shardCluster, ok := sr.shardClusterMap[shardName]
 	if !ok {
-		return Cluster{}, fmt.Errorf("no cluster for shard %s, cannot handle key %s", shardName, key)
+		return storages.Cluster{}, fmt.Errorf("no cluster for shard %s, cannot handle key %s", shardName, key)
 	}
 
 	return shardCluster, nil
@@ -98,7 +104,7 @@ func (sr ShardsRing) send(roundTripper http.RoundTripper, req *http.Request) (*h
 	return roundTripper.RoundTrip(req)
 }
 
-func (sr ShardsRing) regressionCall(cl Cluster, req *http.Request) (string, *http.Response, error) {
+func (sr ShardsRing) regressionCall(cl storages.Cluster, req *http.Request) (string, *http.Response, error) {
 	resp, err := sr.send(cl, req)
 	// Do regression call if response status is > 400
 	if (err != nil || resp.StatusCode > 400) && req.Method != http.MethodPut {
@@ -133,8 +139,8 @@ func (sr *ShardsRing) logInconsistency(key, expectedClusterName, actualClusterNa
 	}
 }
 
-// RoundTrip performs http requests
-func (sr ShardsRing) RoundTrip(req *http.Request) (resp *http.Response, rerr error) {
+//DoRequest performs http requests to all backends that should be reached within this shards ring and with given method
+func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr error) {
 	since := time.Now()
 	defer func() {
 		metrics.UpdateSince("reqs.global.all", since)

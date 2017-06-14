@@ -32,7 +32,9 @@ type YamlConfigTest struct {
 func (t *YamlConfigTest) NewYamlConfigTest() *YamlConfig {
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	t.YamlConfig = PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", ":81", "client1", []string{"cluster1test"})
+	regionConfig := &shardingconfig.RegionConfig{}
+	t.YamlConfig = PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", ":81",
+		map[string]shardingconfig.RegionConfig{"region": *regionConfig})
 	return &t.YamlConfig
 }
 
@@ -110,7 +112,8 @@ func TestShouldValidateConfMaintainedBackendWhenNotEmpty(t *testing.T) {
 	maintainedBackendHost := "127.0.0.1:85"
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", ":81", "client1", []string{"cluster1test"})
+	regionConfig := &shardingconfig.RegionConfig{}
+	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", ":81", map[string]shardingconfig.RegionConfig{"region": *regionConfig})
 
 	result, _ := ValidateConf(testConfData, false)
 
@@ -121,58 +124,12 @@ func TestShouldValidateConfMaintainedBackendWhenEmpty(t *testing.T) {
 	maintainedBackendHost := ""
 	var size shardingconfig.HumanSizeUnits
 	size.SizeInBytes = 4096
-	testConfData := PrepareYamlConfig(size, 22, 33, maintainedBackendHost, ":80", ":81", "client1", []string{"cluster1test"})
+	regionConfig := &shardingconfig.RegionConfig{}
+	testConfData := PrepareYamlConfig(size, 22, 33, maintainedBackendHost, ":80", ":81", map[string]shardingconfig.RegionConfig{"region": *regionConfig})
 
 	result, _ := ValidateConf(testConfData, false)
 
 	assert.True(t, result, "Should be true")
-}
-
-func TestShouldValidateConfClientNameWithMinLenght(t *testing.T) {
-	var testConf YamlConfigTest
-	testConf.NewYamlConfigTest().Client.Name = "c"
-
-	result, _ := ValidateConf(testConf.YamlConfig, false)
-
-	assert.True(t, result, "Should be true")
-}
-
-func TestShouldNotValidateConfClientNameWhenEmpty(t *testing.T) {
-	var testConf YamlConfigTest
-	testConf.NewYamlConfigTest().Client.Name = ""
-
-	result, _ := ValidateConf(testConf.YamlConfig, false)
-
-	assert.False(t, result, "Should be false")
-}
-
-func TestShouldValidateConfClientClustersValues(t *testing.T) {
-	var testConf YamlConfigTest
-	testConf.NewYamlConfigTest().Client.Clusters = []string{"prod", "jprod"}
-
-	result, _ := ValidateConf(testConf.YamlConfig, false)
-
-	assert.True(t, result, "Should be true")
-}
-
-func TestShouldNotValidateConfClientClustersValuesWhenEmpty(t *testing.T) {
-	var testConf YamlConfigTest
-	testConf.NewYamlConfigTest().Client.Clusters = []string{"prod", "  "}
-
-	result, validationErrors := ValidateConf(testConf.YamlConfig, false)
-
-	assert.Contains(t, validationErrors, "Client.Clusters")
-	assert.False(t, result, "Should be false")
-}
-
-func TestShouldNotValidateConfClientClustersValuesWhenDuplicated(t *testing.T) {
-	var testConf YamlConfigTest
-	testConf.NewYamlConfigTest().Client.Clusters = []string{"jprod", "jprod"}
-
-	result, validationErrors := ValidateConf(testConf.YamlConfig, false)
-
-	assert.Contains(t, validationErrors, "Client.Clusters")
-	assert.False(t, result, "Should be false")
 }
 
 func TestShouldValidateAllPossibleSyncLogMethods(t *testing.T) {
@@ -288,18 +245,19 @@ Clusters:
   cluster1test:
     Backends:
       - "http://127.0.0.1:8080"
-    Type: replicator
-    Weight: 1
 AdditionalRequestHeaders:
   Cache-Control: public, s-maxage=600, max-age=600
 AdditionalResponseHeaders:
   Access-Control-Allow-Methods: GET, POST, OPTIONS
 SyncLogMethods:
   - POST
-Client:
-  Name: client1
-  Clusters:
-  - cluster1test
+Regions:
+  testregion:
+    Clusters:
+      - Cluster: cluster1test
+        Weight: 1
+    Domains:
+      - endpoint.dc
 DisableKeepAlives: false
 `
 	bodyReader := bytes.NewBufferString(string(correctYamlData))
@@ -347,9 +305,20 @@ func TestShouldNotPassValidateConfigurationHTTPHandlerWithWrongRequests(t *testi
 	}
 }
 
+func TestShouldNotPassWhenNoRegionIsDefined(t *testing.T) {
+	maintainedBackendHost := "127.0.0.1:85"
+	var size shardingconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", ":81", map[string]shardingconfig.RegionConfig{})
+
+	result, _ := ValidateConf(testConfData, true)
+
+	assert.False(t, result)
+}
+
 func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeoutInp time.Duration, responseHeaderTimeoutInp time.Duration,
-	maintainedBackendHost string, listen string, technicalEndpointListen string, clientCfgName string,
-	clientClusters []string) YamlConfig {
+	maintainedBackendHost string, listen string, technicalEndpointListen string,
+	regions map[string]shardingconfig.RegionConfig) YamlConfig {
 
 	syncLogMethods := []shardingconfig.SyncLogMethod{{Method: "POST"}}
 
@@ -364,9 +333,6 @@ func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeou
 	maxConcurrentRequests := int32(200)
 	clusters := map[string]shardingconfig.ClusterConfig{"cluster1test": {
 		yamlURL,
-		"replicator",
-		1,
-		map[string]string{},
 	}}
 
 	url2 := url.URL{Scheme: "http", Host: maintainedBackendHost}
@@ -380,11 +346,6 @@ func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeou
 		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 	}
 
-	clientCfg := &shardingconfig.ClientConfig{
-		Name:     clientCfgName,
-		Clusters: clientClusters,
-	}
-
 	return YamlConfig{
 		listen,
 		technicalEndpointListen,
@@ -396,11 +357,11 @@ func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeou
 		metrics.Interval{responseHeaderTimeoutInp},
 		maxConcurrentRequests,
 		clusters,
+		regions,
 		additionalRequestHeaders,
 		additionalResponseHeaders,
 		maintainedBackends,
 		syncLogMethods,
-		clientCfg,
 		logconfig.LoggingConfig{},
 		metrics.Config{},
 		false,

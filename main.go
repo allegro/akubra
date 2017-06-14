@@ -11,7 +11,7 @@ import (
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/metrics"
-	"github.com/allegro/akubra/sharding"
+	"github.com/allegro/akubra/regions"
 	_ "github.com/lib/pq"
 	graceful "gopkg.in/tylerb/graceful.v1"
 )
@@ -76,7 +76,7 @@ func main() {
 }
 
 func (s *service) start() error {
-	handler, err := sharding.NewHandler(s.conf)
+	handler, err := regions.NewHandler(s.conf)
 
 	if err != nil {
 		return err

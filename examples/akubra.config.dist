@@ -40,24 +40,21 @@ SyncLogMethods:
   - DELETE
 # Configure sharding
 Clusters:
-  # Cluster label
   cluster1:
-    # Set type, aviable: replicator
-    Type: "replicator"
-    # Weight
-    Weight: 100
     Backends:
       - http://127.0.0.1:9001
   cluster2:
-    Type: "replicator"
-    Weight: 100
     Backends:
       - http://127.0.0.1:9002
-Client:
-  Name: client1
-  Clusters:
-    - cluster1
-    - cluster2
+Regions:
+  myregion:
+    Clusters:
+      - Cluster: cluster1
+        Weight: 0
+      - Cluster: cluster2
+        Weight: 1
+    Domains:
+      - myregion.internal
 
 Logging:
   Synclog:

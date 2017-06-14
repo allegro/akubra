@@ -48,6 +48,7 @@ type YamlConfig struct {
 	MaxConcurrentRequests int32 `yaml:"MaxConcurrentRequests" validate:"min=1"`
 
 	Clusters map[string]shardingconfig.ClusterConfig `yaml:"Clusters,omitempty"`
+	Regions  map[string]shardingconfig.RegionConfig  `yaml:"Regions,omitempty"`
 	// Additional not amazon specific headers proxy will add to original request
 	AdditionalRequestHeaders shardingconfig.AdditionalHeaders `yaml:"AdditionalRequestHeaders,omitempty"`
 	// Additional headers added to backend response
@@ -59,7 +60,6 @@ type YamlConfig struct {
 
 	// List request methods to be logged in synclog in case of backend failure
 	SyncLogMethods []shardingconfig.SyncLogMethod `yaml:"SyncLogMethods,omitempty"`
-	Client         *shardingconfig.ClientConfig   `yaml:"Client,omitempty"`
 	Logging        logconfig.LoggingConfig        `yaml:"Logging,omitempty"`
 	Metrics        metrics.Config                 `yaml:"Metrics,omitempty"`
 	// Should we keep alive connections with backend servers
@@ -174,7 +174,7 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
 	valid, validationErrors := validator.Validate(conf)
 	if valid && enableLogicalValidator {
-		conf.ClientClustersEntryLogicalValidator(&valid, &validationErrors)
+		conf.RegionsEntryLogicalValidator(&valid, &validationErrors)
 		conf.ListenPortsLogicalValidator(&valid, &validationErrors)
 	}
 	for propertyName, validatorMessage := range validationErrors {
