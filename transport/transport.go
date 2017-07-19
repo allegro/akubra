@@ -186,7 +186,7 @@ func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context
 			r.Header[k] = make([]string, len(v))
 			copy(r.Header[k], v)
 		}
-		r.ContentLength = req.ContentLength
+		r.ContentLength = int64(bodyBuffer.Len())
 		r.TransferEncoding = req.TransferEncoding
 		reqs = append(reqs, r)
 	}
@@ -223,6 +223,7 @@ func (mt *MultiTransport) sendRequest(
 			o <- r
 			return
 		}
+
 		resp, err := mt.RoundTripper.RoundTrip(req.WithContext(context.Background()))
 		// report Non 2XX status codes as errors
 		if err != nil {
