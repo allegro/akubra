@@ -34,7 +34,7 @@ func (amd AccessMessageData) String() string {
 func NewAccessLogMessage(req http.Request,
 	statusCode int, duration float64, respErr string) *AccessMessageData {
 	ts := time.Now().Format(time.RFC3339Nano)
-	reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
+	reqID, _ := req.Context().Value(log.ContextKey("reqID")).(string)
 	return &AccessMessageData{
 		req.Method,
 		req.Host,

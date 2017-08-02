@@ -40,7 +40,7 @@ func (rd *responseMerger) synclog(r, successfulTup transport.ReqResErrTuple) {
 
 	contentLength := successfulTup.Res.ContentLength
 
-	reqID := r.Req.Context().Value(log.ContextreqIDKey).(string)
+	reqID := r.Req.Context().Value(log.ContextKey("reqID")).(string)
 	syncLogMsg := NewSyncLogMessageData(
 		r.Req.Method,
 		r.Req.Host,
@@ -106,7 +106,7 @@ func (rd *responseMerger) _handle(in <-chan transport.ReqResErrTuple, out chan<-
 			statusCode = r.Res.StatusCode
 		}
 
-		reqID, _ := r.Req.Context().Value(log.ContextreqIDKey).(string)
+		reqID, _ := r.Req.Context().Value(log.ContextKey("reqID")).(string)
 		log.Debugf("Got response %s from backend %s, status: %d, method: %s, path %s, error: %q",
 			reqID,
 			r.Req.Host,

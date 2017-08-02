@@ -11,10 +11,12 @@ import (
 	"github.com/allegro/akubra/log/sql"
 )
 
-const (
-	// ContextreqIDKey is Request Context Value key for debug logging
-	ContextreqIDKey = "reqID"
-)
+// ContextKey for logging context information
+type ContextKey string
+
+func (c ContextKey) String() string {
+	return string(c)
+}
 
 // SyslogFacilityMap is string map of facilities
 var SyslogFacilityMap = map[string]syslog.Priority{
