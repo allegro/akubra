@@ -182,7 +182,7 @@ func TestValidatorShouldFailWithMissingCluster(t *testing.T) {
 	assert.Equal(
 		t,
 		errors.New("Cluster \"testregion\" is region \"someothercluster\" is not defined"),
-		validationErrors["ClientClustersEntryLogicalValidator"][0])
+		validationErrors["RegionsEntryLogicalValidator"][0])
 }
 
 func TestValidatorShouldFailWithInvalidWeight(t *testing.T) {
@@ -205,7 +205,7 @@ func TestValidatorShouldFailWithInvalidWeight(t *testing.T) {
 	assert.Equal(
 		t,
 		errors.New("Weight for cluster \"cluster1test\" in region \"testregion\" is not valid"),
-		validationErrors["ClientClustersEntryLogicalValidator"][0])
+		validationErrors["RegionsEntryLogicalValidator"][0])
 }
 
 func TestValidatorShouldFailWithMissingClusterDomain(t *testing.T) {
@@ -227,7 +227,7 @@ func TestValidatorShouldFailWithMissingClusterDomain(t *testing.T) {
 	assert.Equal(
 		t,
 		errors.New("No domain defined for region \"testregion\""),
-		validationErrors["ClientClustersEntryLogicalValidator"][0])
+		validationErrors["RegionsEntryLogicalValidator"][0])
 }
 
 func TestValidatorShouldFailWithMissingClusterDefinition(t *testing.T) {
@@ -245,5 +245,5 @@ func TestValidatorShouldFailWithMissingClusterDefinition(t *testing.T) {
 	assert.Equal(
 		t,
 		errors.New("No clusters defined for region \"testregion\""),
-		validationErrors["ClientClustersEntryLogicalValidator"][0])
+		validationErrors["RegionsEntryLogicalValidator"][0])
 }
