@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	HEALTH_CHECK_ENDPOINT string = "/status/ping"
+	// HealthCheckEndpoint is for load balancers and other related systems
+	HealthCheckEndpoint string = "/status/ping"
 )
 
 // Decorator is http.RoundTripper interface wrapper
@@ -134,7 +135,7 @@ type statusHandler struct {
 
 func (sh statusHandler) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 
-	if strings.Contains(req.Method, http.MethodGet) && strings.Contains(strings.ToLower(req.URL.Path), HEALTH_CHECK_ENDPOINT) {
+	if strings.Contains(req.Method, http.MethodGet) && strings.Contains(strings.ToLower(req.URL.Path), HealthCheckEndpoint) {
 		resp, err = sh.roundTripper.RoundTrip(req)
 		if resp != nil {
 			bodyContent := "OK"

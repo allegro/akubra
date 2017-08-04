@@ -63,7 +63,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	log.Printf("Health check endpoint: %s", httphandler.HEALTH_CHECK_ENDPOINT)
+	log.Printf("Health check endpoint: %s", httphandler.HealthCheckEndpoint)
 
 	mainlog := conf.Mainlog
 	mainlog.Printf("starting on port %s", conf.Listen)
