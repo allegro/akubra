@@ -113,6 +113,7 @@ func ConfigureHTTPTransport(conf config.Config) (*http.Transport, error) {
 func DecorateRoundTripper(conf config.Config, rt http.RoundTripper) http.RoundTripper {
 	return Decorate(
 		rt,
+		HealthCheckHandler(conf.HealthCheckEndpoint),
 		HeadersSuplier(conf.AdditionalRequestHeaders, conf.AdditionalResponseHeaders),
 		AccessLogging(conf.Accesslog),
 		OptionsHandler,

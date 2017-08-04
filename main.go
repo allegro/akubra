@@ -58,10 +58,11 @@ func main() {
 		os.Exit(YamlValidationErrorExitCode)
 	}
 	log.Println("Configuration checked - OK.")
-
 	if *testConfig {
 		os.Exit(0)
 	}
+
+	log.Printf("Health check endpoint: %s", conf.HealthCheckEndpoint)
 
 	mainlog := conf.Mainlog
 	mainlog.Printf("starting on port %s", conf.Listen)
