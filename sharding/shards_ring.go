@@ -112,13 +112,13 @@ func (sr ShardsRing) regressionCall(cl storages.Cluster, req *http.Request) (str
 		if ok {
 			_, discardErr := io.Copy(ioutil.Discard, resp.Body)
 			if discardErr != nil {
-				reqID, _ := req.Context().Value(log.ContextKey("reqID")).(string)
+				reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
 				log.Printf("Cannot discard response body for req %s, reason: %q",
 					reqID, discardErr.Error())
 			}
 			closeErr := resp.Body.Close()
 			if closeErr != nil {
-				reqID, _ := req.Context().Value(log.ContextKey("reqID")).(string)
+				reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
 				log.Printf("Cannot close response body for req %s, reason: %q",
 					reqID, closeErr.Error())
 			}

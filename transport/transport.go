@@ -169,7 +169,7 @@ func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context
 
 	for _, backend := range mt.Backends {
 		req.URL.Host = backend.Host
-		log.Debugf("Replicate request %s, for %s", req.Context().Value(log.ContextKey("reqID")), backend.Host)
+		log.Debugf("Replicate request %s, for %s", req.Context().Value(log.ContextreqIDKey), backend.Host)
 
 		bodyContent := bodyBuffer.Bytes()
 		var newBody io.Reader
@@ -218,10 +218,7 @@ func (mt *MultiTransport) sendRequest(
 	o := make(chan ReqResErrTuple)
 	go func() {
 		if mt.SkipBackends[req.URL.Host] {
-			log.Debugf("Skipping request %s, for %s",
-				req.Context().Value(log.ContextKey("reqID")),
-				req.URL.Host,
-			)
+			log.Debugf("Skipping request %s, for %s", req.Context().Value(log.ContextreqIDKey), req.URL.Host)
 			r := ReqResErrTuple{req, nil, fmt.Errorf("Maintained Backend %s", req.URL.Host), true}
 			o <- r
 			return
@@ -230,7 +227,7 @@ func (mt *MultiTransport) sendRequest(
 		resp, err := mt.RoundTripper.RoundTrip(req.WithContext(context.Background()))
 		// report Non 2XX status codes as errors
 		if err != nil {
-			log.Debugf("Send request error %s, %s", err.Error(), ctx.Value(log.ContextKey("reqID")))
+			log.Debugf("Send request error %s, %s", err.Error(), ctx.Value(log.ContextreqIDKey))
 		}
 		failed := err != nil || resp != nil && (resp.StatusCode < 200 || resp.StatusCode > 399)
 		r := ReqResErrTuple{req, resp, err, failed}
@@ -241,7 +238,7 @@ func (mt *MultiTransport) sendRequest(
 
 	select {
 	case <-ctx.Done():
-		log.Debugf("Ctx Done reqID %s ", ctx.Value(log.ContextKey("reqID")))
+		log.Debugf("Ctx Done reqID %s ", ctx.Value(log.ContextreqIDKey))
 		reqresperr = ReqResErrTuple{req, nil, ErrBodyContentLengthMismatch, true}
 	case reqresperr = <-o:
 		break
@@ -252,8 +249,7 @@ func (mt *MultiTransport) sendRequest(
 // RoundTrip satisfies http.RoundTripper interface
 func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	bctx, cancelFunc := context.WithCancel(context.Background())
-	ctxKey := log.ContextKey("reqID")
-	bctx = context.WithValue(bctx, ctxKey, req.Context().Value(ctxKey))
+	bctx = context.WithValue(bctx, log.ContextreqIDKey, req.Context().Value(log.ContextreqIDKey))
 	reqs, err := mt.ReplicateRequests(req, cancelFunc)
 	if err != nil {
 		return nil, err

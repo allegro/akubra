@@ -339,17 +339,17 @@ func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeou
 		Scheme: "http",
 		Host:   "127.0.0.1:8080",
 	}
-	yamlURL := []shardingconfig.YAMLUrl{{URL: &url1}}
+	yamlURL := []shardingconfig.YAMLUrl{{&url1}}
 
 	maxIdleConns := 1
 	maxIdleConnsPerHost := 2
 	maxConcurrentRequests := int32(200)
 	clusters := map[string]shardingconfig.ClusterConfig{"cluster1test": {
-		Backends: yamlURL,
+		yamlURL,
 	}}
 
 	url2 := url.URL{Scheme: "http", Host: maintainedBackendHost}
-	maintainedBackends := []shardingconfig.YAMLUrl{{URL: &url2}}
+	maintainedBackends := []shardingconfig.YAMLUrl{{&url2}}
 
 	additionalRequestHeaders := shardingconfig.AdditionalHeaders{
 		"Cache-Control": "public, s-maxage=600, max-age=600",
@@ -366,8 +366,8 @@ func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeou
 		bodyMaxSize,
 		maxIdleConns,
 		maxIdleConnsPerHost,
-		metrics.Interval{Duration: idleConnTimeoutInp},
-		metrics.Interval{Duration: responseHeaderTimeoutInp},
+		metrics.Interval{idleConnTimeoutInp},
+		metrics.Interval{responseHeaderTimeoutInp},
 		maxConcurrentRequests,
 		clusters,
 		regions,

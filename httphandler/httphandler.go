@@ -52,7 +52,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	randomIDStr := hex.EncodeToString(randomID)
-	randomIDContext := context.WithValue(req.Context(), log.ContextKey("reqID"), randomIDStr)
+	randomIDContext := context.WithValue(req.Context(), log.ContextreqIDKey, randomIDStr)
 	log.Debugf("Request id %s", randomIDStr)
 	resp, err := h.roundTripper.RoundTrip(req.WithContext(randomIDContext))
 
