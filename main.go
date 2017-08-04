@@ -10,7 +10,6 @@ import (
 
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/config"
-	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/regions"
 	_ "github.com/lib/pq"
@@ -63,7 +62,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	log.Printf("Health check endpoint: %s", httphandler.HealthCheckEndpoint)
+	log.Printf("Health check endpoint: %s", conf.HealthCheckEndpoint)
 
 	mainlog := conf.Mainlog
 	mainlog.Printf("starting on port %s", conf.Listen)

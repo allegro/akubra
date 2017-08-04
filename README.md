@@ -97,6 +97,8 @@ Configuration is read from a YAML configuration file with the following fields:
 Listen: ":8080"
 # Technical endpoint interface
 TechnicalEndpointListen: ":8071"
+# Technical health check endpoint (for load balancers)
+HealthCheckEndpoint: "/status/ping"
 # Additional not AWS S3 specific headers proxy will add to original request
 AdditionalRequestHeaders:
     'Cache-Control': "public, s-maxage=600, max-age=600"
@@ -224,6 +226,7 @@ or:
 ## Health check endpoint
 
 Feature required by load balancers, DNS servers and related systems for health checking.
+In configuration YAML we have parameter `HealthCheckEndpoint` - it's URI path for health check HTTP endpoint.
 
 ### Example usage
 

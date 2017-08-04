@@ -33,3 +33,23 @@ func TestShouldReturnServiceNotAvailableOnTooManyRequests(t *testing.T) {
 	handler.ServeHTTP(writer, request)
 	assert.Equal(t, http.StatusServiceUnavailable, writer.Code)
 }
+
+func TestShouldReturnStatusOKOnHealthCheckEndpoint(t *testing.T) {
+	expectedBody := `OK`
+	expectedStatusCode := http.StatusOK
+	healthCheckPath := "/status/ping2"
+	request := httptest.NewRequest("GET", "http://localhost"+healthCheckPath, nil)
+	rt := Decorate(http.DefaultTransport, HealthCheckHandler(healthCheckPath))
+	rt.RoundTrip(request)
+	handler := &Handler{bodyMaxSize: 1024, maxConcurrentRequests: 1}
+	writer := httptest.NewRecorder()
+	handler.roundTripper = statusHandler{
+		healthCheckEndpoint: healthCheckPath,
+		roundTripper:        rt,
+	}
+
+	handler.ServeHTTP(writer, request)
+
+	assert.Equal(t, expectedStatusCode, writer.Code)
+	assert.Equal(t, expectedBody, writer.Body)
+}

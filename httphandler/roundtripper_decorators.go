@@ -12,11 +12,6 @@ import (
 	shardingconfig "github.com/allegro/akubra/sharding/config"
 )
 
-const (
-	// HealthCheckEndpoint is for load balancers and other related systems
-	HealthCheckEndpoint string = "/status/ping"
-)
-
 // Decorator is http.RoundTripper interface wrapper
 type Decorator func(http.RoundTripper) http.RoundTripper
 
@@ -129,13 +124,20 @@ func (os optionsHandler) RoundTrip(req *http.Request) (resp *http.Response, err 
 	return
 }
 
+// OptionsHandler changes OPTIONS method it to HEAD and pass it to
+// decorated http.RoundTripper, also clears response content-length header
+func OptionsHandler(roundTripper http.RoundTripper) http.RoundTripper {
+	return optionsHandler{roundTripper: roundTripper}
+}
+
 type statusHandler struct {
-	roundTripper http.RoundTripper
+	healthCheckEndpoint string
+	roundTripper        http.RoundTripper
 }
 
 func (sh statusHandler) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 
-	if strings.Contains(req.Method, http.MethodGet) && strings.Contains(strings.ToLower(req.URL.Path), HealthCheckEndpoint) {
+	if strings.Contains(req.Method, http.MethodGet) && strings.Contains(strings.ToLower(req.URL.Path), sh.healthCheckEndpoint) {
 		resp, err = sh.roundTripper.RoundTrip(req)
 		if resp != nil {
 			bodyContent := "OK"
@@ -144,22 +146,20 @@ func (sh statusHandler) RoundTrip(req *http.Request) (resp *http.Response, err e
 			resp.Header.Set("Cache-Control", "no-cache, no-store")
 			resp.Header.Set("Content-Type", "text/html")
 			resp.StatusCode = http.StatusOK
-			resp.Body.Close()
 		}
 	}
 
 	return
 }
 
-// StatusPingHandler serving /status/ping endpoint for health checking
-func StatusPingHandler(roundTripper http.RoundTripper) http.RoundTripper {
-	return statusHandler{roundTripper: roundTripper}
-}
-
-// OptionsHandler changes OPTIONS method it to HEAD and pass it to
-// decorated http.RoundTripper, also clears response content-length header
-func OptionsHandler(roundTripper http.RoundTripper) http.RoundTripper {
-	return optionsHandler{roundTripper: roundTripper}
+// HealthCheckHandler serving health check endpoint
+func HealthCheckHandler(healthCheckEndpoint string) Decorator {
+	return func(roundTripper http.RoundTripper) http.RoundTripper {
+		return &statusHandler{
+			healthCheckEndpoint: healthCheckEndpoint,
+			roundTripper:        roundTripper,
+		}
+	}
 }
 
 // Decorate returns http.Roundtripper wraped with all passed decorators
