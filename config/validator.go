@@ -87,7 +87,7 @@ func (c *YamlConfig) RegionsEntryLogicalValidator(valid *bool, validationErrors 
 	if len(errList) > 0 {
 		*valid = false
 		errorsList := make(map[string][]error)
-		errorsList["ClientClustersEntryLogicalValidator"] = errList
+		errorsList["RegionsEntryLogicalValidator"] = errList
 		*validationErrors = mergeErrors(*validationErrors, errorsList)
 	} else {
 		*valid = true
@@ -104,6 +104,8 @@ func (c *YamlConfig) ListenPortsLogicalValidator(valid *bool, validationErrors *
 		*valid = false
 		errorDetail := []error{errors.New("Listen and TechnicalEndpointListen has the same port")}
 		errorsList["ListenPortsLogicalValidator"] = errorDetail
+	} else {
+		*valid = true
 	}
 	*validationErrors = mergeErrors(*validationErrors, errorsList)
 }

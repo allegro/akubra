@@ -174,8 +174,10 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
 	valid, validationErrors := validator.Validate(conf)
 	if valid && enableLogicalValidator {
+		var validListenPorts bool
 		conf.RegionsEntryLogicalValidator(&valid, &validationErrors)
-		conf.ListenPortsLogicalValidator(&valid, &validationErrors)
+		conf.ListenPortsLogicalValidator(&validListenPorts, &validationErrors)
+		valid = valid && validListenPorts
 	}
 	for propertyName, validatorMessage := range validationErrors {
 		log.Printf("[ ERROR ] YAML config validation -> propertyName: '%s', validatorMessage: '%s'\n", propertyName, validatorMessage)

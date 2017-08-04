@@ -19,6 +19,30 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+const (
+	yamlValidateEndpointURL         string = "http://127.0.0.1:8071/configuration/validate"
+	yamlConfigWithoutRegionsSection string = `Listen: :80
+TechnicalEndpointListen: :81
+BodyMaxSize: 2048
+MaxIdleConns: 1
+MaxIdleConnsPerHost: 2
+IdleConnTimeout: 3s
+ResponseHeaderTimeout: 4s
+MaxConcurrentRequests: 200
+Clusters:
+  cluster1test:
+    Backends:
+      - "http://127.0.0.1:8080"
+AdditionalRequestHeaders:
+  Cache-Control: public, s-maxage=600, max-age=600
+AdditionalResponseHeaders:
+  Access-Control-Allow-Methods: GET, POST, OPTIONS
+SyncLogMethods:
+  - POST
+DisableKeepAlives: false
+`
+)
+
 type TestYaml struct {
 	Field shardingconfig.YAMLUrl
 }
@@ -231,27 +255,8 @@ func TestShouldNotValidateBodyMaxSizeWithZero(t *testing.T) {
 }
 
 func TestShouldPassValidateConfigurationHTTPHandler(t *testing.T) {
-	correctEndpointURL := "http://127.0.0.1:8071/configuration/validate"
-	correctYamlData := `
-Listen: :80
-TechnicalEndpointListen: :81
-BodyMaxSize: 2048
-MaxIdleConns: 1
-MaxIdleConnsPerHost: 2
-IdleConnTimeout: 3s
-ResponseHeaderTimeout: 4s
-MaxConcurrentRequests: 200
-Clusters:
-  cluster1test:
-    Backends:
-      - "http://127.0.0.1:8080"
-AdditionalRequestHeaders:
-  Cache-Control: public, s-maxage=600, max-age=600
-AdditionalResponseHeaders:
-  Access-Control-Allow-Methods: GET, POST, OPTIONS
-SyncLogMethods:
-  - POST
-Regions:
+	correctYamlData := yamlConfigWithoutRegionsSection +
+		`Regions:
   testregion:
     Clusters:
       - Cluster: cluster1test
@@ -260,15 +265,23 @@ Regions:
       - endpoint.dc
 DisableKeepAlives: false
 `
-	bodyReader := bytes.NewBufferString(string(correctYamlData))
-	request := httptest.NewRequest(http.MethodPost, correctEndpointURL, bodyReader)
-	request.Header.Set("Content-Length", fmt.Sprintf("%d", len(correctYamlData)))
-	request.Header.Set("Content-Type", "application/yaml")
-	writer := httptest.NewRecorder()
+	writer, request := callConfigValidateRequest(correctYamlData)
 
 	ValidateConfigurationHTTPHandler(writer, request)
 
 	assert.Equal(t, http.StatusOK, writer.Code)
+	assert.Contains(t, "Configuration checked - OK.", writer.Body.String())
+}
+
+func TestShouldNotValidateConfigurationHTTPHandlerWithoutRegionsSection(t *testing.T) {
+	incorrectYamlData := yamlConfigWithoutRegionsSection
+
+	writer, request := callConfigValidateRequest(incorrectYamlData)
+
+	ValidateConfigurationHTTPHandler(writer, request)
+
+	assert.Equal(t, http.StatusBadRequest, writer.Code)
+	assert.Contains(t, "map[RegionsEntryLogicalValidator:[Empty regions definition]]", writer.Body.String())
 }
 
 func TestShouldNotPassValidateConfigurationHTTPHandlerWithWrongRequests(t *testing.T) {
@@ -326,17 +339,17 @@ func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeou
 		Scheme: "http",
 		Host:   "127.0.0.1:8080",
 	}
-	yamlURL := []shardingconfig.YAMLUrl{{&url1}}
+	yamlURL := []shardingconfig.YAMLUrl{{URL: &url1}}
 
 	maxIdleConns := 1
 	maxIdleConnsPerHost := 2
 	maxConcurrentRequests := int32(200)
 	clusters := map[string]shardingconfig.ClusterConfig{"cluster1test": {
-		yamlURL,
+		Backends: yamlURL,
 	}}
 
 	url2 := url.URL{Scheme: "http", Host: maintainedBackendHost}
-	maintainedBackends := []shardingconfig.YAMLUrl{{&url2}}
+	maintainedBackends := []shardingconfig.YAMLUrl{{URL: &url2}}
 
 	additionalRequestHeaders := shardingconfig.AdditionalHeaders{
 		"Cache-Control": "public, s-maxage=600, max-age=600",
@@ -353,8 +366,8 @@ func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeou
 		bodyMaxSize,
 		maxIdleConns,
 		maxIdleConnsPerHost,
-		metrics.Interval{idleConnTimeoutInp},
-		metrics.Interval{responseHeaderTimeoutInp},
+		metrics.Interval{Duration: idleConnTimeoutInp},
+		metrics.Interval{Duration: responseHeaderTimeoutInp},
 		maxConcurrentRequests,
 		clusters,
 		regions,
@@ -366,4 +379,13 @@ func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeou
 		metrics.Config{},
 		false,
 	}
+}
+
+func callConfigValidateRequest(data string) (writer *httptest.ResponseRecorder, request *http.Request) {
+	bodyReader := bytes.NewBufferString(string(data))
+	request = httptest.NewRequest(http.MethodPost, yamlValidateEndpointURL, bodyReader)
+	request.Header.Set("Content-Length", fmt.Sprintf("%d", len(data)))
+	request.Header.Set("Content-Type", "application/yaml")
+	writer = httptest.NewRecorder()
+	return
 }
