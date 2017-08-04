@@ -6,8 +6,14 @@ import (
 	"strings"
 	"time"
 
+	"io/ioutil"
+
 	"github.com/allegro/akubra/log"
 	shardingconfig "github.com/allegro/akubra/sharding/config"
+)
+
+const (
+	HEALTH_CHECK_ENDPOINT string = "/status/ping"
 )
 
 // Decorator is http.RoundTripper interface wrapper
@@ -120,6 +126,33 @@ func (os optionsHandler) RoundTrip(req *http.Request) (resp *http.Response, err 
 	}
 
 	return
+}
+
+type statusHandler struct {
+	roundTripper http.RoundTripper
+}
+
+func (sh statusHandler) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+
+	if strings.Contains(req.Method, http.MethodGet) && strings.Contains(strings.ToLower(req.URL.Path), HEALTH_CHECK_ENDPOINT) {
+		resp, err = sh.roundTripper.RoundTrip(req)
+		if resp != nil {
+			bodyContent := "OK"
+			resp.Body = ioutil.NopCloser(strings.NewReader(bodyContent))
+			resp.ContentLength = int64(len(bodyContent))
+			resp.Header.Set("Cache-Control", "no-cache, no-store")
+			resp.Header.Set("Content-Type", "text/html")
+			resp.StatusCode = http.StatusOK
+			resp.Body.Close()
+		}
+	}
+
+	return
+}
+
+// StatusPingHandler serving /status/ping endpoint for health checking
+func StatusPingHandler(roundTripper http.RoundTripper) http.RoundTripper {
+	return statusHandler{roundTripper: roundTripper}
 }
 
 // OptionsHandler changes OPTIONS method it to HEAD and pass it to

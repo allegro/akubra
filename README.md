@@ -41,7 +41,7 @@ clusters in background.
 
 ### Prerequisites
 
-You need go >= 1.7 compiler [see](https://golang.org/doc/install)
+You need go >= 1.8 compiler [see](https://golang.org/doc/install)
 
 ### Build
 In main directory of this repository do:
@@ -212,7 +212,7 @@ It's configured with TechnicalEndpointListen property.
 
     curl -vv -X POST -H "Content-Type: application/yaml" --data-binary @akubra.cfg.yaml http://127.0.0.1:8071/validate/configuration
 
-Possible resposes:
+Possible responses:
 
     * HTTP 200
     Configuration checked - OK.
@@ -220,6 +220,22 @@ or:
 
     * HTTP 400, 405, 413, 415 and info in body with validation error message
 
+
+## Health check endpoint
+
+Feature required by load balancers, DNS servers and related systems for health checking.
+
+### Example usage
+
+    curl -vv -X GET http://127.0.0.1:8080/status/ping
+
+Response:
+
+    < HTTP/1.1 200 OK
+    < Cache-Control: no-cache, no-store
+    < Content-Type: text/html
+    < Content-Length: 2
+    OK
 
 ## Limitations
 

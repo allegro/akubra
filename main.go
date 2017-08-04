@@ -10,6 +10,7 @@ import (
 
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/config"
+	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/regions"
 	_ "github.com/lib/pq"
@@ -58,10 +59,11 @@ func main() {
 		os.Exit(YamlValidationErrorExitCode)
 	}
 	log.Println("Configuration checked - OK.")
-
 	if *testConfig {
 		os.Exit(0)
 	}
+
+	log.Printf("Health check endpoint: %s", httphandler.HEALTH_CHECK_ENDPOINT)
 
 	mainlog := conf.Mainlog
 	mainlog.Printf("starting on port %s", conf.Listen)
