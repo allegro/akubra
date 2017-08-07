@@ -21,7 +21,7 @@ type MultiClusterConfig struct {
 	//Cluster name
 	Cluster string `yaml:"Cluster"`
 	//Cluster weight
-	Weight int `yaml:"Weight"`
+	Weight float64 `yaml:"Weight"`
 }
 
 //RegionConfig region configuration

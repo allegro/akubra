@@ -41,7 +41,7 @@ func makePrimaryConfiguration() config.Config {
 	}
 }
 
-func makeRegionRing(clusterWeights []int, t *testing.T, handlerfunc func(w http.ResponseWriter, r *http.Request)) ShardsRing {
+func makeRegionRing(clusterWeights []float64, t *testing.T, handlerfunc func(w http.ResponseWriter, r *http.Request)) ShardsRing {
 	config := makePrimaryConfiguration()
 	clusterMap := make(map[string]shardingconfig.ClusterConfig)
 	regionClusterList := make([]shardingconfig.MultiClusterConfig, 0, len(clusterWeights))
@@ -99,7 +99,7 @@ func TestGetWithOneCluster(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		atomic.AddInt32(&callCount, 1)
 	}
-	regionRing := makeRegionRing([]int{1}, t, f)
+	regionRing := makeRegionRing([]float64{1}, t, f)
 	reqURL, _ := url.Parse("http://allegro.pl/b/o")
 	request := &http.Request{
 		URL:    reqURL,
@@ -116,7 +116,7 @@ func TestGetWithTwoClusters(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		atomic.AddInt32(&callCount, 1)
 	}
-	regionRing := makeRegionRing([]int{1, 1}, t, f)
+	regionRing := makeRegionRing([]float64{1, 1}, t, f)
 	reqURL, _ := url.Parse("http://allegro.pl/b/o")
 	request := &http.Request{
 		URL:    reqURL,
@@ -133,7 +133,7 @@ func TestGetWithTwoClustersAndRegression(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 		atomic.AddInt32(&callCount, 1)
 	}
-	regionRing := makeRegionRing([]int{0, 1}, t, f)
+	regionRing := makeRegionRing([]float64{0, 1}, t, f)
 	reqURL, _ := url.Parse("http://allegro.pl/b/o")
 	request := &http.Request{
 		URL:    reqURL,
@@ -150,7 +150,7 @@ func TestDeleteWithTwoClusters(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 		atomic.AddInt32(&callCount, 1)
 	}
-	regionRing := makeRegionRing([]int{1, 1}, t, f)
+	regionRing := makeRegionRing([]float64{1, 1}, t, f)
 	reqURL, _ := url.Parse("http://allegro.pl/b/o")
 	request := &http.Request{
 		URL:    reqURL,
@@ -167,7 +167,7 @@ func TestPutWithTwoClustersAndBucketOnly(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		atomic.AddInt32(&callCount, 1)
 	}
-	regionRing := makeRegionRing([]int{1, 1}, t, f)
+	regionRing := makeRegionRing([]float64{1, 1}, t, f)
 	reqURL, _ := url.Parse("http://allegro.pl/b")
 	request := &http.Request{
 		URL:    reqURL,
