@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"math"
+
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/httphandler"
 	shardingconfig "github.com/allegro/akubra/sharding/config"
@@ -40,7 +42,7 @@ func (rf RingFactory) uniqBackends(regionCfg shardingconfig.RegionConfig) ([]url
 func (rf RingFactory) getRegionClusters(regionCfg shardingconfig.RegionConfig) map[string]int {
 	res := make(map[string]int)
 	for _, clusterConfig := range regionCfg.Clusters {
-		res[clusterConfig.Cluster] = clusterConfig.Weight
+		res[clusterConfig.Cluster] = int(math.Floor(clusterConfig.Weight * 100))
 	}
 	return res
 }
