@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"io/ioutil"
+
 	"github.com/allegro/akubra/log"
 	shardingconfig "github.com/allegro/akubra/sharding/config"
 )
@@ -114,6 +116,7 @@ func (os optionsHandler) RoundTrip(req *http.Request) (resp *http.Response, err 
 		req.Method = "HEAD"
 		isOptions = true
 	}
+
 	resp, err = os.roundTripper.RoundTrip(req)
 	if resp != nil && isOptions {
 		resp.Header.Set("Content-Length", "0")
@@ -126,6 +129,37 @@ func (os optionsHandler) RoundTrip(req *http.Request) (resp *http.Response, err 
 // decorated http.RoundTripper, also clears response content-length header
 func OptionsHandler(roundTripper http.RoundTripper) http.RoundTripper {
 	return optionsHandler{roundTripper: roundTripper}
+}
+
+type statusHandler struct {
+	healthCheckEndpoint string
+	roundTripper        http.RoundTripper
+}
+
+func (sh statusHandler) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+
+	if strings.ToLower(req.URL.Path) == sh.healthCheckEndpoint {
+		resp := &http.Response{}
+		bodyContent := "OK"
+		resp.Body = ioutil.NopCloser(strings.NewReader(bodyContent))
+		resp.ContentLength = int64(len(bodyContent))
+		resp.Header = make(http.Header, 0)
+		resp.Header.Set("Cache-Control", "no-cache, no-store")
+		resp.Header.Set("Content-Type", "text/plain")
+		resp.StatusCode = http.StatusOK
+		return resp, nil
+	}
+	return sh.roundTripper.RoundTrip(req)
+}
+
+// HealthCheckHandler serving health check endpoint
+func HealthCheckHandler(healthCheckEndpoint string) Decorator {
+	return func(roundTripper http.RoundTripper) http.RoundTripper {
+		return &statusHandler{
+			healthCheckEndpoint: healthCheckEndpoint,
+			roundTripper:        roundTripper,
+		}
+	}
 }
 
 // Decorate returns http.Roundtripper wraped with all passed decorators

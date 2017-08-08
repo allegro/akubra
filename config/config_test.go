@@ -23,6 +23,7 @@ const (
 	yamlValidateEndpointURL         string = "http://127.0.0.1:8071/configuration/validate"
 	yamlConfigWithoutRegionsSection string = `Listen: :80
 TechnicalEndpointListen: :81
+HealthCheckEndpoint: /status/ping
 BodyMaxSize: 2048
 MaxIdleConns: 1
 MaxIdleConnsPerHost: 2
@@ -360,24 +361,25 @@ func PrepareYamlConfig(bodyMaxSize shardingconfig.HumanSizeUnits, idleConnTimeou
 	}
 
 	return YamlConfig{
-		listen,
-		technicalEndpointListen,
-		[]shardingconfig.YAMLUrl{},
-		bodyMaxSize,
-		maxIdleConns,
-		maxIdleConnsPerHost,
-		metrics.Interval{Duration: idleConnTimeoutInp},
-		metrics.Interval{Duration: responseHeaderTimeoutInp},
-		maxConcurrentRequests,
-		clusters,
-		regions,
-		additionalRequestHeaders,
-		additionalResponseHeaders,
-		maintainedBackends,
-		syncLogMethods,
-		logconfig.LoggingConfig{},
-		metrics.Config{},
-		false,
+		Listen:                    listen,
+		HealthCheckEndpoint:       "/status/ping",
+		TechnicalEndpointListen:   technicalEndpointListen,
+		Backends:                  []shardingconfig.YAMLUrl{},
+		BodyMaxSize:               bodyMaxSize,
+		MaxIdleConns:              maxIdleConns,
+		MaxIdleConnsPerHost:       maxIdleConnsPerHost,
+		IdleConnTimeout:           metrics.Interval{Duration: idleConnTimeoutInp},
+		ResponseHeaderTimeout:     metrics.Interval{Duration: responseHeaderTimeoutInp},
+		MaxConcurrentRequests:     maxConcurrentRequests,
+		Clusters:                  clusters,
+		Regions:                   regions,
+		AdditionalRequestHeaders:  additionalRequestHeaders,
+		AdditionalResponseHeaders: additionalResponseHeaders,
+		MaintainedBackends:        maintainedBackends,
+		SyncLogMethods:            syncLogMethods,
+		Logging:                   logconfig.LoggingConfig{},
+		Metrics:                   metrics.Config{},
+		DisableKeepAlives:         false,
 	}
 }
 

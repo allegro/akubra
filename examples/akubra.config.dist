@@ -1,6 +1,8 @@
 # Listen interface and port e.g. "0:8000", "localhost:9090", ":80"
 Listen: ":8080"
 TechnicalEndpointListen: ":8071"
+# Technical health check endpoint (for load balancers)
+HealthCheckEndpoint: "/status/ping"
 # Additional not AWS S3 specific headers proxy will add to original request
 AdditionalResponseHeaders:
     'Access-Control-Allow-Origin': "*"
