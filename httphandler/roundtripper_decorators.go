@@ -116,6 +116,7 @@ func (os optionsHandler) RoundTrip(req *http.Request) (resp *http.Response, err 
 		req.Method = "HEAD"
 		isOptions = true
 	}
+
 	resp, err = os.roundTripper.RoundTrip(req)
 	if resp != nil && isOptions {
 		resp.Header.Set("Content-Length", "0")
@@ -137,19 +138,18 @@ type statusHandler struct {
 
 func (sh statusHandler) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 
-	if strings.Contains(req.Method, http.MethodGet) && strings.Contains(strings.ToLower(req.URL.Path), sh.healthCheckEndpoint) {
-		resp, err = sh.roundTripper.RoundTrip(req)
-		if resp != nil {
-			bodyContent := "OK"
-			resp.Body = ioutil.NopCloser(strings.NewReader(bodyContent))
-			resp.ContentLength = int64(len(bodyContent))
-			resp.Header.Set("Cache-Control", "no-cache, no-store")
-			resp.Header.Set("Content-Type", "text/html")
-			resp.StatusCode = http.StatusOK
-		}
+	if strings.ToLower(req.URL.Path) == sh.healthCheckEndpoint {
+		resp := &http.Response{}
+		bodyContent := "OK"
+		resp.Body = ioutil.NopCloser(strings.NewReader(bodyContent))
+		resp.ContentLength = int64(len(bodyContent))
+		resp.Header = make(http.Header, 0)
+		resp.Header.Set("Cache-Control", "no-cache, no-store")
+		resp.Header.Set("Content-Type", "text/plain")
+		resp.StatusCode = http.StatusOK
+		return resp, nil
 	}
-
-	return
+	return sh.roundTripper.RoundTrip(req)
 }
 
 // HealthCheckHandler serving health check endpoint

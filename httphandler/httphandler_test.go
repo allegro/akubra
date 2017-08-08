@@ -37,7 +37,7 @@ func TestShouldReturnServiceNotAvailableOnTooManyRequests(t *testing.T) {
 func TestShouldReturnStatusOKOnHealthCheckEndpoint(t *testing.T) {
 	expectedBody := `OK`
 	expectedStatusCode := http.StatusOK
-	healthCheckPath := "/status/ping2"
+	healthCheckPath := "/status/ping"
 	request := httptest.NewRequest("GET", "http://localhost"+healthCheckPath, nil)
 	rt := Decorate(http.DefaultTransport, HealthCheckHandler(healthCheckPath))
 	rt.RoundTrip(request)
@@ -49,7 +49,11 @@ func TestShouldReturnStatusOKOnHealthCheckEndpoint(t *testing.T) {
 	}
 
 	handler.ServeHTTP(writer, request)
+	bodyBytes := make([]byte, 2)
+	_, err := writer.Body.Read(bodyBytes)
 
+	assert.NoError(t, err)
+	bodyStr := string(bodyBytes)
 	assert.Equal(t, expectedStatusCode, writer.Code)
-	assert.Equal(t, expectedBody, writer.Body)
+	assert.Equal(t, expectedBody, bodyStr)
 }

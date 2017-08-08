@@ -18,6 +18,15 @@ const (
 	defaultResponseHeaderTimeout = 5 * time.Second
 )
 
+func randomStr(length int) string {
+	randomID := make([]byte, length)
+	_, err := rand.Read(randomID)
+	if err != nil {
+		randomID = []byte("notrandomid")
+	}
+	return hex.EncodeToString(randomID)
+}
+
 // Handler implements http.Handler interface
 type Handler struct {
 	roundTripper          http.RoundTripper
@@ -38,12 +47,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	randomID := make([]byte, 12)
-	_, err := rand.Read(randomID)
-	if err != nil {
-		randomID = []byte("notrandomid")
-	}
-
+	randomIDStr := randomStr(12)
 	validationCode := h.validateIncomingRequest(req)
 	if validationCode > 0 {
 		log.Printf("Rejected invalid incoming request from %s, code %d", req.RemoteAddr, validationCode)
@@ -51,9 +55,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	randomIDStr := hex.EncodeToString(randomID)
 	randomIDContext := context.WithValue(req.Context(), log.ContextreqIDKey, randomIDStr)
 	log.Debugf("Request id %s", randomIDStr)
+
 	resp, err := h.roundTripper.RoundTrip(req.WithContext(randomIDContext))
 
 	if err != nil {
@@ -113,10 +117,10 @@ func ConfigureHTTPTransport(conf config.Config) (*http.Transport, error) {
 func DecorateRoundTripper(conf config.Config, rt http.RoundTripper) http.RoundTripper {
 	return Decorate(
 		rt,
-		HealthCheckHandler(conf.HealthCheckEndpoint),
 		HeadersSuplier(conf.AdditionalRequestHeaders, conf.AdditionalResponseHeaders),
 		AccessLogging(conf.Accesslog),
 		OptionsHandler,
+		HealthCheckHandler(conf.HealthCheckEndpoint),
 	)
 }
 
