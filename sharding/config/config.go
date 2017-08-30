@@ -16,21 +16,22 @@ type ClusterConfig struct {
 	Backends []YAMLUrl `yaml:"Backends"`
 }
 
-//MultiClusterConfig defines region settings for multicluster
+// MultiClusterConfig defines region settings for multicluster
 type MultiClusterConfig struct {
-	//Cluster name
+	// Cluster name
 	Cluster string `yaml:"Cluster"`
-	//Cluster weight
+	// Cluster weight
 	Weight float64 `yaml:"Weight"`
 }
 
-//RegionConfig region configuration
+// RegionConfig region configuration
 type RegionConfig struct {
-	//Multi cluster config
+	// Multi cluster config
 	Clusters []MultiClusterConfig `yaml:"Clusters"`
-	//Domains used for region matching
+	// Domains used for region matching
 	Domains []string `yaml:"Domains"`
-	Default bool     `yaml:"Default,omitempty"`
+	// Default region will be applied if Host header would not match any other region
+	Default bool `yaml:"Default,omitempty"`
 }
 
 // YAMLUrl type fields in yaml configuration will parse urls
