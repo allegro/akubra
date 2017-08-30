@@ -46,11 +46,18 @@ func TestShouldReturnResponseFromShardsRing(t *testing.T) {
 	shardsRingMock := &ShardsRingMock{}
 	shardsRingMock.On("DoRequest", request).Return(expectedResponse)
 	regions.assignShardsRing("test1.qxlint", shardsRingMock)
-
+	regions.defaultRing = shardsRingMock
 	response, _ := regions.RoundTrip(request)
 
+	request2 := &http.Request{Host: ""}
 	assert.Equal(t, 200, response.StatusCode)
 	shardsRingMock.AssertCalled(t, "DoRequest", request)
+
+	shardsRingMock.On("DoRequest", request2).Return(expectedResponse)
+
+	response2, _ := regions.RoundTrip(request2)
+	assert.Equal(t, 200, response2.StatusCode)
+	shardsRingMock.AssertCalled(t, "DoRequest", request2)
 }
 
 func TestShouldReturnResponseFromShardsRingOnHostWithPort(t *testing.T) {

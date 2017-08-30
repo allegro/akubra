@@ -15,6 +15,7 @@ import (
 //Regions container for multiclusters
 type Regions struct {
 	multiCluters map[string]sharding.ShardsRingAPI
+	defaultRing  sharding.ShardsRingAPI
 }
 
 func (rg Regions) assignShardsRing(domain string, shardRing sharding.ShardsRingAPI) {
@@ -44,6 +45,9 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	if ok {
 		return shardsRing.DoRequest(req)
 	}
+	if rg.defaultRing != nil {
+		return rg.defaultRing.DoRequest(req)
+	}
 	return rg.getNoSuchDomainResponse(req), nil
 }
 
@@ -70,6 +74,9 @@ func NewHandler(conf config.Config) (http.Handler, error) {
 		}
 		for _, domain := range regionConfig.Domains {
 			regions.assignShardsRing(domain, regionRing)
+		}
+		if regionConfig.Default {
+			regions.defaultRing = regionRing
 		}
 	}
 	roundTripper := httphandler.DecorateRoundTripper(conf, regions)

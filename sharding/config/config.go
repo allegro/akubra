@@ -30,6 +30,7 @@ type RegionConfig struct {
 	Clusters []MultiClusterConfig `yaml:"Clusters"`
 	//Domains used for region matching
 	Domains []string `yaml:"Domains"`
+	Default bool     `yaml:"Default,omitempty"`
 }
 
 // YAMLUrl type fields in yaml configuration will parse urls
