@@ -10,7 +10,7 @@ import (
 	"net/textproto"
 	"testing"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/allegro/akubra/log"
 	"github.com/stretchr/testify/assert"
