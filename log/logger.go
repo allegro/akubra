@@ -7,13 +7,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/allegro/akubra/log/sql"
+	"github.com/sirupsen/logrus"
 )
+
+// ContextKey is type for log related context keys
+type ContextKey string
 
 const (
 	// ContextreqIDKey is Request Context Value key for debug logging
-	ContextreqIDKey = "reqID"
+	ContextreqIDKey = ContextKey("ContextreqIDKey")
 )
 
 // SyslogFacilityMap is string map of facilities
