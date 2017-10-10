@@ -59,10 +59,27 @@ func mkDummySrvs(count int, stream []byte, t *testing.T) []url.URL {
 	return urls
 }
 
+// Backend represents any storage in akubra cluster
+type backend struct {
+	http.RoundTripper
+	Endpoint url.URL
+}
+
+// RoundTrip satisfies http.RoundTripper interface
+func (b *backend) RoundTrip(r *http.Request) (*http.Response, error) {
+	r.URL.Host = b.Endpoint.Host
+	println("Roundtripp", b)
+	return b.RoundTripper.RoundTrip(r)
+}
+
 func mkTransportWithRoundTripper(urls []url.URL, rt http.RoundTripper, t *testing.T) *MultiTransport {
+	backends := []http.RoundTripper{}
+	for _, url := range urls {
+		backends = append(backends, &backend{RoundTripper: rt, Endpoint: url})
+	}
+
 	return &MultiTransport{
-		RoundTripper: rt,
-		Backends:     urls,
+		Backends: backends,
 		HandleResponses: func(in <-chan ReqResErrTuple) ReqResErrTuple {
 			out := make(chan ReqResErrTuple, 1)
 			sent := false

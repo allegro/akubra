@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"sync"
 	"time"
 
@@ -131,9 +130,8 @@ type RequestProcessor func(orig *http.Request, copies []*http.Request)
 
 // MultiTransport replicates request onto multiple backends
 type MultiTransport struct {
-	http.RoundTripper
 	// Backends is list of target endpoints URL
-	Backends     []url.URL
+	Backends     []http.RoundTripper
 	SkipBackends map[string]bool
 	// Response handler will get `ReqResErrTuple` in `in` channel
 	// should process all responses and send one to out chan.
@@ -148,10 +146,10 @@ type MultiTransport struct {
 	PreProcessRequest RequestProcessor
 }
 
-// ReplicateRequests creates request copies (one per MultiTransport.Bakcends item).
+// copyRequest creates request copies (one per MultiTransport.Bakcends item).
 // New requests will have substituted Host field, original request body will be copied
 // simultaneously
-func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context.CancelFunc) (reqs []*http.Request, err error) {
+func (mt *MultiTransport) copyRequest(req *http.Request, cancelFun context.CancelFunc) (reqs []*http.Request, err error) {
 	copiesCount := len(mt.Backends)
 	reqs = make([]*http.Request, 0, copiesCount)
 	// We need some read closers
@@ -167,9 +165,8 @@ func (mt *MultiTransport) ReplicateRequests(req *http.Request, cancelFun context
 		return nil, cerr
 	}
 
-	for _, backend := range mt.Backends {
-		req.URL.Host = backend.Host
-		log.Debugf("Replicate request %s, for %s", req.Context().Value(log.ContextreqIDKey), backend.Host)
+	for _ = range mt.Backends {
+		log.Debugf("Replicate request %s", req.Context().Value(log.ContextreqIDKey))
 
 		bodyContent := bodyBuffer.Bytes()
 		var newBody io.Reader
@@ -212,19 +209,22 @@ func collectMetrics(req *http.Request, reqresperr ReqResErrTuple, since time.Tim
 
 func (mt *MultiTransport) sendRequest(
 	req *http.Request,
-	out chan ReqResErrTuple) {
+	out chan ReqResErrTuple, backend http.RoundTripper) {
 	since := time.Now()
 	ctx := req.Context()
 	o := make(chan ReqResErrTuple)
 	go func() {
+		println("COmmon", backend, req)
 		if mt.SkipBackends[req.URL.Host] {
 			log.Debugf("Skipping request %s, for %s", req.Context().Value(log.ContextreqIDKey), req.URL.Host)
 			r := ReqResErrTuple{req, nil, fmt.Errorf("Maintained Backend %s", req.URL.Host), true}
 			o <- r
 			return
 		}
+		println("before rt", backend)
+		resp, err := backend.RoundTrip(req.WithContext(context.Background()))
+		println("after rt", backend)
 
-		resp, err := mt.RoundTripper.RoundTrip(req.WithContext(context.Background()))
 		// report Non 2XX status codes as errors
 		if err != nil {
 			log.Debugf("Send request error %s, %s", err.Error(), ctx.Value(log.ContextreqIDKey))
@@ -250,7 +250,8 @@ func (mt *MultiTransport) sendRequest(
 func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	bctx, cancelFunc := context.WithCancel(context.Background())
 	bctx = context.WithValue(bctx, log.ContextreqIDKey, req.Context().Value(log.ContextreqIDKey))
-	reqs, err := mt.ReplicateRequests(req, cancelFunc)
+	reqs, err := mt.copyRequest(req, cancelFunc)
+	log.Printf("%v\n", reqs)
 	if err != nil {
 		return nil, err
 	}
@@ -261,13 +262,13 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 	}
 
 	wg := sync.WaitGroup{}
-	for _, req := range reqs {
+	for i, backend := range mt.Backends {
 		wg.Add(1)
-		r := req.WithContext(bctx)
-		go func() {
-			mt.sendRequest(r, c)
+		r := reqs[i].WithContext(bctx)
+		go func(backend http.RoundTripper, r *http.Request) {
+			mt.sendRequest(r, c, backend)
 			wg.Done()
-		}()
+		}(backend, r)
 	}
 
 	// close c chanel once all requests comes in
@@ -281,23 +282,20 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 
 // NewMultiTransport creates *MultiTransport. If requestsPreprocesor or responseHandler
 // are nil will use default ones
-func NewMultiTransport(roundTripper http.RoundTripper,
-	backends []url.URL,
+func NewMultiTransport(backends []http.RoundTripper,
 	responsesHandler MultipleResponsesHandler,
 	maintainedBackends []shardingconfig.YAMLUrl) *MultiTransport {
 	if responsesHandler == nil {
 		responsesHandler = DefaultHandleResponses
 	}
-	if roundTripper == nil {
-		roundTripper = http.DefaultTransport
-	}
+
 	mb := make(map[string]bool, len(maintainedBackends))
+
 	for _, yurl := range maintainedBackends {
 		mb[yurl.Host] = true
 	}
 
 	return &MultiTransport{
-		RoundTripper:    roundTripper,
 		Backends:        backends,
 		SkipBackends:    mb,
 		HandleResponses: responsesHandler}

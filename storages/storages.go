@@ -25,17 +25,28 @@ type Storages struct {
 	Clusters  map[string]Cluster
 }
 
+// Backend represents any storage in akubra cluster
+type Backend struct {
+	http.RoundTripper
+	Endpoint url.URL
+}
+
+// RoundTrip satisfies http.RoundTripper interface
+func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
+	r.URL.Host = b.Endpoint.Host
+	return b.RoundTripper.RoundTrip(r)
+}
+
 func newMultiBackendCluster(transp http.RoundTripper,
 	multiResponseHandler transport.MultipleResponsesHandler,
 	clusterConf shardingconfig.ClusterConfig, name string, maintainedBackends []shardingconfig.YAMLUrl) Cluster {
-	backends := make([]url.URL, len(clusterConf.Backends))
+	backends := make([]http.RoundTripper, len(clusterConf.Backends))
 
 	for i, backend := range clusterConf.Backends {
-		backends[i] = *backend.URL
+		backends[i] = &Backend{transp, *backend.URL}
 	}
 
 	multiTransport := transport.NewMultiTransport(
-		transp,
 		backends,
 		multiResponseHandler,
 		maintainedBackends)

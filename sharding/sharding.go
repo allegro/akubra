@@ -89,10 +89,12 @@ func (rf RingFactory) RegionRing(regionCfg shardingconfig.RegionConfig) (ShardsR
 	}
 
 	respHandler := httphandler.LateResponseHandler(rf.conf)
-
+	backends := []http.RoundTripper{}
+	for _, url := range allBackendsSlice {
+		backends = append(backends, &storages.Backend{RoundTripper: rf.transport, Endpoint: url})
+	}
 	allBackendsRoundTripper := transport.NewMultiTransport(
-		rf.transport,
-		allBackendsSlice,
+		backends,
 		respHandler,
 		rf.conf.MaintainedBackends)
 	regressionMap, err := rf.createRegressionMap(regionCfg)
