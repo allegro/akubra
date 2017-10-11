@@ -12,6 +12,7 @@ import (
 	logconfig "github.com/allegro/akubra/log/config"
 	"github.com/allegro/akubra/metrics"
 	shardingconfig "github.com/allegro/akubra/sharding/config"
+	storagesconfig "github.com/allegro/akubra/storages/config"
 	set "github.com/deckarep/golang-set"
 	"github.com/go-validator/validator"
 	yaml "gopkg.in/yaml.v2"
@@ -30,9 +31,7 @@ type YamlConfig struct {
 	TechnicalEndpointListen string `yaml:"TechnicalEndpointListen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
 	HealthCheckEndpoint     string `yaml:"HealthCheckEndpoint,omitempty" validate:"regexp=^([/a-z0-9]+)$"`
 	// List of backend URI's e.g. "http://s3.mydatacenter.org"
-	Backends []shardingconfig.YAMLUrl `yaml:"Backends,omitempty,flow"`
-	// Maximum accepted body size
-	BodyMaxSize shardingconfig.HumanSizeUnits `yaml:"BodyMaxSize,omitempty"`
+	BackendsMap storagesconfig.BackendsMap `yaml:"Backends,omitempty,flow"`
 	// MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
 	// Default 0 (no limit)
 	MaxIdleConns int `yaml:"MaxIdleConns" validate:"min=0"`
@@ -48,12 +47,8 @@ type YamlConfig struct {
 	// Max number of incoming requests to process in parallel
 	MaxConcurrentRequests int32 `yaml:"MaxConcurrentRequests" validate:"min=1"`
 
-	Clusters map[string]shardingconfig.ClusterConfig `yaml:"Clusters,omitempty"`
-	Regions  map[string]shardingconfig.RegionConfig  `yaml:"Regions,omitempty"`
-	// Additional not amazon specific headers proxy will add to original request
-	AdditionalRequestHeaders shardingconfig.AdditionalHeaders `yaml:"AdditionalRequestHeaders,omitempty"`
-	// Additional headers added to backend response
-	AdditionalResponseHeaders shardingconfig.AdditionalHeaders `yaml:"AdditionalResponseHeaders,omitempty"`
+	Clusters map[string]storagesconfig.Cluster      `yaml:"Clusters,omitempty"`
+	Regions  map[string]shardingconfig.RegionConfig `yaml:"Regions,omitempty"`
 	// Read timeout on outgoing connections
 
 	// Backend in maintenance mode. Akubra will not send data there
