@@ -3,11 +3,6 @@ package config
 import (
 	"fmt"
 	"net/url"
-	"strings"
-
-	"errors"
-
-	units "github.com/docker/go-units"
 )
 
 // ClusterConfig defines cluster configuration
@@ -44,14 +39,6 @@ type SyncLogMethod struct {
 	Method string
 }
 
-// AdditionalHeaders type fields in yaml configuration will parse list of special headers
-type AdditionalHeaders map[string]string
-
-// HumanSizeUnits type for max. payload body size in bytes
-type HumanSizeUnits struct {
-	SizeInBytes int64
-}
-
 // UnmarshalYAML for YAMLUrl
 func (yurl *YAMLUrl) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
@@ -80,42 +67,5 @@ func (slm *SyncLogMethod) UnmarshalYAML(unmarshal func(interface{}) error) error
 		return fmt.Errorf("Sync log method should be one from [GET, POST, DELETE, HEAD, OPTIONS] - got %q", s)
 	}
 	slm.Method = method
-	return nil
-}
-
-// UnmarshalYAML for AdditionalHeaders
-func (ah *AdditionalHeaders) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var headers map[string]string
-	if err := unmarshal(&headers); err != nil {
-		return err
-	}
-	for key, value := range headers {
-
-		if strings.TrimSpace(key) == "" {
-			return fmt.Errorf("Empty additional header with value: %q", value)
-		}
-		if strings.TrimSpace(value) == "" {
-			return fmt.Errorf("Empty additional header with key: %q", key)
-		}
-
-	}
-	*ah = AdditionalHeaders(headers)
-	return nil
-}
-
-// UnmarshalYAML for HumanSizeUnits
-func (hsu *HumanSizeUnits) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var size string
-	if err := unmarshal(&size); err != nil {
-		return err
-	}
-	value, err := units.FromHumanSize(size)
-	if err != nil {
-		return fmt.Errorf("Unable to parse BodyMaxSize: %s" + err.Error())
-	}
-	if value < 1 {
-		return errors.New("BodyMaxSize must be greater than zero")
-	}
-	hsu.SizeInBytes = value
 	return nil
 }

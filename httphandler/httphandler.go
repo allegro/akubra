@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/allegro/akubra/config"
+	"github.com/allegro/akubra/httphandler/config"
 	"github.com/allegro/akubra/log"
 )
 
@@ -90,7 +90,7 @@ func (h *Handler) validateIncomingRequest(req *http.Request) int {
 
 // ConfigureHTTPTransport returns http.Transport with customized dialer,
 // MaxIdleConnsPerHost and DisableKeepAlives
-func ConfigureHTTPTransport(conf config.Config) (*http.Transport, error) {
+func ConfigureHTTPTransport(conf config.Client) (*http.Transport, error) {
 	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
 	responseHeaderTimeout := defaultResponseHeaderTimeout
 
@@ -114,21 +114,21 @@ func ConfigureHTTPTransport(conf config.Config) (*http.Transport, error) {
 }
 
 // DecorateRoundTripper applies common http.RoundTripper decorators
-func DecorateRoundTripper(conf config.Config, rt http.RoundTripper) http.RoundTripper {
+func DecorateRoundTripper(conf config.Client, accesslog log.Logger, healthCheckEndpoint string, rt http.RoundTripper) http.RoundTripper {
 	return Decorate(
 		rt,
 		HeadersSuplier(conf.AdditionalRequestHeaders, conf.AdditionalResponseHeaders),
-		AccessLogging(conf.Accesslog),
+		AccessLogging(accesslog),
 		OptionsHandler,
-		HealthCheckHandler(conf.HealthCheckEndpoint),
+		HealthCheckHandler(healthCheckEndpoint),
 	)
 }
 
 // NewHandlerWithRoundTripper returns Handler, but will not construct transport.MultiTransport by itself
-func NewHandlerWithRoundTripper(roundTripper http.RoundTripper, bodyMaxSize int64, maxConcurrentRequests int32) (http.Handler, error) {
+func NewHandlerWithRoundTripper(roundTripper http.RoundTripper, servConfig config.Server) (http.Handler, error) {
 	return &Handler{
 		roundTripper:          roundTripper,
-		bodyMaxSize:           bodyMaxSize,
-		maxConcurrentRequests: maxConcurrentRequests,
+		bodyMaxSize:           servConfig.BodyMaxSize.SizeInBytes,
+		maxConcurrentRequests: servConfig.MaxConcurrentRequests,
 	}, nil
 }

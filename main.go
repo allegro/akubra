@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/allegro/akubra/httphandler"
+
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/metrics"
@@ -52,12 +54,12 @@ func main() {
 		log.Fatalf("Improperly configured %s", err)
 	}
 
-	valid, errs := config.ValidateConf(conf.YamlConfig, true)
-	if !valid {
-		log.Println("Custom YAML Configuration validation error:", errs)
-		os.Exit(YamlValidationErrorExitCode)
-	}
-	log.Println("Configuration checked - OK.")
+	// valid, errs := config.ValidateConf(conf.YamlConfig, true)
+	// if !valid {
+	// 	log.Println("Custom YAML Configuration validation error:", errs)
+	// 	os.Exit(YamlValidationErrorExitCode)
+	// }
+	// log.Println("Configuration checked - OK.")
 	if *testConfig {
 		os.Exit(0)
 	}
@@ -77,7 +79,10 @@ func main() {
 }
 
 func (s *service) start() error {
-	handler, err := regions.NewHandler(s.conf)
+	roundtripper := httphandler.ConfigureHTTPTransport(s.conf.Client)
+	// TODO: Decorate now - fix accesslog in configuration
+
+	handler, err := regions.NewHandler(s.conf.Server)
 
 	if err != nil {
 		return err
