@@ -76,7 +76,7 @@ func (rf RingFactory) createRegressionMap(regionConfig shardingconfig.RegionConf
 }
 
 // RegionRing returns ShardsRing for region
-func (rf RingFactory) RegionRing(regionCfg shardingconfig.RegionConfig, storages.Storages) (ShardsRing, error) {
+func (rf RingFactory) RegionRing(regionCfg shardingconfig.RegionConfig, storage storages.Storages) (ShardsRing, error) {
 	clientClusters := rf.getRegionClusters(regionCfg)
 	shardClusterMap, err := rf.makeClusterMap(clientClusters)
 	if err != nil {

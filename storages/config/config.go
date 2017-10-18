@@ -11,6 +11,8 @@ const (
 	S3 typ = "S3"
 	// GCS represents Google Cloud Storage compiliant storages
 	GCS typ = "GCS"
+	// PassThrough does not re-sign requests
+	PassThrough typ = "passthrough"
 )
 
 // Backend defines backend
@@ -28,3 +30,6 @@ type Cluster struct {
 	// Backends should contain s3 backend urls
 	Backends []string `yaml:"Backends"`
 }
+
+// ClustersMap is map of Cluster
+type ClustersMap map[string]Cluster

@@ -5,9 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/allegro/akubra/config"
-	"github.com/allegro/akubra/httphandler"
-	storagesconfig "github.com/allegro/akubra/storages/config"
+	config "github.com/allegro/akubra/storages/config"
 )
 
 // Cluster stores information about cluster backends
@@ -18,16 +16,17 @@ type Cluster struct {
 
 //Storages config
 type Storages struct {
-	Conf      config.Config
-	Transport http.RoundTripper
-	Clusters  map[string]*Cluster
+	clustersConf config.ClustersMap
+	backendsConf config.BackendsMap
+	transport    http.RoundTripper
+	Clusters     map[string]*Cluster
+	Backends     map[string]*Backend
 }
 
 // Backend represents any storage in akubra cluster
 type Backend struct {
 	http.RoundTripper
 	Endpoint url.URL
-	// typ
 }
 
 // RoundTrip satisfies http.RoundTripper interface
@@ -68,20 +67,16 @@ func (c Cluster) RoundTrip(req *http.Request) (*http.Response, error) {
 	return c.RoundTrip(req)
 }
 
-func newBackend(backendConfig storagesconfig.Backend, config config.Config) (*Backend, error) {
-	roundTripper, err := httphandler.ConfigureHTTPTransport(config)
-	if err != nil {
-		return nil, err
-	}
-	return &Backend{Endpoint: *backendConfig.Endpoint.URL, RoundTripper: roundTripper}, nil
+func newBackend(backendConfig config.Backend, transport http.RoundTripper) (*Backend, error) {
+	return &Backend{Endpoint: *backendConfig.Endpoint.URL, RoundTripper: transport}, nil
 }
 
-func newMultiBackendCluster(name string, clusterConf storagesconfig.Cluster, conf config.Config) (*Cluster, error) {
+func newCluster(name string, clusterConf config.Cluster, backends map[string]*Backend) (*Cluster, error) {
 	clusterBackends := make([]http.RoundTripper, 0)
 	for _, backendName := range clusterConf.Backends {
-		backendRT, err := newBackend(conf.BackendsMap[backendName], conf)
-		if err != nil {
-			return nil, fmt.Errorf("backend %s is improperly configured, reason: %s", backendName, err)
+		backendRT, ok := backends[backendName]
+		if !ok {
+			return nil, fmt.Errorf("No such backend %q", backendName)
 		}
 
 		clusterBackends = append(clusterBackends, backendRT)
@@ -90,24 +85,38 @@ func newMultiBackendCluster(name string, clusterConf storagesconfig.Cluster, con
 	return &Cluster{Backends: clusterBackends, Name: name}, nil
 }
 
-func (st Storages) initCluster(name string) (*Cluster, error) {
-	clusterConf, ok := st.Conf.Clusters[name]
-	if !ok {
-		return nil, fmt.Errorf("no cluster %q in configuration", name)
-	}
-	return newMultiBackendCluster(name, clusterConf, st.Conf)
-}
-
 //GetCluster gets cluster by name or nil if cluster with given name was not found
 func (st Storages) GetCluster(name string) (*Cluster, error) {
 	s3cluster, ok := st.Clusters[name]
 	if ok {
 		return s3cluster, nil
 	}
-	s3cluster, err := st.initCluster(name)
-	if err != nil {
-		return s3cluster, err
+	return nil, fmt.Errorf("No such cluster defined %q", name)
+}
+
+// InitStorages setups storages
+func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap) (*Storages, error) {
+	clusters := make(map[string]*Cluster)
+	backends := make(map[string]*Backend)
+	for name, backendConf := range backendsConf {
+		backends[name] = &Backend{
+			transport,
+			*backendConf.Endpoint.URL,
+		}
+
 	}
-	st.Clusters[name] = s3cluster
-	return s3cluster, nil
+	for name, clusterConf := range clustersConf {
+		cluster, err := newCluster(name, clusterConf, backends)
+		if err != nil {
+			return nil, err
+		}
+		clusters[name] = cluster
+	}
+	return &Storages{
+		clustersConf: clustersConf,
+		backendsConf: backendsConf,
+		transport:    transport,
+		Clusters:     clusters,
+		Backends:     backends,
+	}, nil
 }
