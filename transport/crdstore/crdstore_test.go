@@ -4,70 +4,118 @@ import (
 	"testing"
 	"time"
 
-	"fmt"
-
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
 )
 
-type CdrStoreServiceAPIMock struct {
-	mock.Mock
+const (
+	httpListen      = "127.0.0.1:8091"
+	httpEndpoint    = "http://127.0.0.1:8091"
+	existingAccess  = "access_exists"
+	existingStorage = "storage_exists"
+	errorAccess     = "access_error"
+	errorStorage    = "storage_error"
+)
+
+var existingCredentials = CredentialsStoreData{AccessKey: "access_exists", SecretKey: "secret_exists"}
+
+func httpHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.String() {
+	case fmt.Sprintf("/%s/%s", existingAccess, existingStorage):
+		w.WriteHeader(http.StatusOK)
+		resp, _ := json.Marshal(existingCredentials)
+		w.Write(resp)
+	case fmt.Sprintf("/%s/%s", errorAccess, errorStorage):
+		w.WriteHeader(http.StatusBadRequest)
+		resp, _ := json.Marshal(existingCredentials)
+		w.Write(resp)
+	default:
+		w.WriteHeader(http.StatusNotFound)
+	}
 }
 
-func (csm *CdrStoreServiceAPIMock) GetFromService(endpoint, accessKey, storageType string) (csd *CredentialsStoreData, err error) {
-	args := csm.Called(endpoint, accessKey, storageType)
-	csd = args.Get(0).(*CredentialsStoreData)
-	err = args.Error(1)
-	return csd, err
-}
+func TestMain(m *testing.M) {
+	http.HandleFunc("/", httpHandler)
+	go func() {
+		err := http.ListenAndServe(httpListen, nil)
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+	code := m.Run()
+	os.Exit(code)
 
-func TestShouldGetZeroKeysFromEmptyCache(t *testing.T) {
-	cs := NewCredentialsStore("http://localhost:8090", time.Second)
-	keysCount := cs.cache.Count()
-	require.Equal(t, 0, keysCount, "keys count need to be zero")
 }
-
 func TestShouldPrepareInternalKeyBasedOnAccessAndStorageType(t *testing.T) {
 	expectedKey := "access_____storage_type"
-	cs := NewCredentialsStore("http://localhost:8090", time.Second)
+	cs := NewCredentialsStore(httpEndpoint, time.Second)
 	key := cs.prepareKey("access", "storage_type")
 	require.Equal(t, expectedKey, key, "keys must be equals")
 }
 
 func TestShouldSetCredentialsFromExternalServiceEndpoint(t *testing.T) {
-	secretKey := "secret123"
-	accessKey := "DFKJDHKJDFKJDHFDF"
-	endpoint := "http://localhost:8090"
-	storageType := "akubra2"
-	expectedCredentials := &CredentialsStoreData{AccessKey: accessKey, SecretKey: secretKey}
+	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
 
-	m := &CdrStoreServiceAPIMock{}
-	m.On("GetFromService", endpoint, accessKey, storageType).Return(expectedCredentials, nil)
-
-	cs := NewCredentialsStore(endpoint, 10*time.Second)
-	cs.defaultService = m
-	csd, result := cs.Get(accessKey, storageType)
-
-	require.True(t, result, "should be nil")
-	require.Equal(t, expectedCredentials, csd, "keys must be equals")
+	csd, err := cs.Get(existingCredentials.AccessKey, existingStorage)
+	require.NoError(t, err)
+	require.Equal(t, existingCredentials.AccessKey, csd.AccessKey, "key must be equal")
+	require.Equal(t, existingCredentials.SecretKey, csd.SecretKey, "key must be equal")
 }
 
-func TestShouldNotGetCredentialsFromBackupWhenExternalServiceFailed(t *testing.T) {
-	cacheTtl := 3 * time.Second
-	secretKey := "secret333"
-	accessKey := "SDFKJDFHIUEHREFIDKFB"
-	endpoint := "http://localhost:8091"
-	storageType := "akubra3"
-	expectedCredentials := &CredentialsStoreData{AccessKey: accessKey, SecretKey: secretKey}
-	err := fmt.Errorf("")
+func TestShouldNotCacheCredentialOnErrorFromExternalService(t *testing.T) {
+	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
+	_, err := cs.Get("access_error", "storage_error")
 
-	m := &CdrStoreServiceAPIMock{}
-	m.On("GetFromService", endpoint, accessKey, storageType).Return(expectedCredentials, err)
+	require.Error(t, err)
+}
 
-	cs := NewCredentialsStore(endpoint, cacheTtl)
-	cs.defaultService = m
-	_, result := cs.Get(accessKey, storageType)
+func TestShouldGetCredentialFromCacheIfExternalServiceFails(t *testing.T) {
+	expectedCredentials := &CredentialsStoreData{AccessKey: errorAccess, SecretKey: "secret_1"}
 
-	time.Sleep(cacheTtl + 2*time.Second)
-	require.False(t, result, "should be nil")
+	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
+	cs.cache[cs.prepareKey(errorAccess, errorStorage)] = *expectedCredentials
+	crd, err := cs.Get(errorAccess, errorStorage)
+
+	require.NoError(t, err)
+	require.Equal(t, expectedCredentials.SecretKey, crd.SecretKey)
+}
+
+func TestShouldGetCredentialFromCacheIfTTLIsNotExpired(t *testing.T) {
+	expectedCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(10 * time.Second)}
+	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
+
+	cs.cache[cs.prepareKey(existingAccess, existingStorage)] = *expectedCredentials
+	crd, err := cs.Get(existingAccess, existingStorage)
+
+	require.NoError(t, err)
+	require.Equal(t, expectedCredentials.SecretKey, crd.SecretKey)
+}
+
+func TestShouldUpdateCredentialsIfTTLIsExpired(t *testing.T) {
+	oldCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(-20 * time.Second)}
+
+	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
+	cs.cache[cs.prepareKey(existingAccess, existingStorage)] = *oldCredentials
+	crd, err := cs.Get(existingAccess, existingStorage)
+
+	require.NoError(t, err)
+	require.Equal(t, existingCredentials.SecretKey, crd.SecretKey)
+}
+
+func TestShouldDeleteCachedCredentialsOnErrCredentialsNotFound(t *testing.T) {
+	accessKey := "no_access"
+	storageType := "no_storage"
+	oldCredentials := &CredentialsStoreData{AccessKey: accessKey, SecretKey: "secret_1", EOL: time.Now().Add(-10 * time.Second)}
+
+	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
+	cs.cache[cs.prepareKey("not_existing", storageType)] = *oldCredentials
+	crd, err := cs.Get(accessKey, storageType)
+
+	require.Equal(t, ErrCredentialsNotFound, err)
+	require.Nil(t, crd)
 }

@@ -1,76 +1,112 @@
 package crdstore
 
 import (
+	"fmt"
+	"net/http"
+	"sync"
 	"time"
 
-	"fmt"
-
-	"sync"
+	"errors"
 
 	"github.com/allegro/akubra/log"
-	"github.com/wunderlist/ttlcache"
+	"github.com/levigross/grequests"
 )
 
 const (
-	KeyPattern                   = "%s_____%s"
-	RequestOptionsDialTimeout    = 50 * time.Millisecond
-	RequestOptionsRequestTimeout = 100 * time.Millisecond
+	keyPattern                   = "%s_____%s"
+	requestOptionsDialTimeout    = 50 * time.Millisecond
+	requestOptionsRequestTimeout = 100 * time.Millisecond
 )
 
-// CdrStoreServiceAPI interface
-type CdrStoreServiceAPI interface {
-	GetFromService(endpoint, accessKey, storageType string) (csd *CredentialsStoreData, err error)
-}
+// ErrCredentialsNotFound - Credential for given accessKey and storageType haven't been found in yaml file
+var ErrCredentialsNotFound = errors.New("credentials not found")
 
-type CdrStoreBackup map[string]CredentialsStoreData
+// CdrStoreCache - Map with CdrStore cache
+type CdrStoreCache map[string]CredentialsStoreData
+type getHandler func(string, string, string) (*CredentialsStoreData, error)
 
+// CredentialsStore - gets a caches credentials from akubra-crdstore
 type CredentialsStore struct {
-	endpoint       string
-	cache          *ttlcache.Cache
-	backup         CdrStoreBackup
-	lock           sync.RWMutex
-	defaultService CdrStoreServiceAPI
+	endpoint string
+	cache    CdrStoreCache
+	TTL      time.Duration
+	*sync.RWMutex
 }
 
-func NewCredentialsStore(endpoint string, duration time.Duration) *CredentialsStore {
+// NewCredentialsStore - Constructor for CredentialsStore
+func NewCredentialsStore(endpoint string, TTL time.Duration) *CredentialsStore {
 	return &CredentialsStore{
-		endpoint:       endpoint,
-		cache:          ttlcache.NewCache(duration),
-		backup:         make(CdrStoreBackup),
-		defaultService: nil,
+		endpoint: endpoint,
+		cache:    make(CdrStoreCache),
+		TTL:      TTL,
+		RWMutex:  new(sync.RWMutex),
 	}
 }
 
 func (cs *CredentialsStore) prepareKey(accessKey, storageType string) string {
-	return fmt.Sprintf(KeyPattern, accessKey, storageType)
+	return fmt.Sprintf(keyPattern, accessKey, storageType)
 }
 
-func (cs *CredentialsStore) Get(accessKey, storageType string) (csd *CredentialsStoreData, found bool) {
+// Get - Gets key from cache or from akubra-crdstore is TTL has expired
+func (cs *CredentialsStore) Get(accessKey, storageType string) (csd *CredentialsStoreData, err error) {
 	key := cs.prepareKey(accessKey, storageType)
-	credentials, found := cs.cache.Get(key)
-	if !found {
-		var err error
-		if cs.defaultService != nil {
-			csd, err = cs.defaultService.GetFromService(cs.endpoint, accessKey, storageType)
-		} else {
-			csd, err = csd.GetFromService(cs.endpoint, accessKey, storageType)
-		}
-		if err != nil {
-			log.Println(err)
-			//csd, err = cs.getFromBackup(key)
-			//TODO: extract value
-			//if err != nil {
-			//	log.Fatalln(err)
-			//	found = false
-			//} else {
-			//	found = true
-			//}
-			return csd, false
-		} else {
-			return csd, true
-		}
-	} else {
-		csd.Unmarshal(credentials)
+	// Get from cache
+	cs.RLock()
+	if value, found := cs.cache[key]; found {
+		csd = &value
 	}
-	return csd, found
+	cs.RUnlock()
+
+	if csd != nil && csd.EOL.After(time.Now()) {
+		return
+	}
+
+	// Update cache
+	cs.Lock()
+	newCsd, err := cs.GetFromService(cs.endpoint, accessKey, storageType)
+	switch err {
+	case nil:
+		cs.cache[key] = *newCsd
+		csd = newCsd
+	case ErrCredentialsNotFound:
+		delete(cs.cache, key)
+	default:
+		log.Printf("Error while updating cache for key `%s`: `%s`", key, err)
+	}
+	if csd != nil {
+		csd.EOL = time.Now().Add(cs.TTL)
+		err = nil
+	}
+	cs.Unlock()
+
+	return
+}
+
+// GetFromService - Get Credential akubra-crdstore service
+func (cs *CredentialsStore) GetFromService(endpoint, accessKey, storageType string) (csd *CredentialsStoreData, err error) {
+	csd = &CredentialsStoreData{}
+	ro := &grequests.RequestOptions{
+		DialTimeout:    requestOptionsDialTimeout,
+		RequestTimeout: requestOptionsRequestTimeout,
+		RedirectLimit:  1,
+		IsAjax:         false,
+	}
+	resp, err := grequests.Get(fmt.Sprintf(urlPattern, endpoint, accessKey, storageType), ro)
+	switch {
+	case err != nil:
+		return csd, fmt.Errorf("unable to make request to credentials store service - err: %s", err)
+	case resp.StatusCode == http.StatusNotFound:
+		return nil, ErrCredentialsNotFound
+	case resp.StatusCode != http.StatusOK:
+		return csd, fmt.Errorf("unable to get credentials from store service - StatusCode: %d", resp.StatusCode)
+	}
+
+	credentials := resp.String()
+	if len(credentials) == 0 {
+		return csd, fmt.Errorf("got empty credentials from store service%s", "")
+	}
+
+	csd.Unmarshal(credentials)
+
+	return
 }
