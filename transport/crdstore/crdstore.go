@@ -24,10 +24,6 @@ const (
 // ErrCredentialsNotFound - Credential for given accessKey and storageType haven't been found in yaml file
 var ErrCredentialsNotFound = errors.New("credentials not found")
 
-// CdrStoreCache - Map with CdrStore cache
-type CdrStoreCache map[string]CredentialsStoreData
-type getHandler func(string, string, string) (*CredentialsStoreData, error)
-
 // CredentialsStore - gets a caches credentials from akubra-crdstore
 type CredentialsStore struct {
 	endpoint string
