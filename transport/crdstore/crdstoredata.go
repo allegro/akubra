@@ -9,9 +9,9 @@ const urlPattern = "%s/%s/%s"
 
 // CredentialsStoreData - stores single access-secret key pair with EOL(TTL)
 type CredentialsStoreData struct {
-	AccessKey string    `json:"access"`
-	SecretKey string    `json:"secret"`
-	err       error     `json:"-"`
+	AccessKey string `json:"access"`
+	SecretKey string `json:"secret"`
+	err       error
 	EOL       time.Time `json:"-"`
 }
 

@@ -120,7 +120,7 @@ func TestShouldUpdateCredentialsIfTTLIsExpired(t *testing.T) {
 	oldCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(-20 * time.Second)}
 
 	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
-	cs.cache.Store(cs.prepareKey(existingAccess, existingStorage),oldCredentials)
+	cs.cache.Store(cs.prepareKey(existingAccess, existingStorage), oldCredentials)
 	crd, err := cs.Get(existingAccess, existingStorage)
 
 	require.NoError(t, err)
@@ -169,4 +169,3 @@ func TestShouldGetAnErrorOnEmptyString(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, crd)
 }
-

@@ -7,12 +7,13 @@ import (
 
 	"errors"
 
-	"github.com/allegro/akubra/log"
-	"github.com/levigross/grequests"
-	"golang.org/x/sync/syncmap"
 	"sync"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/allegro/akubra/log"
+	"github.com/levigross/grequests"
+	"golang.org/x/sync/syncmap"
 )
 
 const (
@@ -45,24 +46,9 @@ func (cs *CredentialsStore) prepareKey(accessKey, storageType string) string {
 	return fmt.Sprintf(keyPattern, accessKey, storageType)
 }
 
-// Get - Gets key from cache or from akubra-crdstore if TTL has expired
-func (cs *CredentialsStore) Get(accessKey, storageType string) (csd *CredentialsStoreData, err error) {
-	key := cs.prepareKey(accessKey, storageType)
-
-	// Get from cache
-	if value, ok := cs.cache.Load(key); ok {
-		if csd, ok = value.(*CredentialsStoreData); ok {
-			err = csd.err
-		}
-	}
-
-	if csd != nil && (time.Now().Before(csd.EOL) || atomic.LoadInt32((*int32)(unsafe.Pointer(&cs.lock))) != 0) {
-		return
-	}
-
-	// Update cache
+func (cs *CredentialsStore) updateCache(accessKey, storageType, key string, csd *CredentialsStoreData) (newCsd *CredentialsStoreData, err error) {
 	cs.lock.Lock()
-	newCsd, err := cs.GetFromService(cs.endpoint, accessKey, storageType)
+	newCsd, err = cs.GetFromService(cs.endpoint, accessKey, storageType)
 	switch {
 	case err == nil:
 		newCsd.err = nil
@@ -82,9 +68,25 @@ func (cs *CredentialsStore) Get(accessKey, storageType string) (csd *Credentials
 	cs.lock.Unlock()
 	if newCsd.AccessKey == "" {
 		return nil, newCsd.err
-	} else {
-		return newCsd, nil
 	}
+	return newCsd, nil
+}
+
+// Get - Gets key from cache or from akubra-crdstore if TTL has expired
+func (cs *CredentialsStore) Get(accessKey, storageType string) (csd *CredentialsStoreData, err error) {
+	key := cs.prepareKey(accessKey, storageType)
+
+	if value, ok := cs.cache.Load(key); ok {
+		if csd, ok = value.(*CredentialsStoreData); ok {
+			err = csd.err
+		}
+	}
+
+	if csd != nil && (time.Now().Before(csd.EOL) || atomic.LoadInt32((*int32)(unsafe.Pointer(&cs.lock))) != 0) {
+		return
+	}
+
+	return cs.updateCache(accessKey, storageType, key, csd)
 }
 
 // GetFromService - Get Credential akubra-crdstore service
