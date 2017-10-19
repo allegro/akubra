@@ -16,7 +16,10 @@ type Server struct {
 	// Maximum accepted body size
 	BodyMaxSize HumanSizeUnits `yaml:"BodyMaxSize,omitempty"`
 	// Max number of incoming requests to process in parallel
-	MaxConcurrentRequests int32 `yaml:"MaxConcurrentRequests" validate:"min=1"`
+	MaxConcurrentRequests   int32  `yaml:"MaxConcurrentRequests" validate:"min=1"`
+	Listen                  string `yaml:"Listen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
+	TechnicalEndpointListen string `yaml:"TechnicalEndpointListen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
+	HealthCheckEndpoint     string `yaml:"HealthCheckEndpoint,omitempty" validate:"regexp=^([/a-z0-9]+)$"`
 }
 
 // AdditionalHeaders type fields in yaml configuration will parse list of special headers
@@ -63,7 +66,7 @@ type Client struct {
 	// Additional not AWS S3 specific headers proxy will add to original request
 	AdditionalRequestHeaders AdditionalHeaders `yaml:"AdditionalRequestHeaders,omitempty"`
 	// Additional headers inseted to client response
-	AdditionalResponseHeaders AdditionalHeaders `yaml:"AdditionalRequestHeaders,omitempty"`
+	AdditionalResponseHeaders AdditionalHeaders `yaml:"AdditionalResponseHeaders,omitempty"`
 }
 
 // HumanSizeUnits type for max. payload body size in bytes
@@ -103,4 +106,10 @@ func RequestHeaderContentLengthValidator(req http.Request, bodyMaxSize int64) in
 		return http.StatusRequestEntityTooLarge
 	}
 	return 0
+}
+
+// Service section
+type Service struct {
+	Server Server `yaml:"Server,omitempty"`
+	Client Client `yaml:"Client,omitempty"`
 }

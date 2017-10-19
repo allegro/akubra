@@ -2,13 +2,15 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
 	"time"
 
+	"github.com/allegro/akubra/log"
+
 	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/storages"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/config"
@@ -25,7 +27,7 @@ const YamlValidationErrorExitCode = 20
 const TechnicalEndpointGeneralTimeout = 5 * time.Second
 
 type service struct {
-	conf config.Config
+	config config.Config
 }
 
 var (
@@ -49,29 +51,25 @@ func main() {
 	kingpin.Version(versionString)
 	kingpin.Parse()
 	conf, err := config.Configure(*configFile)
-	log.Println(versionString)
 	if err != nil {
 		log.Fatalf("Improperly configured %s", err)
 	}
 
-	// valid, errs := config.ValidateConf(conf.YamlConfig, true)
-	// if !valid {
-	// 	log.Println("Custom YAML Configuration validation error:", errs)
-	// 	os.Exit(YamlValidationErrorExitCode)
-	// }
-	// log.Println("Configuration checked - OK.")
 	if *testConfig {
 		os.Exit(0)
 	}
 
-	log.Printf("Health check endpoint: %s", conf.HealthCheckEndpoint)
+	log.Printf("Health check endpoint: %s", conf.Service.Server.HealthCheckEndpoint)
 
-	mainlog := conf.Mainlog
-	mainlog.Printf("starting on port %s", conf.Listen)
-	mainlog.Printf("backends %s", conf.Backends)
+	mainlog, err := log.NewDefaultLogger(conf.Logging.Mainlog, "LOG_LOCAL2", false)
+	if err != nil {
+		log.Fatalf("Could not set up main logger: %q", err)
+	}
+	mainlog.Printf("starting on port %s", conf.Service.Server.Listen)
+	mainlog.Printf("backends %#v", conf.Backends)
 
 	srv := newService(conf)
-	srv.startTechnicalEndpoint(conf)
+	srv.startTechnicalEndpoint()
 	startErr := srv.start()
 	if startErr != nil {
 		mainlog.Fatalf("Could not start service, reason: %q", startErr.Error())
@@ -79,20 +77,34 @@ func main() {
 }
 
 func (s *service) start() error {
-	roundtripper, err := httphandler.ConfigureHTTPTransport(s.conf.Client)
+	roundtripper, err := httphandler.ConfigureHTTPTransport(s.config.Service.Client)
+	if err != nil {
+		log.Fatalf("Couldn't set up client properties, %q", err)
+	}
 	// TODO: Decorate ^ roundtripper here now - fix accesslog in configuration
-	storage, err := storage.InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap)
+	synclog, err := log.NewDefaultLogger(s.config.Logging.Synclog, "LOG_LOCAL1", true)
+
+	respHandler := httphandler.LateResponseHandler(synclog, s.config.Logging.SyncLogMethodsSet)
+
+	storage, err := storages.InitStorages(
+		roundtripper,
+		s.config.Clusters,
+		s.config.Backends,
+		respHandler)
 	if err != nil {
 		log.Fatalf("Storages initialization problem: %q", err)
 	}
 
-	handler, err := regions.NewHandler(s.conf.Server)
-
+	regionsRT, err := regions.NewRegions(s.config.Regions, *storage, roundtripper, nil)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("metrics conf %v", s.conf.Metrics)
-	err = metrics.Init(s.conf.Metrics)
+	handler, err := httphandler.NewHandlerWithRoundTripper(regionsRT, s.config.Service.Server)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("metrics conf %v", s.config.Metrics)
+	err = metrics.Init(s.config.Metrics)
 
 	if err != nil {
 		return err
@@ -100,7 +112,7 @@ func (s *service) start() error {
 
 	srv := &graceful.Server{
 		Server: &http.Server{
-			Addr:         s.conf.Listen,
+			Addr:         s.config.Service.Server.Listen,
 			Handler:      handler,
 			ReadTimeout:  5 * time.Second,
 			WriteTimeout: 10 * time.Second,
@@ -109,7 +121,7 @@ func (s *service) start() error {
 	}
 
 	srv.SetKeepAlivesEnabled(true)
-	listener, err := net.Listen("tcp", s.conf.Listen)
+	listener, err := net.Listen("tcp", s.config.Service.Server.Listen)
 
 	if err != nil {
 		log.Fatalln(err)
@@ -119,10 +131,11 @@ func (s *service) start() error {
 }
 
 func newService(cfg config.Config) *service {
-	return &service{conf: cfg}
+	return &service{config: cfg}
 }
-func (s *service) startTechnicalEndpoint(conf config.Config) {
-	log.Printf("Starting technical HTTP endpoint on port: %q", conf.TechnicalEndpointListen)
+func (s *service) startTechnicalEndpoint() {
+	port := s.config.Service.Server.TechnicalEndpointListen
+	log.Printf("Starting technical HTTP endpoint on port: %q", port)
 	serveMuxHandler := http.NewServeMux()
 	serveMuxHandler.HandleFunc(
 		"/configuration/validate",
@@ -131,7 +144,7 @@ func (s *service) startTechnicalEndpoint(conf config.Config) {
 	go func() {
 		srv := &graceful.Server{
 			Server: &http.Server{
-				Addr:           conf.TechnicalEndpointListen,
+				Addr:           port,
 				Handler:        serveMuxHandler,
 				MaxHeaderBytes: 512,
 				WriteTimeout:   TechnicalEndpointGeneralTimeout,

@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/transport"
@@ -149,10 +148,10 @@ func (rd *responseMerger) handleResponses(in <-chan transport.ReqResErrTuple) tr
 
 // EarliestResponseHandler returns a function which handles multiple
 // responses, returns first successful response to caller
-func EarliestResponseHandler(conf config.Config) transport.MultipleResponsesHandler {
+func EarliestResponseHandler(synclog log.Logger, methods set.Set) transport.MultipleResponsesHandler {
 	rh := responseMerger{
-		conf.Synclog,
-		conf.SyncLogMethodsSet,
+		synclog,
+		methods,
 		true,
 	}
 	return rh.handleResponses
@@ -161,10 +160,10 @@ func EarliestResponseHandler(conf config.Config) transport.MultipleResponsesHand
 // LateResponseHandler returns a function which handles multiple
 // responses and returns first successful response to caller after
 // all other responces received
-func LateResponseHandler(conf config.Config) transport.MultipleResponsesHandler {
+func LateResponseHandler(synclog log.Logger, methods set.Set) transport.MultipleResponsesHandler {
 	rh := responseMerger{
-		conf.Synclog,
-		conf.SyncLogMethodsSet,
+		synclog,
+		methods,
 		false,
 	}
 	return rh.handleResponses

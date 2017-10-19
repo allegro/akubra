@@ -6,10 +6,11 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/allegro/akubra/config"
-	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/log"
+
+	"github.com/allegro/akubra/regions/config"
 	"github.com/allegro/akubra/sharding"
-	"github.com/allegro/akubra/storages"
+	storage "github.com/allegro/akubra/storages"
 )
 
 //Regions container for multiclusters
@@ -51,24 +52,16 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	return rg.getNoSuchDomainResponse(req), nil
 }
 
-//NewHandler build new region handler
-func NewHandler(conf config.Config) (http.Handler, error) {
-	httptransp, err := httphandler.ConfigureHTTPTransport(conf)
-	if err != nil {
-		return nil, err
-	}
-	allStorages := &storages.Storages{
-		Conf:      conf,
-		Transport: httptransp,
-		Clusters:  make(map[string]storages.Cluster),
-	}
-	ringFactory := sharding.NewRingFactory(conf, allStorages, httptransp)
+//NewRegions build new region http.RoundTripper
+func NewRegions(conf config.Regions, storages storage.Storages, transport http.RoundTripper, syncLogger log.Logger) (http.RoundTripper, error) {
+
+	ringFactory := sharding.NewRingFactory(conf, storages, transport, syncLogger)
 	regions := &Regions{
 		multiCluters: make(map[string]sharding.ShardsRingAPI),
 	}
 
-	for _, regionConfig := range conf.Regions {
-		regionRing, err := ringFactory.RegionRing(regionConfig)
+	for name, regionConfig := range conf {
+		regionRing, err := ringFactory.RegionRing(name, regionConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -79,6 +72,5 @@ func NewHandler(conf config.Config) (http.Handler, error) {
 			regions.defaultRing = regionRing
 		}
 	}
-	roundTripper := httphandler.DecorateRoundTripper(conf, regions)
-	return httphandler.NewHandlerWithRoundTripper(roundTripper, conf.BodyMaxSize.SizeInBytes, conf.MaxConcurrentRequests)
+	return regions, nil
 }

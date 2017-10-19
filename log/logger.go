@@ -183,6 +183,15 @@ func NewLogger(config LoggerConfig) (Logger, error) {
 	return logger, nil
 }
 
+// Return configured Logger or syslog logger
+func NewDefaultLogger(config LoggerConfig, syslogFacility string, plainText bool) (Logger, error) {
+	empty := LoggerConfig{}
+	if config == empty {
+		return NewLogger(LoggerConfig{Syslog: syslogFacility, PlainText: plainText})
+	}
+	return NewLogger(config)
+}
+
 // DefaultLogger ...
 var DefaultLogger Logger = logrus.New()
 

@@ -37,6 +37,7 @@ type Handler struct {
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	canServe := true
+	log.Printf("handler url %s", req.URL.Scheme)
 	if atomic.AddInt32(&h.runningRequestCount, 1) > h.maxConcurrentRequests {
 		canServe = false
 	}
@@ -62,6 +63,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		log.Printf("%s", err)
 		return
 	}
 	defer func() {

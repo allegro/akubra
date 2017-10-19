@@ -9,9 +9,11 @@ import (
 	"fmt"
 
 	httphandler "github.com/allegro/akubra/httphandler/config"
-	storages "github.com/allegro/akubra/storages/config"
-
 	"github.com/allegro/akubra/log"
+	logconfig "github.com/allegro/akubra/log/config"
+	"github.com/allegro/akubra/metrics"
+	confregions "github.com/allegro/akubra/regions/config"
+	storages "github.com/allegro/akubra/storages/config"
 	// logconfig "github.com/allegro/akubra/log/config"
 	// "github.com/allegro/akubra/metrics"
 	// shardingconfig "github.com/allegro/akubra/sharding/config"
@@ -28,28 +30,23 @@ const TechnicalEndpointHeaderContentType = "application/yaml"
 
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
-	Sever    httphandler.Server   `yaml:"Server,omitempty"`
-	Client   httphandler.Client   `yaml:"Client,omitempty"`
+	Service  httphandler.Service  `yaml:"Service,omitempty"`
 	Backends storages.BackendsMap `yaml:"Backends,omitempty"`
 	Clusters storages.ClustersMap `yaml:"Clusters,omitempty"`
-	// Regions  map[string]shardingconfig.RegionConfig  `yaml:"Regions,omitempty"`
+	Regions  confregions.Regions  `yaml:"Regions,omitempty"`
 	// // Backend in maintenance mode. Akubra will not send data there
 	// MaintainedBackends []shardingconfig.YAMLUrl `yaml:"MaintainedBackends,omitempty"`
 
 	// // List request methods to be logged in synclog in case of backend failure
 	// SyncLogMethods []shardingconfig.SyncLogMethod `yaml:"SyncLogMethods,omitempty"`
-	// Logging        logconfig.LoggingConfig        `yaml:"Logging,omitempty"`
-	// Metrics        metrics.Config                 `yaml:"Metrics,omitempty"`
+	Logging logconfig.LoggingConfig `yaml:"Logging,omitempty"`
+	Metrics metrics.Config          `yaml:"Metrics,omitempty"`
 }
 
 // Config contains processed YamlConfig data
 type Config struct {
 	YamlConfig
 	SyncLogMethodsSet set.Set
-	Synclog           log.Logger
-	Accesslog         log.Logger
-	Mainlog           log.Logger
-	ClusterSyncLog    log.Logger
 }
 
 // Parse json config
