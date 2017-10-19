@@ -152,6 +152,20 @@ func TestShouldGetCredentialsFromCacheIfUpdateIsLocked(t *testing.T) {
 	require.Equal(t, expectedCredentials.SecretKey, crd.SecretKey)
 }
 
+func TestShouldUpdateCacheInBackground(t *testing.T) {
+	cachedCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(4 * time.Second)}
+	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
+
+	cs.cache.Store(cs.prepareKey(existingAccess, existingStorage), cachedCredentials)
+	cs.Get(existingAccess, existingStorage)
+	time.Sleep(1 * time.Second)
+	cs.lock.Lock()
+	crd, err := cs.Get(existingAccess, existingStorage)
+
+	require.NoError(t, err)
+	require.Equal(t, existingCredentials.SecretKey, crd.SecretKey)
+}
+
 func TestShouldGetAnErrorOnInvalidJSON(t *testing.T) {
 	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
 

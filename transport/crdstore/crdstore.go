@@ -72,6 +72,10 @@ func (cs *CredentialsStore) updateCache(accessKey, storageType, key string, csd 
 	return newCsd, nil
 }
 
+func (cs *CredentialsStore) isLocked() bool {
+	return atomic.LoadInt32((*int32)(unsafe.Pointer(&cs.lock))) != 0
+}
+
 // Get - Gets key from cache or from akubra-crdstore if TTL has expired
 func (cs *CredentialsStore) Get(accessKey, storageType string) (csd *CredentialsStoreData, err error) {
 	key := cs.prepareKey(accessKey, storageType)
@@ -82,11 +86,16 @@ func (cs *CredentialsStore) Get(accessKey, storageType string) (csd *Credentials
 		}
 	}
 
-	if csd != nil && (time.Now().Before(csd.EOL) || atomic.LoadInt32((*int32)(unsafe.Pointer(&cs.lock))) != 0) {
-		return
+	if csd == nil || (time.Now().After(csd.EOL) && !cs.isLocked()) {
+		return cs.updateCache(accessKey, storageType, key, csd)
+
 	}
 
-	return cs.updateCache(accessKey, storageType, key, csd)
+	if time.Now().Add(cs.TTL/2).After(csd.EOL) && !cs.isLocked() {
+		go cs.updateCache(accessKey, storageType, key, csd)
+	}
+
+	return
 }
 
 // GetFromService - Get Credential akubra-crdstore service
