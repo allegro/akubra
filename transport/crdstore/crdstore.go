@@ -3,13 +3,16 @@ package crdstore
 import (
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"errors"
 
 	"github.com/allegro/akubra/log"
 	"github.com/levigross/grequests"
+	"golang.org/x/sync/syncmap"
+	"sync"
+	"sync/atomic"
+	"unsafe"
 )
 
 const (
@@ -28,18 +31,17 @@ type getHandler func(string, string, string) (*CredentialsStoreData, error)
 // CredentialsStore - gets a caches credentials from akubra-crdstore
 type CredentialsStore struct {
 	endpoint string
-	cache    CdrStoreCache
+	cache    *syncmap.Map
 	TTL      time.Duration
-	*sync.RWMutex
+	lock     sync.Mutex
 }
 
 // NewCredentialsStore - Constructor for CredentialsStore
 func NewCredentialsStore(endpoint string, TTL time.Duration) *CredentialsStore {
 	return &CredentialsStore{
 		endpoint: endpoint,
-		cache:    make(CdrStoreCache),
+		cache:    new(syncmap.Map),
 		TTL:      TTL,
-		RWMutex:  new(sync.RWMutex),
 	}
 }
 
@@ -47,39 +49,46 @@ func (cs *CredentialsStore) prepareKey(accessKey, storageType string) string {
 	return fmt.Sprintf(keyPattern, accessKey, storageType)
 }
 
-// Get - Gets key from cache or from akubra-crdstore is TTL has expired
+// Get - Gets key from cache or from akubra-crdstore if TTL has expired
 func (cs *CredentialsStore) Get(accessKey, storageType string) (csd *CredentialsStoreData, err error) {
 	key := cs.prepareKey(accessKey, storageType)
-	// Get from cache
-	cs.RLock()
-	if value, found := cs.cache[key]; found {
-		csd = &value
-	}
-	cs.RUnlock()
 
-	if csd != nil && csd.EOL.After(time.Now()) {
+	// Get from cache
+	if value, ok := cs.cache.Load(key); ok {
+		if csd, ok = value.(*CredentialsStoreData); ok {
+			err = csd.err
+		}
+	}
+
+	if csd != nil && (time.Now().Before(csd.EOL) || atomic.LoadInt32((*int32)(unsafe.Pointer(&cs.lock))) != 0) {
 		return
 	}
 
 	// Update cache
-	cs.Lock()
+	cs.lock.Lock()
 	newCsd, err := cs.GetFromService(cs.endpoint, accessKey, storageType)
-	switch err {
-	case nil:
-		cs.cache[key] = *newCsd
-		csd = newCsd
-	case ErrCredentialsNotFound:
-		delete(cs.cache, key)
+	switch {
+	case err == nil:
+		newCsd.err = nil
+	case err == ErrCredentialsNotFound:
+		newCsd = &CredentialsStoreData{EOL: time.Now().Add(cs.TTL), err: ErrCredentialsNotFound}
 	default:
+		if csd == nil {
+			newCsd = &CredentialsStoreData{EOL: time.Now().Add(cs.TTL), err: ErrCredentialsNotFound}
+		} else {
+			*newCsd = *csd
+		}
+		newCsd.err = err
 		log.Printf("Error while updating cache for key `%s`: `%s`", key, err)
 	}
-	if csd != nil {
-		csd.EOL = time.Now().Add(cs.TTL)
-		err = nil
+	newCsd.EOL = time.Now().Add(cs.TTL)
+	cs.cache.Store(key, newCsd)
+	cs.lock.Unlock()
+	if newCsd.AccessKey == "" {
+		return nil, newCsd.err
+	} else {
+		return newCsd, nil
 	}
-	cs.Unlock()
-
-	return
 }
 
 // GetFromService - Get Credential akubra-crdstore service
@@ -106,7 +115,7 @@ func (cs *CredentialsStore) GetFromService(endpoint, accessKey, storageType stri
 		return csd, fmt.Errorf("got empty credentials from store service%s", "")
 	}
 
-	csd.Unmarshal(credentials)
+	err = csd.Unmarshal(credentials)
 
 	return
 }

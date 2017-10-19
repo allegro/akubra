@@ -11,6 +11,7 @@ const urlPattern = "%s/%s/%s"
 type CredentialsStoreData struct {
 	AccessKey string    `json:"access"`
 	SecretKey string    `json:"secret"`
+	err       error     `json:"-"`
 	EOL       time.Time `json:"-"`
 }
 

@@ -16,6 +16,10 @@ import (
 const (
 	httpListen      = "127.0.0.1:8091"
 	httpEndpoint    = "http://127.0.0.1:8091"
+	emptyAccess     = "access_empty"
+	emptyStorage    = "storage_empty"
+	invalidAccess   = "access_invalid"
+	invalidStorage  = "storage_invalid"
 	existingAccess  = "access_exists"
 	existingStorage = "storage_exists"
 	errorAccess     = "access_error"
@@ -34,6 +38,11 @@ func httpHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		resp, _ := json.Marshal(existingCredentials)
 		w.Write(resp)
+	case fmt.Sprintf("/%s/%s", invalidAccess, invalidStorage):
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{'invalid'json//}"))
+	case fmt.Sprintf("/%s/%s", emptyAccess, emptyStorage):
+		w.WriteHeader(http.StatusOK)
 	default:
 		w.WriteHeader(http.StatusNotFound)
 	}
@@ -78,7 +87,18 @@ func TestShouldGetCredentialFromCacheIfExternalServiceFails(t *testing.T) {
 	expectedCredentials := &CredentialsStoreData{AccessKey: errorAccess, SecretKey: "secret_1"}
 
 	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
-	cs.cache[cs.prepareKey(errorAccess, errorStorage)] = *expectedCredentials
+	cs.cache.Store(cs.prepareKey(errorAccess, errorStorage), expectedCredentials)
+	crd, err := cs.Get(errorAccess, errorStorage)
+
+	require.NoError(t, err)
+	require.Equal(t, expectedCredentials.SecretKey, crd.SecretKey)
+}
+
+func TestShouldGetCredentialFromCacheIfConnectionRefused(t *testing.T) {
+	expectedCredentials := &CredentialsStoreData{AccessKey: errorAccess, SecretKey: "secret_1"}
+
+	cs := NewCredentialsStore("http://127.255.255.255:8091", 10*time.Second)
+	cs.cache.Store(cs.prepareKey(errorAccess, errorStorage), expectedCredentials)
 	crd, err := cs.Get(errorAccess, errorStorage)
 
 	require.NoError(t, err)
@@ -89,7 +109,7 @@ func TestShouldGetCredentialFromCacheIfTTLIsNotExpired(t *testing.T) {
 	expectedCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(10 * time.Second)}
 	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
 
-	cs.cache[cs.prepareKey(existingAccess, existingStorage)] = *expectedCredentials
+	cs.cache.Store(cs.prepareKey(existingAccess, existingStorage), expectedCredentials)
 	crd, err := cs.Get(existingAccess, existingStorage)
 
 	require.NoError(t, err)
@@ -100,7 +120,7 @@ func TestShouldUpdateCredentialsIfTTLIsExpired(t *testing.T) {
 	oldCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(-20 * time.Second)}
 
 	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
-	cs.cache[cs.prepareKey(existingAccess, existingStorage)] = *oldCredentials
+	cs.cache.Store(cs.prepareKey(existingAccess, existingStorage),oldCredentials)
 	crd, err := cs.Get(existingAccess, existingStorage)
 
 	require.NoError(t, err)
@@ -113,9 +133,40 @@ func TestShouldDeleteCachedCredentialsOnErrCredentialsNotFound(t *testing.T) {
 	oldCredentials := &CredentialsStoreData{AccessKey: accessKey, SecretKey: "secret_1", EOL: time.Now().Add(-10 * time.Second)}
 
 	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
-	cs.cache[cs.prepareKey("not_existing", storageType)] = *oldCredentials
+	cs.cache.Store(cs.prepareKey("not_existing", storageType), oldCredentials)
 	crd, err := cs.Get(accessKey, storageType)
 
 	require.Equal(t, ErrCredentialsNotFound, err)
 	require.Nil(t, crd)
 }
+
+func TestShouldGetCredentialsFromCacheIfUpdateIsLocked(t *testing.T) {
+	expectedCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(-11 * time.Second)}
+	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
+
+	cs.cache.Store(cs.prepareKey(existingAccess, existingStorage), expectedCredentials)
+	cs.lock.Lock()
+	crd, err := cs.Get(existingAccess, existingStorage)
+
+	require.NoError(t, err)
+	require.Equal(t, expectedCredentials.SecretKey, crd.SecretKey)
+}
+
+func TestShouldGetAnErrorOnInvalidJSON(t *testing.T) {
+	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
+
+	crd, err := cs.Get(invalidAccess, invalidStorage)
+
+	require.Error(t, err)
+	require.Nil(t, crd)
+}
+
+func TestShouldGetAnErrorOnEmptyString(t *testing.T) {
+	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
+
+	crd, err := cs.Get(emptyAccess, emptyStorage)
+
+	require.Error(t, err)
+	require.Nil(t, crd)
+}
+
