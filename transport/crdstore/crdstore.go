@@ -20,6 +20,7 @@ const (
 	keyPattern                   = "%s_____%s"
 	requestOptionsDialTimeout    = 50 * time.Millisecond
 	requestOptionsRequestTimeout = 100 * time.Millisecond
+	refreshTTLPercent            = 80 // Background refresh after refreshTTLPercent*TTL
 )
 
 // ErrCredentialsNotFound - Credential for given accessKey and storageType haven't been found in yaml file
@@ -46,8 +47,14 @@ func (cs *CredentialsStore) prepareKey(accessKey, storageType string) string {
 	return fmt.Sprintf(keyPattern, accessKey, storageType)
 }
 
-func (cs *CredentialsStore) updateCache(accessKey, storageType, key string, csd *CredentialsStoreData) (newCsd *CredentialsStoreData, err error) {
-	cs.lock.Lock()
+func (cs *CredentialsStore) updateCache(accessKey, storageType, key string, csd *CredentialsStoreData, blocking bool) (newCsd *CredentialsStoreData, err error) {
+	if !blocking {
+		if !cs.tryLock() {
+			return csd, nil
+		}
+	} else {
+		cs.lock.Lock()
+	}
 	newCsd, err = cs.GetFromService(cs.endpoint, accessKey, storageType)
 	switch {
 	case err == nil:
@@ -56,7 +63,7 @@ func (cs *CredentialsStore) updateCache(accessKey, storageType, key string, csd 
 		newCsd = &CredentialsStoreData{EOL: time.Now().Add(cs.TTL), err: ErrCredentialsNotFound}
 	default:
 		if csd == nil {
-			newCsd = &CredentialsStoreData{EOL: time.Now().Add(cs.TTL), err: ErrCredentialsNotFound}
+			newCsd = &CredentialsStoreData{EOL: time.Now().Add(cs.TTL), err: err}
 		} else {
 			*newCsd = *csd
 		}
@@ -72,8 +79,8 @@ func (cs *CredentialsStore) updateCache(accessKey, storageType, key string, csd 
 	return newCsd, nil
 }
 
-func (cs *CredentialsStore) isLocked() bool {
-	return atomic.LoadInt32((*int32)(unsafe.Pointer(&cs.lock))) != 0
+func (cs *CredentialsStore) tryLock() bool {
+	return atomic.CompareAndSwapInt32((*int32)(unsafe.Pointer(&cs.lock)), 0, 1)
 }
 
 // Get - Gets key from cache or from akubra-crdstore if TTL has expired
@@ -81,18 +88,16 @@ func (cs *CredentialsStore) Get(accessKey, storageType string) (csd *Credentials
 	key := cs.prepareKey(accessKey, storageType)
 
 	if value, ok := cs.cache.Load(key); ok {
-		if csd, ok = value.(*CredentialsStoreData); ok {
-			err = csd.err
-		}
+		csd = value.(*CredentialsStoreData)
 	}
 
-	if csd == nil || (time.Now().After(csd.EOL) && !cs.isLocked()) {
-		return cs.updateCache(accessKey, storageType, key, csd)
-
-	}
-
-	if time.Now().Add(cs.TTL/2).After(csd.EOL) && !cs.isLocked() {
-		go cs.updateCache(accessKey, storageType, key, csd)
+	switch {
+	case csd == nil || csd.AccessKey == "":
+		return cs.updateCache(accessKey, storageType, key, csd, true)
+	case time.Now().After(csd.EOL):
+		return cs.updateCache(accessKey, storageType, key, csd, false)
+	case time.Now().Add(cs.TTL / time.Second * (100 - refreshTTLPercent) * 10 * time.Millisecond).After(csd.EOL):
+		go cs.updateCache(accessKey, storageType, key, csd, false)
 	}
 
 	return

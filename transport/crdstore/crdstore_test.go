@@ -153,7 +153,7 @@ func TestShouldGetCredentialsFromCacheIfUpdateIsLocked(t *testing.T) {
 }
 
 func TestShouldUpdateCacheInBackground(t *testing.T) {
-	cachedCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(4 * time.Second)}
+	cachedCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(1 * time.Second)}
 	cs := NewCredentialsStore(httpEndpoint, 10*time.Second)
 
 	cs.cache.Store(cs.prepareKey(existingAccess, existingStorage), cachedCredentials)
