@@ -167,13 +167,13 @@ func (mt *MultiTransport) copyRequest(req *http.Request, cancelFun context.Cance
 
 	for _ = range mt.Backends {
 		log.Debugf("Replicate request %s", req.Context().Value(log.ContextreqIDKey))
-
 		bodyContent := bodyBuffer.Bytes()
 		var newBody io.Reader
 		if len(bodyContent) > 0 {
 			newBody = ioutil.NopCloser(bytes.NewReader(bodyContent))
 		}
 		r, rerr := http.NewRequest(req.Method, req.URL.String(), newBody)
+		r = r.WithContext(req.Context())
 		// Copy request data
 		if rerr != nil {
 			return nil, rerr
@@ -186,6 +186,8 @@ func (mt *MultiTransport) copyRequest(req *http.Request, cancelFun context.Cance
 		r.ContentLength = int64(bodyBuffer.Len())
 		r.TransferEncoding = req.TransferEncoding
 		reqs = append(reqs, r)
+		log.Debugf("Replicated request %s", r.Context().Value(log.ContextreqIDKey))
+
 	}
 
 	return reqs, err
@@ -213,21 +215,22 @@ func (mt *MultiTransport) sendRequest(
 	since := time.Now()
 	ctx := req.Context()
 	o := make(chan ReqResErrTuple)
+	requestID := ctx.Value(log.ContextreqIDKey)
 	go func() {
 		println("COmmon", backend, req)
 		if mt.SkipBackends[req.URL.Host] {
-			log.Debugf("Skipping request %s, for %s", req.Context().Value(log.ContextreqIDKey), req.URL.Host)
+			log.Debugf("Skipping request %s, for %s", req.Context().Value(requestID), req.URL.Host)
 			r := ReqResErrTuple{req, nil, fmt.Errorf("Maintained Backend %s", req.URL.Host), true}
 			o <- r
 			return
 		}
 		println("before rt", backend)
-		resp, err := backend.RoundTrip(req.WithContext(context.Background()))
+		resp, err := backend.RoundTrip(req.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, requestID)))
 		println("after rt", backend)
 
 		// report Non 2XX status codes as errors
 		if err != nil {
-			log.Debugf("Send request error %s, %s", err.Error(), ctx.Value(log.ContextreqIDKey))
+			log.Debugf("Send request error %s, %s", err.Error(), requestID)
 		}
 		failed := err != nil || resp != nil && (resp.StatusCode < 200 || resp.StatusCode > 399)
 		r := ReqResErrTuple{req, resp, err, failed}
@@ -238,7 +241,7 @@ func (mt *MultiTransport) sendRequest(
 
 	select {
 	case <-ctx.Done():
-		log.Debugf("Ctx Done reqID %s ", ctx.Value(log.ContextreqIDKey))
+		log.Debugf("Ctx Done reqID %s ", requestID)
 		reqresperr = ReqResErrTuple{req, nil, ErrBodyContentLengthMismatch, true}
 	case reqresperr = <-o:
 		break
@@ -251,7 +254,7 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 	bctx, cancelFunc := context.WithCancel(context.Background())
 	bctx = context.WithValue(bctx, log.ContextreqIDKey, req.Context().Value(log.ContextreqIDKey))
 	reqs, err := mt.copyRequest(req, cancelFunc)
-	log.Printf("%v\n", reqs)
+
 	if err != nil {
 		return nil, err
 	}
@@ -265,6 +268,7 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 	for i, backend := range mt.Backends {
 		wg.Add(1)
 		r := reqs[i].WithContext(bctx)
+		log.Debugf("RooundTrip with ctxID %s\n", bctx.Value(log.ContextreqIDKey))
 		go func(backend http.RoundTripper, r *http.Request) {
 			mt.sendRequest(r, c, backend)
 			wg.Done()

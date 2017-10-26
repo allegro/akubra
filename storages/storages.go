@@ -5,10 +5,11 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
 
-	"github.com/allegro/akubra/log"
-
+	"github.com/allegro/akubra/storages/auth"
 	config "github.com/allegro/akubra/storages/config"
 	set "github.com/deckarep/golang-set"
 )
@@ -29,7 +30,7 @@ type Storages struct {
 	backendsConf config.BackendsMap
 	transport    http.RoundTripper
 	Clusters     map[string]Cluster
-	Backends     map[string]Backend
+	Backends     map[string]http.RoundTripper
 	respHandler  transport.MultipleResponsesHandler
 }
 
@@ -42,37 +43,12 @@ type Backend struct {
 
 // RoundTrip satisfies http.RoundTripper interface
 func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
-	log.Printf("Bylem tu %s", r.URL)
 	r.URL.Host = b.Endpoint.Host
-	log.Printf("Bylem tu 2 %s", r.URL)
+	r.URL.Scheme = "http"
+	reqID := r.Context().Value(log.ContextreqIDKey)
+	log.Debugf("Request %s req.URL.Host replaced with %s", reqID, r.URL.Host)
 	return b.RoundTripper.RoundTrip(r)
 }
-
-// func newMultiBackendCluster(
-// 	transp http.RoundTripper,
-// 	multiResponseHandler transport.MultipleResponsesHandler,
-// 	clusterConf storagesconfig.Cluster,
-// 	name string,
-// 	maintainedBackends []shardingconfig.YAMLUrl,
-// 	backendsMap storagesconfig.BackendsMap) Cluster {
-
-// 	backends := make([]http.RoundTripper, len(clusterConf.Backends))
-
-// 	for i, backend := range clusterConf.Backends {
-// 		backends[i] = &Backend{transp, backendsMap[backend].Endpoint}
-// 	}
-
-// 	multiTransport := transport.NewMultiTransport(
-// 		backends,
-// 		multiResponseHandler,
-// 		maintainedBackends)
-
-// 	return Cluster{
-// 		multiTransport,
-// 		clusterConf.Backends,
-// 		name,
-// 	}
-// }
 
 func (c *Cluster) setupRoundTripper() {
 	multiTransport := transport.NewMultiTransport(
@@ -91,7 +67,7 @@ func newBackend(backendConfig config.Backend, transport http.RoundTripper) (*Bac
 	return &Backend{Endpoint: *backendConfig.Endpoint.URL, RoundTripper: transport}, nil
 }
 
-func newCluster(name string, backendNames []string, backends map[string]Backend, respHandler transport.MultipleResponsesHandler) (*Cluster, error) {
+func newCluster(name string, backendNames []string, backends map[string]http.RoundTripper, respHandler transport.MultipleResponsesHandler) (*Cluster, error) {
 	clusterBackends := make([]http.RoundTripper, 0)
 	for _, backendName := range backendNames {
 		backendRT, ok := backends[backendName]
@@ -99,7 +75,7 @@ func newCluster(name string, backendNames []string, backends map[string]Backend,
 			return nil, fmt.Errorf("No such backend %q", backendName)
 		}
 
-		clusterBackends = append(clusterBackends, &backendRT)
+		clusterBackends = append(clusterBackends, backendRT)
 	}
 
 	cluster := &Cluster{Backends: clusterBackends, Name: name, respHandler: respHandler}
@@ -136,13 +112,23 @@ func (st *Storages) JoinClusters(name string, clusters ...Cluster) Cluster {
 // InitStorages setups storages
 func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap, respHandler transport.MultipleResponsesHandler) (*Storages, error) {
 	clusters := make(map[string]Cluster)
-	backends := make(map[string]Backend)
+	backends := make(map[string]http.RoundTripper)
 	for name, backendConf := range backendsConf {
-		backends[name] = Backend{
+		backend := &Backend{
 			transport,
 			*backendConf.Endpoint.URL,
 			name,
 		}
+		decoratorFactory, ok := auth.Decorators[backendConf.Type]
+		if !ok {
+			return nil, fmt.Errorf("initialization of backend %s has resulted with error: no decorator defined for type %s", name, backendConf.Type)
+		}
+		decorator, err := decoratorFactory(backendConf.Extra)
+		if err != nil {
+			return nil, fmt.Errorf("initialization of backend %s has resulted with error: %q", name, err)
+		}
+		decoratedBackend := httphandler.Decorate(backend, decorator)
+		backends[name] = decoratedBackend
 
 	}
 	for name, clusterConf := range clustersConf {

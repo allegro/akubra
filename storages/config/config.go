@@ -4,22 +4,21 @@ import (
 	"github.com/allegro/akubra/types"
 )
 
-type typ string
-
 const (
 	// S3 represents s3 compiliant storages
-	S3 typ = "S3"
+	S3 string = "S3"
 	// GCS represents Google Cloud Storage compiliant storages
-	GCS typ = "GCS"
-	// PassThrough does not re-sign requests
-	PassThrough typ = "passthrough"
+	GCS = "GCS"
+	// Passthrough does not re-sign requests
+	Passthrough = "passthrough"
 )
 
 // Backend defines backend
 type Backend struct {
-	Endpoint    types.YAMLUrl `yaml:"Endpoint"`
-	Type        typ           `yaml:"Type"`
-	Maintenance bool          `yaml:"Maintenance"`
+	Endpoint    types.YAMLUrl     `yaml:"Endpoint"`
+	Type        string            `yaml:"Type"`
+	Maintenance bool              `yaml:"Maintenance"`
+	Extra       map[string]string `yaml:"Extra"`
 }
 
 // BackendsMap is map of Backend

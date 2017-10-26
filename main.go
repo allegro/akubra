@@ -65,6 +65,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not set up main logger: %q", err)
 	}
+
+	log.DefaultLogger = mainlog
+
 	mainlog.Printf("starting on port %s", conf.Service.Server.Listen)
 	mainlog.Printf("backends %#v", conf.Backends)
 
@@ -82,9 +85,9 @@ func (s *service) start() error {
 		log.Fatalf("Couldn't set up client properties, %q", err)
 	}
 	// TODO: Decorate ^ roundtripper here now - fix accesslog in configuration
-	synclog, err := log.NewDefaultLogger(s.config.Logging.Synclog, "LOG_LOCAL1", true)
+	syncLog, err := log.NewDefaultLogger(s.config.Logging.Synclog, "LOG_LOCAL1", true)
 
-	respHandler := httphandler.LateResponseHandler(synclog, s.config.Logging.SyncLogMethodsSet)
+	respHandler := httphandler.LateResponseHandler(syncLog, s.config.Logging.SyncLogMethodsSet)
 
 	storage, err := storages.InitStorages(
 		roundtripper,
@@ -99,11 +102,16 @@ func (s *service) start() error {
 	if err != nil {
 		return err
 	}
-	handler, err := httphandler.NewHandlerWithRoundTripper(regionsRT, s.config.Service.Server)
+	accessLog, err := log.NewDefaultLogger(s.config.Logging.Accesslog, "LOG_LOCAL1", true)
+
+	regionsDecoratedRT := httphandler.DecorateRoundTripper(s.config.Service.Client,
+		accessLog, s.config.Service.Server.HealthCheckEndpoint, regionsRT)
+
+	handler, err := httphandler.NewHandlerWithRoundTripper(regionsDecoratedRT, s.config.Service.Server)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("metrics conf %v", s.config.Metrics)
+
 	err = metrics.Init(s.config.Metrics)
 
 	if err != nil {
