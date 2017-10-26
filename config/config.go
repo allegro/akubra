@@ -61,54 +61,6 @@ func parseConf(file io.Reader) (YamlConfig, error) {
 	return rc, err
 }
 
-func setupLoggers(conf *Config) (err error) {
-	// emptyLoggerConfig := log.LoggerConfig{}
-
-	// if conf.Logging.Accesslog == emptyLoggerConfig {
-	// 	conf.Logging.Accesslog = log.LoggerConfig{Syslog: "LOG_LOCAL0"}
-	// }
-
-	// conf.Accesslog, err = log.NewLogger(conf.Logging.Accesslog)
-
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if conf.Logging.Synclog == emptyLoggerConfig {
-	// 	conf.Logging.Synclog = log.LoggerConfig{
-	// 		Syslog:    "LOG_LOCAL1",
-	// 		PlainText: true,
-	// 	}
-
-	// }
-	// conf.Synclog, err = log.NewLogger(conf.Logging.Synclog)
-
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if conf.Logging.Mainlog == emptyLoggerConfig {
-	// 	conf.Logging.Mainlog = log.LoggerConfig{Syslog: "LOG_LOCAL2"}
-	// }
-
-	// conf.Mainlog, err = log.NewLogger(conf.Logging.Mainlog)
-	// log.DefaultLogger = conf.Mainlog
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if conf.Logging.ClusterSyncLog == emptyLoggerConfig {
-	// 	conf.Logging.ClusterSyncLog = log.LoggerConfig{
-	// 		Syslog:    "LOG_LOCAL3",
-	// 		PlainText: true,
-	// 	}
-	// }
-
-	// conf.ClusterSyncLog, err = log.NewLogger(conf.Logging.ClusterSyncLog)
-
-	return err
-}
-
 // Configure parse configuration file
 func Configure(configFilePath string) (conf Config, err error) {
 	confFile, err := os.Open(configFilePath)
@@ -126,7 +78,6 @@ func Configure(configFilePath string) (conf Config, err error) {
 
 	setupSyncLogThread(&conf, []interface{}{"PUT", "GET", "HEAD", "DELETE", "OPTIONS"})
 
-	err = setupLoggers(&conf)
 	return conf, err
 }
 
