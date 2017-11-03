@@ -17,7 +17,7 @@ import (
 	// logconfig "github.com/allegro/akubra/log/config"
 	// "github.com/allegro/akubra/metrics"
 	// shardingconfig "github.com/allegro/akubra/sharding/config"
-	set "github.com/deckarep/golang-set"
+
 	"github.com/go-validator/validator"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -30,23 +30,17 @@ const TechnicalEndpointHeaderContentType = "application/yaml"
 
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
-	Service  httphandler.Service  `yaml:"Service,omitempty"`
-	Backends storages.BackendsMap `yaml:"Backends,omitempty"`
-	Clusters storages.ClustersMap `yaml:"Clusters,omitempty"`
-	Regions  confregions.Regions  `yaml:"Regions,omitempty"`
-	// // Backend in maintenance mode. Akubra will not send data there
-	// MaintainedBackends []shardingconfig.YAMLUrl `yaml:"MaintainedBackends,omitempty"`
-
-	// // List request methods to be logged in synclog in case of backend failure
-	// SyncLogMethods []shardingconfig.SyncLogMethod `yaml:"SyncLogMethods,omitempty"`
-	Logging logconfig.LoggingConfig `yaml:"Logging,omitempty"`
-	Metrics metrics.Config          `yaml:"Metrics,omitempty"`
+	Service  httphandler.Service     `yaml:"Service,omitempty"`
+	Backends storages.BackendsMap    `yaml:"Backends,omitempty"`
+	Clusters storages.ClustersMap    `yaml:"Clusters,omitempty"`
+	Regions  confregions.Regions     `yaml:"Regions,omitempty"`
+	Logging  logconfig.LoggingConfig `yaml:"Logging,omitempty"`
+	Metrics  metrics.Config          `yaml:"Metrics,omitempty"`
 }
 
 // Config contains processed YamlConfig data
 type Config struct {
 	YamlConfig
-	SyncLogMethodsSet set.Set
 }
 
 // Parse json config
@@ -75,21 +69,7 @@ func Configure(configFilePath string) (conf Config, err error) {
 		return conf, err
 	}
 	conf.YamlConfig = yconf
-
-	setupSyncLogThread(&conf, []interface{}{"PUT", "GET", "HEAD", "DELETE", "OPTIONS"})
-
 	return conf, err
-}
-
-func setupSyncLogThread(conf *Config, methods []interface{}) {
-	// if len(conf.SyncLogMethods) > 0 {
-	// 	conf.SyncLogMethodsSet = set.NewThreadUnsafeSet()
-	// 	for _, v := range conf.SyncLogMethods {
-	// 		conf.SyncLogMethodsSet.Add(v.Method)
-	// 	}
-	// } else {
-	// 	conf.SyncLogMethodsSet = set.NewThreadUnsafeSetFromSlice(methods)
-	// }
 }
 
 // ValidateConf validate configuration from YAML file

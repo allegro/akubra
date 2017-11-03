@@ -212,6 +212,7 @@ func SignRequestV2(r *http.Request, cred Keys) {
 
 	sig := signatureV2(r.Method, encodedResource, encodedQuery, r.Header, cred)
 	r.Header.Set("Authorization", sig)
+	println("SIG2", sig)
 }
 
 func responseForbidden(req *http.Request) *http.Response {
