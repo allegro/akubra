@@ -44,7 +44,7 @@ type Backend struct {
 // RoundTrip satisfies http.RoundTripper interface
 func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 	r.URL.Host = b.Endpoint.Host
-	r.URL.Scheme = "http"
+	r.URL.Scheme = b.Endpoint.Scheme
 	reqID := r.Context().Value(log.ContextreqIDKey)
 	log.Debugf("Request %s req.URL.Host replaced with %s", reqID, r.URL.Host)
 	return b.RoundTripper.RoundTrip(r)

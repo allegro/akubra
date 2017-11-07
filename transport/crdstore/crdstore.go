@@ -20,11 +20,15 @@ const (
 	keyPattern                   = "%s_____%s"
 	requestOptionsDialTimeout    = 50 * time.Millisecond
 	requestOptionsRequestTimeout = 100 * time.Millisecond
-	refreshTTLPercent            = 80 // Background refresh after refreshTTLPercent*TTL
+	refreshTTLPercent            = 80               // Background refresh after refreshTTLPercent*TTL
+	ttl                          = 10 * time.Second // Cache TTL
 )
 
-// ErrCredentialsNotFound - Credential for given accessKey and storageType haven't been found in yaml file
+// ErrCredentialsNotFound - Credential for given accessKey and backend haven't been found in yaml file
 var ErrCredentialsNotFound = errors.New("credentials not found")
+
+// CredentialStore instance
+var instances map[string]*CredentialsStore
 
 // CredentialsStore - gets a caches credentials from akubra-crdstore
 type CredentialsStore struct {
@@ -34,20 +38,35 @@ type CredentialsStore struct {
 	lock     sync.Mutex
 }
 
-// NewCredentialsStore - Constructor for CredentialsStore
-func NewCredentialsStore(endpoint string, TTL time.Duration) *CredentialsStore {
-	return &CredentialsStore{
+// GetInstance - Get crdstore instance for endpoint
+func GetInstance(endpoint string) *CredentialsStore {
+	if instances == nil {
+		instances = make(map[string]*CredentialsStore)
+	}
+
+	if instance, ok := instances[endpoint]; ok {
+		return instance
+	}
+
+	instances[endpoint] = initializeCredentialsStore(endpoint)
+	return instances[endpoint]
+}
+
+// InitializeCredentialsStore - Constructor for CredentialsStore
+func initializeCredentialsStore(endpoint string) *CredentialsStore {
+	instances[endpoint] = &CredentialsStore{
 		endpoint: endpoint,
 		cache:    new(syncmap.Map),
-		TTL:      TTL,
+		TTL:      ttl,
 	}
+	return instances[endpoint]
 }
 
-func (cs *CredentialsStore) prepareKey(accessKey, storageType string) string {
-	return fmt.Sprintf(keyPattern, accessKey, storageType)
+func (cs *CredentialsStore) prepareKey(accessKey, backend string) string {
+	return fmt.Sprintf(keyPattern, accessKey, backend)
 }
 
-func (cs *CredentialsStore) updateCache(accessKey, storageType, key string, csd *CredentialsStoreData, blocking bool) (newCsd *CredentialsStoreData, err error) {
+func (cs *CredentialsStore) updateCache(accessKey, backend, key string, csd *CredentialsStoreData, blocking bool) (newCsd *CredentialsStoreData, err error) {
 	if !blocking {
 		if !cs.tryLock() {
 			return csd, nil
@@ -55,7 +74,7 @@ func (cs *CredentialsStore) updateCache(accessKey, storageType, key string, csd 
 	} else {
 		cs.lock.Lock()
 	}
-	newCsd, err = cs.GetFromService(cs.endpoint, accessKey, storageType)
+	newCsd, err = cs.GetFromService(cs.endpoint, accessKey, backend)
 	switch {
 	case err == nil:
 		newCsd.err = nil
@@ -84,8 +103,8 @@ func (cs *CredentialsStore) tryLock() bool {
 }
 
 // Get - Gets key from cache or from akubra-crdstore if TTL has expired
-func (cs *CredentialsStore) Get(accessKey, storageType string) (csd *CredentialsStoreData, err error) {
-	key := cs.prepareKey(accessKey, storageType)
+func (cs *CredentialsStore) Get(accessKey, backend string) (csd *CredentialsStoreData, err error) {
+	key := cs.prepareKey(accessKey, backend)
 
 	if value, ok := cs.cache.Load(key); ok {
 		csd = value.(*CredentialsStoreData)
@@ -93,18 +112,18 @@ func (cs *CredentialsStore) Get(accessKey, storageType string) (csd *Credentials
 
 	switch {
 	case csd == nil || csd.AccessKey == "":
-		return cs.updateCache(accessKey, storageType, key, csd, true)
+		return cs.updateCache(accessKey, backend, key, csd, true)
 	case time.Now().After(csd.EOL):
-		return cs.updateCache(accessKey, storageType, key, csd, false)
+		return cs.updateCache(accessKey, backend, key, csd, false)
 	case time.Now().Add(cs.TTL / time.Second * (100 - refreshTTLPercent) * 10 * time.Millisecond).After(csd.EOL):
-		go cs.updateCache(accessKey, storageType, key, csd, false)
+		go cs.updateCache(accessKey, backend, key, csd, false)
 	}
 
 	return
 }
 
 // GetFromService - Get Credential akubra-crdstore service
-func (cs *CredentialsStore) GetFromService(endpoint, accessKey, storageType string) (csd *CredentialsStoreData, err error) {
+func (cs *CredentialsStore) GetFromService(endpoint, accessKey, backend string) (csd *CredentialsStoreData, err error) {
 	csd = &CredentialsStoreData{}
 	ro := &grequests.RequestOptions{
 		DialTimeout:    requestOptionsDialTimeout,
@@ -112,7 +131,7 @@ func (cs *CredentialsStore) GetFromService(endpoint, accessKey, storageType stri
 		RedirectLimit:  1,
 		IsAjax:         false,
 	}
-	resp, err := grequests.Get(fmt.Sprintf(urlPattern, endpoint, accessKey, storageType), ro)
+	resp, err := grequests.Get(fmt.Sprintf(urlPattern, endpoint, accessKey, backend), ro)
 	switch {
 	case err != nil:
 		return csd, fmt.Errorf("unable to make request to credentials store service - err: %s", err)
