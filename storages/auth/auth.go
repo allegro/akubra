@@ -38,4 +38,7 @@ var Decorators = map[string]func(map[string]string) (httphandler.Decorator, erro
 		}
 		return SignDecorator(k), nil
 	},
+	S3Auth: func(extra map[string]string) {
+		
+	}
 }

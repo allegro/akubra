@@ -15,33 +15,42 @@ import (
 	httpHandlerConfig "github.com/allegro/akubra/httphandler/config"
 	logconfig "github.com/allegro/akubra/log/config"
 	"github.com/allegro/akubra/metrics"
+	regionsConfig "github.com/allegro/akubra/regions/config"
 	shardingconfig "github.com/allegro/akubra/sharding/config"
 	storageconfig "github.com/allegro/akubra/storages/config"
 	"github.com/stretchr/testify/assert"
+
 	yaml "gopkg.in/yaml.v2"
 )
 
 const (
 	yamlValidateEndpointURL         string = "http://127.0.0.1:8071/configuration/validate"
-	yamlConfigWithoutRegionsSection string = `Listen: :80
-TechnicalEndpointListen: :81
-HealthCheckEndpoint: /status/ping
-BodyMaxSize: 2048
-MaxIdleConns: 1
-MaxIdleConnsPerHost: 2
-IdleConnTimeout: 3s
-ResponseHeaderTimeout: 4s
-MaxConcurrentRequests: 200
+	yamlConfigWithoutRegionsSection string = `Service:
+  Server:
+    Listen: :80
+    TechnicalEndpointListen: :81
+    HealthCheckEndpoint: /status/ping
+    MaxConcurrentRequests: 200
+  Client:
+    BodyMaxSize: 2048
+    MaxIdleConns: 1
+    MaxIdleConnsPerHost: 2
+    IdleConnTimeout: 3s
+    ResponseHeaderTimeout: 4s
+    AdditionalRequestHeaders:
+      Cache-Control: public, s-maxage=600, max-age=600
+    AdditionalResponseHeaders:
+      Access-Control-Allow-Methods: GET, POST, OPTIONS
+  
+Backends:
+  dummy:
+  Endpoint: "http://127.0.0.1:8080"
+  Type: "passthrough"
+  Maintenance: false
 Clusters:
   cluster1test:
     Backends:
-      - "http://127.0.0.1:8080"
-AdditionalRequestHeaders:
-  Cache-Control: public, s-maxage=600, max-age=600
-AdditionalResponseHeaders:
-  Access-Control-Allow-Methods: GET, POST, OPTIONS
-SyncLogMethods:
-  - POST
+      - dummy
 DisableKeepAlives: false
 `
 )
@@ -57,11 +66,11 @@ type YamlConfigTest struct {
 
 // NewYamlConfigTest tests func for updating fields values in tests cases
 func (t *YamlConfigTest) NewYamlConfigTest() *YamlConfig {
-	var size shardingconfig.HumanSizeUnits
+	var size httpHandlerConfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	regionConfig := &shardingconfig.RegionConfig{}
+	region := regionsConfig.Region{}
 	t.YamlConfig = PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", ":81",
-		map[string]shardingconfig.RegionConfig{"region": *regionConfig})
+		map[string]regionsConfig.Region{"region": region})
 	return &t.YamlConfig
 }
 
@@ -137,10 +146,11 @@ func TestShouldNotValidateListenConf(t *testing.T) {
 
 func TestShouldValidateConfMaintainedBackendWhenNotEmpty(t *testing.T) {
 	maintainedBackendHost := "127.0.0.1:85"
-	var size shardingconfig.HumanSizeUnits
+	var size httpHandlerConfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	regionConfig := &shardingconfig.RegionConfig{}
-	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", ":81", map[string]shardingconfig.RegionConfig{"region": *regionConfig})
+	region := regionsConfig.Region{}
+	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", ":81",
+		map[string]regionsConfig.Region{"region": region})
 
 	result, _ := ValidateConf(testConfData, false)
 
@@ -149,10 +159,12 @@ func TestShouldValidateConfMaintainedBackendWhenNotEmpty(t *testing.T) {
 
 func TestShouldValidateConfMaintainedBackendWhenEmpty(t *testing.T) {
 	maintainedBackendHost := ""
-	var size shardingconfig.HumanSizeUnits
+	var size httpHandlerConfig.HumanSizeUnits
 	size.SizeInBytes = 4096
-	regionConfig := &shardingconfig.RegionConfig{}
-	testConfData := PrepareYamlConfig(size, 22, 33, maintainedBackendHost, ":80", ":81", map[string]shardingconfig.RegionConfig{"region": *regionConfig})
+	region := regionsConfig.Region{}
+	testConfData := PrepareYamlConfig(size, 22, 33, maintainedBackendHost,
+		":80", ":81",
+		map[string]regionsConfig.Region{"region": region})
 
 	result, _ := ValidateConf(testConfData, false)
 
@@ -235,7 +247,7 @@ func TestDurationYamlParsingWithIncorrectValue(t *testing.T) {
 
 func TestShouldValidateBodyMaxSizeWithCorrectSize(t *testing.T) {
 	correct := []byte(`10MB`)
-	testyaml := shardingconfig.HumanSizeUnits{}
+	testyaml := httpHandlerConfig.HumanSizeUnits{}
 	err := yaml.Unmarshal(correct, &testyaml)
 
 	assert.NoError(t, err, "Should be correct size")
@@ -243,7 +255,7 @@ func TestShouldValidateBodyMaxSizeWithCorrectSize(t *testing.T) {
 
 func TestShouldNotValidateBodyMaxSizeWithIncorrectValue(t *testing.T) {
 	correct := []byte(`GB`)
-	testyaml := shardingconfig.HumanSizeUnits{}
+	testyaml := httpHandlerConfig.HumanSizeUnits{}
 	err := yaml.Unmarshal(correct, &testyaml)
 
 	assert.Error(t, err, "Missing BodyMaxSize should return error")
@@ -251,7 +263,7 @@ func TestShouldNotValidateBodyMaxSizeWithIncorrectValue(t *testing.T) {
 
 func TestShouldNotValidateBodyMaxSizeWithZero(t *testing.T) {
 	correct := []byte(`0`)
-	testyaml := shardingconfig.HumanSizeUnits{}
+	testyaml := httpHandlerConfig.HumanSizeUnits{}
 	err := yaml.Unmarshal(correct, &testyaml)
 
 	assert.Error(t, err, "Missing BodyMaxSize should return error")
@@ -323,9 +335,9 @@ func TestShouldNotPassValidateConfigurationHTTPHandlerWithWrongRequests(t *testi
 
 func TestShouldNotPassWhenNoRegionIsDefined(t *testing.T) {
 	maintainedBackendHost := "127.0.0.1:85"
-	var size shardingconfig.HumanSizeUnits
+	var size httpHandlerConfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", ":81", map[string]shardingconfig.RegionConfig{})
+	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", ":81", regionsConfig.Regions{})
 
 	result, _ := ValidateConf(testConfData, true)
 
@@ -333,15 +345,13 @@ func TestShouldNotPassWhenNoRegionIsDefined(t *testing.T) {
 }
 
 func PrepareYamlConfig(
-	bodyMaxSize shardingconfig.HumanSizeUnits,
+	bodyMaxSize httpHandlerConfig.HumanSizeUnits,
 	idleConnTimeoutInp time.Duration,
 	responseHeaderTimeoutInp time.Duration,
 	maintainedBackendHost string,
 	listen string,
 	technicalEndpointListen string,
-	regions map[string]shardingconfig.RegionConfig) YamlConfig {
-
-	syncLogMethods := []shardingconfig.SyncLogMethod{{Method: "POST"}}
+	regions regionsConfig.Regions) YamlConfig {
 
 	url1 := url.URL{Scheme: "http", Host: "127.0.0.1:8080"}
 	yamlURL := shardingconfig.YAMLUrl{URL: &url1}
@@ -365,34 +375,39 @@ func PrepareYamlConfig(
 		Backends: []string{"default"},
 	}
 
-	additionalRequestHeaders := shardingconfig.AdditionalHeaders{
+	additionalRequestHeaders := httpHandlerConfig.AdditionalHeaders{
 		"Cache-Control": "public, s-maxage=600, max-age=600",
 	}
 
-	additionalResponseHeaders := shardingconfig.AdditionalHeaders{
+	additionalResponseHeaders := httpHandlerConfig.AdditionalHeaders{
 		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 	}
 
 	return YamlConfig{
-		Listen:                    listen,
-		HealthCheckEndpoint:       "/status/ping",
-		TechnicalEndpointListen:   technicalEndpointListen,
-		Backends:                  []shardingconfig.YAMLUrl{},
-		BodyMaxSize:               bodyMaxSize,
-		MaxIdleConns:              maxIdleConns,
-		MaxIdleConnsPerHost:       maxIdleConnsPerHost,
-		IdleConnTimeout:           metrics.Interval{Duration: idleConnTimeoutInp},
-		ResponseHeaderTimeout:     metrics.Interval{Duration: responseHeaderTimeoutInp},
-		MaxConcurrentRequests:     maxConcurrentRequests,
-		Clusters:                  clusters,
-		Regions:                   regions,
-		AdditionalRequestHeaders:  additionalRequestHeaders,
-		AdditionalResponseHeaders: additionalResponseHeaders,
-		MaintainedBackends:        maintainedBackends,
-		SyncLogMethods:            syncLogMethods,
-		Logging:                   logconfig.LoggingConfig{},
-		Metrics:                   metrics.Config{},
-		DisableKeepAlives:         false,
+		Service: httpHandlerConfig.Service{
+			Server: httpHandlerConfig.Server{
+				Listen:                  listen,
+				HealthCheckEndpoint:     "/status/ping",
+				TechnicalEndpointListen: technicalEndpointListen,
+				MaxConcurrentRequests:   maxConcurrentRequests,
+				BodyMaxSize:             bodyMaxSize,
+			},
+			Client: httpHandlerConfig.Client{
+				MaxIdleConns:              maxIdleConns,
+				MaxIdleConnsPerHost:       maxIdleConnsPerHost,
+				IdleConnTimeout:           metrics.Interval{Duration: idleConnTimeoutInp},
+				ResponseHeaderTimeout:     metrics.Interval{Duration: responseHeaderTimeoutInp},
+				AdditionalRequestHeaders:  additionalRequestHeaders,
+				AdditionalResponseHeaders: additionalResponseHeaders,
+				DisableKeepAlives:         false,
+			},
+		},
+
+		Backends: backendsMap,
+		Clusters: clustersMap,
+		Regions:  regions,
+		Logging:  logconfig.LoggingConfig{},
+		Metrics:  metrics.Config{},
 	}
 }
 

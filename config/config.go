@@ -76,7 +76,6 @@ func Configure(configFilePath string) (conf Config, err error) {
 func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[string][]error) {
 	validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
 	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
-	fmt.Printf("%#v\n", conf)
 	valid, validationErrors := validator.Validate(conf)
 	if valid && enableLogicalValidator {
 		var validListenPorts bool

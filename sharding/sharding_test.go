@@ -1,5 +1,16 @@
 package sharding
 
+import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"testing"
+
+	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/storages"
+)
+
 // import (
 // 	"fmt"
 // 	"net/http"
@@ -41,57 +52,59 @@ package sharding
 // 	}
 // }
 
-// func makeRegionRing(clusterWeights []float64, t *testing.T, handlerfunc func(w http.ResponseWriter, r *http.Request)) ShardsRing {
-// 	config := makePrimaryConfiguration()
-// 	clusterMap := make(map[string]shardingconfig.ClusterConfig)
-// 	regionClusterList := make([]shardingconfig.MultiClusterConfig, 0, len(clusterWeights))
-// 	for l := 0; l < len(clusterWeights); l++ {
-// 		clusterName := fmt.Sprintf("cluster%d", l)
+func makeRegionRing(clusterWeights []float64, t *testing.T, handlerfunc func(w http.ResponseWriter, r *http.Request)) ShardsRing {
+	config := makePrimaryConfiguration()
+	clusterMap := make(map[string]shardingconfig.ClusterConfig)
+	regionClusterList := make([]shardingconfig.MultiClusterConfig, 0, len(clusterWeights))
+	for l := 0; l < len(clusterWeights); l++ {
+		clusterName := fmt.Sprintf("cluster%d", l)
 
-// 		//"Clusters" part...
-// 		handlerfun := http.HandlerFunc(handlerfunc)
-// 		ts := httptest.NewServer(handlerfun)
-// 		backendURL, err := url.Parse(ts.URL)
-// 		if err != nil {
-// 			t.Error(err)
-// 		}
-// 		backendYamlURL := &shardingconfig.YAMLUrl{URL: backendURL}
-// 		backends := []shardingconfig.YAMLUrl{*backendYamlURL}
-// 		clusterConfig := shardingconfig.ClusterConfig{
-// 			Backends: backends,
-// 		}
-// 		clusterMap[clusterName] = clusterConfig
+		//"Clusters" part...
+		handlerfun := http.HandlerFunc(handlerfunc)
+		ts := httptest.NewServer(handlerfun)
+		backendURL, err := url.Parse(ts.URL)
+		if err != nil {
+			t.Error(err)
+		}
+		backendYamlURL := &shardingconfig.YAMLUrl{URL: backendURL}
+		backends := []shardingconfig.YAMLUrl{*backendYamlURL}
+		clusterConfig := shardingconfig.ClusterConfig{
+			Backends: backends,
+		}
+		clusterMap[clusterName] = clusterConfig
 
-// 		//"Regions" part...
-// 		multiClusterConfig := &shardingconfig.MultiClusterConfig{
-// 			Cluster: clusterName,
-// 			Weight:  clusterWeights[l],
-// 		}
-// 		regionClusterList = append(regionClusterList, *multiClusterConfig)
-// 	}
-// 	domains := []string{"http://regiondomain.pl"}
-// 	regionConfig := &shardingconfig.RegionConfig{
-// 		Clusters: regionClusterList,
-// 		Domains:  domains,
-// 	}
-// 	config.Clusters = clusterMap
+		//"Regions" part...
+		multiClusterConfig := &shardingconfig.MultiClusterConfig{
+			Cluster: clusterName,
+			Weight:  clusterWeights[l],
+		}
+		regionClusterList = append(regionClusterList, *multiClusterConfig)
+	}
+	domains := []string{"http://regiondomain.pl"}
+	regionConfig := &shardingconfig.RegionConfig{
+		Clusters: regionClusterList,
+		Domains:  domains,
+	}
+	config.Clusters = clusterMap
 
-// 	httptransp, err := httphandler.ConfigureHTTPTransport(config)
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
-// 	ringStorages := &storages.Storages{
-// 		Conf:      config,
-// 		Transport: httptransp,
-// 		Clusters:  make(map[string]storages.Cluster),
-// 	}
-// 	ringFactory := NewRingFactory(config, ringStorages, httptransp)
-// 	regionRing, err := ringFactory.RegionRing(*regionConfig)
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
-// 	return regionRing
-// }
+	httptransp, err := httphandler.ConfigureHTTPTransport(config)
+	if err != nil {
+		t.Error(err)
+	}
+
+	ringStorages := &storages.Storages{
+		Conf:      config,
+		Transport: httptransp,
+		Clusters:  make(map[string]storages.Cluster),
+	}
+	ringFactory := NewRingFactory(config, ringStorages, httptransp)
+
+	regionRing, err := ringFactory.RegionRing(*regionConfig)
+	if err != nil {
+		t.Error(err)
+	}
+	return regionRing
+}
 
 // func TestGetWithOneCluster(t *testing.T) {
 // 	callCount := int32(0)
