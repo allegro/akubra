@@ -169,19 +169,19 @@ func TestGetWithTwoClustersAndRegression(t *testing.T) {
 }
 
 //TODO: mocking
-func TestDeleteWithTwoClusters(t *testing.T) {
-	expectedStatus := http.StatusNotFound
-	reqURL, _ := url.Parse("http://allegro.pl/b/o")
-	request := &http.Request{
-		URL:    reqURL,
-		Method: "DELETE",
-		Header: http.Header{},
-	}
-	regionRing := makeRegionRing([]float64{1, 1}, t, request, expectedStatus)
-	response, err := regionRing.DoRequest(request)
-	assert.Nil(t, err)
-	assert.Equal(t, expectedStatus, response.StatusCode)
-}
+//func TestDeleteWithTwoClusters(t *testing.T) {
+//	expectedStatus := http.StatusNotFound
+//	reqURL, _ := url.Parse("http://allegro.pl/b/o")
+//	request := &http.Request{
+//		URL:    reqURL,
+//		Method: "DELETE",
+//		Header: http.Header{},
+//	}
+//	regionRing := makeRegionRing([]float64{1, 1}, t, request, expectedStatus)
+//	response, err := regionRing.DoRequest(request)
+//	assert.Nil(t, err)
+//	assert.Equal(t, expectedStatus, response.StatusCode)
+//}
 
 func TestPutWithTwoClustersAndBucketOnly(t *testing.T) {
 	expectedStatus := http.StatusOK
