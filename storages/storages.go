@@ -14,6 +14,7 @@ import (
 	set "github.com/deckarep/golang-set"
 )
 
+// NamedCluster interface
 type NamedCluster interface {
 	http.RoundTripper
 	Name() string
