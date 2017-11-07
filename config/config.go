@@ -77,11 +77,15 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 	validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
 	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
 	valid, validationErrors := validator.Validate(conf)
+	println("valid so far", valid)
 	if valid && enableLogicalValidator {
 		var validListenPorts bool
-		conf.RegionsEntryLogicalValidator(&valid, &validationErrors)
+
 		conf.ListenPortsLogicalValidator(&validListenPorts, &validationErrors)
+		conf.RegionsEntryLogicalValidator(&valid, &validationErrors)
+
 		valid = valid && validListenPorts
+		println("logic valid", valid)
 	}
 
 	for propertyName, validatorMessage := range validationErrors {

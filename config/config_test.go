@@ -27,9 +27,9 @@ const (
 	yamlValidateEndpointURL         string = "http://127.0.0.1:8071/configuration/validate"
 	yamlConfigWithoutRegionsSection string = `Service:
   Server:
-    Listen: :80
-    TechnicalEndpointListen: :81
-    HealthCheckEndpoint: /status/ping
+    Listen: ":80"
+    TechnicalEndpointListen: ":81"
+    HealthCheckEndpoint: "/status/ping"
     MaxConcurrentRequests: 200
   Client:
     BodyMaxSize: 2048
@@ -44,9 +44,9 @@ const (
   
 Backends:
   dummy:
-  Endpoint: "http://127.0.0.1:8080"
-  Type: "passthrough"
-  Maintenance: false
+    Endpoint: "http://127.0.0.1:8080"
+    Type: "passthrough"
+    Maintenance: false
 Clusters:
   cluster1test:
     Backends:
@@ -285,7 +285,7 @@ DisableKeepAlives: false
 	ValidateConfigurationHTTPHandler(writer, request)
 
 	assert.Equal(t, http.StatusOK, writer.Code)
-	assert.Contains(t, "Configuration checked - OK.", writer.Body.String())
+	assert.Contains(t, writer.Body.String(), "Configuration checked - OK.")
 }
 
 func TestShouldNotValidateConfigurationHTTPHandlerWithoutRegionsSection(t *testing.T) {
