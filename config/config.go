@@ -85,7 +85,7 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 		conf.RegionsEntryLogicalValidator(&valid, &validationErrors)
 
 		valid = valid && validListenPorts
-		println("logic valid", valid)
+		println("logic valid", valid, validListenPorts)
 	}
 
 	for propertyName, validatorMessage := range validationErrors {
