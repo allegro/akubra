@@ -86,7 +86,9 @@ func (s *service) start() error {
 	}
 	// TODO: Decorate ^ roundtripper here now - fix accesslog in configuration
 	syncLog, err := log.NewDefaultLogger(s.config.Logging.Synclog, "LOG_LOCAL1", true)
-
+	if err != nil {
+		return err
+	}
 	respHandler := httphandler.LateResponseHandler(syncLog, s.config.Logging.SyncLogMethodsSet)
 
 	storage, err := storages.InitStorages(
@@ -103,7 +105,9 @@ func (s *service) start() error {
 		return err
 	}
 	accessLog, err := log.NewDefaultLogger(s.config.Logging.Accesslog, "LOG_LOCAL1", true)
-
+	if err != nil {
+		return err
+	}
 	regionsDecoratedRT := httphandler.DecorateRoundTripper(s.config.Service.Client,
 		accessLog, s.config.Service.Server.HealthCheckEndpoint, regionsRT)
 
@@ -113,7 +117,6 @@ func (s *service) start() error {
 	}
 
 	err = metrics.Init(s.config.Metrics)
-
 	if err != nil {
 		return err
 	}
@@ -130,7 +133,6 @@ func (s *service) start() error {
 
 	srv.SetKeepAlivesEnabled(true)
 	listener, err := net.Listen("tcp", s.config.Service.Server.Listen)
-
 	if err != nil {
 		log.Fatalln(err)
 	}
