@@ -14,10 +14,16 @@ import (
 	set "github.com/deckarep/golang-set"
 )
 
+type NamedCluster interface {
+	http.RoundTripper
+	Name() string
+	Backends() []http.RoundTripper
+}
+
 // Cluster stores information about cluster backends
 type Cluster struct {
-	Backends    []http.RoundTripper
-	Name        string
+	backends    []http.RoundTripper
+	name        string
 	Logger      log.Logger
 	MethodSet   set.Set
 	respHandler transport.MultipleResponsesHandler
@@ -29,7 +35,7 @@ type Storages struct {
 	clustersConf config.ClustersMap
 	backendsConf config.BackendsMap
 	transport    http.RoundTripper
-	Clusters     map[string]Cluster
+	Clusters     map[string]NamedCluster
 	Backends     map[string]http.RoundTripper
 	respHandler  transport.MultipleResponsesHandler
 }
@@ -52,15 +58,25 @@ func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 
 func (c *Cluster) setupRoundTripper() {
 	multiTransport := transport.NewMultiTransport(
-		c.Backends,
+		c.Backends(),
 		c.respHandler,
 		nil)
 	c.transport = multiTransport
 }
 
 // RoundTrip implements http.RoundTripper interface
-func (c Cluster) RoundTrip(req *http.Request) (*http.Response, error) {
+func (c *Cluster) RoundTrip(req *http.Request) (*http.Response, error) {
 	return c.transport.RoundTrip(req)
+}
+
+// Name get Cluster name
+func (c *Cluster) Name() string {
+	return c.name
+}
+
+// Backends get http.RoundTripper slice
+func (c *Cluster) Backends() []http.RoundTripper {
+	return c.backends
 }
 
 func newBackend(backendConfig config.Backend, transport http.RoundTripper) (*Backend, error) {
@@ -78,41 +94,41 @@ func newCluster(name string, backendNames []string, backends map[string]http.Rou
 		clusterBackends = append(clusterBackends, backendRT)
 	}
 
-	cluster := &Cluster{Backends: clusterBackends, Name: name, respHandler: respHandler}
+	cluster := &Cluster{backends: clusterBackends, name: name, respHandler: respHandler}
 	cluster.setupRoundTripper()
 	return cluster, nil
 }
 
 //GetCluster gets cluster by name or nil if cluster with given name was not found
-func (st Storages) GetCluster(name string) (Cluster, error) {
+func (st Storages) GetCluster(name string) (NamedCluster, error) {
 	s3cluster, ok := st.Clusters[name]
 	if ok {
 		return s3cluster, nil
 	}
-	return Cluster{}, fmt.Errorf("No such cluster defined %q", name)
+	return &Cluster{}, fmt.Errorf("No such cluster defined %q", name)
 }
 
 // JoinClusters extends Clusters list of Storages by cluster made of joined clusters backends and returns it.
 // If cluster of given name is already defined returns previously defined cluster instead.
-func (st *Storages) JoinClusters(name string, clusters ...Cluster) Cluster {
+func (st *Storages) JoinClusters(name string, clusters ...NamedCluster) NamedCluster {
 	cluster, ok := st.Clusters[name]
 	if ok {
 		return cluster
 	}
 	backends := make([]http.RoundTripper, 0)
 	for _, cluster := range clusters {
-		backends = append(backends, cluster.Backends...)
+		backends = append(backends, cluster.Backends()...)
 	}
 
-	cluster = Cluster{Backends: backends, Name: name, respHandler: st.respHandler}
-	cluster.setupRoundTripper()
-	st.Clusters[name] = cluster
+	newCluster := &Cluster{backends: backends, name: name, respHandler: st.respHandler}
+	newCluster.setupRoundTripper()
+	st.Clusters[name] = newCluster
 	return cluster
 }
 
 // InitStorages setups storages
 func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap, respHandler transport.MultipleResponsesHandler) (*Storages, error) {
-	clusters := make(map[string]Cluster)
+	clusters := make(map[string]NamedCluster)
 	backends := make(map[string]http.RoundTripper)
 	for name, backendConf := range backendsConf {
 		backend := &Backend{
@@ -137,7 +153,7 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 		if err != nil {
 			return nil, err
 		}
-		clusters[name] = *cluster
+		clusters[name] = cluster
 	}
 	return &Storages{
 		clustersConf: clustersConf,

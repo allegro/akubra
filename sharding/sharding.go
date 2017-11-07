@@ -6,8 +6,6 @@ import (
 
 	"math"
 
-	// "github.com/allegro/akubra/config"
-
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/regions/config"
 	"github.com/allegro/akubra/storages"
@@ -22,9 +20,9 @@ type RingFactory struct {
 	syncLog   log.Logger
 }
 
-func (rf RingFactory) createRegressionMap(config config.Region) (map[string]storages.Cluster, error) {
-	regressionMap := make(map[string]storages.Cluster)
-	var previousCluster storages.Cluster
+func (rf RingFactory) createRegressionMap(config config.Region) (map[string]storages.NamedCluster, error) {
+	regressionMap := make(map[string]storages.NamedCluster)
+	var previousCluster storages.NamedCluster
 	for i, cluster := range config.Clusters {
 		clientCluster, err := rf.storages.GetCluster(cluster.Name)
 		if err != nil {
@@ -46,8 +44,8 @@ func (rf RingFactory) getRegionClustersWeights(regionCfg config.Region) map[stri
 	return res
 }
 
-func (rf RingFactory) makeRegionClusterMap(clientClusters map[string]int) (map[string]storages.Cluster, error) {
-	res := make(map[string]storages.Cluster, len(clientClusters))
+func (rf RingFactory) makeRegionClusterMap(clientClusters map[string]int) (map[string]storages.NamedCluster, error) {
+	res := make(map[string]storages.NamedCluster, len(clientClusters))
 	for name := range clientClusters {
 		cl, err := rf.storages.GetCluster(name)
 		if err != nil {
@@ -66,7 +64,7 @@ func (rf RingFactory) RegionRing(name string, regionCfg config.Region) (ShardsRi
 	if err != nil {
 		return ShardsRing{}, err
 	}
-	var regionClusters []storages.Cluster
+	var regionClusters []storages.NamedCluster
 	for _, cluster := range shardClusterMap {
 		regionClusters = append(regionClusters, cluster)
 	}
@@ -76,7 +74,7 @@ func (rf RingFactory) RegionRing(name string, regionCfg config.Region) (ShardsRi
 	allBackendsRoundTripper := rf.storages.JoinClusters(fmt.Sprintf("region-%s", name), regionClusters...)
 	regressionMap, err := rf.createRegressionMap(regionCfg)
 	if err != nil {
-		return ShardsRing{}, nil
+		return ShardsRing{}, err
 	}
 
 	// respHandler := httphandler.LateResponseHandler(rf.conf)
