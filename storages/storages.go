@@ -92,7 +92,8 @@ func (st Storages) GetCluster(name string) (Cluster, error) {
 	return Cluster{}, fmt.Errorf("No such cluster defined %q", name)
 }
 
-// JoinClusters returns Cluster of joinded clusters backends
+// JoinClusters extends Clusters list of Storages by cluster made of joined clusters backends and returns it.
+// If cluster of given name is already defined returns previously defined cluster instead.
 func (st *Storages) JoinClusters(name string, clusters ...Cluster) Cluster {
 	cluster, ok := st.Clusters[name]
 	if ok {
