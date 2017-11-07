@@ -80,7 +80,6 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 	println("valid so far", valid)
 	if valid && enableLogicalValidator {
 		var validListenPorts bool
-
 		conf.ListenPortsLogicalValidator(&validListenPorts, &validationErrors)
 		conf.RegionsEntryLogicalValidator(&valid, &validationErrors)
 
