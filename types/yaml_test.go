@@ -29,10 +29,10 @@ func TestYAMLUrlParsingFailure(t *testing.T) {
 }
 
 func TestYAMLUrlParsingSuccessful(t *testing.T) {
-	expectedUrl := "http://golang.org:80/pkg/net"
-	correct := []byte(`URL: ` + expectedUrl)
+	expectedURL := "http://golang.org:80/pkg/net"
+	correct := []byte(`URL: ` + expectedURL)
 	testyaml := TestYaml{URL: YAMLUrl{}}
 	err := yaml.Unmarshal(correct, &testyaml)
 	assert.Nil(t, err)
-	assert.Equal(t, expectedUrl, fmt.Sprintf("%s", testyaml.URL))
+	assert.Equal(t, expectedURL, fmt.Sprintf("%s", testyaml.URL))
 }
