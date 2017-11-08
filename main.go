@@ -21,9 +21,6 @@ import (
 	graceful "gopkg.in/tylerb/graceful.v1"
 )
 
-// YamlValidationErrorExitCode for problems with YAML config validation
-const YamlValidationErrorExitCode = 20
-
 // TechnicalEndpointGeneralTimeout for /configuration/validate endpoint
 const TechnicalEndpointGeneralTimeout = 5 * time.Second
 

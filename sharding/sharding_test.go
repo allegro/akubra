@@ -64,8 +64,7 @@ func makePrimaryConfiguration() config.Config {
 	}
 
 	return config.Config{
-		YamlConfig:        config.YamlConfig{},
-		SyncLogMethodsSet: methodsSet,
+		YamlConfig: config.YamlConfig{},
 	}
 }
 
