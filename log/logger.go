@@ -183,7 +183,7 @@ func NewLogger(config LoggerConfig) (Logger, error) {
 	return logger, nil
 }
 
-// Return configured Logger or syslog logger
+// NewDefaultLogger return configured Logger or syslog logger
 func NewDefaultLogger(config LoggerConfig, syslogFacility string, plainText bool) (Logger, error) {
 	empty := LoggerConfig{}
 	if config == empty {
