@@ -12,8 +12,8 @@ const (
 	Passthrough = "passthrough"
 	// S3FixedKey will sign requests with single key
 	S3FixedKey = "S3FixedKey"
-	// S3Auth ...
-	S3Auth = "S3Auth"
+	// S3AuthService will sign requests using key from external source
+	S3AuthService = "S3AuthService"
 )
 
 // Decorators maps Backend type with httphadler decorators factory
@@ -40,10 +40,17 @@ var Decorators = map[string]func(map[string]string) (httphandler.Decorator, erro
 		}
 		return SignDecorator(k), nil
 	},
-	//TODO: STUB only -> waiting for merging with "S3authservice" branch
-	S3Auth: func(extra map[string]string) (httphandler.Decorator, error) {
-		return func(rt http.RoundTripper) http.RoundTripper {
-			return rt
-		}, nil
+	S3AuthService: func(extra map[string]string) (httphandler.Decorator, error) {
+		backend, ok := extra["AuthServiceBackend"]
+		if !ok {
+			return nil, fmt.Errorf("no `AuthServiceBackend` defined for backend type %q", S3AuthService)
+		}
+
+		endpoint, ok := extra["AuthServiceEndpoint"]
+		if !ok {
+			return nil, fmt.Errorf("no `AuthServiceEndpoint` defined for backend type %q", S3AuthService)
+		}
+
+		return SignAuthServiceDecorator(backend, endpoint), nil
 	},
 }

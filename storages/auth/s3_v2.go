@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/transport/crdstore"
 )
 
 // APIErrorCode type of error status.
@@ -250,9 +251,37 @@ type signRoundTripper struct {
 	keys Keys
 }
 
+type signAuthServiceRoundTripper struct {
+	rt      http.RoundTripper
+	crd     *crdstore.CredentialsStore
+	backend string
+}
+
 // RoundTrip implements http.RoundTripper interface
 func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	SignRequestV2(req, srt.keys)
+	return srt.rt.RoundTrip(req)
+}
+
+// RoundTrip implements http.RoundTripper interface
+func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	accessKey := strings.Trim(req.Header.Get("Authorization"), " ")
+	start := strings.IndexAny(accessKey, " ")
+	end := strings.IndexAny(accessKey, ":")
+	if start == -1 || end == -1 {
+		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, fmt.Errorf("cannot find AWS AccessKey in request")
+	}
+	accessKey = accessKey[start+1 : end]
+	csd, err := srt.crd.Get(accessKey, srt.backend)
+	if err == crdstore.ErrCredentialsNotFound {
+		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
+	}
+	if err != nil {
+		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
+	}
+
+	keys := Keys{csd.AccessKey, csd.SecretKey}
+	SignRequestV2(req, keys)
 	return srt.rt.RoundTrip(req)
 }
 
@@ -260,5 +289,12 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 func SignDecorator(keys Keys) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
 		return signRoundTripper{rt: rt, keys: keys}
+	}
+}
+
+// SignAuthServiceDecorator will compute
+func SignAuthServiceDecorator(backend, endpoint string) httphandler.Decorator {
+	return func(rt http.RoundTripper) http.RoundTripper {
+		return signAuthServiceRoundTripper{rt: rt, backend: backend, crd: crdstore.GetInstance(endpoint)}
 	}
 }
