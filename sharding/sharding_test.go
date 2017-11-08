@@ -50,10 +50,9 @@ type Request = http.Request
 type Response = http.Response
 
 func (rtm *RoundTripperMocked) RoundTrip(req *Request) (*Response, error) {
-	args := rtm.MethodCalled("RoundTrip", req)
+	args := rtm.Called()
 	response := args.Get(0).(*http.Response)
-	err := args.Get(1).(error)
-	return response, err
+	return response, nil
 }
 
 func makePrimaryConfiguration() config.Config {
@@ -86,11 +85,12 @@ func makeRegionRing(clusterWeights []float64, t *testing.T, request *http.Reques
 		}
 		clusterMap[clusterName] = clusterConfig
 
+		var err error
+
 		namedClusterMock := new(NamedClusterMock)
 		namedClusterMock.On("Name").Return(clusterName)
 		namedClusterMock.On("Backends").Return(map[string]http.RoundTripper{"rt0": &RoundTripperMocked{}})
 		resp := &http.Response{StatusCode: httpExpectedStatus}
-		var err error
 		namedClusterMock.On("RoundTrip", request).Return(resp, err)
 
 		ringStorages.Clusters[clusterName] = namedClusterMock
@@ -123,6 +123,13 @@ func makeRegionRing(clusterWeights []float64, t *testing.T, request *http.Reques
 	if err != nil {
 		t.Error(err)
 	}
+
+	roundTripperMocked := new(RoundTripperMocked)
+	respStub := &http.Response{StatusCode: http.StatusNotFound}
+	roundTripperMocked.On("RoundTrip").Return(respStub, err)
+
+	regionRing.allClustersRoundTripper = roundTripperMocked
+
 	return regionRing
 }
 
@@ -168,20 +175,19 @@ func TestGetWithTwoClustersAndRegression(t *testing.T) {
 	assert.Equal(t, expectedStatus, response.StatusCode)
 }
 
-//TODO: mocking
-//func TestDeleteWithTwoClusters(t *testing.T) {
-//	expectedStatus := http.StatusNotFound
-//	reqURL, _ := url.Parse("http://allegro.pl/b/o")
-//	request := &http.Request{
-//		URL:    reqURL,
-//		Method: "DELETE",
-//		Header: http.Header{},
-//	}
-//	regionRing := makeRegionRing([]float64{1, 1}, t, request, expectedStatus)
-//	response, err := regionRing.DoRequest(request)
-//	assert.Nil(t, err)
-//	assert.Equal(t, expectedStatus, response.StatusCode)
-//}
+func TestDeleteWithTwoClusters(t *testing.T) {
+	expectedStatus := http.StatusNotFound
+	reqURL, _ := url.Parse("http://allegro.pl/b/o")
+	request := &http.Request{
+		URL:    reqURL,
+		Method: "DELETE",
+		Header: http.Header{},
+	}
+	regionRing := makeRegionRing([]float64{1, 1}, t, request, expectedStatus)
+	response, err := regionRing.DoRequest(request)
+	assert.Nil(t, err)
+	assert.Equal(t, expectedStatus, response.StatusCode)
+}
 
 func TestPutWithTwoClustersAndBucketOnly(t *testing.T) {
 	expectedStatus := http.StatusOK
