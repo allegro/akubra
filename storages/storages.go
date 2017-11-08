@@ -86,10 +86,16 @@ func newBackend(backendConfig config.Backend, transport http.RoundTripper) (*Bac
 
 func newCluster(name string, backendNames []string, backends map[string]http.RoundTripper, respHandler transport.MultipleResponsesHandler) (*Cluster, error) {
 	clusterBackends := make([]http.RoundTripper, 0)
+	if len(backendNames) == 0 {
+		return nil, fmt.Errorf("empty 'backendNames' map in 'storages::newCluster'")
+	}
+	if len(backends) == 0 {
+		return nil, fmt.Errorf("empty 'backends' map in 'storages::newCluster'")
+	}
 	for _, backendName := range backendNames {
 		backendRT, ok := backends[backendName]
 		if !ok {
-			return nil, fmt.Errorf("No such backend %q", backendName)
+			return nil, fmt.Errorf("no such backend %q in 'storages::newCluster'", backendName)
 		}
 
 		clusterBackends = append(clusterBackends, backendRT)
@@ -131,6 +137,9 @@ func (st *Storages) JoinClusters(name string, clusters ...NamedCluster) NamedClu
 func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap, respHandler transport.MultipleResponsesHandler) (*Storages, error) {
 	clusters := make(map[string]NamedCluster)
 	backends := make(map[string]http.RoundTripper)
+	if len(backendsConf) == 0 {
+		return nil, fmt.Errorf("empty map 'backendsConf' in 'InitStorages'")
+	}
 	for name, backendConf := range backendsConf {
 		backend := &Backend{
 			transport,
@@ -148,6 +157,9 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 		decoratedBackend := httphandler.Decorate(backend, decorator)
 		backends[name] = decoratedBackend
 
+	}
+	if len(clustersConf) == 0 {
+		return nil, fmt.Errorf("empty map 'clustersConf' in 'InitStorages'")
 	}
 	for name, clusterConf := range clustersConf {
 		cluster, err := newCluster(name, clusterConf.Backends, backends, respHandler)
