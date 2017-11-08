@@ -9,19 +9,17 @@ import (
 
 	"github.com/allegro/akubra/log"
 
-	"github.com/allegro/akubra/httphandler"
-	"github.com/allegro/akubra/storages"
-
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/config"
+	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/regions"
+	"github.com/allegro/akubra/storages"
+	set "github.com/deckarep/golang-set"
 	_ "github.com/lib/pq"
+
 	graceful "gopkg.in/tylerb/graceful.v1"
 )
-
-// YamlValidationErrorExitCode for problems with YAML config validation
-const YamlValidationErrorExitCode = 20
 
 // TechnicalEndpointGeneralTimeout for /configuration/validate endpoint
 const TechnicalEndpointGeneralTimeout = 5 * time.Second
@@ -89,7 +87,12 @@ func (s *service) start() error {
 	if err != nil {
 		return err
 	}
-	respHandler := httphandler.LateResponseHandler(syncLog, s.config.Logging.SyncLogMethodsSet)
+
+	methods := make([]interface{}, 0, len(s.config.Logging.SyncLogMethods))
+	for _, v := range s.config.Logging.SyncLogMethods {
+		methods = append(methods, v)
+	}
+	respHandler := httphandler.LateResponseHandler(syncLog, set.NewSetFromSlice(methods))
 
 	storage, err := storages.InitStorages(
 		roundtripper,
