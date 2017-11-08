@@ -124,7 +124,7 @@ func (st *Storages) JoinClusters(name string, clusters ...NamedCluster) NamedClu
 	newCluster := &Cluster{backends: backends, name: name, respHandler: st.respHandler}
 	newCluster.setupRoundTripper()
 	st.Clusters[name] = newCluster
-	return cluster
+	return newCluster
 }
 
 // InitStorages setups storages
