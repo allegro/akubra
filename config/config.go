@@ -9,6 +9,8 @@ import (
 	"fmt"
 
 	httphandler "github.com/allegro/akubra/httphandler/config"
+
+	crdstoreconfig "github.com/allegro/akubra/crdstore/config"
 	"github.com/allegro/akubra/log"
 	logconfig "github.com/allegro/akubra/log/config"
 	"github.com/allegro/akubra/metrics"
@@ -30,12 +32,13 @@ const TechnicalEndpointHeaderContentType = "application/yaml"
 
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
-	Service  httphandler.Service     `yaml:"Service,omitempty"`
-	Backends storages.BackendsMap    `yaml:"Backends,omitempty"`
-	Clusters storages.ClustersMap    `yaml:"Clusters,omitempty"`
-	Regions  confregions.Regions     `yaml:"Regions,omitempty"`
-	Logging  logconfig.LoggingConfig `yaml:"Logging,omitempty"`
-	Metrics  metrics.Config          `yaml:"Metrics,omitempty"`
+	Service          httphandler.Service                `yaml:"Service,omitempty"`
+	Backends         storages.BackendsMap               `yaml:"Backends,omitempty"`
+	Clusters         storages.ClustersMap               `yaml:"Clusters,omitempty"`
+	Regions          confregions.Regions                `yaml:"Regions,omitempty"`
+	CredentialsStore crdstoreconfig.CredentialsStoreMap `yaml:"CredentialsStore,omitempty"`
+	Logging          logconfig.LoggingConfig            `yaml:"Logging,omitempty"`
+	Metrics          metrics.Config                     `yaml:"Metrics,omitempty"`
 }
 
 // Config contains processed YamlConfig data

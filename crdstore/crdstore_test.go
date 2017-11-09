@@ -10,7 +10,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+
+	"github.com/allegro/akubra/crdstore/config"
+	"github.com/allegro/akubra/types"
 )
 
 const (
@@ -48,8 +52,22 @@ func httpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func initConfig() {
+	mockURL, _ := url.Parse(httpEndpoint)
+	invalidURL, _ := url.Parse("http://127.255.255.255:50999")
+	cfg := config.CredentialsStoreMap{
+		"default": config.CredentialsStore{Endpoint: types.YAMLUrl{URL: mockURL}, TTL: 10},
+		"invalid": config.CredentialsStore{Endpoint: types.YAMLUrl{URL: invalidURL}, TTL: 10},
+	}
+
+	InitializeCredentialsStore(cfg)
+}
+
 func TestMain(m *testing.M) {
 	http.HandleFunc("/", httpHandler)
+
+	initConfig()
+
 	go func() {
 		err := http.ListenAndServe(httpListen, nil)
 		if err != nil {
@@ -62,13 +80,13 @@ func TestMain(m *testing.M) {
 }
 func TestShouldPrepareInternalKeyBasedOnAccessAndStorageType(t *testing.T) {
 	expectedKey := "access_____storage_type"
-	cs := GetInstance(httpEndpoint)
+	cs, _ := GetInstance("default")
 	key := cs.prepareKey("access", "storage_type")
 	require.Equal(t, expectedKey, key, "keys must be equals")
 }
 
 func TestShouldSetCredentialsFromExternalServiceEndpoint(t *testing.T) {
-	cs := GetInstance(httpEndpoint)
+	cs, _ := GetInstance("default")
 
 	csd, err := cs.Get(existingCredentials.AccessKey, existingStorage)
 	require.NoError(t, err)
@@ -77,7 +95,7 @@ func TestShouldSetCredentialsFromExternalServiceEndpoint(t *testing.T) {
 }
 
 func TestShouldNotCacheCredentialOnErrorFromExternalService(t *testing.T) {
-	cs := GetInstance(httpEndpoint)
+	cs, _ := GetInstance("default")
 	_, err := cs.Get("access_error", "storage_error")
 
 	require.Error(t, err)
@@ -86,7 +104,7 @@ func TestShouldNotCacheCredentialOnErrorFromExternalService(t *testing.T) {
 func TestShouldGetCredentialFromCacheIfExternalServiceFails(t *testing.T) {
 	expectedCredentials := &CredentialsStoreData{AccessKey: errorAccess, SecretKey: "secret_1"}
 
-	cs := GetInstance(httpEndpoint)
+	cs, _ := GetInstance("default")
 	cs.cache.Store(cs.prepareKey(errorAccess, errorStorage), expectedCredentials)
 	crd, err := cs.Get(errorAccess, errorStorage)
 
@@ -97,7 +115,7 @@ func TestShouldGetCredentialFromCacheIfExternalServiceFails(t *testing.T) {
 func TestShouldGetCredentialFromCacheIfConnectionRefused(t *testing.T) {
 	expectedCredentials := &CredentialsStoreData{AccessKey: errorAccess, SecretKey: "secret_1"}
 
-	cs := GetInstance("http://127.255.255.255:8091")
+	cs, _ := GetInstance("invalid")
 	cs.cache.Store(cs.prepareKey(errorAccess, errorStorage), expectedCredentials)
 	crd, err := cs.Get(errorAccess, errorStorage)
 
@@ -107,7 +125,7 @@ func TestShouldGetCredentialFromCacheIfConnectionRefused(t *testing.T) {
 
 func TestShouldGetCredentialFromCacheIfTTLIsNotExpired(t *testing.T) {
 	expectedCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(10 * time.Second)}
-	cs := GetInstance(httpEndpoint)
+	cs, _ := GetInstance("default")
 
 	cs.cache.Store(cs.prepareKey(existingAccess, existingStorage), expectedCredentials)
 	crd, err := cs.Get(existingAccess, existingStorage)
@@ -119,7 +137,7 @@ func TestShouldGetCredentialFromCacheIfTTLIsNotExpired(t *testing.T) {
 func TestShouldUpdateCredentialsIfTTLIsExpired(t *testing.T) {
 	oldCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(-20 * time.Second)}
 
-	cs := GetInstance(httpEndpoint)
+	cs, _ := GetInstance("default")
 	cs.cache.Store(cs.prepareKey(existingAccess, existingStorage), oldCredentials)
 	crd, err := cs.Get(existingAccess, existingStorage)
 
@@ -132,7 +150,7 @@ func TestShouldDeleteCachedCredentialsOnErrCredentialsNotFound(t *testing.T) {
 	backend := "no_storage"
 	oldCredentials := &CredentialsStoreData{AccessKey: accessKey, SecretKey: "secret_1", EOL: time.Now().Add(-10 * time.Second)}
 
-	cs := GetInstance(httpEndpoint)
+	cs, _ := GetInstance("default")
 	cs.cache.Store(cs.prepareKey("not_existing", backend), oldCredentials)
 	crd, err := cs.Get(accessKey, backend)
 
@@ -142,7 +160,7 @@ func TestShouldDeleteCachedCredentialsOnErrCredentialsNotFound(t *testing.T) {
 
 func TestShouldGetCredentialsFromCacheIfUpdateIsLocked(t *testing.T) {
 	expectedCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(-11 * time.Second)}
-	cs := GetInstance(httpEndpoint)
+	cs, _ := GetInstance("default")
 
 	cs.cache.Store(cs.prepareKey(existingAccess, existingStorage), expectedCredentials)
 	cs.lock.Lock()
@@ -155,7 +173,7 @@ func TestShouldGetCredentialsFromCacheIfUpdateIsLocked(t *testing.T) {
 
 func TestShouldUpdateCacheInBackground(t *testing.T) {
 	cachedCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(1 * time.Second)}
-	cs := GetInstance(httpEndpoint)
+	cs, _ := GetInstance("default")
 
 	cs.cache.Store(cs.prepareKey(existingAccess, existingStorage), cachedCredentials)
 	cs.Get(existingAccess, existingStorage)
@@ -169,7 +187,7 @@ func TestShouldUpdateCacheInBackground(t *testing.T) {
 }
 
 func TestShouldGetAnErrorOnInvalidJSON(t *testing.T) {
-	cs := GetInstance(httpEndpoint)
+	cs, _ := GetInstance("default")
 
 	crd, err := cs.Get(invalidAccess, invalidStorage)
 
@@ -178,7 +196,7 @@ func TestShouldGetAnErrorOnInvalidJSON(t *testing.T) {
 }
 
 func TestShouldGetAnErrorOnEmptyString(t *testing.T) {
-	cs := GetInstance(httpEndpoint)
+	cs, _ := GetInstance("default")
 
 	crd, err := cs.Get(emptyAccess, emptyStorage)
 

@@ -11,17 +11,17 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	"io/ioutil"
+
+	"github.com/allegro/akubra/crdstore/config"
 	"github.com/allegro/akubra/log"
-	"github.com/levigross/grequests"
 	"golang.org/x/sync/syncmap"
 )
 
 const (
 	keyPattern                   = "%s_____%s"
-	requestOptionsDialTimeout    = 50 * time.Millisecond
 	requestOptionsRequestTimeout = 100 * time.Millisecond
-	refreshTTLPercent            = 80               // Background refresh after refreshTTLPercent*TTL
-	ttl                          = 10 * time.Second // Cache TTL
+	refreshTTLPercent            = 80 // Background refresh after refreshTTLPercent*TTL
 )
 
 // ErrCredentialsNotFound - Credential for given accessKey and backend haven't been found in yaml file
@@ -39,27 +39,23 @@ type CredentialsStore struct {
 }
 
 // GetInstance - Get crdstore instance for endpoint
-func GetInstance(endpoint string) *CredentialsStore {
-	if instances == nil {
-		instances = make(map[string]*CredentialsStore)
+func GetInstance(endpointName string) (instance *CredentialsStore, err error) {
+	if instance, ok := instances[endpointName]; ok {
+		return instance, nil
 	}
-
-	if instance, ok := instances[endpoint]; ok {
-		return instance
-	}
-
-	instances[endpoint] = initializeCredentialsStore(endpoint)
-	return instances[endpoint]
+	return nil, fmt.Errorf("error credentialStore `%s` is not defined", endpointName)
 }
 
 // InitializeCredentialsStore - Constructor for CredentialsStore
-func initializeCredentialsStore(endpoint string) *CredentialsStore {
-	instances[endpoint] = &CredentialsStore{
-		endpoint: endpoint,
-		cache:    new(syncmap.Map),
-		TTL:      ttl,
+func InitializeCredentialsStore(storeMap config.CredentialsStoreMap) {
+	instances = make(map[string]*CredentialsStore)
+	for name, cfg := range storeMap {
+		instances[name] = &CredentialsStore{
+			endpoint: cfg.Endpoint.String(),
+			cache:    new(syncmap.Map),
+			TTL:      cfg.TTL * time.Second,
+		}
 	}
-	return instances[endpoint]
 }
 
 func (cs *CredentialsStore) prepareKey(accessKey, backend string) string {
@@ -115,7 +111,7 @@ func (cs *CredentialsStore) Get(accessKey, backend string) (csd *CredentialsStor
 		return cs.updateCache(accessKey, backend, key, csd, true)
 	case time.Now().After(csd.EOL):
 		return cs.updateCache(accessKey, backend, key, csd, false)
-	case time.Now().Add(cs.TTL / time.Second * (100 - refreshTTLPercent) * 10 * time.Millisecond).After(csd.EOL):
+	case time.Now().Add(cs.TTL / 100 * (100 - refreshTTLPercent)).After(csd.EOL):
 		go cs.updateCache(accessKey, backend, key, csd, false)
 	}
 
@@ -125,23 +121,25 @@ func (cs *CredentialsStore) Get(accessKey, backend string) (csd *CredentialsStor
 // GetFromService - Get Credential akubra-crdstore service
 func (cs *CredentialsStore) GetFromService(endpoint, accessKey, backend string) (csd *CredentialsStoreData, err error) {
 	csd = &CredentialsStoreData{}
-	ro := &grequests.RequestOptions{
-		DialTimeout:    requestOptionsDialTimeout,
-		RequestTimeout: requestOptionsRequestTimeout,
-		RedirectLimit:  1,
-		IsAjax:         false,
+	client := http.Client{
+		Timeout: requestOptionsRequestTimeout,
 	}
-	resp, err := grequests.Get(fmt.Sprintf(urlPattern, endpoint, accessKey, backend), ro)
+	resp, err := client.Get(fmt.Sprintf(urlPattern, endpoint, accessKey, backend))
 	switch {
 	case err != nil:
 		return csd, fmt.Errorf("unable to make request to credentials store service - err: %s", err)
 	case resp.StatusCode == http.StatusNotFound:
 		return nil, ErrCredentialsNotFound
 	case resp.StatusCode != http.StatusOK:
-		return csd, fmt.Errorf("unable to get credentials from store service - StatusCode: %d", resp.StatusCode)
+		return csd, fmt.Errorf("unable to get credentials from store service - StatusCode: %d (backend: `%s`, endpoint: `%s`", resp.StatusCode, backend, endpoint)
+	}
+	defer resp.Body.Close()
+
+	credentials, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return csd, fmt.Errorf("unable to read response body from credentials store service - err: %s", err)
 	}
 
-	credentials := resp.String()
 	if len(credentials) == 0 {
 		return csd, fmt.Errorf("got empty credentials from store service%s", "")
 	}

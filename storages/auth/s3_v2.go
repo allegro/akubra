@@ -10,8 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/allegro/akubra/crdstore"
 	"github.com/allegro/akubra/httphandler"
-	"github.com/allegro/akubra/transport/crdstore"
+	"github.com/allegro/akubra/log"
 )
 
 // APIErrorCode type of error status.
@@ -263,15 +264,26 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	return srt.rt.RoundTrip(req)
 }
 
-// RoundTrip implements http.RoundTripper interface
-func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	accessKey := strings.Trim(req.Header.Get("Authorization"), " ")
+// extractAccessKey - extract accessKey from S3 authorization header
+func extractAccessKey(authorizationHeader string) (accessKey string, err error) {
+	accessKey = strings.Trim(authorizationHeader, " ")
 	start := strings.IndexAny(accessKey, " ")
 	end := strings.IndexAny(accessKey, ":")
-	if start == -1 || end == -1 {
-		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, fmt.Errorf("cannot find AWS AccessKey in request")
+	if end <= start || start <= -1 {
+		return "", fmt.Errorf("cannot find AWS AccessKey in request")
 	}
 	accessKey = accessKey[start+1 : end]
+	return
+
+}
+
+// RoundTrip implements http.RoundTripper interface
+func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	accessKey, err := extractAccessKey(req.Header.Get("Authorization"))
+	if err != nil {
+		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
+	}
+
 	csd, err := srt.crd.Get(accessKey, srt.backend)
 	if err == crdstore.ErrCredentialsNotFound {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
@@ -295,6 +307,10 @@ func SignDecorator(keys Keys) httphandler.Decorator {
 // SignAuthServiceDecorator will compute
 func SignAuthServiceDecorator(backend, endpoint string) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
-		return signAuthServiceRoundTripper{rt: rt, backend: backend, crd: crdstore.GetInstance(endpoint)}
+		credentialsStore, err := crdstore.GetInstance(endpoint)
+		if err != nil {
+			log.Panicf("error CredentialsStore `%s` is not defined", endpoint)
+		}
+		return signAuthServiceRoundTripper{rt: rt, backend: backend, crd: credentialsStore}
 	}
 }
