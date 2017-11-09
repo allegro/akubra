@@ -1,5 +1,5 @@
 hash: 0ebff72bf1c3c96b5cdf57561f208ff1a9a5a02c961d8406fc758b445c9f7b0c
-updated: 2017-09-28T15:57:53.280181683+02:00
+updated: 2017-11-08T13:40:22.669255544+01:00
 imports:
 - name: github.com/alecthomas/kingpin
   version: 1087e65c9441605df944fb12c33f0fe7072d18ca
@@ -12,7 +12,7 @@ imports:
 - name: github.com/cyberdelia/go-metrics-graphite
   version: 39f87cc3b432bbb898d7c643c0e93cac2bc865ad
 - name: github.com/deckarep/golang-set
-  version: fc8930a5e645572ee00bf66358ed3414f3c13b90
+  version: 1d4478f51bed434f1dadf96dcd9b43aabac66795
 - name: github.com/docker/go-units
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
 - name: github.com/go-validator/validator
@@ -48,7 +48,7 @@ imports:
   version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
 testImports:
 - name: github.com/DATA-DOG/go-sqlmock
-  version: b983233bc0bbea4dc6e8ec8c8c923d935765ffec
+  version: d76b18b42f285b792bf985118980ce9eacea9d10
 - name: github.com/davecgh/go-spew
   version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
   subpackages:
@@ -60,8 +60,9 @@ testImports:
 - name: github.com/stretchr/objx
   version: cbeaeb16a013161a98496fad62933b1d21786672
 - name: github.com/stretchr/testify
-  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
+  version: 2aa2c176b9dab406a6970f6a55f513e8a8c8b18f
   subpackages:
   - assert
   - mock
   - require
+  - suite

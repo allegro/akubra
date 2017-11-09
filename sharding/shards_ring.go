@@ -26,9 +26,9 @@ type ShardsRingAPI interface {
 // and directs requests to determined shard
 type ShardsRing struct {
 	ring                    *hashring.HashRing
-	shardClusterMap         map[string]storages.Cluster
+	shardClusterMap         map[string]storages.NamedCluster
 	allClustersRoundTripper http.RoundTripper
-	clusterRegressionMap    map[string]storages.Cluster
+	clusterRegressionMap    map[string]storages.NamedCluster
 	inconsistencyLog        log.Logger
 }
 
@@ -38,16 +38,16 @@ func (sr ShardsRing) isBucketPath(path string) bool {
 }
 
 // Pick finds cluster for given relative uri
-func (sr ShardsRing) Pick(key string) (storages.Cluster, error) {
+func (sr ShardsRing) Pick(key string) (storages.NamedCluster, error) {
 	var shardName string
 
 	shardName, ok := sr.ring.GetNode(key)
 	if !ok {
-		return storages.Cluster{}, fmt.Errorf("no shard for key %s", key)
+		return &storages.Cluster{}, fmt.Errorf("no shard for key %s", key)
 	}
 	shardCluster, ok := sr.shardClusterMap[shardName]
 	if !ok {
-		return storages.Cluster{}, fmt.Errorf("no cluster for shard %s, cannot handle key %s", shardName, key)
+		return &storages.Cluster{}, fmt.Errorf("no cluster for shard %s, cannot handle key %s", shardName, key)
 	}
 
 	return shardCluster, nil
@@ -104,11 +104,11 @@ func (sr ShardsRing) send(roundTripper http.RoundTripper, req *http.Request) (*h
 	return roundTripper.RoundTrip(req)
 }
 
-func (sr ShardsRing) regressionCall(cl storages.Cluster, req *http.Request) (string, *http.Response, error) {
+func (sr ShardsRing) regressionCall(cl storages.NamedCluster, req *http.Request) (string, *http.Response, error) {
 	resp, err := sr.send(cl, req)
 	// Do regression call if response status is > 400
 	if (err != nil || resp.StatusCode > 400) && req.Method != http.MethodPut {
-		rcl, ok := sr.clusterRegressionMap[cl.Name]
+		rcl, ok := sr.clusterRegressionMap[cl.Name()]
 		if ok {
 			_, discardErr := io.Copy(ioutil.Discard, resp.Body)
 			if discardErr != nil {
@@ -125,7 +125,7 @@ func (sr ShardsRing) regressionCall(cl storages.Cluster, req *http.Request) (str
 			return sr.regressionCall(rcl, req)
 		}
 	}
-	return cl.Name, resp, err
+	return cl.Name(), resp, err
 }
 func (sr *ShardsRing) logInconsistency(key, expectedClusterName, actualClusterName string) {
 	logJSON, err := json.Marshal(
@@ -172,8 +172,8 @@ func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr err
 	}
 
 	clusterName, resp, err := sr.regressionCall(cl, reqCopy)
-	if clusterName != cl.Name {
-		sr.logInconsistency(reqCopy.URL.Path, cl.Name, clusterName)
+	if clusterName != cl.Name() {
+		sr.logInconsistency(reqCopy.URL.Path, cl.Name(), clusterName)
 	}
 
 	return resp, err
