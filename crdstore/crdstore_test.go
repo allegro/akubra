@@ -14,6 +14,7 @@ import (
 	"os"
 
 	"github.com/allegro/akubra/crdstore/config"
+	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/types"
 )
 
@@ -56,8 +57,8 @@ func initConfig() {
 	mockURL, _ := url.Parse(httpEndpoint)
 	invalidURL, _ := url.Parse("http://127.255.255.255:50999")
 	cfg := config.CredentialsStoreMap{
-		"default": config.CredentialsStore{Endpoint: types.YAMLUrl{URL: mockURL}, TTL: 10},
-		"invalid": config.CredentialsStore{Endpoint: types.YAMLUrl{URL: invalidURL}, TTL: 10},
+		"default": config.CredentialsStore{Endpoint: types.YAMLUrl{URL: mockURL}, CacheTTL: metrics.Interval{Duration: 10 * time.Second}},
+		"invalid": config.CredentialsStore{Endpoint: types.YAMLUrl{URL: invalidURL}, CacheTTL: metrics.Interval{Duration: 10 * time.Second}},
 	}
 
 	InitializeCredentialsStore(cfg)

@@ -53,7 +53,7 @@ func InitializeCredentialsStore(storeMap config.CredentialsStoreMap) {
 		instances[name] = &CredentialsStore{
 			endpoint: cfg.Endpoint.String(),
 			cache:    new(syncmap.Map),
-			TTL:      cfg.TTL * time.Second,
+			TTL:      cfg.CacheTTL.Duration,
 		}
 	}
 }

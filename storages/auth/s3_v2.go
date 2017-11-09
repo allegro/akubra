@@ -274,7 +274,6 @@ func extractAccessKey(authorizationHeader string) (accessKey string, err error) 
 	}
 	accessKey = accessKey[start+1 : end]
 	return
-
 }
 
 // RoundTrip implements http.RoundTripper interface
