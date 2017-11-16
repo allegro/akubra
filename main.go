@@ -93,6 +93,7 @@ func (s *service) start() error {
 	for _, v := range s.config.Logging.SyncLogMethods {
 		methods = append(methods, v)
 	}
+
 	respHandler := httphandler.LateResponseHandler(syncLog, set.NewSetFromSlice(methods))
 	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
 	storage, err := storages.InitStorages(

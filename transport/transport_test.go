@@ -80,10 +80,10 @@ func mkTransportWithRoundTripper(urls []url.URL, rt http.RoundTripper, t *testin
 
 	return &MultiTransport{
 		Backends: backends,
-		HandleResponses: func(in <-chan ReqResErrTuple) ReqResErrTuple {
-			out := make(chan ReqResErrTuple, 1)
+		HandleResponses: func(in <-chan ResErrTuple) ResErrTuple {
+			out := make(chan ResErrTuple, 1)
 			sent := false
-			var lastErr ReqResErrTuple
+			var lastErr ResErrTuple
 			for {
 				rs, ok := <-in
 				if !ok {

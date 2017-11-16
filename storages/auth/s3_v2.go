@@ -260,6 +260,7 @@ type signAuthServiceRoundTripper struct {
 
 // RoundTrip implements http.RoundTripper interface
 func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+
 	SignRequestV2(req, srt.keys)
 	return srt.rt.RoundTrip(req)
 }
