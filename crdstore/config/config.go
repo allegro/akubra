@@ -5,10 +5,12 @@ import (
 	"github.com/allegro/akubra/types"
 )
 
-// CredentialsStore - config for credential store
+// CredentialsStore configuration
 type CredentialsStore struct {
-	Endpoint types.YAMLUrl    `yaml:"Endpoint"`
-	CacheTTL metrics.Interval `yaml:"CacheTTL"`
+	// Endpoint url points ObjectStorage API url
+	Endpoint types.YAMLUrl `yaml:"Endpoint"`
+	// AuthRefreshInterval defines how often CredentialsStore cache will lookup for value changes
+	AuthRefreshInterval metrics.Interval `yaml:"AuthRefreshInterval"`
 }
 
 // CredentialsStoreMap - map of credentialsStores configurations

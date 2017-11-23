@@ -16,10 +16,6 @@ import (
 	"github.com/allegro/akubra/metrics"
 	confregions "github.com/allegro/akubra/regions/config"
 	storages "github.com/allegro/akubra/storages/config"
-	// logconfig "github.com/allegro/akubra/log/config"
-	// "github.com/allegro/akubra/metrics"
-	// shardingconfig "github.com/allegro/akubra/sharding/config"
-
 	"github.com/go-validator/validator"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -80,14 +76,12 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 	validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
 	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
 	valid, validationErrors := validator.Validate(conf)
-	println("valid so far", valid)
-	if valid && enableLogicalValidator {
-		var validListenPorts bool
-		conf.ListenPortsLogicalValidator(&validListenPorts, &validationErrors)
-		conf.RegionsEntryLogicalValidator(&valid, &validationErrors)
 
-		valid = valid && validListenPorts
-		println("logic valid", valid, validListenPorts)
+	if valid && enableLogicalValidator {
+		validListenPorts, portsValidationErrors := conf.ListenPortsLogicalValidator()
+		validRegionsEntries, regionsValidationErrors := conf.RegionsEntryLogicalValidator()
+		valid = valid && validRegionsEntries && validListenPorts
+		validationErrors = mergeErrors(validationErrors, portsValidationErrors, regionsValidationErrors)
 	}
 
 	for propertyName, validatorMessage := range validationErrors {
@@ -122,7 +116,7 @@ func ValidateConfigurationHTTPHandler(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, fmt.Sprintf("Request Body Read Error: %s\n", err))
 		return
 	}
-
+	log.Debugf("%s", body)
 	var yamlConfig YamlConfig
 	err = yaml.Unmarshal(body, &yamlConfig)
 	if err != nil {

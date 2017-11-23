@@ -81,7 +81,7 @@ func (c *YamlConfig) validateRegionCluster(regionName string, regionConf confreg
 }
 
 //RegionsEntryLogicalValidator checks the correctness of "Regions" part of configuration file
-func (c *YamlConfig) RegionsEntryLogicalValidator(valid *bool, validationErrors *map[string][]error) {
+func (c *YamlConfig) RegionsEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
 	if len(c.Regions) == 0 {
 		errList = append(errList, errors.New("Empty regions definition"))
@@ -90,27 +90,28 @@ func (c *YamlConfig) RegionsEntryLogicalValidator(valid *bool, validationErrors 
 		errList = append(errList, c.validateRegionCluster(regionName, regionConf)...)
 	}
 	if len(errList) > 0 {
-		*valid = false
+		valid = false
 		errorsList := make(map[string][]error)
 		errorsList["RegionsEntryLogicalValidator"] = errList
-		*validationErrors = mergeErrors(*validationErrors, errorsList)
+		validationErrors = mergeErrors(validationErrors, errorsList)
 	} else {
-		*valid = true
+		valid = true
 	}
+	return
 }
 
 // ListenPortsLogicalValidator make sure that listen port and technical listen port are not equal
-func (c *YamlConfig) ListenPortsLogicalValidator(valid *bool, validationErrors *map[string][]error) {
+func (c *YamlConfig) ListenPortsLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errorsList := make(map[string][]error)
 	listenParts := strings.Split(c.Service.Server.Listen, ":")
 	listenTechnicalParts := strings.Split(c.Service.Server.TechnicalEndpointListen, ":")
-	*valid = true
+	valid = true
 	if listenParts[0] == listenTechnicalParts[0] && listenParts[1] == listenTechnicalParts[1] {
-		*valid = false
+		valid = false
 		errorDetail := []error{errors.New("Listen and TechnicalEndpointListen has the same port")}
 		errorsList["ListenPortsLogicalValidator"] = errorDetail
-		*validationErrors = mergeErrors(*validationErrors, errorsList)
 	}
+	return valid, errorsList
 }
 
 func mergeErrors(maps ...map[string][]error) (output map[string][]error) {

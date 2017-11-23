@@ -57,8 +57,8 @@ func initConfig() {
 	mockURL, _ := url.Parse(httpEndpoint)
 	invalidURL, _ := url.Parse("http://127.255.255.255:50999")
 	cfg := config.CredentialsStoreMap{
-		"default": config.CredentialsStore{Endpoint: types.YAMLUrl{URL: mockURL}, CacheTTL: metrics.Interval{Duration: 10 * time.Second}},
-		"invalid": config.CredentialsStore{Endpoint: types.YAMLUrl{URL: invalidURL}, CacheTTL: metrics.Interval{Duration: 10 * time.Second}},
+		"default": config.CredentialsStore{Endpoint: types.YAMLUrl{URL: mockURL}, AuthRefreshInterval: metrics.Interval{Duration: 10 * time.Second}},
+		"invalid": config.CredentialsStore{Endpoint: types.YAMLUrl{URL: invalidURL}, AuthRefreshInterval: metrics.Interval{Duration: 10 * time.Second}},
 	}
 
 	InitializeCredentialsStore(cfg)

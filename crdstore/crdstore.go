@@ -53,7 +53,7 @@ func InitializeCredentialsStore(storeMap config.CredentialsStoreMap) {
 		instances[name] = &CredentialsStore{
 			endpoint: cfg.Endpoint.String(),
 			cache:    new(syncmap.Map),
-			TTL:      cfg.CacheTTL.Duration,
+			TTL:      cfg.AuthRefreshInterval.Duration,
 		}
 	}
 }
@@ -105,13 +105,13 @@ func (cs *CredentialsStore) Get(accessKey, backend string) (csd *CredentialsStor
 	if value, ok := cs.cache.Load(key); ok {
 		csd = value.(*CredentialsStoreData)
 	}
-
+	refreshTimeoutDuration := cs.TTL / 100 * (100 - refreshTTLPercent)
 	switch {
 	case csd == nil || csd.AccessKey == "":
 		return cs.updateCache(accessKey, backend, key, csd, true)
 	case time.Now().After(csd.EOL):
 		return cs.updateCache(accessKey, backend, key, csd, false)
-	case time.Now().Add(cs.TTL / 100 * (100 - refreshTTLPercent)).After(csd.EOL):
+	case time.Now().Add(refreshTimeoutDuration).After(csd.EOL):
 		go cs.updateCache(accessKey, backend, key, csd, false)
 	}
 
