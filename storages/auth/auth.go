@@ -17,19 +17,19 @@ const (
 )
 
 // Decorators maps Backend type with httphadler decorators factory
-var Decorators = map[string]func(map[string]string) (httphandler.Decorator, error){
-	Passthrough: func(map[string]string) (httphandler.Decorator, error) {
+var Decorators = map[string]func(map[string]string, string) (httphandler.Decorator, error){
+	Passthrough: func(map[string]string, string) (httphandler.Decorator, error) {
 		return func(rt http.RoundTripper) http.RoundTripper {
 			return rt
 		}, nil
 	},
-	S3FixedKey: func(extra map[string]string) (httphandler.Decorator, error) {
-		accessKey, ok := extra["AccessKey"]
+	S3FixedKey: func(properties map[string]string, backend string) (httphandler.Decorator, error) {
+		accessKey, ok := properties["AccessKey"]
 		if !ok {
 			return nil, fmt.Errorf("no AccessKey defined for backend type %q", S3FixedKey)
 		}
 
-		secret, ok := extra["Secret"]
+		secret, ok := properties["Secret"]
 		if !ok {
 			return nil, fmt.Errorf("no Secret defined for backend type %q", S3FixedKey)
 		}
@@ -40,15 +40,10 @@ var Decorators = map[string]func(map[string]string) (httphandler.Decorator, erro
 		}
 		return SignDecorator(k), nil
 	},
-	S3AuthService: func(extra map[string]string) (httphandler.Decorator, error) {
-		backend, ok := extra["AuthServiceBackend"]
+	S3AuthService: func(properties map[string]string, backend string) (httphandler.Decorator, error) {
+		endpoint, ok := properties["AuthServiceEndpoint"]
 		if !ok {
-			return nil, fmt.Errorf("no `AuthServiceBackend` defined for backend type %q", S3AuthService)
-		}
-
-		endpoint, ok := extra["AuthServiceEndpoint"]
-		if !ok {
-			return nil, fmt.Errorf("no `AuthServiceEndpoint` defined for backend type %q", S3AuthService)
+			endpoint = "default"
 		}
 
 		return SignAuthServiceDecorator(backend, endpoint), nil

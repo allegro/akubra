@@ -1,5 +1,5 @@
-hash: b1d4f2dc96eaf64bd49ed74a49e8b318c2fcb828d43d45ae5b9371de2e7714dc
-updated: 2017-11-08T18:08:58.268693812+01:00
+hash: fcc0226364c71f28a4d1ad9bdeeae114ca4a37916bd0bee7aeaa1449bad0da66
+updated: 2017-11-09T16:50:04.288285882+01:00
 imports:
 - name: github.com/alecthomas/kingpin
   version: 1087e65c9441605df944fb12c33f0fe7072d18ca
@@ -17,12 +17,6 @@ imports:
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
 - name: github.com/go-validator/validator
   version: 4379dff89709877fa1b057d23b11bfe0c361dfd3
-- name: github.com/google/go-querystring
-  version: 53e6ce116135b80d037921a7fdd5138cf32d7a8a
-  subpackages:
-  - query
-- name: github.com/levigross/grequests
-  version: bf9788368aa04abf510962fd0fb0d8e4b74396cc
 - name: github.com/lib/pq
   version: 2704adc878c21e1329f46f6e56a1c387d788ff94
   subpackages:
@@ -41,10 +35,6 @@ imports:
   version: c84b36c635ad003a10f0c755dff5685ceef18c71
   subpackages:
   - ssh/terminal
-- name: golang.org/x/net
-  version: a337091b0525af65de94df2eb7e98bd9962dcbe2
-  subpackages:
-  - publicsuffix
 - name: golang.org/x/sync
   version: fd80eb99c8f653c847d294a001bdf2a3a6f768f5
   subpackages:

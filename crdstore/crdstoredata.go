@@ -15,15 +15,7 @@ type CredentialsStoreData struct {
 	EOL       time.Time `json:"-"`
 }
 
-//Marshal - Marshal CredentialsStoreData from json
-func (csd *CredentialsStoreData) Marshal(AccessKey, SecretKey string) (creds []byte, err error) {
-	csd.AccessKey = AccessKey
-	csd.SecretKey = SecretKey
-	creds, err = json.Marshal(csd)
-	return
-}
-
 //Unmarshal - Unmarshal CredentialsStoreData to json
-func (csd *CredentialsStoreData) Unmarshal(credentials string) error {
-	return json.Unmarshal([]byte(credentials), &csd)
+func (csd *CredentialsStoreData) Unmarshal(credentials []byte) error {
+	return json.Unmarshal(credentials, &csd)
 }
