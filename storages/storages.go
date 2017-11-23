@@ -150,7 +150,7 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 		if !ok {
 			return nil, fmt.Errorf("initialization of backend %s has resulted with error: no decorator defined for type %s", name, backendConf.Type)
 		}
-		decorator, err := decoratorFactory(backendConf.Extra)
+		decorator, err := decoratorFactory(backendConf.Properties, name)
 		if err != nil {
 			return nil, fmt.Errorf("initialization of backend %s has resulted with error: %q", name, err)
 		}

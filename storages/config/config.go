@@ -18,7 +18,7 @@ type Backend struct {
 	Endpoint    types.YAMLUrl     `yaml:"Endpoint"`
 	Type        string            `yaml:"Type"`
 	Maintenance bool              `yaml:"Maintenance"`
-	Extra       map[string]string `yaml:"Extra"`
+	Properties  map[string]string `yaml:"Properties"`
 }
 
 // BackendsMap is map of Backend

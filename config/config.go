@@ -9,15 +9,13 @@ import (
 	"fmt"
 
 	httphandler "github.com/allegro/akubra/httphandler/config"
+
+	crdstoreconfig "github.com/allegro/akubra/crdstore/config"
 	"github.com/allegro/akubra/log"
 	logconfig "github.com/allegro/akubra/log/config"
 	"github.com/allegro/akubra/metrics"
 	confregions "github.com/allegro/akubra/regions/config"
 	storages "github.com/allegro/akubra/storages/config"
-	// logconfig "github.com/allegro/akubra/log/config"
-	// "github.com/allegro/akubra/metrics"
-	// shardingconfig "github.com/allegro/akubra/sharding/config"
-
 	"github.com/go-validator/validator"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -30,12 +28,13 @@ const TechnicalEndpointHeaderContentType = "application/yaml"
 
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
-	Service  httphandler.Service     `yaml:"Service,omitempty"`
-	Backends storages.BackendsMap    `yaml:"Backends,omitempty"`
-	Clusters storages.ClustersMap    `yaml:"Clusters,omitempty"`
-	Regions  confregions.Regions     `yaml:"Regions,omitempty"`
-	Logging  logconfig.LoggingConfig `yaml:"Logging,omitempty"`
-	Metrics  metrics.Config          `yaml:"Metrics,omitempty"`
+	Service          httphandler.Service                `yaml:"Service,omitempty"`
+	Backends         storages.BackendsMap               `yaml:"Backends,omitempty"`
+	Clusters         storages.ClustersMap               `yaml:"Clusters,omitempty"`
+	Regions          confregions.Regions                `yaml:"Regions,omitempty"`
+	CredentialsStore crdstoreconfig.CredentialsStoreMap `yaml:"CredentialsStore,omitempty"`
+	Logging          logconfig.LoggingConfig            `yaml:"Logging,omitempty"`
+	Metrics          metrics.Config                     `yaml:"Metrics,omitempty"`
 }
 
 // Config contains processed YamlConfig data
@@ -77,14 +76,12 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 	validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
 	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
 	valid, validationErrors := validator.Validate(conf)
-	println("valid so far", valid)
-	if valid && enableLogicalValidator {
-		var validListenPorts bool
-		conf.ListenPortsLogicalValidator(&validListenPorts, &validationErrors)
-		conf.RegionsEntryLogicalValidator(&valid, &validationErrors)
 
-		valid = valid && validListenPorts
-		println("logic valid", valid, validListenPorts)
+	if valid && enableLogicalValidator {
+		validListenPorts, portsValidationErrors := conf.ListenPortsLogicalValidator()
+		validRegionsEntries, regionsValidationErrors := conf.RegionsEntryLogicalValidator()
+		valid = valid && validRegionsEntries && validListenPorts
+		validationErrors = mergeErrors(validationErrors, portsValidationErrors, regionsValidationErrors)
 	}
 
 	for propertyName, validatorMessage := range validationErrors {
@@ -119,7 +116,7 @@ func ValidateConfigurationHTTPHandler(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, fmt.Sprintf("Request Body Read Error: %s\n", err))
 		return
 	}
-
+	log.Debugf("%s", body)
 	var yamlConfig YamlConfig
 	err = yaml.Unmarshal(body, &yamlConfig)
 	if err != nil {

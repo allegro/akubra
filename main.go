@@ -18,6 +18,7 @@ import (
 	set "github.com/deckarep/golang-set"
 	_ "github.com/lib/pq"
 
+	"github.com/allegro/akubra/crdstore"
 	graceful "gopkg.in/tylerb/graceful.v1"
 )
 
@@ -92,8 +93,9 @@ func (s *service) start() error {
 	for _, v := range s.config.Logging.SyncLogMethods {
 		methods = append(methods, v)
 	}
-	respHandler := httphandler.LateResponseHandler(syncLog, set.NewSetFromSlice(methods))
 
+	respHandler := httphandler.LateResponseHandler(syncLog, set.NewSetFromSlice(methods))
+	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
 	storage, err := storages.InitStorages(
 		roundtripper,
 		s.config.Clusters,
