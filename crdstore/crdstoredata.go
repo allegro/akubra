@@ -15,7 +15,7 @@ type CredentialsStoreData struct {
 	EOL       time.Time `json:"-"`
 }
 
-//Unmarshal - Unmarshal CredentialsStoreData to json
+// Unmarshal - Unmarshal CredentialsStoreData to json
 func (csd *CredentialsStoreData) Unmarshal(credentials []byte) error {
 	return json.Unmarshal(credentials, &csd)
 }

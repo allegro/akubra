@@ -17,7 +17,7 @@ import (
 	"github.com/serialx/hashring"
 )
 
-//ShardsRingAPI interface
+// ShardsRingAPI interface
 type ShardsRingAPI interface {
 	DoRequest(req *http.Request) (resp *http.Response, rerr error)
 }
@@ -139,7 +139,7 @@ func (sr *ShardsRing) logInconsistency(key, expectedClusterName, actualClusterNa
 	}
 }
 
-//DoRequest performs http requests to all backends that should be reached within this shards ring and with given method
+// DoRequest performs http requests to all backends that should be reached within this shards ring and with given method
 func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr error) {
 	since := time.Now()
 	defer func() {
@@ -161,8 +161,11 @@ func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr err
 	if err != nil {
 		return nil, err
 	}
+	isBucketReq := sr.isBucketPath(reqCopy.URL.Path)
+	if reqCopy.Method == http.MethodGet && isBucketReq {
 
-	if reqCopy.Method == http.MethodDelete || sr.isBucketPath(reqCopy.URL.Path) {
+	}
+	if reqCopy.Method == http.MethodDelete || isBucketReq {
 		return sr.allClustersRoundTripper.RoundTrip(reqCopy)
 	}
 

@@ -31,7 +31,7 @@ type Cluster struct {
 	transport   http.RoundTripper
 }
 
-//Storages config
+// Storages config
 type Storages struct {
 	clustersConf config.ClustersMap
 	backendsConf config.BackendsMap
@@ -106,7 +106,7 @@ func newCluster(name string, backendNames []string, backends map[string]http.Rou
 	return cluster, nil
 }
 
-//GetCluster gets cluster by name or nil if cluster with given name was not found
+// GetCluster gets cluster by name or nil if cluster with given name was not found
 func (st Storages) GetCluster(name string) (NamedCluster, error) {
 	s3cluster, ok := st.Clusters[name]
 	if ok {
@@ -115,9 +115,9 @@ func (st Storages) GetCluster(name string) (NamedCluster, error) {
 	return &Cluster{}, fmt.Errorf("No such cluster defined %q", name)
 }
 
-// JoinClusters extends Clusters list of Storages by cluster made of joined clusters backends and returns it.
+// ClusterShards extends Clusters list of Storages by cluster made of joined clusters backends and returns it.
 // If cluster of given name is already defined returns previously defined cluster instead.
-func (st *Storages) JoinClusters(name string, clusters ...NamedCluster) NamedCluster {
+func (st *Storages) ClusterShards(name string, clusters ...NamedCluster) NamedCluster {
 	cluster, ok := st.Clusters[name]
 	if ok {
 		return cluster
