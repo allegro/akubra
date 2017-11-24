@@ -13,7 +13,7 @@ import (
 	storage "github.com/allegro/akubra/storages"
 )
 
-//Regions container for multiclusters
+// Regions container for multiclusters
 type Regions struct {
 	multiCluters map[string]sharding.ShardsRingAPI
 	defaultRing  sharding.ShardsRingAPI
@@ -36,7 +36,7 @@ func (rg Regions) getNoSuchDomainResponse(req *http.Request) *http.Response {
 	}
 }
 
-//RoundTrip performs round trip to target
+// RoundTrip performs round trip to target
 func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	reqHost, _, err := net.SplitHostPort(req.Host)
 	if err != nil {
@@ -52,7 +52,7 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	return rg.getNoSuchDomainResponse(req), nil
 }
 
-//NewRegions build new region http.RoundTripper
+// NewRegions build new region http.RoundTripper
 func NewRegions(conf config.Regions, storages storage.Storages, transport http.RoundTripper, syncLogger log.Logger) (http.RoundTripper, error) {
 
 	ringFactory := sharding.NewRingFactory(conf, storages, transport, syncLogger)

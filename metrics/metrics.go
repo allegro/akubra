@@ -1,6 +1,6 @@
 package metrics
 
-//All credits to https://github.com/eBay/fabio/tree/master/metrics
+// All credits to https://github.com/eBay/fabio/tree/master/metrics
 import (
 	"errors"
 	"fmt"
@@ -63,7 +63,7 @@ func setupPrefix(cfg Config) string {
 	return pfx
 }
 
-//Init setups metrics publication
+// Init setups metrics publication
 func Init(cfg Config) (err error) {
 	pfx = setupPrefix(cfg)
 

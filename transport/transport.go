@@ -21,7 +21,7 @@ import (
 type ResErrTuple struct {
 	// Received response
 	Res *http.Response
-	// First error occured in transmision is passed here
+	// First error occurred in transmision is passed here
 	// Non 2XX response code is also treated as error
 	Err    error
 	Failed bool
@@ -49,7 +49,7 @@ func defaultHandleResponses(in <-chan ResErrTuple, out chan<- ResErrTuple) {
 			out <- r
 			respPassed = true
 		}
-		// if error occured then append it into errs slice
+		// if error occurred then append it into errs slice
 		if r.Err != nil {
 			if !respPassed {
 				errs = append(errs, r)
@@ -84,7 +84,7 @@ func clearResponsesBody(respTups []ResErrTuple) {
 
 // DefaultHandleResponses is default way of handling multiple responses.
 // It will pass first success response or any error if no
-// success occured
+// success occurred
 func DefaultHandleResponses(in <-chan ResErrTuple) ResErrTuple {
 	out := make(chan ResErrTuple, 1)
 	go defaultHandleResponses(in, out)

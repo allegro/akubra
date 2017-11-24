@@ -64,14 +64,14 @@ func (rf RingFactory) RegionRing(name string, regionCfg config.Region) (ShardsRi
 	if err != nil {
 		return ShardsRing{}, err
 	}
-	var regionClusters []storages.NamedCluster
+	var regionShards []storages.NamedCluster
 	for _, cluster := range shardClusterMap {
-		regionClusters = append(regionClusters, cluster)
+		regionShards = append(regionShards, cluster)
 	}
 
 	cHashMap := hashring.NewWithWeights(clustersWeights)
 
-	allBackendsRoundTripper := rf.storages.JoinClusters(fmt.Sprintf("region-%s", name), regionClusters...)
+	allBackendsRoundTripper := rf.storages.ClusterShards(fmt.Sprintf("region-%s", name), regionShards...)
 	regressionMap, err := rf.createRegressionMap(regionCfg)
 	if err != nil {
 		return ShardsRing{}, err
@@ -80,14 +80,14 @@ func (rf RingFactory) RegionRing(name string, regionCfg config.Region) (ShardsRi
 	// respHandler := httphandler.LateResponseHandler(rf.conf)
 
 	return ShardsRing{
-		cHashMap,
-		shardClusterMap,
-		allBackendsRoundTripper,
-		regressionMap,
-		rf.syncLog}, nil
+		ring:                    cHashMap,
+		shardClusterMap:         shardClusterMap,
+		allClustersRoundTripper: allBackendsRoundTripper,
+		clusterRegressionMap:    regressionMap,
+		inconsistencyLog:        rf.syncLog}, nil
 }
 
-//NewRingFactory creates ring factory
+// NewRingFactory creates ring factory
 func NewRingFactory(conf config.Regions, storages storages.Storages, transport http.RoundTripper, syncLog log.Logger) RingFactory {
 	return RingFactory{
 		conf:      conf,
