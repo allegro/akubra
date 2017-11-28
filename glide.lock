@@ -1,8 +1,8 @@
-hash: fcc0226364c71f28a4d1ad9bdeeae114ca4a37916bd0bee7aeaa1449bad0da66
-updated: 2017-11-09T16:50:04.288285882+01:00
+hash: 095ada6d132faac6f78e46ac9941596c367ae1a5c22592807fd1249b326ac8be
+updated: 2017-11-28T18:38:32.323378677+01:00
 imports:
 - name: github.com/alecthomas/kingpin
-  version: 1087e65c9441605df944fb12c33f0fe7072d18ca
+  version: fde80b58ec35ea587c031c202880b1655a51ee53
 - name: github.com/alecthomas/template
   version: a0175ee3bccc567396460bf5acd36800cb10c49c
   subpackages:
@@ -15,24 +15,26 @@ imports:
   version: 1d4478f51bed434f1dadf96dcd9b43aabac66795
 - name: github.com/docker/go-units
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
+- name: github.com/go-ini/ini
+  version: 32e4c1e6bc4e7d0d8451aa6b75200d19e37a536a
 - name: github.com/go-validator/validator
   version: 4379dff89709877fa1b057d23b11bfe0c361dfd3
 - name: github.com/lib/pq
-  version: 2704adc878c21e1329f46f6e56a1c387d788ff94
+  version: 83612a56d3dd153a94a629cd64925371c9adad78
   subpackages:
   - oid
 - name: github.com/rcrowley/go-metrics
-  version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
+  version: e181e095bae94582363434144c61a9653aff6e50
   subpackages:
   - exp
 - name: github.com/serialx/hashring
-  version: b686d66ce08cf020eda4758a8e42ccdbe8ff8481
+  version: 6a9381c5a83e926b9f1fd907395a581e69747e96
 - name: github.com/ShowMax/go-fqdn
   version: 2501cdd51ef4c60dd727c58b2199e1a09466b10f
 - name: github.com/sirupsen/logrus
-  version: f006c2ac4710855cf0f916dd6b77acf6b048dc6e
+  version: 95cd2b9c79aa5e72ab0bc69b7ccc2be15bf850f6
 - name: golang.org/x/crypto
-  version: c84b36c635ad003a10f0c755dff5685ceef18c71
+  version: 48a5a650cfc529a2517eb6a4d6d6749872520525
   subpackages:
   - ssh/terminal
 - name: golang.org/x/sync
@@ -40,7 +42,7 @@ imports:
   subpackages:
   - syncmap
 - name: golang.org/x/sys
-  version: e4594059fe4cde2daf423055a596c2cd1e6c9adf
+  version: b76f9891dc1d975623261def70f9b89661f5baab
   subpackages:
   - unix
   - windows
@@ -49,10 +51,10 @@ imports:
 - name: gopkg.in/tylerb/graceful.v1
   version: 4654dfbb6ad53cb5e27f37d99b02e16c1872fbbb
 - name: gopkg.in/yaml.v2
-  version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
+  version: 287cf08546ab5e7e37d55a84f7ed3fd1db036de5
 testImports:
 - name: github.com/DATA-DOG/go-sqlmock
-  version: d76b18b42f285b792bf985118980ce9eacea9d10
+  version: a7b3087be733089e8ddef5f52258699c92a14a5c
 - name: github.com/davecgh/go-spew
   version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
   subpackages:

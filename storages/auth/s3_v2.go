@@ -283,8 +283,11 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
-
-	csd, err := srt.crd.Get(accessKey, srt.backend)
+	csd, err := srt.crd.Get(accessKey, "akubra")
+	if DoesSignV2Match(req, Keys{AccessKeyID: csd.AccessKey, SecretAccessKey: csd.SecretKey}) != ErrNone {
+		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
+	}
+	csd, err = srt.crd.Get(accessKey, srt.backend)
 	if err == crdstore.ErrCredentialsNotFound {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
 	}

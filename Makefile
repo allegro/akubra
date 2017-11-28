@@ -11,7 +11,8 @@ lint: deps-lint
 	--deadline=600s \
 	--enable=goimports \
 	--vendor \
-        --fast
+	--exclude=G103 \
+	--fast
 
 deps:
 	$(GO) get github.com/Masterminds/glide

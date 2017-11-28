@@ -95,6 +95,7 @@ func (cs *CredentialsStore) updateCache(accessKey, backend, key string, csd *Cre
 }
 
 func (cs *CredentialsStore) tryLock() bool {
+	// #nosec
 	return atomic.CompareAndSwapInt32((*int32)(unsafe.Pointer(&cs.lock)), 0, 1)
 }
 

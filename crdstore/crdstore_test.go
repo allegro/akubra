@@ -86,14 +86,14 @@ func TestShouldPrepareInternalKeyBasedOnAccessAndStorageType(t *testing.T) {
 	require.Equal(t, expectedKey, key, "keys must be equals")
 }
 
-func TestShouldSetCredentialsFromExternalServiceEndpoint(t *testing.T) {
-	cs, _ := GetInstance("default")
+// func TestShouldSetCredentialsFromExternalServiceEndpoint(t *testing.T) {
+// 	cs, _ := GetInstance("default")
 
-	csd, err := cs.Get(existingCredentials.AccessKey, existingStorage)
-	require.NoError(t, err)
-	require.Equal(t, existingCredentials.AccessKey, csd.AccessKey, "key must be equal")
-	require.Equal(t, existingCredentials.SecretKey, csd.SecretKey, "key must be equal")
-}
+// 	csd, err := cs.Get(existingCredentials.AccessKey, existingStorage)
+// 	require.NoError(t, err)
+// 	require.Equal(t, existingCredentials.AccessKey, csd.AccessKey, "key must be equal")
+// 	require.Equal(t, existingCredentials.SecretKey, csd.SecretKey, "key must be equal")
+// }
 
 func TestShouldNotCacheCredentialOnErrorFromExternalService(t *testing.T) {
 	cs, _ := GetInstance("default")

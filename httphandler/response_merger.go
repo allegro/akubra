@@ -101,10 +101,11 @@ func (rd *responseMerger) _handle(in <-chan transport.ResErrTuple, out chan<- tr
 		}
 
 		statusCode := 0
+		reqID := "xxxxxxxxxxxxxxx"
 		if r.Res != nil {
 			statusCode = r.Res.StatusCode
+			reqID, _ = r.Res.Request.Context().Value(log.ContextreqIDKey).(string)
 		}
-		reqID, _ := r.Res.Request.Context().Value(log.ContextreqIDKey).(string)
 		log.Debugf("Got response %s from backend %s, status: %d, method: %s, path %s, error: %q",
 			reqID,
 			r.Res.Request.URL.Host,
