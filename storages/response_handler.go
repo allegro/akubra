@@ -13,15 +13,14 @@ import (
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
-	minio "github.com/mjarco/minio-go"
 )
 
 type objectsContainer struct {
 	set  map[string]struct{}
-	list []minio.ObjectInfo
+	list []ObjectInfo
 }
 
-func (oc *objectsContainer) append(obj ...minio.ObjectInfo) {
+func (oc *objectsContainer) append(obj ...ObjectInfo) {
 	for _, o := range obj {
 		if _, ok := oc.set[o.Key]; ok {
 			continue
@@ -37,7 +36,7 @@ func (oc *objectsContainer) Len() int { return len(oc.list) }
 
 func (oc *objectsContainer) Swap(i, j int) { oc.list[i], oc.list[j] = oc.list[j], oc.list[i] }
 
-func (oc *objectsContainer) first(limit int) []minio.ObjectInfo {
+func (oc *objectsContainer) first(limit int) []ObjectInfo {
 	sort.Sort(oc)
 	if limit >= len(oc.list) {
 		return oc.list
@@ -47,10 +46,10 @@ func (oc *objectsContainer) first(limit int) []minio.ObjectInfo {
 
 type prefixContainer struct {
 	set  map[string]struct{}
-	list []minio.CommonPrefix
+	list []CommonPrefix
 }
 
-func (pc *prefixContainer) append(obj ...minio.CommonPrefix) {
+func (pc *prefixContainer) append(obj ...CommonPrefix) {
 	for _, o := range obj {
 		if _, ok := pc.set[o.Prefix]; ok {
 			continue
@@ -66,7 +65,7 @@ func (pc *prefixContainer) Len() int { return len(pc.list) }
 
 func (pc *prefixContainer) Swap(i, j int) { pc.list[i], pc.list[j] = pc.list[j], pc.list[i] }
 
-func (pc *prefixContainer) first(limit int) []minio.CommonPrefix {
+func (pc *prefixContainer) first(limit int) []CommonPrefix {
 	sort.Sort(pc)
 	if limit >= len(pc.list) {
 		return pc.list
@@ -95,7 +94,7 @@ func xmlDecoder(body io.Reader, v interface{}) error {
 	return d.Decode(v)
 }
 
-func pickResultSet(os objectsContainer, ps prefixContainer, maxKeys int, lbr minio.ListBucketResult) minio.ListBucketResult {
+func pickResultSet(os objectsContainer, ps prefixContainer, maxKeys int, lbr ListBucketResult) ListBucketResult {
 	lbr.CommonPrefixes = ps.first(maxKeys)
 	oLen := maxKeys - len(lbr.CommonPrefixes)
 	lbr.Contents = os.first(oLen)
@@ -118,18 +117,18 @@ func (rm *responseMerger) createResponse(successes []transport.ResErrTuple) (res
 		return
 	}
 	oContainer := objectsContainer{
-		list: make([]minio.ObjectInfo, 0),
+		list: make([]ObjectInfo, 0),
 		set:  make(map[string]struct{}, 0),
 	}
 	pContainer := prefixContainer{
-		list: make([]minio.CommonPrefix, 0),
+		list: make([]CommonPrefix, 0),
 		set:  make(map[string]struct{}, 0),
 	}
-	var listBucketResult minio.ListBucketResult
+	var listBucketResult ListBucketResult
 	for _, tuple := range successes {
 		resp = tuple.Res
 
-		listBucketResult = minio.ListBucketResult{}
+		listBucketResult = ListBucketResult{}
 		buf := &bytes.Buffer{}
 		buf.ReadFrom(resp.Body)
 		bodyBytes := buf.Bytes()

@@ -9,12 +9,11 @@ import (
 	"testing"
 
 	"github.com/allegro/akubra/transport"
-	minio "github.com/mjarco/minio-go"
 
 	"github.com/stretchr/testify/suite"
 )
 
-func responseBuilder(prefixes []minio.CommonPrefix, contents []minio.ObjectInfo, maxKeys int) (*http.Response, error) {
+func responseBuilder(prefixes []CommonPrefix, contents []ObjectInfo, maxKeys int) (*http.Response, error) {
 	r, err := http.NewRequest(http.MethodGet, "/bucket", nil)
 	q := r.URL.Query()
 	q.Add("max-keys", fmt.Sprintf("%d", maxKeys))
@@ -27,7 +26,7 @@ func responseBuilder(prefixes []minio.CommonPrefix, contents []minio.ObjectInfo,
 		Request: r,
 	}
 
-	lbres := minio.ListBucketResult{
+	lbres := ListBucketResult{
 		CommonPrefixes: prefixes,
 		Contents:       contents,
 		Delimiter:      "/",
@@ -46,24 +45,24 @@ func responseBuilder(prefixes []minio.CommonPrefix, contents []minio.ObjectInfo,
 	return resp, err
 }
 
-func prefixes(prefix ...string) []minio.CommonPrefix {
-	pfs := []minio.CommonPrefix{}
+func prefixes(prefix ...string) []CommonPrefix {
+	pfs := []CommonPrefix{}
 	for _, p := range prefix {
-		pfs = append(pfs, minio.CommonPrefix{Prefix: p})
+		pfs = append(pfs, CommonPrefix{Prefix: p})
 	}
 	return pfs
 }
 
-func contents(key ...string) []minio.ObjectInfo {
-	ofs := []minio.ObjectInfo{}
+func contents(key ...string) []ObjectInfo {
+	ofs := []ObjectInfo{}
 	for _, k := range key {
-		ofs = append(ofs, minio.ObjectInfo{Key: k})
+		ofs = append(ofs, ObjectInfo{Key: k})
 	}
 	return ofs
 }
 
-func readBucketList(resp *http.Response) minio.ListBucketResult {
-	list := minio.ListBucketResult{}
+func readBucketList(resp *http.Response) ListBucketResult {
+	list := ListBucketResult{}
 	buf := bytes.Buffer{}
 	buf.ReadFrom(resp.Body)
 	bbody := buf.Bytes()
