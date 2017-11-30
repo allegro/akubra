@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-func responseBuilder(prefixes []CommonPrefix, contents []ObjectInfo, maxKeys int) (*http.Response, error) {
+func responseBuilder(prefixes []CommonPrefix, contents []ObjectInfo, maxKeys int) (transport.ResErrTuple, error) {
 	r, err := http.NewRequest(http.MethodGet, "/bucket", nil)
 	q := r.URL.Query()
 	q.Add("max-keys", fmt.Sprintf("%d", maxKeys))
 	r.URL.RawQuery = q.Encode()
 	if err != nil {
-		return nil, err
+		return transport.ResErrTuple{}, err
 	}
 
 	resp := &http.Response{
@@ -42,7 +42,7 @@ func responseBuilder(prefixes []CommonPrefix, contents []ObjectInfo, maxKeys int
 	err = enc.Encode(lbres)
 	enc.Flush()
 	resp.Body = ioutil.NopCloser(buf)
-	return resp, err
+	return transport.ResErrTuple{Req: r, Res: resp, Err: nil, Failed: false}, err
 }
 
 func prefixes(prefix ...string) []CommonPrefix {
@@ -97,9 +97,8 @@ func (suite *BucketListResponseMergerTestSuite) TestSingleResponseMerge() {
 	ps := prefixes("Ala", "Kota", "Ma")
 	cs := contents("a", "ale", "kot", "ma")
 
-	tup1 := transport.ResErrTuple{}
-	tup1.Res, _ = responseBuilder(ps, cs, maxKeys)
-
+	tup1, err := responseBuilder(ps, cs, maxKeys)
+	suite.NoError(err)
 	go suite.Send(tup1)
 	rtup := suite.rHandler(suite.ch)
 
@@ -117,11 +116,11 @@ func (suite *BucketListResponseMergerTestSuite) TestResponseMerge() {
 	ps2 := prefixes("ppa", "ppz", "ppb", "ppy")
 	cs2 := contents("x", "b", "u", "w")
 
-	tup1 := transport.ResErrTuple{}
-	tup1.Res, _ = responseBuilder(ps1, cs1, maxKeys)
+	tup1, err := responseBuilder(ps1, cs1, maxKeys)
+	suite.NoError(err)
 
-	tup2 := transport.ResErrTuple{}
-	tup2.Res, _ = responseBuilder(ps2, cs2, maxKeys)
+	tup2, err := responseBuilder(ps2, cs2, maxKeys)
+	suite.NoError(err)
 
 	go suite.Send(tup1, tup2)
 	rtup := suite.rHandler(suite.ch)
