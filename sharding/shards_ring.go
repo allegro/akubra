@@ -162,6 +162,7 @@ func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr err
 		return nil, err
 	}
 	isBucketReq := sr.isBucketPath(reqCopy.URL.Path)
+
 	if reqCopy.Method == http.MethodDelete || isBucketReq {
 		return sr.allClustersRoundTripper.RoundTrip(reqCopy)
 	}
