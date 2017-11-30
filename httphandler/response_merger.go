@@ -149,9 +149,9 @@ func (rd *responseMerger) handleResponses(in <-chan transport.ResErrTuple) trans
 // responses, returns first successful response to caller
 func EarliestResponseHandler(synclog log.Logger, methods set.Set) transport.MultipleResponsesHandler {
 	rh := responseMerger{
-		synclog,
-		methods,
-		true,
+		syncerrlog:      synclog,
+		methodSetFilter: methods,
+		fifo:            true,
 	}
 	return rh.handleResponses
 }
@@ -161,9 +161,9 @@ func EarliestResponseHandler(synclog log.Logger, methods set.Set) transport.Mult
 // all other responces received
 func LateResponseHandler(synclog log.Logger, methods set.Set) transport.MultipleResponsesHandler {
 	rh := responseMerger{
-		synclog,
-		methods,
-		false,
+		syncerrlog:      synclog,
+		methodSetFilter: methods,
+		fifo:            false,
 	}
 	return rh.handleResponses
 }

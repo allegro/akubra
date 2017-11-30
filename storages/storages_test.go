@@ -42,14 +42,14 @@ func (suite *StorageTestSuite) TestGetClusterShouldReturnErrorIfClusterIsNotDefi
 	require.Error(suite.T(), err)
 }
 
-func (suite *StorageTestSuite) TestJoinClustersShouldReturnClusterOfGivenNameIfItsAlreadyDefined() {
-	rCluster := suite.storage.JoinClusters("test1", suite.cluster2)
+func (suite *StorageTestSuite) TestClusterShardsShouldReturnClusterOfGivenNameIfItsAlreadyDefined() {
+	rCluster := suite.storage.ClusterShards("test1", suite.cluster2)
 
 	require.Equal(suite.T(), suite.cluster1, rCluster)
 }
 
-func (suite *StorageTestSuite) TestJoinClustersShouldReturnJoinedCluster() {
-	rCluster := suite.storage.JoinClusters("test", suite.cluster1, suite.cluster2)
+func (suite *StorageTestSuite) TestClusterShardsShouldReturnJoinedCluster() {
+	rCluster := suite.storage.ClusterShards("test", suite.cluster1, suite.cluster2)
 
 	require.Equal(suite.T(), "test", rCluster.Name())
 	require.Contains(suite.T(), rCluster.Backends(), suite.cluster1.Backends()[0])
