@@ -67,10 +67,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	defer func() {
-		closeErr := resp.Body.Close()
-		if closeErr != nil {
-			log.Printf("Cannot send response body reason: %q",
-				closeErr.Error())
+		if resp.Body != nil {
+			closeErr := resp.Body.Close()
+			if closeErr != nil {
+				log.Printf("Cannot send response body reason: %q",
+					closeErr.Error())
+
+			}
 		}
 	}()
 
@@ -80,9 +83,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.WriteHeader(resp.StatusCode)
-	if _, copyErr := io.Copy(w, resp.Body); copyErr != nil {
-		log.Printf("Cannot send response body reason: %q",
-			copyErr.Error())
+	if resp.Body != nil {
+		if _, copyErr := io.Copy(w, resp.Body); copyErr != nil {
+			log.Printf("Cannot send response body reason: %q",
+				copyErr.Error())
+		}
 	}
 }
 

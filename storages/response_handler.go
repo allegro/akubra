@@ -190,8 +190,8 @@ func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-cha
 
 func (rm *responseMerger) responseHandler(in <-chan transport.ResErrTuple) transport.ResErrTuple {
 	firstTuple := <-in
-	path := firstTuple.Res.Request.URL.Path
-	method := firstTuple.Res.Request.Method
+	path := firstTuple.Req.URL.Path
+	method := firstTuple.Req.Method
 	if method != http.MethodGet || !isBucketPath(path) {
 		inCopy := make(chan transport.ResErrTuple)
 		inCopy <- firstTuple
