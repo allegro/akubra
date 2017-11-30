@@ -1,5 +1,5 @@
-hash: 095ada6d132faac6f78e46ac9941596c367ae1a5c22592807fd1249b326ac8be
-updated: 2017-11-28T18:38:32.323378677+01:00
+hash: be0af2039d6429fe286fc54ea3defd8f985f5ad9adb05eb79cc157a381a02ba6
+updated: 2017-11-30T16:05:26.04593791+01:00
 imports:
 - name: github.com/alecthomas/kingpin
   version: fde80b58ec35ea587c031c202880b1655a51ee53
@@ -23,6 +23,10 @@ imports:
   version: 83612a56d3dd153a94a629cd64925371c9adad78
   subpackages:
   - oid
+- name: github.com/minio/go-homedir
+  version: 21304a94172ae3a09dee2cd86a12fb6f842138c7
+- name: github.com/mjarco/minio-go
+  version: 1767a2b80555efa4831e87f3bc7a0610f23e43ca
 - name: github.com/rcrowley/go-metrics
   version: e181e095bae94582363434144c61a9653aff6e50
   subpackages:

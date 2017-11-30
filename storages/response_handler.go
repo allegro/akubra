@@ -13,7 +13,7 @@ import (
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
-	minio "github.com/minio/minio-go"
+	minio "github.com/mjarco/minio-go"
 )
 
 type objectsContainer struct {

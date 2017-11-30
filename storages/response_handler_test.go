@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/allegro/akubra/transport"
-	minio "github.com/minio/minio-go"
+	minio "github.com/mjarco/minio-go"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -68,6 +68,7 @@ func readBucketList(resp *http.Response) minio.ListBucketResult {
 	buf.ReadFrom(resp.Body)
 	bbody := buf.Bytes()
 	xmlDecoder(bytes.NewBuffer(bbody), &list)
+
 	return list
 }
 

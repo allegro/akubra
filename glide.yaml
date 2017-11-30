@@ -5,7 +5,6 @@ import:
 - package: github.com/cyberdelia/go-metrics-graphite
 - package: github.com/deckarep/golang-set
 - package: github.com/docker/go-units
-- package: github.com/go-validator/validator
 - package: github.com/lib/pq
 - package: github.com/mjarco/minio-go
 - package: github.com/rcrowley/go-metrics
