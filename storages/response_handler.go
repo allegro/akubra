@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
 )
 
@@ -74,6 +73,9 @@ func (pc *prefixContainer) first(limit int) []CommonPrefix {
 }
 func isBucketPath(path string) bool {
 	trimmedPath := strings.Trim(path, "/")
+	if trimmedPath == "" {
+		return false
+	}
 	return len(strings.Split(trimmedPath, "/")) == 1
 }
 
@@ -145,7 +147,6 @@ func (rm *responseMerger) createResponse(successes []transport.ResErrTuple) (res
 	maxKeysQuery := reqQuery.Get("max-keys")
 	maxKeys, err := strconv.Atoi(maxKeysQuery)
 	if err != nil {
-		log.Println(err)
 		maxKeys = 1000
 	}
 	listBucketResult = pickResultSet(oContainer, pContainer, maxKeys, listBucketResult)
@@ -194,8 +195,9 @@ func (rm *responseMerger) responseHandler(in <-chan transport.ResErrTuple) trans
 	method := firstTuple.Req.Method
 	if method != http.MethodGet || !isBucketPath(path) {
 		inCopy := make(chan transport.ResErrTuple)
-		inCopy <- firstTuple
 		go func() {
+			inCopy <- firstTuple
+
 			for tuple := range in {
 				inCopy <- tuple
 			}
