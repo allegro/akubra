@@ -56,7 +56,7 @@ func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 	reqID := r.Context().Value(log.ContextreqIDKey)
 	log.Debugf("Request %s req.URL.Host replaced with %s", reqID, r.URL.Host)
 
-	if !b.Maintenance {
+	if b.Maintenance {
 		return nil, fmt.Errorf("backend %v in maintenance mode", b.Name)
 	}
 	return b.RoundTripper.RoundTrip(r)
@@ -65,8 +65,7 @@ func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 func (c *Cluster) setupRoundTripper() {
 	multiTransport := transport.NewMultiTransport(
 		c.Backends(),
-		c.respHandler,
-		nil)
+		c.respHandler)
 	c.transport = multiTransport
 }
 
@@ -99,11 +98,9 @@ func newCluster(name string, backendNames []string, backends map[string]http.Rou
 	}
 	for _, backendName := range backendNames {
 		backendRT, ok := backends[backendName]
-		if !ok {
-			return nil, fmt.Errorf("no such backend %q in 'storages::newCluster'", backendName)
+		if ok {
+			clusterBackends = append(clusterBackends, backendRT)
 		}
-
-		clusterBackends = append(clusterBackends, backendRT)
 	}
 
 	cluster := &Cluster{backends: clusterBackends, name: name, respHandler: respHandler}
@@ -117,7 +114,7 @@ func (st Storages) GetCluster(name string) (NamedCluster, error) {
 	if ok {
 		return s3cluster, nil
 	}
-	return &Cluster{}, fmt.Errorf("No such cluster defined %q", name)
+	return &Cluster{}, fmt.Errorf("no such cluster defined %q", name)
 }
 
 // ClusterShards extends Clusters list of Storages by cluster made of joined clusters backends and returns it.
@@ -146,6 +143,10 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 		return nil, fmt.Errorf("empty map 'backendsConf' in 'InitStorages'")
 	}
 	for name, backendConf := range backendsConf {
+		if backendConf.Maintenance {
+			log.Printf("backend %q in maintenance mode", name)
+			continue
+		}
 		decoratedBackend, err := decorateBackend(transport, name, backendConf)
 		if err != nil {
 			return nil, err
