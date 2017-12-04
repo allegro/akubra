@@ -145,7 +145,6 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 	for name, backendConf := range backendsConf {
 		if backendConf.Maintenance {
 			log.Printf("backend %q in maintenance mode", name)
-			continue
 		}
 		decoratedBackend, err := decorateBackend(transport, name, backendConf)
 		if err != nil {
