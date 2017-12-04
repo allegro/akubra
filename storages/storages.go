@@ -141,22 +141,15 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 		return nil, fmt.Errorf("empty map 'backendsConf' in 'InitStorages'")
 	}
 	for name, backendConf := range backendsConf {
-		backend := &Backend{
-			transport,
-			*backendConf.Endpoint.URL,
-			name,
+		if !backendConf.Maintenance {
+			decoratedBackend, err := decorateBackend(transport, name, backendConf)
+			if err != nil {
+				return nil, err
+			}
+			backends[name] = decoratedBackend
+		} else {
+			log.Printf("'Maintenance' mode enabled on backend: %s", name)
 		}
-		decoratorFactory, ok := auth.Decorators[backendConf.Type]
-		if !ok {
-			return nil, fmt.Errorf("initialization of backend %s has resulted with error: no decorator defined for type %s", name, backendConf.Type)
-		}
-		decorator, err := decoratorFactory(backendConf.Properties, name)
-		if err != nil {
-			return nil, fmt.Errorf("initialization of backend %s has resulted with error: %q", name, err)
-		}
-		decoratedBackend := httphandler.Decorate(backend, decorator)
-		backends[name] = decoratedBackend
-
 	}
 	if len(clustersConf) == 0 {
 		return nil, fmt.Errorf("empty map 'clustersConf' in 'InitStorages'")
@@ -176,4 +169,21 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 		Backends:     backends,
 		respHandler:  respHandler,
 	}, nil
+}
+
+func decorateBackend(transport http.RoundTripper, name string, backendConf config.Backend) (http.RoundTripper, error) {
+	backend := &Backend{
+		transport,
+		*backendConf.Endpoint.URL,
+		name,
+	}
+	decoratorFactory, ok := auth.Decorators[backendConf.Type]
+	if !ok {
+		return nil, fmt.Errorf("initialization of backend %s has resulted with error: no decorator defined for type %s", name, backendConf.Type)
+	}
+	decorator, err := decoratorFactory(backendConf.Properties, name)
+	if err != nil {
+		return nil, fmt.Errorf("initialization of backend %s has resulted with error: %q", name, err)
+	}
+	return httphandler.Decorate(backend, decorator), nil
 }
