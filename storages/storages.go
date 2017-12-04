@@ -44,8 +44,9 @@ type Storages struct {
 // Backend represents any storage in akubra cluster
 type Backend struct {
 	http.RoundTripper
-	Endpoint url.URL
-	Name     string
+	Endpoint    url.URL
+	Name        string
+	Maintenance bool
 }
 
 // RoundTrip satisfies http.RoundTripper interface
@@ -54,6 +55,10 @@ func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 	r.URL.Scheme = b.Endpoint.Scheme
 	reqID := r.Context().Value(log.ContextreqIDKey)
 	log.Debugf("Request %s req.URL.Host replaced with %s", reqID, r.URL.Host)
+
+	if !b.Maintenance {
+		return nil, fmt.Errorf("backend %v in maintenance mode", b.Name)
+	}
 	return b.RoundTripper.RoundTrip(r)
 }
 
@@ -141,15 +146,11 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 		return nil, fmt.Errorf("empty map 'backendsConf' in 'InitStorages'")
 	}
 	for name, backendConf := range backendsConf {
-		if !backendConf.Maintenance {
-			decoratedBackend, err := decorateBackend(transport, name, backendConf)
-			if err != nil {
-				return nil, err
-			}
-			backends[name] = decoratedBackend
-		} else {
-			log.Printf("'Maintenance' mode enabled on backend: %s", name)
+		decoratedBackend, err := decorateBackend(transport, name, backendConf)
+		if err != nil {
+			return nil, err
 		}
+		backends[name] = decoratedBackend
 	}
 	if len(clustersConf) == 0 {
 		return nil, fmt.Errorf("empty map 'clustersConf' in 'InitStorages'")
@@ -176,6 +177,7 @@ func decorateBackend(transport http.RoundTripper, name string, backendConf confi
 		transport,
 		*backendConf.Endpoint.URL,
 		name,
+		backendConf.Maintenance,
 	}
 	decoratorFactory, ok := auth.Decorators[backendConf.Type]
 	if !ok {
