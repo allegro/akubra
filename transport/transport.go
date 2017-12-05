@@ -129,7 +129,7 @@ type RequestProcessor func(orig *http.Request, copies []*http.Request)
 // MultiTransport replicates request onto multiple backends
 type MultiTransport struct {
 	// Backends is list of target endpoints URL
-	Backends     []http.RoundTripper
+	Backends []http.RoundTripper
 	// Response handler will get `ReqResErrTuple` in `in` channel
 	// should process all responses and send one to out chan.
 	// Response senf to out chan will be returned from RoundTrip.

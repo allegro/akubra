@@ -8,8 +8,8 @@ import (
 
 	httphandlerconfig "github.com/allegro/akubra/httphandler/config"
 	regionsconfig "github.com/allegro/akubra/regions/config"
-	validator "gopkg.in/validator.v1"
 	"github.com/stretchr/testify/assert"
+	validator "gopkg.in/validator.v1"
 )
 
 // import (
