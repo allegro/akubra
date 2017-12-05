@@ -1,32 +1,51 @@
-hash: be0af2039d6429fe286fc54ea3defd8f985f5ad9adb05eb79cc157a381a02ba6
-updated: 2017-11-30T16:05:26.04593791+01:00
+hash: 1f30a0780aa30f060761e6ffb7fa884312f7fad5d6456bb3bfcc75e9889381b1
+updated: 2017-12-04T11:19:21.523809679+01:00
 imports:
 - name: github.com/alecthomas/kingpin
-  version: fde80b58ec35ea587c031c202880b1655a51ee53
+  version: 1087e65c9441605df944fb12c33f0fe7072d18ca
 - name: github.com/alecthomas/template
   version: a0175ee3bccc567396460bf5acd36800cb10c49c
   subpackages:
   - parse
 - name: github.com/alecthomas/units
   version: 2efee857e7cfd4f3d0138cc3cbb1b4966962b93a
+- name: github.com/codegangsta/cli
+  version: cfb38830724cc34fedffe9a2a29fb54fa9169cd1
 - name: github.com/cyberdelia/go-metrics-graphite
   version: 39f87cc3b432bbb898d7c643c0e93cac2bc865ad
 - name: github.com/deckarep/golang-set
   version: 1d4478f51bed434f1dadf96dcd9b43aabac66795
 - name: github.com/docker/go-units
   version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
-- name: github.com/go-ini/ini
-  version: 32e4c1e6bc4e7d0d8451aa6b75200d19e37a536a
-- name: github.com/go-validator/validator
-  version: 4379dff89709877fa1b057d23b11bfe0c361dfd3
 - name: github.com/lib/pq
   version: 83612a56d3dd153a94a629cd64925371c9adad78
   subpackages:
   - oid
-- name: github.com/minio/go-homedir
-  version: 21304a94172ae3a09dee2cd86a12fb6f842138c7
-- name: github.com/mjarco/minio-go
-  version: 1767a2b80555efa4831e87f3bc7a0610f23e43ca
+- name: github.com/Masterminds/glide
+  version: 07019f130dd07a8b6ae3244a375754e7c09dbbf9
+  subpackages:
+  - action
+  - cache
+  - cfg
+  - dependency
+  - gb
+  - godep
+  - godep/strip
+  - gom
+  - gpm
+  - importer
+  - mirrors
+  - msg
+  - path
+  - repo
+  - tree
+  - util
+- name: github.com/Masterminds/semver
+  version: 15d8430ab86497c5c0da827b748823945e1cf1e1
+- name: github.com/Masterminds/vcs
+  version: 6f1c6d150500e452704e9863f68c2559f58616bf
+- name: github.com/mitchellh/go-homedir
+  version: b8bc1bf767474819792c23f32d8286a45736f1c6
 - name: github.com/rcrowley/go-metrics
   version: e181e095bae94582363434144c61a9653aff6e50
   subpackages:
@@ -36,9 +55,9 @@ imports:
 - name: github.com/ShowMax/go-fqdn
   version: 2501cdd51ef4c60dd727c58b2199e1a09466b10f
 - name: github.com/sirupsen/logrus
-  version: 95cd2b9c79aa5e72ab0bc69b7ccc2be15bf850f6
+  version: f006c2ac4710855cf0f916dd6b77acf6b048dc6e
 - name: golang.org/x/crypto
-  version: 48a5a650cfc529a2517eb6a4d6d6749872520525
+  version: 94eea52f7b742c7cbe0b03b22f0c4c8631ece122
   subpackages:
   - ssh/terminal
 - name: golang.org/x/sync
@@ -46,7 +65,7 @@ imports:
   subpackages:
   - syncmap
 - name: golang.org/x/sys
-  version: b76f9891dc1d975623261def70f9b89661f5baab
+  version: 8b4580aae2a0dd0c231a45d3ccb8434ff533b840
   subpackages:
   - unix
   - windows
@@ -54,11 +73,13 @@ imports:
   version: 13514cd35e4c57f0e4c25555698baf9c12f5d067
 - name: gopkg.in/tylerb/graceful.v1
   version: 4654dfbb6ad53cb5e27f37d99b02e16c1872fbbb
+- name: gopkg.in/validator.v1
+  version: 4379dff89709877fa1b057d23b11bfe0c361dfd3
 - name: gopkg.in/yaml.v2
   version: 287cf08546ab5e7e37d55a84f7ed3fd1db036de5
 testImports:
 - name: github.com/DATA-DOG/go-sqlmock
-  version: a7b3087be733089e8ddef5f52258699c92a14a5c
+  version: d76b18b42f285b792bf985118980ce9eacea9d10
 - name: github.com/davecgh/go-spew
   version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
   subpackages:

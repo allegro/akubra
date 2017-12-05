@@ -44,8 +44,9 @@ type Storages struct {
 // Backend represents any storage in akubra cluster
 type Backend struct {
 	http.RoundTripper
-	Endpoint url.URL
-	Name     string
+	Endpoint    url.URL
+	Name        string
+	Maintenance bool
 }
 
 // RoundTrip satisfies http.RoundTripper interface
@@ -54,14 +55,17 @@ func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 	r.URL.Scheme = b.Endpoint.Scheme
 	reqID := r.Context().Value(log.ContextreqIDKey)
 	log.Debugf("Request %s req.URL.Host replaced with %s", reqID, r.URL.Host)
+
+	if b.Maintenance {
+		return nil, fmt.Errorf("backend %v in maintenance mode", b.Name)
+	}
 	return b.RoundTripper.RoundTrip(r)
 }
 
 func (c *Cluster) setupRoundTripper() {
 	multiTransport := transport.NewMultiTransport(
 		c.Backends(),
-		c.respHandler,
-		nil)
+		c.respHandler)
 	c.transport = multiTransport
 }
 
@@ -94,11 +98,9 @@ func newCluster(name string, backendNames []string, backends map[string]http.Rou
 	}
 	for _, backendName := range backendNames {
 		backendRT, ok := backends[backendName]
-		if !ok {
-			return nil, fmt.Errorf("no such backend %q in 'storages::newCluster'", backendName)
+		if ok {
+			clusterBackends = append(clusterBackends, backendRT)
 		}
-
-		clusterBackends = append(clusterBackends, backendRT)
 	}
 
 	cluster := &Cluster{backends: clusterBackends, name: name, respHandler: respHandler}
@@ -112,7 +114,7 @@ func (st Storages) GetCluster(name string) (NamedCluster, error) {
 	if ok {
 		return s3cluster, nil
 	}
-	return &Cluster{}, fmt.Errorf("No such cluster defined %q", name)
+	return &Cluster{}, fmt.Errorf("no such cluster defined %q", name)
 }
 
 // ClusterShards extends Clusters list of Storages by cluster made of joined clusters backends and returns it.
@@ -141,22 +143,14 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 		return nil, fmt.Errorf("empty map 'backendsConf' in 'InitStorages'")
 	}
 	for name, backendConf := range backendsConf {
-		backend := &Backend{
-			transport,
-			*backendConf.Endpoint.URL,
-			name,
+		if backendConf.Maintenance {
+			log.Printf("backend %q in maintenance mode", name)
 		}
-		decoratorFactory, ok := auth.Decorators[backendConf.Type]
-		if !ok {
-			return nil, fmt.Errorf("initialization of backend %s has resulted with error: no decorator defined for type %s", name, backendConf.Type)
-		}
-		decorator, err := decoratorFactory(backendConf.Properties, name)
+		decoratedBackend, err := decorateBackend(transport, name, backendConf)
 		if err != nil {
-			return nil, fmt.Errorf("initialization of backend %s has resulted with error: %q", name, err)
+			return nil, err
 		}
-		decoratedBackend := httphandler.Decorate(backend, decorator)
 		backends[name] = decoratedBackend
-
 	}
 	if len(clustersConf) == 0 {
 		return nil, fmt.Errorf("empty map 'clustersConf' in 'InitStorages'")
@@ -176,4 +170,22 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 		Backends:     backends,
 		respHandler:  respHandler,
 	}, nil
+}
+
+func decorateBackend(transport http.RoundTripper, name string, backendConf config.Backend) (http.RoundTripper, error) {
+	backend := &Backend{
+		transport,
+		*backendConf.Endpoint.URL,
+		name,
+		backendConf.Maintenance,
+	}
+	decoratorFactory, ok := auth.Decorators[backendConf.Type]
+	if !ok {
+		return nil, fmt.Errorf("initialization of backend %s has resulted with error: no decorator defined for type %s", name, backendConf.Type)
+	}
+	decorator, err := decoratorFactory(backendConf.Properties, name)
+	if err != nil {
+		return nil, fmt.Errorf("initialization of backend %s has resulted with error: %q", name, err)
+	}
+	return httphandler.Decorate(backend, decorator), nil
 }
