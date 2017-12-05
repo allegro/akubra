@@ -32,7 +32,7 @@ func backend(r transport.ResErrTuple) string {
 	if ok {
 		return berr.Backend()
 	}
-	log.Printf("Requested backend is not retrivable from tuple %#v", r)
+	log.Printf("Requested backend is not retrievable from tuple %#v", r)
 	return ""
 }
 
