@@ -14,6 +14,23 @@ import (
 	set "github.com/deckarep/golang-set"
 )
 
+type backendError struct {
+	backend string
+	origErr error
+}
+
+func (be *backendError) Backend() string {
+	return be.backend
+}
+
+func (be *backendError) Err() error {
+	return be.origErr
+}
+
+func (be *backendError) Error() string {
+	return fmt.Sprintf("backend %s responded with error %s", be.backend, be.origErr)
+}
+
 // NamedCluster interface
 type NamedCluster interface {
 	http.RoundTripper
@@ -54,7 +71,13 @@ func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 	r.URL.Scheme = b.Endpoint.Scheme
 	reqID := r.Context().Value(log.ContextreqIDKey)
 	log.Debugf("Request %s req.URL.Host replaced with %s", reqID, r.URL.Host)
-	return b.RoundTripper.RoundTrip(r)
+	err := error(nil)
+	resp, oerror := b.RoundTripper.RoundTrip(r)
+
+	if oerror != nil {
+		err = &backendError{backend: b.Endpoint.Host, origErr: oerror}
+	}
+	return resp, err
 }
 
 func (c *Cluster) setupRoundTripper() {
