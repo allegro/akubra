@@ -24,6 +24,7 @@ type ResErrTuple struct {
 	// First error occurred in transmision is passed here
 	// Non 2XX response code is also treated as error
 	Err    error
+	Req    *http.Request
 	Failed bool
 }
 
@@ -215,7 +216,7 @@ func (mt *MultiTransport) sendRequest(
 	go func() {
 		if mt.SkipBackends[req.URL.Host] {
 			log.Debugf("Skipping request %s, for %s", req.Context().Value(requestID), req.URL.Host)
-			r := ResErrTuple{&http.Response{Request: req}, fmt.Errorf("Maintained Backend %s", req.URL.Host), true}
+			r := ResErrTuple{Res: &http.Response{Request: req}, Err: fmt.Errorf("Maintained Backend %s", req.URL.Host), Failed: true}
 			o <- r
 			return
 		}
@@ -224,7 +225,7 @@ func (mt *MultiTransport) sendRequest(
 			log.Debugf("Send request error %s, %s", err.Error(), requestID)
 		}
 		failed := err != nil || resp != nil && (resp.StatusCode < 200 || resp.StatusCode > 399)
-		r := ResErrTuple{resp, err, failed}
+		r := ResErrTuple{Res: resp, Err: err, Failed: failed}
 		o <- r
 	}()
 	var reqresperr ResErrTuple
@@ -233,10 +234,11 @@ func (mt *MultiTransport) sendRequest(
 	select {
 	case <-ctx.Done():
 		log.Debugf("Ctx Done reqID %s ", requestID)
-		reqresperr = ResErrTuple{nil, ErrBodyContentLengthMismatch, true}
+		reqresperr = ResErrTuple{Res: nil, Err: ErrBodyContentLengthMismatch, Failed: true}
 	case reqresperr = <-o:
 		break
 	}
+	reqresperr.Req = req
 	out <- reqresperr
 }
 

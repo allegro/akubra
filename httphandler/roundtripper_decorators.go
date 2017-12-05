@@ -86,7 +86,9 @@ func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err
 	if err != nil {
 		return
 	}
-
+	if resp.Header == nil {
+		resp.Header = http.Header{}
+	}
 	for k, v := range hs.responseHeaders {
 		_, ok := resp.Header[k]
 		if !ok {

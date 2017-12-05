@@ -37,7 +37,6 @@ func (suite *StorageTestSuite) TestGetClusterShouldReturnDefinedCluster() {
 
 func (suite *StorageTestSuite) TestGetClusterShouldReturnErrorIfClusterIsNotDefined() {
 	c, err := suite.storage.GetCluster("notExists")
-
 	require.Equal(suite.T(), &Cluster{}, c)
 	require.Error(suite.T(), err)
 }

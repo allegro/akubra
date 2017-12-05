@@ -126,8 +126,8 @@ func (st *Storages) ClusterShards(name string, clusters ...NamedCluster) NamedCl
 	for _, cluster := range clusters {
 		backends = append(backends, cluster.Backends()...)
 	}
-
-	newCluster := &Cluster{backends: backends, name: name, respHandler: st.respHandler}
+	rh := responseMerger{merger: st.respHandler}
+	newCluster := &Cluster{backends: backends, name: name, respHandler: rh.responseHandler}
 	newCluster.setupRoundTripper()
 	st.Clusters[name] = newCluster
 	return newCluster
