@@ -108,6 +108,29 @@ func (suite *BucketListResponseMergerTestSuite) TestSingleResponseMerge() {
 	suite.Equal(ps, list.CommonPrefixes)
 }
 
+func (suite *BucketListResponseMergerTestSuite) TestV2NotImplemented() {
+	req, err := http.NewRequest("Get", "http://localhost:8080/bucket", nil)
+	suite.NoError(err)
+
+	query := req.URL.Query()
+	query.Set("list-type", "2")
+	req.URL.RawQuery = query.Encode()
+	tup1 := transport.ResErrTuple{
+		Req: req,
+		Res: &http.Response{
+			Request:    req,
+			StatusCode: http.StatusNoContent,
+		},
+	}
+
+	suite.NoError(err)
+	go suite.Send(tup1)
+	rtup := suite.rHandler(suite.ch)
+
+	suite.NoError(rtup.Err)
+	suite.Equal(rtup.Res.StatusCode, http.StatusNotImplemented)
+}
+
 func (suite *BucketListResponseMergerTestSuite) TestResponseMerge() {
 	maxKeys := 10
 	ps1 := prefixes("pa", "pz", "pb", "py")
