@@ -14,6 +14,8 @@ import (
 	"github.com/allegro/akubra/transport"
 )
 
+const listTypeV2 = "2"
+
 type objectsContainer struct {
 	set  map[string]struct{}
 	list []ObjectInfo
@@ -193,7 +195,18 @@ func (rm *responseMerger) responseHandler(in <-chan transport.ResErrTuple) trans
 	firstTuple := <-in
 	path := firstTuple.Req.URL.Path
 	method := firstTuple.Req.Method
+
 	if method != http.MethodGet || !isBucketPath(path) {
+		reqQuery := firstTuple.Req.URL.Query()
+		if reqQuery.Get("list-type") == listTypeV2 {
+			return transport.ResErrTuple{
+				Req: firstTuple.Req,
+				Res: &http.Response{
+					Request:    firstTuple.Req,
+					StatusCode: http.StatusNotImplemented,
+				},
+			}
+		}
 		inCopy := make(chan transport.ResErrTuple)
 		go func() {
 			inCopy <- firstTuple

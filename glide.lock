@@ -23,10 +23,6 @@ imports:
   version: 83612a56d3dd153a94a629cd64925371c9adad78
   subpackages:
   - oid
-- name: github.com/minio/go-homedir
-  version: 21304a94172ae3a09dee2cd86a12fb6f842138c7
-- name: github.com/mjarco/minio-go
-  version: 1767a2b80555efa4831e87f3bc7a0610f23e43ca
 - name: github.com/rcrowley/go-metrics
   version: e181e095bae94582363434144c61a9653aff6e50
   subpackages:
