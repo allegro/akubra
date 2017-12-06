@@ -4,12 +4,13 @@ import (
 	"net/http"
 	"testing"
 
+	"net/url"
+
 	config "github.com/allegro/akubra/storages/config"
 	"github.com/allegro/akubra/transport"
 	"github.com/allegro/akubra/types"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"net/url"
 )
 
 type StorageTestSuite struct {
