@@ -13,7 +13,6 @@ import (
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
-	shardingconfig "github.com/allegro/akubra/sharding/config"
 )
 
 // ResErrTuple is intermediate structure for internal use of
@@ -130,8 +129,7 @@ type RequestProcessor func(orig *http.Request, copies []*http.Request)
 // MultiTransport replicates request onto multiple backends
 type MultiTransport struct {
 	// Backends is list of target endpoints URL
-	Backends     []http.RoundTripper
-	SkipBackends map[string]bool
+	Backends []http.RoundTripper
 	// Response handler will get `ReqResErrTuple` in `in` channel
 	// should process all responses and send one to out chan.
 	// Response senf to out chan will be returned from RoundTrip.
@@ -214,12 +212,6 @@ func (mt *MultiTransport) sendRequest(
 	o := make(chan ResErrTuple)
 	requestID := ctx.Value(log.ContextreqIDKey)
 	go func() {
-		if mt.SkipBackends[req.URL.Host] {
-			log.Debugf("Skipping request %s, for %s", req.Context().Value(requestID), req.URL.Host)
-			r := ResErrTuple{Res: &http.Response{Request: req}, Err: fmt.Errorf("Maintained Backend %s", req.URL.Host), Failed: true}
-			o <- r
-			return
-		}
 		resp, err := backend.RoundTrip(req.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, requestID)))
 		if err != nil {
 			log.Debugf("Send request error %s, %s", err.Error(), requestID)
@@ -280,20 +272,12 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 // NewMultiTransport creates *MultiTransport. If requestsPreprocesor or responseHandler
 // are nil will use default ones
 func NewMultiTransport(backends []http.RoundTripper,
-	responsesHandler MultipleResponsesHandler,
-	maintainedBackends []shardingconfig.YAMLUrl) *MultiTransport {
+	responsesHandler MultipleResponsesHandler) *MultiTransport {
 	if responsesHandler == nil {
 		responsesHandler = DefaultHandleResponses
 	}
 
-	mb := make(map[string]bool, len(maintainedBackends))
-
-	for _, yurl := range maintainedBackends {
-		mb[yurl.Host] = true
-	}
-
 	return &MultiTransport{
 		Backends:        backends,
-		SkipBackends:    mb,
 		HandleResponses: responsesHandler}
 }

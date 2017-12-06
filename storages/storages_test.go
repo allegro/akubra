@@ -4,8 +4,12 @@ import (
 	"net/http"
 	"testing"
 
+	config "github.com/allegro/akubra/storages/config"
+	"github.com/allegro/akubra/transport"
+	"github.com/allegro/akubra/types"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"net/url"
 )
 
 type StorageTestSuite struct {
@@ -60,4 +64,30 @@ func (suite *StorageTestSuite) TestClusterShardsShouldReturnJoinedCluster() {
 
 func TestStorageTestSuite(t *testing.T) {
 	suite.Run(t, new(StorageTestSuite))
+}
+
+func TestShouldNotInitStoragesWithWrongBackendType(t *testing.T) {
+	backendName := "backend1"
+	backendType := "unknown"
+	var transportRoundTripper http.RoundTripper
+	clustersConf := config.ClustersMap{}
+	clusterConfig := config.Cluster{
+		Backends: []string{"http://localhost"},
+	}
+	clustersConf["clusterName1"] = clusterConfig
+
+	urlBackend := url.URL{Scheme: "http", Host: "localhost"}
+	backendsConf := config.BackendsMap{backendName: config.Backend{
+		Endpoint:    types.YAMLUrl{&urlBackend},
+		Maintenance: false,
+		Properties:  nil,
+		Type:        backendType,
+	}}
+	var respHandler transport.MultipleResponsesHandler
+
+	_, err := InitStorages(transportRoundTripper, clustersConf, backendsConf, respHandler)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(),
+		"initialization of backend 'backend1' resulted with error: no decorator defined for type 'unknown'")
 }
