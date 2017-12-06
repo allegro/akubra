@@ -24,7 +24,7 @@ func requestID(req *http.Request) string {
 	return req.Context().Value(log.ContextreqIDKey).(string)
 }
 
-func backend(r transport.ResErrTuple) string {
+func extractDestinationHostName(r transport.ResErrTuple) string {
 	if r.Res != nil {
 		return r.Res.Request.URL.Host
 	}
@@ -64,9 +64,9 @@ func (rd *responseMerger) synclog(r, successfulTup transport.ResErrTuple) {
 	reqID := requestID(successfulTup.Req)
 	syncLogMsg := NewSyncLogMessageData(
 		r.Req.Method,
-		backend(r),
+		extractDestinationHostName(r),
 		successfulTup.Req.URL.Path,
-		backend(successfulTup),
+		extractDestinationHostName(successfulTup),
 		successfulTup.Req.Header.Get("User-Agent"),
 		reqID,
 		errorMsg,
@@ -113,7 +113,7 @@ func (rd *responseMerger) handleFailedResponces(
 
 func logDebug(r transport.ResErrTuple) {
 	reqID := requestID(r.Req)
-	backend := backend(r)
+	backend := extractDestinationHostName(r)
 
 	statusCode := 0
 	if r.Res != nil {

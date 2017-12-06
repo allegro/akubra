@@ -110,18 +110,6 @@ func mkSuccessfulResTuples(method, urlStr string, count int) ([]transport.ResErr
 	return tuples, nil
 }
 
-func mkFailedResultTuples(method, url string, count int) ([]transport.ResErrTuple, error) {
-	tuples := make([]transport.ResErrTuple, 0)
-	for i := 0; i < count; i++ {
-		tup, err := mkResTuple(method, url, "", 400, nil)
-		if err != nil {
-			return nil, err
-		}
-		tuples = append(tuples, tup)
-	}
-	return tuples, nil
-}
-
 func mkNetworkFailTuples(method, urlStr string, err error, count int) ([]transport.ResErrTuple, error) {
 	tuples := make([]transport.ResErrTuple, 0)
 	body := ioutil.NopCloser(bytes.NewBuffer([]byte("abcd")))
@@ -213,10 +201,10 @@ func (suite *handlerTestSuite) TestHandlerReturnsSuccessIfAnyResponseIsCorrect()
 	tuples, err := mkNetworkFailTuples(suite.method, suite.urlStr, fmt.Errorf("Connection broken"), 2)
 	suite.NoError(err, "Network Fail Tuples creation error")
 
-	successTuple, err := mkResTuple(suite.method, suite.urlStr, "ok", 200, nil)
+	successTuples, err := mkSuccessfulResTuples(suite.method, suite.urlStr, 1)
 	suite.NoError(err, "Correct Tuples creation error")
 
-	tuples = append(tuples, successTuple)
+	tuples = append(tuples, successTuples...)
 
 	go suite.feedResponseTupleChannel(ch, tuples...)
 
