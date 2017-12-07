@@ -8,8 +8,8 @@ import (
 
 	httphandlerconfig "github.com/allegro/akubra/httphandler/config"
 	regionsconfig "github.com/allegro/akubra/regions/config"
-	"github.com/go-validator/validator"
 	"github.com/stretchr/testify/assert"
+	validator "gopkg.in/validator.v1"
 )
 
 // import (
@@ -19,7 +19,7 @@ import (
 // 	"net/http/httptest"
 
 // 	shardingconfig "github.com/allegro/akubra/sharding/config"
-// 	"github.com/go-validator/validator"
+// 	validator "gopkg.in/validator.v1"
 
 // 	"errors"
 

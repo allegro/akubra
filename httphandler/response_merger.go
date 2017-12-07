@@ -20,7 +20,7 @@ type responseMerger struct {
 
 func (rd *responseMerger) synclog(r, successfulTup transport.ResErrTuple) {
 	// don't log if request method was not included in configuration
-	if rd.methodSetFilter == nil || !rd.methodSetFilter.Contains(r.Res.Request.Method) {
+	if rd.methodSetFilter == nil || !rd.methodSetFilter.Contains(r.Req.Method) {
 		return
 	}
 	// do not log if backend response was successful
@@ -38,18 +38,21 @@ func (rd *responseMerger) synclog(r, successfulTup transport.ResErrTuple) {
 	}
 
 	contentLength := successfulTup.Res.ContentLength
+	reqID := "xxxxxxxxxxxxxxx"
+	if r.Res != nil {
+		reqID = r.Res.Request.Context().Value(log.ContextreqIDKey).(string)
+	}
 
-	reqID := r.Res.Request.Context().Value(log.ContextreqIDKey).(string)
 	syncLogMsg := NewSyncLogMessageData(
-		r.Res.Request.Method,
-		r.Res.Request.URL.Host,
-		successfulTup.Res.Request.URL.Path,
-		successfulTup.Res.Request.URL.Host,
-		r.Res.Request.Header.Get("User-Agent"),
+		r.Req.Method,
+		r.Req.URL.Host,
+		successfulTup.Req.URL.Path,
+		successfulTup.Req.URL.Host,
+		r.Req.Header.Get("User-Agent"),
 		reqID,
 		errorMsg,
 		contentLength)
-	metrics.Mark(fmt.Sprintf("reqs.inconsistencies.%s.method-%s", metrics.Clean(r.Res.Request.Host), r.Res.Request.Method))
+	metrics.Mark(fmt.Sprintf("reqs.inconsistencies.%s.method-%s", metrics.Clean(r.Req.Host), r.Req.Method))
 	logMsg, err := json.Marshal(syncLogMsg)
 	if err != nil {
 		return
@@ -101,16 +104,17 @@ func (rd *responseMerger) _handle(in <-chan transport.ResErrTuple, out chan<- tr
 		}
 
 		statusCode := 0
+		reqID := "xxxxxxxxxxxxxxx"
 		if r.Res != nil {
 			statusCode = r.Res.StatusCode
+			reqID, _ = r.Res.Request.Context().Value(log.ContextreqIDKey).(string)
 		}
-		reqID, _ := r.Res.Request.Context().Value(log.ContextreqIDKey).(string)
 		log.Debugf("Got response %s from backend %s, status: %d, method: %s, path %s, error: %q",
 			reqID,
-			r.Res.Request.URL.Host,
+			r.Req.URL.Host,
 			statusCode,
-			r.Res.Request.Method,
-			r.Res.Request.URL.Path,
+			r.Req.Method,
+			r.Req.URL.Path,
 			r.Err)
 
 		if !r.Failed && !firstPassed {
@@ -149,9 +153,9 @@ func (rd *responseMerger) handleResponses(in <-chan transport.ResErrTuple) trans
 // responses, returns first successful response to caller
 func EarliestResponseHandler(synclog log.Logger, methods set.Set) transport.MultipleResponsesHandler {
 	rh := responseMerger{
-		synclog,
-		methods,
-		true,
+		syncerrlog:      synclog,
+		methodSetFilter: methods,
+		fifo:            true,
 	}
 	return rh.handleResponses
 }
@@ -161,9 +165,9 @@ func EarliestResponseHandler(synclog log.Logger, methods set.Set) transport.Mult
 // all other responces received
 func LateResponseHandler(synclog log.Logger, methods set.Set) transport.MultipleResponsesHandler {
 	rh := responseMerger{
-		synclog,
-		methods,
-		false,
+		syncerrlog:      synclog,
+		methodSetFilter: methods,
+		fifo:            false,
 	}
 	return rh.handleResponses
 }

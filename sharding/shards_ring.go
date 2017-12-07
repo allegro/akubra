@@ -17,7 +17,7 @@ import (
 	"github.com/serialx/hashring"
 )
 
-//ShardsRingAPI interface
+// ShardsRingAPI interface
 type ShardsRingAPI interface {
 	DoRequest(req *http.Request) (resp *http.Response, rerr error)
 }
@@ -109,7 +109,7 @@ func (sr ShardsRing) regressionCall(cl storages.NamedCluster, req *http.Request)
 	// Do regression call if response status is > 400
 	if (err != nil || resp.StatusCode > 400) && req.Method != http.MethodPut {
 		rcl, ok := sr.clusterRegressionMap[cl.Name()]
-		if ok {
+		if ok && resp != nil && resp.Body != nil {
 			_, discardErr := io.Copy(ioutil.Discard, resp.Body)
 			if discardErr != nil {
 				reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
@@ -122,6 +122,8 @@ func (sr ShardsRing) regressionCall(cl storages.NamedCluster, req *http.Request)
 				log.Printf("Cannot close response body for req %s, reason: %q",
 					reqID, closeErr.Error())
 			}
+		}
+		if ok {
 			return sr.regressionCall(rcl, req)
 		}
 	}
@@ -139,7 +141,7 @@ func (sr *ShardsRing) logInconsistency(key, expectedClusterName, actualClusterNa
 	}
 }
 
-//DoRequest performs http requests to all backends that should be reached within this shards ring and with given method
+// DoRequest performs http requests to all backends that should be reached within this shards ring and with given method
 func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr error) {
 	since := time.Now()
 	defer func() {
@@ -161,8 +163,9 @@ func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr err
 	if err != nil {
 		return nil, err
 	}
+	isBucketReq := sr.isBucketPath(reqCopy.URL.Path)
 
-	if reqCopy.Method == http.MethodDelete || sr.isBucketPath(reqCopy.URL.Path) {
+	if reqCopy.Method == http.MethodDelete || isBucketReq {
 		return sr.allClustersRoundTripper.RoundTrip(reqCopy)
 	}
 

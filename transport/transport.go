@@ -13,7 +13,6 @@ import (
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
-	shardingconfig "github.com/allegro/akubra/sharding/config"
 )
 
 // ResErrTuple is intermediate structure for internal use of
@@ -21,9 +20,10 @@ import (
 type ResErrTuple struct {
 	// Received response
 	Res *http.Response
-	// First error occured in transmision is passed here
+	// First error occurred in transmision is passed here
 	// Non 2XX response code is also treated as error
 	Err    error
+	Req    *http.Request
 	Failed bool
 }
 
@@ -49,7 +49,7 @@ func defaultHandleResponses(in <-chan ResErrTuple, out chan<- ResErrTuple) {
 			out <- r
 			respPassed = true
 		}
-		// if error occured then append it into errs slice
+		// if error occurred then append it into errs slice
 		if r.Err != nil {
 			if !respPassed {
 				errs = append(errs, r)
@@ -84,7 +84,7 @@ func clearResponsesBody(respTups []ResErrTuple) {
 
 // DefaultHandleResponses is default way of handling multiple responses.
 // It will pass first success response or any error if no
-// success occured
+// success occurred
 func DefaultHandleResponses(in <-chan ResErrTuple) ResErrTuple {
 	out := make(chan ResErrTuple, 1)
 	go defaultHandleResponses(in, out)
@@ -129,8 +129,7 @@ type RequestProcessor func(orig *http.Request, copies []*http.Request)
 // MultiTransport replicates request onto multiple backends
 type MultiTransport struct {
 	// Backends is list of target endpoints URL
-	Backends     []http.RoundTripper
-	SkipBackends map[string]bool
+	Backends []http.RoundTripper
 	// Response handler will get `ReqResErrTuple` in `in` channel
 	// should process all responses and send one to out chan.
 	// Response senf to out chan will be returned from RoundTrip.
@@ -213,18 +212,12 @@ func (mt *MultiTransport) sendRequest(
 	o := make(chan ResErrTuple)
 	requestID := ctx.Value(log.ContextreqIDKey)
 	go func() {
-		if mt.SkipBackends[req.URL.Host] {
-			log.Debugf("Skipping request %s, for %s", req.Context().Value(requestID), req.URL.Host)
-			r := ResErrTuple{&http.Response{Request: req}, fmt.Errorf("Maintained Backend %s", req.URL.Host), true}
-			o <- r
-			return
-		}
 		resp, err := backend.RoundTrip(req.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, requestID)))
 		if err != nil {
 			log.Debugf("Send request error %s, %s", err.Error(), requestID)
 		}
 		failed := err != nil || resp != nil && (resp.StatusCode < 200 || resp.StatusCode > 399)
-		r := ResErrTuple{resp, err, failed}
+		r := ResErrTuple{Res: resp, Err: err, Failed: failed}
 		o <- r
 	}()
 	var reqresperr ResErrTuple
@@ -233,10 +226,11 @@ func (mt *MultiTransport) sendRequest(
 	select {
 	case <-ctx.Done():
 		log.Debugf("Ctx Done reqID %s ", requestID)
-		reqresperr = ResErrTuple{nil, ErrBodyContentLengthMismatch, true}
+		reqresperr = ResErrTuple{Res: nil, Err: ErrBodyContentLengthMismatch, Failed: true}
 	case reqresperr = <-o:
 		break
 	}
+	reqresperr.Req = req
 	out <- reqresperr
 }
 
@@ -278,20 +272,12 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 // NewMultiTransport creates *MultiTransport. If requestsPreprocesor or responseHandler
 // are nil will use default ones
 func NewMultiTransport(backends []http.RoundTripper,
-	responsesHandler MultipleResponsesHandler,
-	maintainedBackends []shardingconfig.YAMLUrl) *MultiTransport {
+	responsesHandler MultipleResponsesHandler) *MultiTransport {
 	if responsesHandler == nil {
 		responsesHandler = DefaultHandleResponses
 	}
 
-	mb := make(map[string]bool, len(maintainedBackends))
-
-	for _, yurl := range maintainedBackends {
-		mb[yurl.Host] = true
-	}
-
 	return &MultiTransport{
 		Backends:        backends,
-		SkipBackends:    mb,
 		HandleResponses: responsesHandler}
 }

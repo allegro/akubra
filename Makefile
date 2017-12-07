@@ -11,7 +11,16 @@ lint: deps-lint
 	--deadline=600s \
 	--enable=goimports \
 	--vendor \
-        --fast
+	--fast
+
+lint-slow: deps-lint
+	gometalinter ./... \
+	--disable=gotype \
+	--disable=dupl \
+	--deadline=600s \
+	--enable=goimports \
+	--vendor 
+
 
 deps:
 	$(GO) get github.com/Masterminds/glide

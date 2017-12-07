@@ -133,7 +133,7 @@ func TestTimeoutReader(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		_, err := tr.Read(make([]byte, 20))
 		require.NoError(t, err,
-			fmt.Sprintf("Timeout was not reached, but error occured %s", err))
+			fmt.Sprintf("Timeout was not reached, but error occurred %s", err))
 	}
 	tr2 := &TimeoutReader{pr, time.Millisecond}
 	_, err := tr2.Read(make([]byte, 0, 20))

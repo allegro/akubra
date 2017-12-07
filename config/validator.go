@@ -80,7 +80,7 @@ func (c *YamlConfig) validateRegionCluster(regionName string, regionConf confreg
 	return errList
 }
 
-//RegionsEntryLogicalValidator checks the correctness of "Regions" part of configuration file
+// RegionsEntryLogicalValidator checks the correctness of "Regions" part of configuration file
 func (c *YamlConfig) RegionsEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
 	if len(c.Regions) == 0 {
