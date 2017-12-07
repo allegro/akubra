@@ -16,7 +16,7 @@ import (
 	"github.com/allegro/akubra/metrics"
 	confregions "github.com/allegro/akubra/regions/config"
 	storages "github.com/allegro/akubra/storages/config"
-	"github.com/go-validator/validator"
+	validator "gopkg.in/validator.v1"
 	yaml "gopkg.in/yaml.v2"
 )
 
