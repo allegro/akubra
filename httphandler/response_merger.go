@@ -5,12 +5,36 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/transport"
 	set "github.com/deckarep/golang-set"
 )
+
+// BackendError interface helps logging inconsistencies
+type BackendError interface {
+	Backend() string
+	Err() error
+	Error() string
+}
+
+func requestID(req *http.Request) string {
+	return req.Context().Value(log.ContextreqIDKey).(string)
+}
+
+func extractDestinationHostName(r transport.ResErrTuple) string {
+	if r.Res != nil {
+		return r.Res.Request.URL.Host
+	}
+	berr, ok := r.Err.(BackendError)
+	if ok {
+		return berr.Backend()
+	}
+	log.Printf("Requested backend is not retrievable from tuple %#v", r)
+	return ""
+}
 
 type responseMerger struct {
 	syncerrlog      log.Logger
@@ -36,25 +60,21 @@ func (rd *responseMerger) synclog(r, successfulTup transport.ResErrTuple) {
 	if r.Err != nil {
 		errorMsg = r.Err.Error()
 	}
-
 	contentLength := successfulTup.Res.ContentLength
-	reqID := "xxxxxxxxxxxxxxx"
-	if r.Res != nil {
-		reqID = r.Res.Request.Context().Value(log.ContextreqIDKey).(string)
-	}
-
+	reqID := requestID(successfulTup.Req)
 	syncLogMsg := NewSyncLogMessageData(
 		r.Req.Method,
-		r.Req.URL.Host,
+		extractDestinationHostName(r),
 		successfulTup.Req.URL.Path,
-		successfulTup.Req.URL.Host,
-		r.Req.Header.Get("User-Agent"),
+		extractDestinationHostName(successfulTup),
+		successfulTup.Req.Header.Get("User-Agent"),
 		reqID,
 		errorMsg,
 		contentLength)
 	metrics.Mark(fmt.Sprintf("reqs.inconsistencies.%s.method-%s", metrics.Clean(r.Req.Host), r.Req.Method))
 	logMsg, err := json.Marshal(syncLogMsg)
 	if err != nil {
+		log.Debugf("Marshall synclog error %s", err)
 		return
 	}
 	rd.syncerrlog.Println(string(logMsg))
@@ -91,6 +111,24 @@ func (rd *responseMerger) handleFailedResponces(
 	return alreadysent
 }
 
+func logDebug(r transport.ResErrTuple) {
+	reqID := requestID(r.Req)
+	backend := extractDestinationHostName(r)
+
+	statusCode := 0
+	if r.Res != nil {
+		statusCode = r.Res.StatusCode
+	}
+
+	log.Debugf("Got response %s from backend %s, status: %d, method: %s, path %s, error: %q",
+		reqID,
+		backend,
+		statusCode,
+		r.Req.Method,
+		r.Req.URL.Path,
+		r.Err)
+}
+
 func (rd *responseMerger) _handle(in <-chan transport.ResErrTuple, out chan<- transport.ResErrTuple) {
 	var successfulTup transport.ResErrTuple
 	errs := []transport.ResErrTuple{}
@@ -102,21 +140,7 @@ func (rd *responseMerger) _handle(in <-chan transport.ResErrTuple, out chan<- tr
 		if !hasMore {
 			break
 		}
-
-		statusCode := 0
-		reqID := "xxxxxxxxxxxxxxx"
-		if r.Res != nil {
-			statusCode = r.Res.StatusCode
-			reqID, _ = r.Res.Request.Context().Value(log.ContextreqIDKey).(string)
-		}
-		log.Debugf("Got response %s from backend %s, status: %d, method: %s, path %s, error: %q",
-			reqID,
-			r.Req.URL.Host,
-			statusCode,
-			r.Req.Method,
-			r.Req.URL.Path,
-			r.Err)
-
+		logDebug(r)
 		if !r.Failed && !firstPassed {
 			successfulTup = r
 			if rd.fifo {
