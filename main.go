@@ -8,9 +8,11 @@ import (
 	"time"
 
 	"github.com/allegro/akubra/log"
+	logconfig "github.com/allegro/akubra/log/config"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/config"
+
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/regions"
@@ -78,22 +80,35 @@ func main() {
 	}
 }
 
+func mkServiceLogs(logConf logconfig.LoggingConfig) (syncLog, clusterSyncLog, accessLog log.Logger, err error) {
+	syncLog, err = log.NewDefaultLogger(logConf.Synclog, "LOG_LOCAL1", true)
+	if err != nil {
+		return
+	}
+
+	clusterSyncLog, err = log.NewDefaultLogger(logConf.ClusterSyncLog, "LOG_LOCAL1", true)
+	if err != nil {
+		return
+	}
+	accessLog, err = log.NewDefaultLogger(logConf.Accesslog, "LOG_LOCAL1", true)
+	if err != nil {
+		return
+	}
+	return
+}
 func (s *service) start() error {
 	roundtripper, err := httphandler.ConfigureHTTPTransport(s.config.Service.Client)
 	if err != nil {
 		log.Fatalf("Couldn't set up client properties, %q", err)
 	}
-	// TODO: Decorate ^ roundtripper here now - fix accesslog in configuration
-	syncLog, err := log.NewDefaultLogger(s.config.Logging.Synclog, "LOG_LOCAL1", true)
+	syncLog, clusterSyncLog, accessLog, err := mkServiceLogs(s.config.Logging)
 	if err != nil {
 		return err
 	}
-
 	methods := make([]interface{}, 0, len(s.config.Logging.SyncLogMethods))
 	for _, v := range s.config.Logging.SyncLogMethods {
 		methods = append(methods, v)
 	}
-
 	respHandler := httphandler.LateResponseHandler(syncLog, set.NewSetFromSlice(methods))
 	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
 	storage, err := storages.InitStorages(
@@ -105,14 +120,11 @@ func (s *service) start() error {
 		log.Fatalf("Storages initialization problem: %q", err)
 	}
 
-	regionsRT, err := regions.NewRegions(s.config.Regions, *storage, roundtripper, nil)
+	regionsRT, err := regions.NewRegions(s.config.Regions, *storage, roundtripper, clusterSyncLog)
 	if err != nil {
 		return err
 	}
-	accessLog, err := log.NewDefaultLogger(s.config.Logging.Accesslog, "LOG_LOCAL1", true)
-	if err != nil {
-		return err
-	}
+
 	regionsDecoratedRT := httphandler.DecorateRoundTripper(s.config.Service.Client,
 		accessLog, s.config.Service.Server.HealthCheckEndpoint, regionsRT)
 
