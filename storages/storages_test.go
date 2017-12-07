@@ -79,7 +79,7 @@ func TestShouldNotInitStoragesWithWrongBackendType(t *testing.T) {
 
 	urlBackend := url.URL{Scheme: "http", Host: "localhost"}
 	backendsConf := config.BackendsMap{backendName: config.Backend{
-		Endpoint:    types.YAMLUrl{&urlBackend},
+		Endpoint:    types.YAMLUrl{URL: &urlBackend},
 		Maintenance: false,
 		Properties:  nil,
 		Type:        backendType,

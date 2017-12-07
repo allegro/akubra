@@ -109,7 +109,7 @@ func (sr ShardsRing) regressionCall(cl storages.NamedCluster, req *http.Request)
 	// Do regression call if response status is > 400
 	if (err != nil || resp.StatusCode > 400) && req.Method != http.MethodPut {
 		rcl, ok := sr.clusterRegressionMap[cl.Name()]
-		if ok {
+		if ok && resp.Body != nil {
 			_, discardErr := io.Copy(ioutil.Discard, resp.Body)
 			if discardErr != nil {
 				reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
@@ -122,6 +122,8 @@ func (sr ShardsRing) regressionCall(cl storages.NamedCluster, req *http.Request)
 				log.Printf("Cannot close response body for req %s, reason: %q",
 					reqID, closeErr.Error())
 			}
+		}
+		if ok {
 			return sr.regressionCall(rcl, req)
 		}
 	}
