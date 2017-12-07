@@ -109,7 +109,7 @@ func (sr ShardsRing) regressionCall(cl storages.NamedCluster, req *http.Request)
 	// Do regression call if response status is > 400
 	if (err != nil || resp.StatusCode > 400) && req.Method != http.MethodPut {
 		rcl, ok := sr.clusterRegressionMap[cl.Name()]
-		if ok && resp.Body != nil {
+		if ok && resp != nil && resp.Body != nil {
 			_, discardErr := io.Copy(ioutil.Discard, resp.Body)
 			if discardErr != nil {
 				reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)

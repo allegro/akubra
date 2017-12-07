@@ -98,9 +98,11 @@ func newCluster(name string, backendNames []string, backends map[string]http.Rou
 	}
 	for _, backendName := range backendNames {
 		backendRT, ok := backends[backendName]
-		if ok {
-			clusterBackends = append(clusterBackends, backendRT)
+
+		if !ok {
+			return nil, fmt.Errorf("no such backend %q in 'storages::newCluster'", backendName)
 		}
+		clusterBackends = append(clusterBackends, backendRT)
 	}
 
 	cluster := &Cluster{backends: clusterBackends, name: name, respHandler: respHandler}
