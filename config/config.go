@@ -61,7 +61,7 @@ func Configure(configFilePath string) (conf Config, err error) {
 		log.Fatalf("[ ERROR ] Problem with opening config file: '%s' - err: %v !", configFilePath, err)
 		return conf, err
 	}
-	defer confFile.Close()
+	defer func() { err = confFile.Close(); log.Debugf("Cannot close configuration, reason: %s", err) }()
 	yconf, err := parseConf(confFile)
 	if err != nil {
 		log.Fatalf("[ ERROR ] Problem with parsing config file: '%s' - err: %v !", configFilePath, err)
@@ -71,10 +71,23 @@ func Configure(configFilePath string) (conf Config, err error) {
 	return conf, err
 }
 
+func logWriteHeaderErr(err error, when string) {
+	if err != nil {
+		log.Printf("Error while handling %s: %q", when, err)
+	}
+}
+
 // ValidateConf validate configuration from YAML file
 func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[string][]error) {
-	validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
-	validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
+	err := validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
+	if err != nil {
+		return false, map[string][]error{"SetValidationFuncError": []error{err}}
+	}
+	err = validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
+	if err != nil {
+		return false, map[string][]error{"SetValidationFuncError": []error{err}}
+	}
+
 	valid, validationErrors := validator.Validate(conf)
 
 	if valid && enableLogicalValidator {
@@ -113,29 +126,37 @@ func ValidateConfigurationHTTPHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, fmt.Sprintf("Request Body Read Error: %s\n", err))
+		_, ioerr := io.WriteString(w, fmt.Sprintf("Request Body Read Error: %s\n", err))
+		logWriteHeaderErr(ioerr, "internal server error")
 		return
 	}
-	log.Debugf("%s", body)
+
 	var yamlConfig YamlConfig
 	err = yaml.Unmarshal(body, &yamlConfig)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("YAML Unmarshal Error: %s", err))
+		_, ioerr := io.WriteString(w, fmt.Sprintf("YAML Unmarshal Error: %s", err))
+		logWriteHeaderErr(ioerr, "bad request")
 		return
 	}
-	defer r.Body.Close()
+
+	defer func() {
+		err := r.Body.Close()
+		if err != nil {
+			log.Printf("Cannot close request body: %q\n", err)
+		}
+	}()
 
 	valid, errs := ValidateConf(yamlConfig, true)
 	if !valid {
 		log.Println("YAML validation - by technical endpoint - errors:", errs)
 		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, fmt.Sprintf("%s", errs))
+		_, ioerr := io.WriteString(w, fmt.Sprintf("%s", errs))
+		logWriteHeaderErr(ioerr, "validation bad request")
 		return
 	}
 	log.Println("Configuration checked (by technical endpoint) - OK.")
 	fmt.Fprintf(w, "Configuration checked - OK.")
 
 	w.WriteHeader(http.StatusOK)
-	return
 }

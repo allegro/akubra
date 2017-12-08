@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -12,6 +13,12 @@ import (
 
 	"github.com/stretchr/testify/suite"
 )
+
+// xmlDecoder provide decoded value in xml.
+func xmlDecoder(body io.Reader, v interface{}) error {
+	d := xml.NewDecoder(body)
+	return d.Decode(v)
+}
 
 func responseBuilder(prefixes []CommonPrefix, contents []ObjectInfo, maxKeys int) (transport.ResErrTuple, error) {
 	r, err := http.NewRequest(http.MethodGet, "/bucket", nil)
@@ -37,10 +44,10 @@ func responseBuilder(prefixes []CommonPrefix, contents []ObjectInfo, maxKeys int
 		NextMarker:     "",
 		Prefix:         "prefix",
 	}
-	buf := &bytes.Buffer{}
-	enc := xml.NewEncoder(buf)
-	err = enc.Encode(lbres)
-	enc.Flush()
+
+	bodyBytes, err := xml.Marshal(lbres)
+
+	buf := bytes.NewBuffer(bodyBytes)
 	resp.Body = ioutil.NopCloser(buf)
 	return transport.ResErrTuple{Req: r, Res: resp, Err: nil, Failed: false}, err
 }
@@ -64,10 +71,15 @@ func contents(key ...string) []ObjectInfo {
 func readBucketList(resp *http.Response) ListBucketResult {
 	list := ListBucketResult{}
 	buf := bytes.Buffer{}
-	buf.ReadFrom(resp.Body)
+	_, err := buf.ReadFrom(resp.Body)
+	if err != nil {
+		return list
+	}
 	bbody := buf.Bytes()
-	xmlDecoder(bytes.NewBuffer(bbody), &list)
-
+	err = xmlDecoder(bytes.NewBuffer(bbody), &list)
+	if err != nil {
+		return list
+	}
 	return list
 }
 

@@ -144,7 +144,10 @@ type Keys struct {
 func signatureV2(method string, encodedResource string, encodedQuery string, headers http.Header, cred Keys) string {
 	stringToSign := signV2STS(method, encodedResource, encodedQuery, headers)
 	hm := hmac.New(sha1.New, []byte(cred.SecretAccessKey))
-	hm.Write([]byte(stringToSign))
+	_, err := hm.Write([]byte(stringToSign))
+	if err != nil {
+		log.Printf("Cannot write to hmac io.Writter, %q", err)
+	}
 	signature := base64.StdEncoding.EncodeToString(hm.Sum(nil))
 	return fmt.Sprintf("%s %s:%s", signV2Algorithm, cred.AccessKeyID, signature)
 }

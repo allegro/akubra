@@ -32,7 +32,7 @@ func (rg Regions) getNoSuchDomainResponse(req *http.Request) *http.Response {
 		Body:          ioutil.NopCloser(bytes.NewBufferString(body)),
 		ContentLength: int64(len(body)),
 		Request:       req,
-		Header:        make(http.Header, 0),
+		Header:        make(http.Header),
 	}
 }
 

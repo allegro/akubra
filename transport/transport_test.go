@@ -38,7 +38,7 @@ func dummyReq(stream []byte, addContentLength int64) *http.Request {
 
 func mkDummySrvs(count int, stream []byte, t *testing.T) []url.URL {
 	urls := make([]url.URL, 0, count)
-	dummySrvs := make([]*httptest.Server, 0, count)
+
 	for i := 0; i < count; i++ {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			p := make([]byte, r.ContentLength)
@@ -51,7 +51,7 @@ func mkDummySrvs(count int, stream []byte, t *testing.T) []url.URL {
 				return
 			}
 		}))
-		dummySrvs = append(dummySrvs, ts)
+
 		urlN, err := url.Parse(ts.URL)
 		require.NoError(t, err)
 		urls = append(urls, *urlN)

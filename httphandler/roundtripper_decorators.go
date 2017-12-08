@@ -145,7 +145,7 @@ func (sh statusHandler) RoundTrip(req *http.Request) (resp *http.Response, err e
 		bodyContent := "OK"
 		resp.Body = ioutil.NopCloser(strings.NewReader(bodyContent))
 		resp.ContentLength = int64(len(bodyContent))
-		resp.Header = make(http.Header, 0)
+		resp.Header = make(http.Header)
 		resp.Header.Set("Cache-Control", "no-cache, no-store")
 		resp.Header.Set("Content-Type", "text/plain")
 		resp.StatusCode = http.StatusOK

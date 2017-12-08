@@ -14,6 +14,10 @@ import (
 	"github.com/allegro/akubra/types"
 )
 
+func newBackend(backendConfig config.Backend, transport http.RoundTripper) (*Backend, error) {
+	return &Backend{Endpoint: *backendConfig.Endpoint.URL, RoundTripper: transport}, nil
+}
+
 type testRt struct {
 	rt func(*http.Request) (*http.Response, error)
 }
