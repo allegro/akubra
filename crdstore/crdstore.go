@@ -140,8 +140,7 @@ func (cs *CredentialsStore) GetFromService(endpoint, accessKey, backend string) 
 		return csd, fmt.Errorf("unable to get credentials from store service - StatusCode: %d (backend: `%s`, endpoint: `%s`", resp.StatusCode, backend, endpoint)
 	}
 	defer func() {
-		closeErr := resp.Body.Close()
-		if err != nil {
+		if closeErr := resp.Body.Close(); closeErr != nil {
 			log.Printf("Cannot close request body: %q\n", closeErr)
 		}
 	}()

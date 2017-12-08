@@ -61,7 +61,12 @@ func Configure(configFilePath string) (conf Config, err error) {
 		log.Fatalf("[ ERROR ] Problem with opening config file: '%s' - err: %v !", configFilePath, err)
 		return conf, err
 	}
-	defer func() { err = confFile.Close(); log.Debugf("Cannot close configuration, reason: %s", err) }()
+	defer func() {
+		err = confFile.Close()
+		if err != nil {
+			log.Debugf("Cannot close configuration, reason: %s", err)
+		}
+	}()
 	yconf, err := parseConf(confFile)
 	if err != nil {
 		log.Fatalf("[ ERROR ] Problem with parsing config file: '%s' - err: %v !", configFilePath, err)
@@ -141,8 +146,7 @@ func ValidateConfigurationHTTPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer func() {
-		err := r.Body.Close()
-		if err != nil {
+		if err := r.Body.Close(); err != nil {
 			log.Printf("Cannot close request body: %q\n", err)
 		}
 	}()
