@@ -6,6 +6,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
@@ -36,6 +38,22 @@ func extractDestinationHostName(r transport.ResErrTuple) string {
 	return ""
 }
 
+func extractAccessKey(req *http.Request) string {
+	auth := req.Header.Get("Authorization")
+	if auth == "" {
+		return ""
+	}
+	chunks := strings.Split(auth, " ")
+	if len(chunks) < 2 || strings.TrimSpace(chunks[0]) != "AWS" {
+		return ""
+	}
+	sigChunk := strings.Split(chunks[1], ":")
+	if len(chunks) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(sigChunk[0])
+}
+
 type responseMerger struct {
 	syncerrlog      log.Logger
 	methodSetFilter set.Set
@@ -62,15 +80,20 @@ func (rd *responseMerger) synclog(r, successfulTup transport.ResErrTuple) {
 	}
 	contentLength := successfulTup.Res.ContentLength
 	reqID := requestID(successfulTup.Req)
-	syncLogMsg := NewSyncLogMessageData(
-		r.Req.Method,
-		extractDestinationHostName(r),
-		successfulTup.Req.URL.Path,
-		extractDestinationHostName(successfulTup),
-		successfulTup.Req.Header.Get("User-Agent"),
-		reqID,
-		errorMsg,
-		contentLength)
+
+	syncLogMsg := &SyncLogMessageData{
+		Method:        r.Req.Method,
+		FailedHost:    extractDestinationHostName(r),
+		SuccessHost:   extractDestinationHostName(successfulTup),
+		Path:          successfulTup.Req.URL.Path,
+		AccessKey:     extractAccessKey(r.Req),
+		UserAgent:     successfulTup.Req.Header.Get("User-Agent"),
+		ContentLength: contentLength,
+		ErrorMsg:      errorMsg,
+		ReqID:         reqID,
+		Time:          time.Now().Format(time.RFC3339Nano),
+	}
+
 	metrics.Mark(fmt.Sprintf("reqs.inconsistencies.%s.method-%s", metrics.Clean(r.Req.Host), r.Req.Method))
 	logMsg, err := json.Marshal(syncLogMsg)
 	if err != nil {
