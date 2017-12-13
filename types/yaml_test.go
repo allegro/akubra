@@ -5,8 +5,6 @@ import (
 
 	"net/url"
 
-	"fmt"
-
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
 )
@@ -34,5 +32,5 @@ func TestYAMLUrlParsingSuccessful(t *testing.T) {
 	testyaml := TestYaml{URL: YAMLUrl{}}
 	err := yaml.Unmarshal(correct, &testyaml)
 	assert.Nil(t, err)
-	assert.Equal(t, expectedURL, fmt.Sprintf("%s", testyaml.URL))
+	assert.Equal(t, expectedURL, testyaml.URL.String())
 }

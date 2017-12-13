@@ -8,12 +8,12 @@ import (
 
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
 
 	"github.com/allegro/akubra/crdstore/config"
+	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/types"
 )
@@ -38,14 +38,25 @@ func httpHandler(w http.ResponseWriter, r *http.Request) {
 	case fmt.Sprintf("/%s/%s", existingAccess, existingStorage):
 		w.WriteHeader(http.StatusOK)
 		resp, _ := json.Marshal(existingCredentials)
-		w.Write(resp)
+		_, err := w.Write(resp)
+		if err != nil {
+			log.Printf("Cannot write crdstore OK response %q", err)
+		}
 	case fmt.Sprintf("/%s/%s", errorAccess, errorStorage):
 		w.WriteHeader(http.StatusBadRequest)
 		resp, _ := json.Marshal(existingCredentials)
-		w.Write(resp)
+		_, err := w.Write(resp)
+		if err != nil {
+			log.Printf("Cannot write crdstore BadRequest response %q", err)
+		}
+
 	case fmt.Sprintf("/%s/%s", invalidAccess, invalidStorage):
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("{'invalid'json//}"))
+		_, err := w.Write([]byte("{'invalid'json//}"))
+		if err != nil {
+			log.Printf("Cannot write crdstore OK response %q", err)
+		}
+
 	case fmt.Sprintf("/%s/%s", emptyAccess, emptyStorage):
 		w.WriteHeader(http.StatusOK)
 	default:
@@ -81,7 +92,8 @@ func TestMain(m *testing.M) {
 }
 func TestShouldPrepareInternalKeyBasedOnAccessAndStorageType(t *testing.T) {
 	expectedKey := "access_____storage_type"
-	cs, _ := GetInstance("default")
+	cs, err := GetInstance("default")
+	require.NoError(t, err)
 	key := cs.prepareKey("access", "storage_type")
 	require.Equal(t, expectedKey, key, "keys must be equals")
 }
@@ -97,16 +109,17 @@ func TestShouldSetCredentialsFromExternalServiceEndpoint(t *testing.T) {
 }
 
 func TestShouldNotCacheCredentialOnErrorFromExternalService(t *testing.T) {
-	cs, _ := GetInstance("default")
-	_, err := cs.Get("access_error", "storage_error")
-
+	cs, err := GetInstance("default")
+	require.NoError(t, err)
+	_, err = cs.Get("access_error", "storage_error")
 	require.Error(t, err)
 }
 
 func TestShouldGetCredentialFromCacheIfExternalServiceFails(t *testing.T) {
 	expectedCredentials := &CredentialsStoreData{AccessKey: errorAccess, SecretKey: "secret_1"}
 
-	cs, _ := GetInstance("default")
+	cs, err := GetInstance("default")
+	require.NoError(t, err)
 	cs.cache.Store(cs.prepareKey(errorAccess, errorStorage), expectedCredentials)
 	crd, err := cs.Get(errorAccess, errorStorage)
 
@@ -117,7 +130,8 @@ func TestShouldGetCredentialFromCacheIfExternalServiceFails(t *testing.T) {
 func TestShouldGetCredentialFromCacheIfConnectionRefused(t *testing.T) {
 	expectedCredentials := &CredentialsStoreData{AccessKey: errorAccess, SecretKey: "secret_1"}
 
-	cs, _ := GetInstance("invalid")
+	cs, err := GetInstance("invalid")
+	require.NoError(t, err)
 	cs.cache.Store(cs.prepareKey(errorAccess, errorStorage), expectedCredentials)
 	crd, err := cs.Get(errorAccess, errorStorage)
 
@@ -127,7 +141,8 @@ func TestShouldGetCredentialFromCacheIfConnectionRefused(t *testing.T) {
 
 func TestShouldGetCredentialFromCacheIfTTLIsNotExpired(t *testing.T) {
 	expectedCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(10 * time.Second)}
-	cs, _ := GetInstance("default")
+	cs, err := GetInstance("default")
+	require.NoError(t, err)
 
 	cs.cache.Store(cs.prepareKey(existingAccess, existingStorage), expectedCredentials)
 	crd, err := cs.Get(existingAccess, existingStorage)
@@ -139,7 +154,9 @@ func TestShouldGetCredentialFromCacheIfTTLIsNotExpired(t *testing.T) {
 func TestShouldUpdateCredentialsIfTTLIsExpired(t *testing.T) {
 	oldCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(-20 * time.Second)}
 
-	cs, _ := GetInstance("default")
+	cs, err := GetInstance("default")
+	require.NoError(t, err)
+
 	cs.cache.Store(cs.prepareKey(existingAccess, existingStorage), oldCredentials)
 	crd, err := cs.Get(existingAccess, existingStorage)
 
@@ -152,7 +169,9 @@ func TestShouldDeleteCachedCredentialsOnErrCredentialsNotFound(t *testing.T) {
 	backend := "no_storage"
 	oldCredentials := &CredentialsStoreData{AccessKey: accessKey, SecretKey: "secret_1", EOL: time.Now().Add(-10 * time.Second)}
 
-	cs, _ := GetInstance("default")
+	cs, err := GetInstance("default")
+	require.NoError(t, err)
+
 	cs.cache.Store(cs.prepareKey("not_existing", backend), oldCredentials)
 	crd, err := cs.Get(accessKey, backend)
 
@@ -162,8 +181,8 @@ func TestShouldDeleteCachedCredentialsOnErrCredentialsNotFound(t *testing.T) {
 
 func TestShouldGetCredentialsFromCacheIfUpdateIsLocked(t *testing.T) {
 	expectedCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(-11 * time.Second)}
-	cs, _ := GetInstance("default")
-
+	cs, err := GetInstance("default")
+	require.NoError(t, err)
 	cs.cache.Store(cs.prepareKey(existingAccess, existingStorage), expectedCredentials)
 	cs.lock.Lock()
 	crd, err := cs.Get(existingAccess, existingStorage)
@@ -175,11 +194,15 @@ func TestShouldGetCredentialsFromCacheIfUpdateIsLocked(t *testing.T) {
 
 func TestShouldUpdateCacheInBackground(t *testing.T) {
 	cachedCredentials := &CredentialsStoreData{AccessKey: existingAccess, SecretKey: "secret_1", EOL: time.Now().Add(1 * time.Second)}
-	cs, _ := GetInstance("default")
+	cs, err := GetInstance("default")
+	require.NoError(t, err)
 
 	cs.cache.Store(cs.prepareKey(existingAccess, existingStorage), cachedCredentials)
-	cs.Get(existingAccess, existingStorage)
+	_, err = cs.Get(existingAccess, existingStorage)
+	require.NoError(t, err)
+
 	time.Sleep(1 * time.Second)
+
 	cs.lock.Lock()
 	crd, err := cs.Get(existingAccess, existingStorage)
 	cs.lock.Unlock()
@@ -189,8 +212,8 @@ func TestShouldUpdateCacheInBackground(t *testing.T) {
 }
 
 func TestShouldGetAnErrorOnInvalidJSON(t *testing.T) {
-	cs, _ := GetInstance("default")
-
+	cs, err := GetInstance("default")
+	require.NoError(t, err)
 	crd, err := cs.Get(invalidAccess, invalidStorage)
 
 	require.Error(t, err)
@@ -198,8 +221,8 @@ func TestShouldGetAnErrorOnInvalidJSON(t *testing.T) {
 }
 
 func TestShouldGetAnErrorOnEmptyString(t *testing.T) {
-	cs, _ := GetInstance("default")
-
+	cs, err := GetInstance("default")
+	require.NoError(t, err)
 	crd, err := cs.Get(emptyAccess, emptyStorage)
 
 	require.Error(t, err)

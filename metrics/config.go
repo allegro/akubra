@@ -36,10 +36,10 @@ type Config struct {
 	ExpAddr string `yaml:"ExpAddr,omitempty"`
 	// Prefix graphite metrics
 	Prefix string `yaml:"Prefix,omitempty"`
-	// AppendDefaults adds "<hostname>.<process>"  suffix
-	AppendDefaults bool `yaml:"AppendDefaults,omitempty"`
 	// Percentiles customizes metrics sent to graphite default: 0.75, 0.95, 0.99, 0.999
 	Percentiles []float64 `yaml:"Percentiles"`
 	// Debug includes runtime.MemStats metrics
 	Debug bool `yaml:"Debug"`
+	// AppendDefaults adds "<hostname>.<process>"  suffix
+	AppendDefaults bool `yaml:"AppendDefaults,omitempty"`
 }

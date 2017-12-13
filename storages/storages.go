@@ -108,10 +108,6 @@ func (c *Cluster) Backends() []http.RoundTripper {
 	return c.backends
 }
 
-func newBackend(backendConfig config.Backend, transport http.RoundTripper) (*Backend, error) {
-	return &Backend{Endpoint: *backendConfig.Endpoint.URL, RoundTripper: transport}, nil
-}
-
 func newCluster(name string, backendNames []string, backends map[string]http.RoundTripper, respHandler transport.MultipleResponsesHandler) (*Cluster, error) {
 	clusterBackends := make([]http.RoundTripper, 0)
 	if len(backendNames) == 0 {

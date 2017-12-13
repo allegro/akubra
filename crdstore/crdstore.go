@@ -113,7 +113,12 @@ func (cs *CredentialsStore) Get(accessKey, backend string) (csd *CredentialsStor
 	case time.Now().After(csd.EOL):
 		return cs.updateCache(accessKey, backend, key, csd, false)
 	case time.Now().Add(refreshTimeoutDuration).After(csd.EOL):
-		go cs.updateCache(accessKey, backend, key, csd, false)
+		go func() {
+			_, err := cs.updateCache(accessKey, backend, key, csd, false)
+			if err != nil {
+				log.Debugln("Failed to update cache %q", err)
+			}
+		}()
 	}
 
 	return
@@ -134,7 +139,11 @@ func (cs *CredentialsStore) GetFromService(endpoint, accessKey, backend string) 
 	case resp.StatusCode != http.StatusOK:
 		return csd, fmt.Errorf("unable to get credentials from store service - StatusCode: %d (backend: `%s`, endpoint: `%s`", resp.StatusCode, backend, endpoint)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("Cannot close request body: %q\n", closeErr)
+		}
+	}()
 
 	credentials, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

@@ -153,9 +153,7 @@ func NewLogger(config LoggerConfig) (Logger, error) {
 		return nil, err
 	}
 
-	var formatter logrus.Formatter
-
-	formatter = stripMessageNewLineFormatter{
+	var formatter logrus.Formatter = stripMessageNewLineFormatter{
 		&logrus.TextFormatter{
 			FullTimestamp:   true,
 			TimestampFormat: time.StampMicro,

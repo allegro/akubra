@@ -14,7 +14,8 @@ func TestShouldUnmarshalCredentialsStoreData(t *testing.T) {
 	credentials := []byte(`{"access":"access222","secret":"secret222"}`)
 
 	var cds CredentialsStoreData
-	json.Unmarshal(credentials, &cds)
+	err := json.Unmarshal(credentials, &cds)
+	require.NoError(t, err)
 
 	require.Equal(t, expectedAccessKey, cds.AccessKey, "access keys must be equals")
 	require.Equal(t, expectedSecretKey, cds.SecretKey, "secret keys must be equals")

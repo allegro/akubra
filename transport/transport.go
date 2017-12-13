@@ -162,7 +162,7 @@ func (mt *MultiTransport) copyRequest(req *http.Request, cancelFun context.Cance
 		return nil, cerr
 	}
 
-	for _ = range mt.Backends {
+	for range mt.Backends {
 		log.Debugf("Replicate request %s", req.Context().Value(log.ContextreqIDKey))
 		bodyContent := bodyBuffer.Bytes()
 		var newBody io.Reader

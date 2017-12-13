@@ -83,6 +83,6 @@ func buildQuery(tmpl *template.Template, jsonStr string) (string, error) {
 		return "", err
 	}
 	queryBuf := &bytes.Buffer{}
-	tmpl.Execute(queryBuf, substitutionMap)
-	return queryBuf.String(), nil
+	err = tmpl.Execute(queryBuf, substitutionMap)
+	return queryBuf.String(), err
 }

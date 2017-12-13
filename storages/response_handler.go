@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
 )
 
@@ -92,12 +92,6 @@ func isSuccess(tup transport.ResErrTuple) bool {
 	return true
 }
 
-// xmlDecoder provide decoded value in xml.
-func xmlDecoder(body io.Reader, v interface{}) error {
-	d := xml.NewDecoder(body)
-	return d.Decode(v)
-}
-
 func pickResultSet(os objectsContainer, ps prefixContainer, maxKeys int, lbr ListBucketResult) ListBucketResult {
 	lbr.CommonPrefixes = ps.first(maxKeys)
 	oLen := maxKeys - len(lbr.CommonPrefixes)
@@ -122,11 +116,11 @@ func (rm *responseMerger) createResponse(successes []transport.ResErrTuple) (res
 	}
 	oContainer := objectsContainer{
 		list: make([]ObjectInfo, 0),
-		set:  make(map[string]struct{}, 0),
+		set:  make(map[string]struct{}),
 	}
 	pContainer := prefixContainer{
 		list: make([]CommonPrefix, 0),
-		set:  make(map[string]struct{}, 0),
+		set:  make(map[string]struct{}),
 	}
 	var listBucketResult ListBucketResult
 	for _, tuple := range successes {
@@ -134,7 +128,11 @@ func (rm *responseMerger) createResponse(successes []transport.ResErrTuple) (res
 
 		listBucketResult = ListBucketResult{}
 		buf := &bytes.Buffer{}
-		buf.ReadFrom(resp.Body)
+		_, rerr := buf.ReadFrom(resp.Body)
+		if rerr != nil {
+			log.Debug("Problem reading ObjectStore response body, %s", rerr)
+			continue
+		}
 		bodyBytes := buf.Bytes()
 		err = xml.Unmarshal(bodyBytes, &listBucketResult)
 		if err != nil {
@@ -152,12 +150,13 @@ func (rm *responseMerger) createResponse(successes []transport.ResErrTuple) (res
 		maxKeys = 1000
 	}
 	listBucketResult = pickResultSet(oContainer, pContainer, maxKeys, listBucketResult)
-	// TODO Buffer and io.ReadCloser
-	// pass to response body
-	buf := &bytes.Buffer{}
-	enc := xml.NewEncoder(buf)
-	enc.Encode(listBucketResult)
-	enc.Flush()
+
+	bodyBytes, err := xml.Marshal(listBucketResult)
+	if err != nil {
+		log.Debug("Problem marshalling ObjectStore response body, %s", err)
+		return nil, err
+	}
+	buf := bytes.NewBuffer(bodyBytes)
 	resp.Body = ioutil.NopCloser(buf)
 	resp.ContentLength = int64(buf.Len())
 	resp.Header = http.Header{}
@@ -168,17 +167,12 @@ func (rm *responseMerger) createResponse(successes []transport.ResErrTuple) (res
 
 func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-chan transport.ResErrTuple) transport.ResErrTuple {
 	successes := []transport.ResErrTuple{}
-	errors := []transport.ResErrTuple{}
 	if isSuccess(firstTuple) {
 		successes = append(successes, firstTuple)
-	} else {
-		errors = append(errors, firstTuple)
 	}
 	for tuple := range rtupleCh {
 		if isSuccess(tuple) {
 			successes = append(successes, tuple)
-		} else {
-			errors = append(errors, tuple)
 		}
 	}
 	if len(successes) > 0 {
