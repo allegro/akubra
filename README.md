@@ -212,7 +212,7 @@ It's configured with TechnicalEndpointListen property.
 
 ### Example usage
 
-    curl -vv -X POST -H "Content-Type: application/yaml" --data-binary @akubra.cfg.yaml http://127.0.0.1:8071/validate/configuration
+    curl -vv -X POST -H "Content-Type: application/yaml" --data-binary @akubra.cfg.yaml http://127.0.0.1:8071/configuration/validate
 
 Possible responses:
 
