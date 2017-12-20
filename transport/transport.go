@@ -182,6 +182,7 @@ func (mt *MultiTransport) copyRequest(req *http.Request, cancelFun context.Cance
 		}
 		r.ContentLength = int64(bodyBuffer.Len())
 		r.TransferEncoding = req.TransferEncoding
+		r.Host = req.Host
 		reqs = append(reqs, r)
 		log.Debugf("Replicated request %s", r.Context().Value(log.ContextreqIDKey))
 

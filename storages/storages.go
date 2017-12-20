@@ -206,7 +206,7 @@ func decorateBackend(transport http.RoundTripper, name string, backendConf confi
 	if !ok {
 		return nil, fmt.Errorf("%s: no decorator defined for type '%s'", errPrefix, backendConf.Type)
 	}
-	decorator, err := decoratorFactory(backendConf.Properties, name)
+	decorator, err := decoratorFactory(name, backendConf)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %q", errPrefix, err)
 	}
