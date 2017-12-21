@@ -2,6 +2,8 @@ package brimapi
 
 import (
 	"bytes"
+	"io"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/sirupsen/logrus"
@@ -14,6 +16,20 @@ type Credentials struct {
 }
 
 const uploadSynctasksURI = "/v1/processes/uploadsynctasks"
+
+func discardBody(resp *http.Response) error {
+	if resp != nil && resp.Body != nil {
+		_, err := io.Copy(ioutil.Discard, resp.Body)
+		if err != nil {
+			return err
+		}
+		err = resp.Body.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // LogHook collects and sends sync events to brim api
 type LogHook struct {
@@ -38,7 +54,9 @@ func (lh *LogHook) Fire(entry *logrus.Entry) error {
 		return err
 	}
 	req.SetBasicAuth(lh.Creds.User, lh.Creds.Pass)
-	_, err = http.DefaultClient.Do(req)
-
-	return err
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	return discardBody(resp)
 }
