@@ -173,6 +173,8 @@ func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-cha
 	for tuple := range rtupleCh {
 		if isSuccess(tuple) {
 			successes = append(successes, tuple)
+		} else {
+			tuple.DiscardBody()
 		}
 	}
 	if len(successes) > 0 {

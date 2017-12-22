@@ -3,8 +3,6 @@ package httphandler
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -120,14 +118,7 @@ func (rd *responseMerger) handleFailedResponces(
 		}
 		// discard body
 		if r.Res != nil && r.Res.Body != nil {
-			_, err := io.Copy(ioutil.Discard, r.Res.Body)
-			if err != nil {
-				log.Printf("Could not discard body %s", err)
-			}
-			err = r.Res.Body.Close()
-			if err != nil {
-				log.Printf("Could not close body %s", err)
-			}
+			r.DiscardBody()
 		}
 	}
 
