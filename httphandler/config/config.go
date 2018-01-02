@@ -86,7 +86,7 @@ func (hsu *HumanSizeUnits) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	if err := unmarshal(&size); err != nil {
 		return err
 	}
-	value, err := units.FromHumanSize(size)
+	value, err := units.RAMInBytes(size)
 	if err != nil {
 		return fmt.Errorf("Unable to parse BodyMaxSize: %s" + err.Error())
 	}
