@@ -109,6 +109,34 @@ func pickResultSet(os objectsContainer, ps prefixContainer, maxKeys int, lbr Lis
 	return lbr
 }
 
+func extractResults(resp *http.Response) ListBucketResult {
+
+	lbr := ListBucketResult{}
+
+	if resp.Body == nil {
+		return lbr
+	}
+
+	buf := &bytes.Buffer{}
+
+	if _, rerr := buf.ReadFrom(resp.Body); rerr != nil {
+		log.Debug("Problem reading ObjectStore response body, %s", rerr)
+		return lbr
+	}
+
+	if cerr := resp.Body.Close(); cerr != nil {
+		log.Debug("Problem closing ObjectStore response body, %s", cerr)
+		return lbr
+	}
+
+	bodyBytes := buf.Bytes()
+	err := xml.Unmarshal(bodyBytes, &lbr)
+	if err != nil {
+		log.Debug("ListBucketResult unmarshalling problem %s", err)
+	}
+	return lbr
+}
+
 func (rm *responseMerger) createResponse(successes []transport.ResErrTuple) (resp *http.Response, err error) {
 	if len(successes) == 0 {
 		err = fmt.Errorf("No successful responses")
@@ -125,19 +153,7 @@ func (rm *responseMerger) createResponse(successes []transport.ResErrTuple) (res
 	var listBucketResult ListBucketResult
 	for _, tuple := range successes {
 		resp = tuple.Res
-
-		listBucketResult = ListBucketResult{}
-		buf := &bytes.Buffer{}
-		_, rerr := buf.ReadFrom(resp.Body)
-		if rerr != nil {
-			log.Debug("Problem reading ObjectStore response body, %s", rerr)
-			continue
-		}
-		bodyBytes := buf.Bytes()
-		err = xml.Unmarshal(bodyBytes, &listBucketResult)
-		if err != nil {
-			return nil, err
-		}
+		listBucketResult = extractResults(resp)
 		oContainer.append(listBucketResult.Contents...)
 		pContainer.append(listBucketResult.CommonPrefixes...)
 	}
@@ -169,6 +185,8 @@ func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-cha
 	successes := []transport.ResErrTuple{}
 	if isSuccess(firstTuple) {
 		successes = append(successes, firstTuple)
+	} else {
+		firstTuple.DiscardBody()
 	}
 	for tuple := range rtupleCh {
 		if isSuccess(tuple) {
