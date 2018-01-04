@@ -185,9 +185,8 @@ func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-cha
 	successes := []transport.ResErrTuple{}
 	if isSuccess(firstTuple) {
 		successes = append(successes, firstTuple)
-	} else {
-		firstTuple.DiscardBody()
 	}
+
 	for tuple := range rtupleCh {
 		if isSuccess(tuple) {
 			successes = append(successes, tuple)
@@ -196,6 +195,9 @@ func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-cha
 		}
 	}
 	if len(successes) > 0 {
+		if !isSuccess(firstTuple) {
+			firstTuple.DiscardBody()
+		}
 		res, err := rm.createResponse(successes)
 		return transport.ResErrTuple{
 			Res: res,
