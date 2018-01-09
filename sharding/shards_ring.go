@@ -104,27 +104,30 @@ func (sr ShardsRing) send(roundTripper http.RoundTripper, req *http.Request) (*h
 	return roundTripper.RoundTrip(req)
 }
 
-func (sr ShardsRing) regressionCall(cl storages.NamedCluster, req *http.Request) (string, *http.Response, error) {
+func closeBody(resp *http.Response, reqID string) {
+	_, discardErr := io.Copy(ioutil.Discard, resp.Body)
+	if discardErr != nil {
+		log.Printf("Cannot discard response body for req %s, reason: %q",
+			reqID, discardErr.Error())
+	}
+	closeErr := resp.Body.Close()
+	if closeErr != nil {
+		log.Printf("Cannot close response body for req %s, reason: %q",
+			reqID, closeErr.Error())
+	}
+}
+
+func (sr ShardsRing) regressionCall(cl storages.NamedCluster, origClusterName string, req *http.Request) (string, *http.Response, error) {
 	resp, err := sr.send(cl, req)
 	// Do regression call if response status is > 400
 	if (err != nil || resp.StatusCode > 400) && req.Method != http.MethodPut {
 		rcl, ok := sr.clusterRegressionMap[cl.Name()]
-		if ok && resp != nil && resp.Body != nil {
-			_, discardErr := io.Copy(ioutil.Discard, resp.Body)
-			if discardErr != nil {
+		if ok && rcl.Name() != origClusterName {
+			if resp != nil && resp.Body != nil {
 				reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
-				log.Printf("Cannot discard response body for req %s, reason: %q",
-					reqID, discardErr.Error())
+				closeBody(resp, reqID)
 			}
-			closeErr := resp.Body.Close()
-			if closeErr != nil {
-				reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
-				log.Printf("Cannot close response body for req %s, reason: %q",
-					reqID, closeErr.Error())
-			}
-		}
-		if ok {
-			return sr.regressionCall(rcl, req)
+			return sr.regressionCall(rcl, origClusterName, req)
 		}
 	}
 	return cl.Name(), resp, err
@@ -174,7 +177,7 @@ func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr err
 		return nil, err
 	}
 
-	clusterName, resp, err := sr.regressionCall(cl, reqCopy)
+	clusterName, resp, err := sr.regressionCall(cl, cl.Name(), reqCopy)
 	if clusterName != cl.Name() {
 		sr.logInconsistency(reqCopy.URL.Path, cl.Name(), clusterName)
 	}

@@ -22,15 +22,17 @@ type RingFactory struct {
 
 func (rf RingFactory) createRegressionMap(config config.Region) (map[string]storages.NamedCluster, error) {
 	regressionMap := make(map[string]storages.NamedCluster)
-	var previousCluster storages.NamedCluster
-	for i, cluster := range config.Clusters {
+	lastClusterName := config.Clusters[len(config.Clusters)-1].Name
+	previousCluster, err := rf.storages.GetCluster(lastClusterName)
+	if err != nil {
+		log.Printf("Last cluster in region not defined in storages")
+	}
+	for _, cluster := range config.Clusters {
 		clientCluster, err := rf.storages.GetCluster(cluster.Name)
 		if err != nil {
 			return nil, err
 		}
-		if i > 0 {
-			regressionMap[cluster.Name] = previousCluster
-		}
+		regressionMap[cluster.Name] = previousCluster
 		previousCluster = clientCluster
 	}
 	return regressionMap, nil
