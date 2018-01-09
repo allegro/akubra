@@ -20,6 +20,12 @@ type Server struct {
 	Listen                  string `yaml:"Listen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
 	TechnicalEndpointListen string `yaml:"TechnicalEndpointListen,omitempty" validate:"regexp=^(([0-9]+[.][0-9]+[.][0-9]+[.][0-9]+)?[:][0-9]+)$"`
 	HealthCheckEndpoint     string `yaml:"HealthCheckEndpoint,omitempty" validate:"regexp=^([/a-z0-9]+)$"`
+	// ReadTimeout is client request max duration
+	ReadTimeout metrics.Interval `yaml:"ReadTimeout" validate:"nonzero"`
+	// WriteTimeout is server request max processing time
+	WriteTimeout metrics.Interval `yaml:"WriteTimeout" validate:"nonzero"`
+	// ShutdownTimeout is gracefull shoutdown duration limit
+	ShutdownTimeout metrics.Interval `yaml:"ShutdownTimeout" validate:"nonzero"`
 }
 
 // AdditionalHeaders type fields in yaml configuration will parse list of special headers
@@ -80,7 +86,7 @@ func (hsu *HumanSizeUnits) UnmarshalYAML(unmarshal func(interface{}) error) erro
 	if err := unmarshal(&size); err != nil {
 		return err
 	}
-	value, err := units.FromHumanSize(size)
+	value, err := units.RAMInBytes(size)
 	if err != nil {
 		return fmt.Errorf("Unable to parse BodyMaxSize: %s" + err.Error())
 	}
