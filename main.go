@@ -142,10 +142,10 @@ func (s *service) start() error {
 		Server: &http.Server{
 			Addr:         s.config.Service.Server.Listen,
 			Handler:      handler,
-			ReadTimeout:  5 * time.Second,
-			WriteTimeout: 10 * time.Second,
+			ReadTimeout:  s.config.Service.Server.ReadTimeout.Duration,
+			WriteTimeout: s.config.Service.Server.WriteTimeout.Duration,
 		},
-		Timeout: 10 * time.Second,
+		Timeout: s.config.Service.Server.ShutdownTimeout.Duration,
 	}
 
 	srv.SetKeepAlivesEnabled(true)

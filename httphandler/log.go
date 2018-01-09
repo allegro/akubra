@@ -64,6 +64,7 @@ type SyncLogMessageData struct {
 	UserAgent   string `json:"useragent"`
 	// ContentLength if negative means no content length header provided
 	ContentLength int64  `json:"content-length"`
+	AccessKey     string `json:"access-key"`
 	ErrorMsg      string `json:"error"`
 	ReqID         string `json:"reqID"`
 	Time          string `json:"ts"`
@@ -80,13 +81,4 @@ func (slmd SyncLogMessageData) String() string {
 		slmd.UserAgent,
 		slmd.ContentLength,
 		slmd.ErrorMsg)
-}
-
-// NewSyncLogMessageData creates new SyncLogMessageData
-func NewSyncLogMessageData(method, failedHost, path, successHost, userAgent,
-	reqID, errorMsg string, contentLength int64) *SyncLogMessageData {
-	ts := time.Now().Format(time.RFC3339Nano)
-	return &SyncLogMessageData{
-		method, failedHost, path, successHost, userAgent,
-		contentLength, errorMsg, reqID, ts}
 }
