@@ -27,6 +27,30 @@ type ResErrTuple struct {
 	Failed bool
 }
 
+func discardReadCloser(rc io.ReadCloser) error {
+	_, err := io.Copy(ioutil.Discard, rc)
+	if err != nil {
+		return err
+	}
+	err = rc.Close()
+	return err
+}
+
+// DiscardBody clears request and response body
+func (r *ResErrTuple) DiscardBody() {
+	if r.Req != nil && r.Req.Body != nil {
+		if err := discardReadCloser(r.Req.Body); err != nil {
+			log.Printf("Cannot discard request body: %s", err)
+		}
+	}
+
+	if r.Res != nil && r.Res.Body != nil {
+		if err := discardReadCloser(r.Res.Body); err != nil {
+			log.Printf("Cannot discard request body: %s", err)
+		}
+	}
+}
+
 // MultipleResponsesHandler should handle chan of incomming ReqResErrTuple
 // returned value's response and error will be passed to client
 type MultipleResponsesHandler func(in <-chan ResErrTuple) ResErrTuple
