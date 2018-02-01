@@ -213,7 +213,7 @@ func (rm *responseMerger) responseHandler(in <-chan transport.ResErrTuple) trans
 	method := firstTuple.Req.Method
 	reqQuery := firstTuple.Req.URL.Query()
 
-	if (reqQuery != nil && reqQuery["acl"] != nil) || (method != http.MethodGet || !isBucketPath(path)) {
+	if (reqQuery != nil && reqQuery["acl"] != nil) || method != http.MethodGet || !isBucketPath(path) {
 
 		if reqQuery.Get("list-type") == listTypeV2 {
 			return transport.ResErrTuple{
