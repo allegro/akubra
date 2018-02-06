@@ -109,13 +109,17 @@ func (s *service) start() error {
 	for _, v := range s.config.Logging.SyncLogMethods {
 		methods = append(methods, v)
 	}
-	respHandler := httphandler.LateResponseHandler(syncLog, set.NewSetFromSlice(methods))
+	lateRespHandler := httphandler.LateResponseHandler(syncLog, set.NewSetFromSlice(methods))
+	earlyRespHandler := httphandler.EarliestResponseHandler(syncLog, set.NewSetFromSlice(methods))
+
 	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
 	storage, err := storages.InitStorages(
 		roundtripper,
 		s.config.Clusters,
 		s.config.Backends,
-		respHandler)
+		earlyRespHandler,
+		lateRespHandler)
+
 	if err != nil {
 		log.Fatalf("Storages initialization problem: %q", err)
 	}
