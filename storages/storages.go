@@ -50,12 +50,13 @@ type Cluster struct {
 
 // Storages config
 type Storages struct {
-	clustersConf config.ClustersMap
-	backendsConf config.BackendsMap
-	transport    http.RoundTripper
-	Clusters     map[string]NamedCluster
-	Backends     map[string]http.RoundTripper
-	respHandler  transport.MultipleResponsesHandler
+	clustersConf     config.ClustersMap
+	backendsConf     config.BackendsMap
+	transport        http.RoundTripper
+	Clusters         map[string]NamedCluster
+	Backends         map[string]http.RoundTripper
+	lateRespHandler  transport.MultipleResponsesHandler
+	earlyRespHandler transport.MultipleResponsesHandler
 }
 
 // Backend represents any storage in akubra cluster
@@ -150,7 +151,7 @@ func (st *Storages) ClusterShards(name string, clusters ...NamedCluster) NamedCl
 	for _, cluster := range clusters {
 		backends = append(backends, cluster.Backends()...)
 	}
-	rh := responseMerger{merger: st.respHandler}
+	rh := responseMerger{merger: st.lateRespHandler}
 	newCluster := &Cluster{backends: backends, name: name, respHandler: rh.responseHandler}
 	newCluster.setupRoundTripper()
 	st.Clusters[name] = newCluster
@@ -158,7 +159,7 @@ func (st *Storages) ClusterShards(name string, clusters ...NamedCluster) NamedCl
 }
 
 // InitStorages setups storages
-func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap, respHandler transport.MultipleResponsesHandler) (*Storages, error) {
+func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap, earlyRespHandler, lateRespHandler transport.MultipleResponsesHandler) (*Storages, error) {
 	clusters := make(map[string]NamedCluster)
 	backends := make(map[string]http.RoundTripper)
 	if len(backendsConf) == 0 {
@@ -178,19 +179,20 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 		return nil, fmt.Errorf("empty map 'clustersConf' in 'InitStorages'")
 	}
 	for name, clusterConf := range clustersConf {
-		cluster, err := newCluster(name, clusterConf.Backends, backends, respHandler)
+		cluster, err := newCluster(name, clusterConf.Backends, backends, earlyRespHandler)
 		if err != nil {
 			return nil, err
 		}
 		clusters[name] = cluster
 	}
 	return &Storages{
-		clustersConf: clustersConf,
-		backendsConf: backendsConf,
-		transport:    transport,
-		Clusters:     clusters,
-		Backends:     backends,
-		respHandler:  respHandler,
+		clustersConf:     clustersConf,
+		backendsConf:     backendsConf,
+		transport:        transport,
+		Clusters:         clusters,
+		Backends:         backends,
+		earlyRespHandler: earlyRespHandler,
+		lateRespHandler:  lateRespHandler,
 	}, nil
 }
 
