@@ -156,8 +156,8 @@ type MultiTransport struct {
 	Backends []http.RoundTripper
 	// Response handler will get `ReqResErrTuple` in `in` channel
 	// should process all responses and send one to out chan.
-	// Response senf to out chan will be returned from RoundTrip.
-	// Remember to discard respose bodies if not read, otherwise
+	// Response send to out chan will be returned from RoundTrip.
+	// Remember to discard response bodies if not read, otherwise
 	// Keep-Alives won't function properly
 	//
 	// If `HandleResponses` is nil will pass first successful

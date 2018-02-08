@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/allegro/akubra/metrics"
+	transport "github.com/allegro/akubra/transport/config"
 	units "github.com/docker/go-units"
 )
 
@@ -52,27 +53,18 @@ func (ah *AdditionalHeaders) UnmarshalYAML(unmarshal func(interface{}) error) er
 
 }
 
-// Client keeps backend client configuration
-type Client struct {
-	// MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
-	// Default 0 (no limit)
-	MaxIdleConns int `yaml:"MaxIdleConns" validate:"min=0"`
-	// MaxIdleConnsPerHost see: https://golang.org/pkg/net/http/#Transport
-	// Default 100
-	MaxIdleConnsPerHost int `yaml:"MaxIdleConnsPerHost" validate:"min=0"`
-	// IdleConnTimeout see: https://golang.org/pkg/net/http/#Transport
-	// Default 0 (no limit)
-	IdleConnTimeout metrics.Interval `yaml:"IdleConnTimeout"`
-	// ResponseHeaderTimeout see: https://golang.org/pkg/net/http/#Transport
-	// Default 5s (no limit)
-	ResponseHeaderTimeout metrics.Interval `yaml:"ResponseHeaderTimeout"`
-	// DisableKeepAlives see: https://golang.org/pkg/net/http/#Transport
-	// Default false
-	DisableKeepAlives bool `yaml:"DisableKeepAlives"`
+// ClientAdditionalHeader configuration
+type ClientAdditionalHeader struct {
 	// Additional not AWS S3 specific headers proxy will add to original request
 	AdditionalRequestHeaders AdditionalHeaders `yaml:"AdditionalRequestHeaders,omitempty"`
 	// Additional headers inseted to client response
 	AdditionalResponseHeaders AdditionalHeaders `yaml:"AdditionalResponseHeaders,omitempty"`
+}
+
+// Client keeps backend client configuration
+type Client struct {
+	ClientAdditionalHeader
+	Transports	transport.Transports	`yaml:"Transports,omitempty"`
 }
 
 // HumanSizeUnits type for max. payload body size in bytes
