@@ -11,6 +11,7 @@ import (
 
 	"github.com/allegro/akubra/httphandler/config"
 	"github.com/allegro/akubra/log"
+	transport "github.com/allegro/akubra/transport/config"
 )
 
 const (
@@ -96,29 +97,44 @@ func (h *Handler) validateIncomingRequest(req *http.Request) int {
 	return config.RequestHeaderContentLengthValidator(*req, h.bodyMaxSize)
 }
 
-// ConfigureHTTPTransport returns http.Transport with customized dialer,
+// ConfigureHTTPTransports returns http.Transport with customized dialer,
 // MaxIdleConnsPerHost and DisableKeepAlives
-func ConfigureHTTPTransport(conf config.Client) (*http.Transport, error) {
+//TODO: func ConfigureHTTPTransports(conf config.Client) ([]*http.Transport, error) {
+func ConfigureHTTPTransports(conf config.Client) (*http.Transport, error) {
 	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
 	responseHeaderTimeout := defaultResponseHeaderTimeout
 
-	if conf.MaxIdleConnsPerHost != 0 {
-		maxIdleConnsPerHost = conf.MaxIdleConnsPerHost
+	httpTransports := make([]*http.Transport, 0, len(conf.Transports))
+	var httpTransport *http.Transport
+	if len(conf.Transports) > 0 {
+		for _, transport := range conf.Transports {
+			httpTransport = perepareTransport(transport.Details, maxIdleConnsPerHost, responseHeaderTimeout)
+			break
+			httpTransports = append(httpTransports, httpTransport)
+		}
 	}
 
-	if conf.ResponseHeaderTimeout.Duration != 0 {
-		responseHeaderTimeout = conf.ResponseHeaderTimeout.Duration
-	}
-
-	httpTransport := &http.Transport{
-		MaxIdleConns:          conf.MaxIdleConns,
-		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
-		IdleConnTimeout:       conf.IdleConnTimeout.Duration,
-		ResponseHeaderTimeout: responseHeaderTimeout,
-		DisableKeepAlives:     conf.DisableKeepAlives,
-	}
-
+	//TODO: return httpTransports, nil
 	return httpTransport, nil
+}
+
+// perepareTransport with details
+func perepareTransport(transportDetails transport.ClientTransportDetail, maxIdleConnsPerHost int,
+	responseHeaderTimeout time.Duration) *http.Transport {
+	if transportDetails.MaxIdleConnsPerHost != 0 {
+		maxIdleConnsPerHost = transportDetails.MaxIdleConnsPerHost
+	}
+	if transportDetails.ResponseHeaderTimeout.Duration != 0 {
+		responseHeaderTimeout = transportDetails.ResponseHeaderTimeout.Duration
+	}
+	httpTransport := &http.Transport{
+		MaxIdleConns:          transportDetails.MaxIdleConns,
+		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
+		IdleConnTimeout:       transportDetails.IdleConnTimeout.Duration,
+		ResponseHeaderTimeout: responseHeaderTimeout,
+		DisableKeepAlives:     transportDetails.DisableKeepAlives,
+	}
+	return httpTransport
 }
 
 // DecorateRoundTripper applies common http.RoundTripper decorators

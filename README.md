@@ -127,7 +127,6 @@ Service:
      -
        Triggers:
         - Method: GET|POST
-        - Header: Content-Length > 10000
         - Path: /\s+/\s+$
        MergingStrategy: Default
        Details:
@@ -138,7 +137,6 @@ Service:
      -
        Triggers:
         - Method: GET|POST|PUT
-        - Header: Content-Length > 5000000
         - QueryParam: clientId=\s+
        MergingStrategy: ListV1
        Details:

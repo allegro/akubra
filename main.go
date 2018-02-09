@@ -97,7 +97,7 @@ func mkServiceLogs(logConf logconfig.LoggingConfig) (syncLog, clusterSyncLog, ac
 	return
 }
 func (s *service) start() error {
-	roundtripper, err := httphandler.ConfigureHTTPTransport(s.config.Service.Client)
+	roundtripper, err := httphandler.ConfigureHTTPTransports(s.config.Service.Client)
 	if err != nil {
 		log.Fatalf("Couldn't set up client properties, %q", err)
 	}

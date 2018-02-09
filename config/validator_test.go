@@ -91,7 +91,7 @@ func TestShouldPassListenPortsLogicalValidator(t *testing.T) {
 	regionConfig := regionsconfig.Region{}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", listen,
 		listenTechnicalEndpoint,
-		map[string]regionsconfig.Region{"region": regionConfig})
+		map[string]regionsconfig.Region{"region": regionConfig}, nil)
 	valid, validationErrors := yamlConfig.ListenPortsLogicalValidator()
 
 	assert.Len(t, validationErrors, 0, "Should not be errors")
@@ -106,7 +106,7 @@ func TestShouldNotPassListenPortsLogicalValidatorWhenPortsAreEqual(t *testing.T)
 	regionConfig := regionsconfig.Region{}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", listen,
 		listenTechnicalEndpoint,
-		map[string]regionsconfig.Region{"region": regionConfig})
+		map[string]regionsconfig.Region{"region": regionConfig}, nil)
 	valid, validationErrors := yamlConfig.ListenPortsLogicalValidator()
 
 	assert.Len(t, validationErrors, 1, "Should be one error")
@@ -177,7 +177,7 @@ func TestValidatorShouldPassWithValidRegionConfig(t *testing.T) {
 
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
 		"127.0.0.1:1234", "127.0.0.1:1235",
-		map[string]regionsconfig.Region{"region": regionConfig})
+		map[string]regionsconfig.Region{"region": regionConfig}, nil)
 
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.True(t, valid)
@@ -198,7 +198,7 @@ func TestValidatorShouldFailWithMissingCluster(t *testing.T) {
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
 		"127.0.0.1:1234", "127.0.0.1:1235",
-		map[string]regionsconfig.Region{"testregion": regionConfig})
+		map[string]regionsconfig.Region{"testregion": regionConfig}, nil)
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -220,7 +220,7 @@ func TestValidatorShouldFailWithInvalidWeight(t *testing.T) {
 	size.SizeInBytes = 2048
 	regions := map[string]regionsconfig.Region{"testregion": regionConfig}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", regions)
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
 
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
@@ -242,7 +242,8 @@ func TestValidatorShouldFailWithMissingClusterDomain(t *testing.T) {
 	size.SizeInBytes = 2048
 
 	regions := map[string]regionsconfig.Region{"testregion": regionConfig}
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
+	yamlConfig := PrepareYamlConfig(size, 31, 45,
+		"127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -258,7 +259,8 @@ func TestValidatorShouldFailWithMissingClusterDefinition(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	regions := map[string]regionsconfig.Region{"testregion": regionConfig}
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
