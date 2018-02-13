@@ -115,7 +115,9 @@ func (s *service) start() error {
 		roundtripper,
 		s.config.Clusters,
 		s.config.Backends,
-		respHandler)
+		respHandler,
+		syncLog)
+
 	if err != nil {
 		log.Fatalf("Storages initialization problem: %q", err)
 	}

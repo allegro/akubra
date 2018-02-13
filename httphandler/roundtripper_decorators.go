@@ -172,3 +172,10 @@ func Decorate(roundTripper http.RoundTripper, decorators ...Decorator) http.Roun
 	}
 	return roundTripper
 }
+
+func MultiPartUploadDecorator(handler *MultiPartUploadHandler) Decorator {
+	return func(roundTripper http.RoundTripper) http.RoundTripper {
+
+		return handler
+	}
+}
