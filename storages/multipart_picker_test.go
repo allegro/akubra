@@ -2,9 +2,10 @@ package storages
 
 import (
 	"net/http"
-	"github.com/stretchr/testify/assert"
-	"testing"
 	"net/url"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestShouldReturnNilBackendAndEmptyHostnameListWhenProvidedBackendListIsEmpty(testSuite *testing.T) {

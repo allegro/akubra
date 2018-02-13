@@ -1,18 +1,19 @@
 package httphandler
 
 import (
-	"testing"
-	"net/http"
-	"net/url"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/assert"
-	"github.com/allegro/akubra/log"
-	"io/ioutil"
 	"bytes"
-	"sync"
-	"golang.org/x/net/context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"sync"
+	"testing"
+
+	"github.com/allegro/akubra/log"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"golang.org/x/net/context"
 )
 
 type MockedRoundTripper struct {
@@ -227,7 +228,6 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 
 		syncRequestJSON, _ := args.Get(0).([]interface{})[0].(string)
 
-
 		var syncRequest SyncLogMessageData
 		err := json.Unmarshal([]byte(syncRequestJSON), &syncRequest)
 
@@ -235,13 +235,12 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 			panic(fmt.Sprintf("Failed to unmarshall the response - %s", err))
 		}
 
-		if syncRequest.Path == "/someBucket/someObject" && (syncRequest.FailedHost == "host1" || syncRequest.FailedHost == "host2"){
+		if syncRequest.Path == "/someBucket/someObject" && (syncRequest.FailedHost == "host1" || syncRequest.FailedHost == "host2") {
 			notificationWaitGroup.Done()
 		} else {
 			panic("Wrong host name in syncRequest")
 		}
 	})
-
 
 	response, err := multiPartUploadHandler.RoundTrip(completeMultiPartUploadRequest)
 

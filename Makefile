@@ -2,7 +2,10 @@ VERSION := `cat VERSION`
 LDFLAGS := -X main.version=$(VERSION)
 GO := "$(GOROOT)/bin/go"
 
-all: lint test build
+all: formatting lint test build
+
+formatting :
+	goimports -w .
 
 lint: deps-lint
 	gometalinter ./... \

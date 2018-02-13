@@ -1,13 +1,14 @@
 package httphandler
 
 import (
-	"io/ioutil"
 	"bytes"
-	"encoding/xml"
-	"time"
 	"encoding/json"
-	"strings"
+	"encoding/xml"
+	"io/ioutil"
 	"net/http"
+	"strings"
+	"time"
+
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/types"
 )

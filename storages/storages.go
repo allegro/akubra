@@ -8,10 +8,10 @@ import (
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
 
+	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/storages/auth"
 	"github.com/allegro/akubra/storages/config"
 	set "github.com/deckarep/golang-set"
-	"github.com/allegro/akubra/httphandler"
 )
 
 type backendError struct {
@@ -173,7 +173,7 @@ func (st *Storages) ClusterShards(name string, syncLog log.Logger, clusters ...N
 
 // InitStorages setups storages
 func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap,
-				  respHandler transport.MultipleResponsesHandler, syncLog log.Logger) (*Storages, error) {
+	respHandler transport.MultipleResponsesHandler, syncLog log.Logger) (*Storages, error) {
 
 	clusters := make(map[string]NamedCluster)
 	backends := make(map[string]http.RoundTripper)
