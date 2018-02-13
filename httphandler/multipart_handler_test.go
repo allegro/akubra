@@ -38,8 +38,8 @@ func (syncLog *MockedSyncLog) Println(v ...interface{}) {
 
 func TestShouldNotDetectMultiPartUploadRequestWhenItIsARegularUpload(testSuite *testing.T) {
 
-	requestUrl, _ := url.Parse("http://localhost:3212/someBucket/someObject")
-	notAMultiPartUploadRequest := &http.Request{URL: requestUrl}
+	requestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject")
+	notAMultiPartUploadRequest := &http.Request{URL: requestURL}
 	expectedResponse := &http.Response{Request: notAMultiPartUploadRequest}
 
 	multiPartUploadBackend := &MockedRoundTripper{}
@@ -67,8 +67,8 @@ func TestShouldNotDetectMultiPartUploadRequestWhenItIsARegularUpload(testSuite *
 
 func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequest(testSuite *testing.T) {
 
-	requestUrl, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploads")
-	initiateMultiPartUploadRequest := &http.Request{URL: requestUrl}
+	requestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploads")
+	initiateMultiPartUploadRequest := &http.Request{URL: requestURL}
 	expectedResponse := &http.Response{Request: initiateMultiPartUploadRequest}
 
 	multiPartUploadBackend := &MockedRoundTripper{}
@@ -97,8 +97,8 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequest(testSuite *t
 
 func TestShouldDetectMultiPartUploadRequestWhenItContainsUploadIdInQuery(testSuite *testing.T) {
 
-	requestUrl, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321&someOtherParam=abc")
-	multiPartUploadRequest := &http.Request{URL: requestUrl}
+	requestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321&someOtherParam=abc")
+	multiPartUploadRequest := &http.Request{URL: requestURL}
 	expectedResponse := &http.Response{Request: multiPartUploadRequest}
 
 	multiPartUploadBackend := &MockedRoundTripper{}
@@ -126,13 +126,13 @@ func TestShouldDetectMultiPartUploadRequestWhenItContainsUploadIdInQuery(testSui
 
 func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorButFailOnParsingTheResponse(testSuite *testing.T) {
 
-	requestUrl, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321")
-	completeMultiPartUploadRequest := &http.Request{URL: requestUrl}
+	requestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321")
+	completeMultiPartUploadRequest := &http.Request{URL: requestURL}
 	expectedResponse := &http.Response{Request: completeMultiPartUploadRequest}
 
-	invalidXmlResponse := "<rootNode><subnode>test</subnode></rootNode>"
+	invalidXMLResponse := "<rootNode><subnode>test</subnode></rootNode>"
 	expectedResponse.StatusCode = 200
-	expectedResponse.Body = ioutil.NopCloser(bytes.NewBufferString(invalidXmlResponse))
+	expectedResponse.Body = ioutil.NopCloser(bytes.NewBufferString(invalidXMLResponse))
 
 	multiPartUploadBackend := &MockedRoundTripper{}
 	cluster := &MockedRoundTripper{}
@@ -159,8 +159,8 @@ func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorButFailOnParsin
 
 func TestShouldDetectMultiPartCompletionAndNotNotifyMigratorWhenStatusCodeIsWrong(testSuite *testing.T) {
 
-	requestUrl, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321")
-	completeMultiPartUploadRequest := &http.Request{URL: requestUrl}
+	requestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321")
+	completeMultiPartUploadRequest := &http.Request{URL: requestURL}
 	expectedResponse := &http.Response{Request: completeMultiPartUploadRequest}
 
 	errorResponse := "<Error>nope</Error>"
@@ -192,13 +192,13 @@ func TestShouldDetectMultiPartCompletionAndNotNotifyMigratorWhenStatusCodeIsWron
 
 func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSuite *testing.T) {
 
-	requestUrl, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321")
-	completeMultiPartUploadRequest := &http.Request{URL: requestUrl}
+	requestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321")
+	completeMultiPartUploadRequest := &http.Request{URL: requestURL}
 	completeMultiPartUploadRequest = completeMultiPartUploadRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, "1"))
 
 	expectedResponse := &http.Response{Request: completeMultiPartUploadRequest}
 
-	validXmlResponse := "<CompleteMultipartUploadResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
+	validXMLResponse := "<CompleteMultipartUploadResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
 		"<Location>http://locahost:9092/someBucket/someBucket</Location>" +
 		"<Bucket>someBucket</Bucket>" +
 		"<Key>someBucket</Key>" +
@@ -206,7 +206,7 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 		"</CompleteMultipartUploadResult>"
 
 	expectedResponse.StatusCode = 200
-	expectedResponse.Body = ioutil.NopCloser(bytes.NewBufferString(validXmlResponse))
+	expectedResponse.Body = ioutil.NopCloser(bytes.NewBufferString(validXMLResponse))
 
 	var notificationWaitGroup sync.WaitGroup
 	notificationWaitGroup.Add(2)
@@ -225,11 +225,11 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 	multiPartUploadBackend.On("RoundTrip", completeMultiPartUploadRequest).Return(expectedResponse, nil)
 	syncLog.On("Println", mock.AnythingOfType("[]interface {}")).Run(func(args mock.Arguments) {
 
-		syncRequestJson, _ := args.Get(0).([]interface{})[0].(string)
+		syncRequestJSON, _ := args.Get(0).([]interface{})[0].(string)
 
 
 		var syncRequest SyncLogMessageData
-		err := json.Unmarshal([]byte(syncRequestJson), &syncRequest)
+		err := json.Unmarshal([]byte(syncRequestJSON), &syncRequest)
 
 		if err != nil {
 			panic(fmt.Sprintf("Failed to unmarshall the response - %s", err))
@@ -241,6 +241,7 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 			panic("Wrong host name in syncRequest")
 		}
 	})
+
 
 	response, err := multiPartUploadHandler.RoundTrip(completeMultiPartUploadRequest)
 

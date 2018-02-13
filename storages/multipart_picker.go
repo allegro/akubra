@@ -4,6 +4,7 @@ import (
 	"net/http"
 )
 
+//PickRandomBackendForMultiPartUpload selects the backend that will handle the multi part upload requests and list of storages hostnames that later have to be synchronized
 func PickRandomBackendForMultiPartUpload(backends []http.RoundTripper) (multiUploadBackend *Backend, backendsHostNamesToSync []string) {
 
 	if len(backends) <= 0 {

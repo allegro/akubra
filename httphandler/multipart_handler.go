@@ -12,6 +12,9 @@ import (
 	"github.com/allegro/akubra/types"
 )
 
+//MultiPartUploadHandler handles the multi part upload. If multi part upload is detected, it delegates the request
+//to the backend selected by multipart_picker, otherwise the cluster round tripper is used
+//to handle the operation in standard fashion
 type MultiPartUploadHandler struct {
 	multiPartUploadBackend  http.RoundTripper
 	clusterRoundTripper     http.RoundTripper
@@ -19,6 +22,7 @@ type MultiPartUploadHandler struct {
 	backendsHostNamesToSync []string
 }
 
+//NewMultiPartUploadHandler constructs a new MultiPartUploadHandler and returns a pointer to it
 func NewMultiPartUploadHandler(multiPartUploadBackend http.RoundTripper,
 	clusterRoundTripper http.RoundTripper,
 	syncLog log.Logger,
@@ -30,6 +34,7 @@ func NewMultiPartUploadHandler(multiPartUploadBackend http.RoundTripper,
 		backendsHostNamesToSync}
 }
 
+//RoundTrip performs a RoundTrip using the strategy described in MultiPartUploadHandler
 func (multiPartUploadHandler *MultiPartUploadHandler) RoundTrip(request *http.Request) (response *http.Response, err error) {
 
 	if isMultiPartUploadRequest(request) {
@@ -47,14 +52,14 @@ func (multiPartUploadHandler *MultiPartUploadHandler) RoundTrip(request *http.Re
 }
 
 func isMultiPartUploadRequest(request *http.Request) bool {
-	return isInitiateRequest(request) || containsUploadId(request)
+	return isInitiateRequest(request) || containsUploadID(request)
 }
 
 func isInitiateRequest(request *http.Request) bool {
 	return strings.HasSuffix(request.URL.String(), "?uploads")
 }
 
-func containsUploadId(request *http.Request) bool {
+func containsUploadID(request *http.Request) bool {
 	return strings.Contains(request.URL.RawQuery, "uploadId=")
 }
 
@@ -101,31 +106,28 @@ func (multiPartUploadHandler *MultiPartUploadHandler) reportCompletionToMigrator
 
 	for _, backendHostName := range multiPartUploadHandler.backendsHostNamesToSync {
 
-		go func() {
+		syncLogMsg := &SyncLogMessageData{
+			Method:        "PUT",
+			FailedHost:    backendHostName,
+			SuccessHost:   response.Request.Host,
+			Path:          response.Request.URL.Path,
+			AccessKey:     extractAccessKey(response.Request),
+			UserAgent:     response.Request.Header.Get("User-Agent"),
+			ContentLength: response.ContentLength,
+			ErrorMsg:      "Migrate MultiUpload",
+			ReqID:         requestID(response.Request),
+			Time:          time.Now().Format(time.RFC3339Nano),
+		}
 
-			syncLogMsg := &SyncLogMessageData{
-				Method:        "PUT",
-				FailedHost:    backendHostName,
-				SuccessHost:   response.Request.Host,
-				Path:          response.Request.URL.Path,
-				AccessKey:     extractAccessKey(response.Request),
-				UserAgent:     response.Request.Header.Get("User-Agent"),
-				ContentLength: response.ContentLength,
-				ErrorMsg:      "Migrate MultiUpload",
-				ReqID:         requestID(response.Request),
-				Time:          time.Now().Format(time.RFC3339Nano),
-			}
+		logMsg, err := json.Marshal(syncLogMsg)
 
-			logMsg, err := json.Marshal(syncLogMsg)
+		if err != nil {
+			log.Debugf("Marshall synclog error %s", err)
+			return
+		}
 
-			if err != nil {
-				log.Debugf("Marshall synclog error %s", err)
-				return
-			}
+		multiPartUploadHandler.syncLog.Println(string(logMsg))
 
-			multiPartUploadHandler.syncLog.Println(string(logMsg))
-
-			log.Debugf("Sent a multi part uplaod migration request of object %s to backend %s", response.Request.URL.Path, backendHostName)
-		}()
+		log.Debugf("Sent a multi part uplaod migration request of object %s to backend %s", response.Request.URL.Path, backendHostName)
 	}
 }
