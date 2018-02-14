@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
 
-	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/storages/auth"
-	"github.com/allegro/akubra/storages/config"
+	config "github.com/allegro/akubra/storages/config"
 	set "github.com/deckarep/golang-set"
 )
 
@@ -55,7 +55,8 @@ type Storages struct {
 	transport    http.RoundTripper
 	Clusters     map[string]NamedCluster
 	Backends     map[string]http.RoundTripper
-	respHandler  transport.MultipleResponsesHandler
+	lateRespHandler  transport.MultipleResponsesHandler
+	earlyRespHandler transport.MultipleResponsesHandler
 }
 
 // Backend represents any storage in akubra cluster
@@ -166,7 +167,7 @@ func (st *Storages) ClusterShards(name string, syncLog log.Logger, clusters ...N
 	for _, cluster := range clusters {
 		backends = append(backends, cluster.Backends()...)
 	}
-	rh := responseMerger{merger: st.respHandler}
+	rh := responseMerger{merger: st.lateRespHandler}
 	newCluster := &Cluster{backends: backends, name: name, respHandler: rh.responseHandler}
 	newCluster.setupRoundTripper(syncLog)
 	st.Clusters[name] = newCluster
@@ -174,9 +175,7 @@ func (st *Storages) ClusterShards(name string, syncLog log.Logger, clusters ...N
 }
 
 // InitStorages setups storages
-func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap,
-	respHandler transport.MultipleResponsesHandler, syncLog log.Logger) (*Storages, error) {
-
+func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap, earlyRespHandler, lateRespHandler transport.MultipleResponsesHandler, syncLog log.Logger) (*Storages, error) {
 	clusters := make(map[string]NamedCluster)
 	backends := make(map[string]http.RoundTripper)
 	if len(backendsConf) == 0 {
@@ -196,21 +195,23 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 		return nil, fmt.Errorf("empty map 'clustersConf' in 'InitStorages'")
 	}
 	for name, clusterConf := range clustersConf {
-		cluster, err := newCluster(name, clusterConf.Backends, backends, respHandler, syncLog)
+		cluster, err := newCluster(name, clusterConf.Backends, backends, earlyRespHandler, syncLog)
 		if err != nil {
 			return nil, err
 		}
 		clusters[name] = cluster
 	}
 	return &Storages{
-		clustersConf: clustersConf,
-		backendsConf: backendsConf,
-		transport:    transport,
-		Clusters:     clusters,
-		Backends:     backends,
-		respHandler:  respHandler,
+		clustersConf:     clustersConf,
+		backendsConf:     backendsConf,
+		transport:        transport,
+		Clusters:         clusters,
+		Backends:         backends,
+		earlyRespHandler: earlyRespHandler,
+		lateRespHandler:  lateRespHandler,
 	}, nil
 }
+
 
 func decorateBackend(transport http.RoundTripper, name string, backendConf config.Backend) (http.RoundTripper, error) {
 	backend := &Backend{

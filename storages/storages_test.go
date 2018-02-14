@@ -86,7 +86,7 @@ func TestShouldNotInitStoragesWithWrongBackendType(t *testing.T) {
 	}}
 	var respHandler transport.MultipleResponsesHandler
 
-	_, err := InitStorages(transportRoundTripper, clustersConf, backendsConf, respHandler, nil)
+	_, err := InitStorages(transportRoundTripper, clustersConf, backendsConf, respHandler, respHandler, nil)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
