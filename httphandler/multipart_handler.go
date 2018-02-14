@@ -42,14 +42,13 @@ func (multiPartUploadHandler *MultiPartUploadHandler) RoundTrip(request *http.Re
 
 		log.Debugf("Handling multi part upload, for object %s with id %s", request.URL.Path, request.Context().Value(log.ContextreqIDKey))
 
-		request.Body = nil
 		response, err = multiPartUploadHandler.multiPartUploadBackend.RoundTrip(request)
 
 		if err == nil && !isInitiateRequest(request) && isCompleteUploadResponseSuccessful(response) {
 			go multiPartUploadHandler.reportCompletionToMigrator(response)
 		}
 
-		log.Printf("Successfully served multi part request %s", response)
+		log.Printf("Served multi part request %s, response code %d, status %s, body %s", response.StatusCode, response.Status, response.Body)
 
 		return
 	}

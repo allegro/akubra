@@ -89,14 +89,15 @@ func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 
 func (c *Cluster) setupRoundTripper(syncLog log.Logger) {
 
-	multiPartUploadBackend, backendsHostnamesToSync := PickRandomBackendForMultiPartUpload(c.Backends())
-	multiPartUploadHandler := httphandler.NewMultiPartUploadHandler(multiPartUploadBackend, c.transport, syncLog, backendsHostnamesToSync)
-
 	multiTransport := transport.NewMultiTransport(
 		c.Backends(),
 		c.respHandler)
 
+	multiPartUploadBackend, backendsHostnamesToSync := PickRandomBackendForMultiPartUpload(c.Backends())
+
 	if multiPartUploadBackend != nil {
+
+		multiPartUploadHandler := httphandler.NewMultiPartUploadHandler(multiPartUploadBackend, multiTransport, syncLog, backendsHostnamesToSync)
 
 		c.transport = httphandler.Decorate(
 			multiTransport,
