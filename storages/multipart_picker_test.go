@@ -83,3 +83,38 @@ func TestShouldReturnMultiPartUploadBackendAndManyBackendsHostnamesToSync(testSu
 	assert.Equal(testSuite, len(hostnamesToSync), 2)
 	assert.Contains(testSuite, hostnamesToSync, "someBackend2", "someBackend3")
 }
+
+func TestShouldPickTheBackendToMultiPartUploadInADeterministicWay(testSuite *testing.T) {
+
+	backend1 := &Backend{
+		RoundTripper: nil,
+		Endpoint:     url.URL{},
+		Maintenance:  false,
+		Name:         "someBackend1",
+	}
+
+	backend2 := &Backend{
+		RoundTripper: nil,
+		Endpoint:     url.URL{},
+		Maintenance:  false,
+		Name:         "someBackend2",
+	}
+
+	backend3 := &Backend{
+		RoundTripper: nil,
+		Endpoint:     url.URL{},
+		Maintenance:  false,
+		Name:         "someBackend2",
+	}
+
+	backendPickedForMultiPartUploadOnFirstRun, hostnamesToSyncOnFirstRun := PickRandomBackendForMultiPartUpload([]http.RoundTripper{backend1, backend2, backend3})
+
+	backendPickedForMultiPartUploadOnSecondRun, hostnamesToSyncOnSecondRun := PickRandomBackendForMultiPartUpload([]http.RoundTripper{backend1, backend2, backend3})
+
+	assert.Equal(testSuite, backendPickedForMultiPartUploadOnFirstRun, backendPickedForMultiPartUploadOnSecondRun)
+	assert.Equal(testSuite, hostnamesToSyncOnFirstRun, hostnamesToSyncOnSecondRun)
+
+	assert.Equal(testSuite, backendPickedForMultiPartUploadOnFirstRun, backend1)
+	assert.Equal(testSuite, len(hostnamesToSyncOnFirstRun), 2)
+	assert.Contains(testSuite, hostnamesToSyncOnSecondRun, "someBackend2", "someBackend3")
+}
