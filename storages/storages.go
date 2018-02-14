@@ -101,6 +101,8 @@ func (c *Cluster) setupRoundTripper(syncLog log.Logger) {
 			multiTransport,
 			httphandler.MultiPartUploadDecorator(multiPartUploadHandler))
 
+		log.Debugf("Cluster %s has multi part setup successfully", c.name)
+
 	} else {
 
 		c.transport = multiTransport
