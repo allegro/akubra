@@ -26,6 +26,7 @@ lint-slow: deps-lint
 
 
 deps:
+	$(GO) get golang.org/x/tools/cmd/goimports
 	$(GO) get github.com/Masterminds/glide
 	glide install
 
