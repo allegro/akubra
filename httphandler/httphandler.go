@@ -116,7 +116,6 @@ func ConfigureHTTPTransport(conf config.Client) (*http.Transport, error) {
 		IdleConnTimeout:       conf.IdleConnTimeout.Duration,
 		ResponseHeaderTimeout: responseHeaderTimeout,
 		DisableKeepAlives:     conf.DisableKeepAlives,
-
 	}
 
 	return httpTransport, nil

@@ -50,11 +50,11 @@ type Cluster struct {
 
 // Storages config
 type Storages struct {
-	clustersConf config.ClustersMap
-	backendsConf config.BackendsMap
-	transport    http.RoundTripper
-	Clusters     map[string]NamedCluster
-	Backends     map[string]http.RoundTripper
+	clustersConf     config.ClustersMap
+	backendsConf     config.BackendsMap
+	transport        http.RoundTripper
+	Clusters         map[string]NamedCluster
+	Backends         map[string]http.RoundTripper
 	lateRespHandler  transport.MultipleResponsesHandler
 	earlyRespHandler transport.MultipleResponsesHandler
 }
@@ -212,7 +212,6 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 		lateRespHandler:  lateRespHandler,
 	}, nil
 }
-
 
 func decorateBackend(transport http.RoundTripper, name string, backendConf config.Backend) (http.RoundTripper, error) {
 	backend := &Backend{

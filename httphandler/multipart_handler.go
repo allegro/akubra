@@ -48,7 +48,7 @@ func (multiPartUploadHandler *MultiPartUploadHandler) RoundTrip(request *http.Re
 			go multiPartUploadHandler.reportCompletionToMigrator(response)
 		}
 
-		log.Printf("Served multi part request %s, response code %d, status %s, body %s", response.StatusCode, response.Status, response.Body)
+		log.Printf("Served multi part request, response code %d, status %s, body %s", response.StatusCode, response.Status, response.Body)
 
 		return
 	}
