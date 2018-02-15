@@ -5,6 +5,7 @@ GO := "$(GOROOT)/bin/go"
 all: formatting lint test build
 
 formatting :
+	$(GO) get golang.org/x/tools/cmd/goimports
 	goimports -w .
 
 lint: deps-lint
@@ -26,7 +27,6 @@ lint-slow: deps-lint
 
 
 deps:
-	$(GO) get golang.org/x/tools/cmd/goimports
 	$(GO) get github.com/Masterminds/glide
 	glide install
 
