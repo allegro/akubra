@@ -102,7 +102,7 @@ func responseContainsCompleteUploadString(response *http.Response) bool {
 		return false
 	}
 
-	log.Debugf("Successfully performed multipart upload to %", completeMultipartUploadResult.Location)
+	log.Debugf("Successfully performed multipart upload to %s", completeMultipartUploadResult.Location)
 
 	return true
 }
