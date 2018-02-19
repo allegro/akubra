@@ -10,7 +10,7 @@ import (
 	"github.com/allegro/akubra/transport"
 
 	"github.com/allegro/akubra/storages/auth"
-	config "github.com/allegro/akubra/storages/config"
+	"github.com/allegro/akubra/storages/config"
 	set "github.com/deckarep/golang-set"
 )
 
@@ -93,22 +93,11 @@ func (c *Cluster) setupRoundTripper(syncLog log.Logger) {
 		c.Backends(),
 		c.respHandler)
 
-	multiPartUploadBackend, backendsHostnamesToSync := PickRandomBackendForMultiPartUpload(c.Backends())
+	c.transport = multiTransport
+	clusterRoundTripper := NewMultiPartRoundTripper(c, syncLog)
 
-	if multiPartUploadBackend != nil {
-
-		multiPartUploadHandler := httphandler.NewMultiPartUploadHandler(multiPartUploadBackend, multiTransport, syncLog, backendsHostnamesToSync)
-
-		c.transport = httphandler.Decorate(
-			multiTransport,
-			httphandler.MultiPartUploadDecorator(multiPartUploadHandler))
-
-		log.Debugf("Cluster %s has multi part setup successfully", c.name)
-
-	} else {
-
-		c.transport = multiTransport
-	}
+	c.transport = clusterRoundTripper
+	log.Debugf("Cluster %s has multi part setup successfully", c.name)
 }
 
 // RoundTrip implements http.RoundTripper interface

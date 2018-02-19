@@ -1,4 +1,4 @@
-package httphandler
+package storages
 
 import (
 	"bytes"
@@ -47,9 +47,9 @@ func TestShouldNotDetectMultiPartUploadRequestWhenItIsARegularUpload(testSuite *
 	cluster := &MockedRoundTripper{}
 	syncLog := &MockedSyncLog{}
 
-	multiPartUploadHandler := MultiPartUploadHandler{
-		multiPartUploadBackend:  multiPartUploadBackend,
-		clusterRoundTripper:     cluster,
+	multiPartUploadHandler := MultiPartRoundTripper{
+		backends:                multiPartUploadBackend,
+		fallBackRoundTripper:    cluster,
 		syncLog:                 syncLog,
 		backendsHostNamesToSync: []string{},
 	}
@@ -76,9 +76,9 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequest(testSuite *t
 	cluster := &MockedRoundTripper{}
 	syncLog := &MockedSyncLog{}
 
-	multiPartUploadHandler := MultiPartUploadHandler{
-		multiPartUploadBackend:  multiPartUploadBackend,
-		clusterRoundTripper:     cluster,
+	multiPartUploadHandler := MultiPartRoundTripper{
+		backends:                multiPartUploadBackend,
+		fallBackRoundTripper:    cluster,
 		syncLog:                 syncLog,
 		backendsHostNamesToSync: []string{},
 	}
@@ -106,9 +106,9 @@ func TestShouldDetectMultiPartUploadRequestWhenItContainsUploadIdInQuery(testSui
 	cluster := &MockedRoundTripper{}
 	syncLog := &MockedSyncLog{}
 
-	multiPartUploadHandler := MultiPartUploadHandler{
-		multiPartUploadBackend:  multiPartUploadBackend,
-		clusterRoundTripper:     cluster,
+	multiPartUploadHandler := MultiPartRoundTripper{
+		backends:                multiPartUploadBackend,
+		fallBackRoundTripper:    cluster,
 		syncLog:                 syncLog,
 		backendsHostNamesToSync: []string{},
 	}
@@ -139,9 +139,9 @@ func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorButFailOnParsin
 	cluster := &MockedRoundTripper{}
 	syncLog := &MockedSyncLog{}
 
-	multiPartUploadHandler := MultiPartUploadHandler{
-		multiPartUploadBackend:  multiPartUploadBackend,
-		clusterRoundTripper:     cluster,
+	multiPartUploadHandler := MultiPartRoundTripper{
+		backends:                multiPartUploadBackend,
+		fallBackRoundTripper:    cluster,
 		syncLog:                 syncLog,
 		backendsHostNamesToSync: []string{},
 	}
@@ -172,9 +172,9 @@ func TestShouldDetectMultiPartCompletionAndNotNotifyMigratorWhenStatusCodeIsWron
 	cluster := &MockedRoundTripper{}
 	syncLog := &MockedSyncLog{}
 
-	multiPartUploadHandler := MultiPartUploadHandler{
-		multiPartUploadBackend:  multiPartUploadBackend,
-		clusterRoundTripper:     cluster,
+	multiPartUploadHandler := MultiPartRoundTripper{
+		backends:                multiPartUploadBackend,
+		fallBackRoundTripper:    cluster,
 		syncLog:                 syncLog,
 		backendsHostNamesToSync: []string{},
 	}
@@ -216,9 +216,9 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 	cluster := &MockedRoundTripper{}
 	syncLog := &MockedSyncLog{}
 
-	multiPartUploadHandler := MultiPartUploadHandler{
-		multiPartUploadBackend:  multiPartUploadBackend,
-		clusterRoundTripper:     cluster,
+	multiPartUploadHandler := MultiPartRoundTripper{
+		backends:                multiPartUploadBackend,
+		fallBackRoundTripper:    cluster,
 		syncLog:                 syncLog,
 		backendsHostNamesToSync: []string{"host1", "host2"},
 	}
