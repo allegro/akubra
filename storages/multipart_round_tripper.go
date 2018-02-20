@@ -105,9 +105,9 @@ func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath strin
 	for {
 
 		backendEndpoint, _:= multiPartRoundTripper.backendsRing.GetNode(objectPath)
-		backend, inMaintenance := multiPartRoundTripper.backendsRoundTrippers[backendEndpoint]
+		backend, ok := multiPartRoundTripper.backendsRoundTrippers[backendEndpoint]
 
-		if inMaintenance {
+		if !ok || backend.Maintenance {
 			continue
 		}
 

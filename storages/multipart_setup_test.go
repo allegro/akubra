@@ -21,7 +21,7 @@ func (mockedRoundTripper *MockedRoundTripper) RoundTrip(request *http.Request) (
 	return args.Get(0).(*http.Response), args.Error(1)
 }
 
-func TestShouldReturnEmptyRingAndEmptyHostnameListWhenProvidedBackendListIsEmpty(testSuite *testing.T) {
+func TestShouldReturnEmptyRingWhenProvidedBackendListIsEmpty(testSuite *testing.T) {
 
 	fallbackRoundTripper := &MockedRoundTripper{}
 
@@ -34,51 +34,34 @@ func TestShouldReturnEmptyRingAndEmptyHostnameListWhenProvidedBackendListIsEmpty
 		respHandler: nil,
 	}
 
-
 	multiPartRoundTripper := NewMultiPartRoundTripper(clusterToSetup, nil)
 
 	assert.Equal(testSuite, multiPartRoundTripper.backendsRing.Size(), 0)
-	assert.Empty(testSuite, multiPartRoundTripper.hostsToSync)
+	assert.Empty(testSuite, multiPartRoundTripper.backendsEndpoints, 0)
 }
 
-func TestShouldReturnMultiPartUploadRingAndEmptyHostnamesToSyncListWhenOnlyOneActiveBackendIsProvided(testSuite *testing.T) {
+func TestShouldSetupMultiUploadRingAndMigrationEndpoints(testSuite *testing.T) {
 
 	fallbackRoundTripper := &MockedRoundTripper{}
 
-	backend := &Backend{
-		RoundTripper: &MockedRoundTripper{},
-		Endpoint:     url.URL{},
-		Maintenance:  false,
-		Name:         "someBackend",
-	}
+	activeBackendRoundTripper := &MockedRoundTripper{}
+	activeBackendRoundTripper2 := &MockedRoundTripper{}
 
-	clusterToSetup := &Cluster{
-		transport: fallbackRoundTripper,
-		backends: []http.RoundTripper{backend},
-		name: "some-cluster",
-		Logger: nil,
-		MethodSet: nil,
-		respHandler: nil,
-	}
-
-	multiPartRoundTripper := NewMultiPartRoundTripper(clusterToSetup, nil)
-
-	backendFromRing, _ := multiPartRoundTripper.backendsRing.GetNode("arbitraryKey")
-
-	assert.Equal(testSuite, multiPartRoundTripper.backendsRing.Size(), 1)
-	assert.Equal(testSuite, backendFromRing, backend.Name)
-	assert.Empty(testSuite, multiPartRoundTripper.hostsToSync)
-}
-
-func TestShouldMarkBackendToBeSynchronizedWhenItIsInMaintenanceMode(testSuite *testing.T) {
-
-	fallbackRoundTripper := &MockedRoundTripper{}
+	activeBackendUrl, _ := url.Parse("http://backend:1234")
+	activeBackendUrl2, _ := url.Parse("http://backend2:1234")
 
 	activateBackend := &Backend{
-		RoundTripper: nil,
-		Endpoint:     url.URL{},
+		RoundTripper: activeBackendRoundTripper,
+		Endpoint:     *activeBackendUrl,
 		Maintenance:  false,
 		Name:         "activateBackend",
+	}
+
+	activateBackend2 := &Backend{
+		RoundTripper: activeBackendRoundTripper2,
+		Endpoint:     *activeBackendUrl2,
+		Maintenance:  false,
+		Name:         "activateBackend2",
 	}
 
 	maintenanceBackendUrl, _ := url.Parse("http://maintenance:8421")
@@ -92,7 +75,7 @@ func TestShouldMarkBackendToBeSynchronizedWhenItIsInMaintenanceMode(testSuite *t
 
 	clusterToSetup := &Cluster{
 		transport: fallbackRoundTripper,
-		backends: []http.RoundTripper{activateBackend, maintenanceBackend},
+		backends: []http.RoundTripper{activateBackend, activateBackend2, maintenanceBackend},
 		name: "some-cluster",
 		Logger: nil,
 		MethodSet: nil,
@@ -101,10 +84,7 @@ func TestShouldMarkBackendToBeSynchronizedWhenItIsInMaintenanceMode(testSuite *t
 
 	multiPartRoundTripper := NewMultiPartRoundTripper(clusterToSetup, nil)
 
-	backendFromRing, _ := multiPartRoundTripper.backendsRing.GetNode("arbitraryKey")
-
-	assert.Len(testSuite, multiPartRoundTripper.hostsToSync, 1)
-	assert.Equal(testSuite, multiPartRoundTripper.hostsToSync[0], maintenanceBackend.Endpoint.String())
-	assert.Equal(testSuite, multiPartRoundTripper.backendsRing.Size(), 1)
-	assert.Equal(testSuite, backendFromRing, activateBackend.Name)
+	assert.Len(testSuite, multiPartRoundTripper.backendsRoundTrippers, 2)
+	assert.Equal(testSuite, multiPartRoundTripper.backendsRing.Size(), 3)
+	assert.Len(testSuite, multiPartRoundTripper.backendsEndpoints, 3)
 }
