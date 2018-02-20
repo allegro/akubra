@@ -77,9 +77,13 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 			return nil, errors.New("can't handle multi upload")
 		}
 
-		log.Debugf("Handling multi part upload, for object %s with id %s", request.URL.Path, request.Context().Value(log.ContextreqIDKey))
 
 		multiUploadBackend := multiPartRoundTripper.pickBackend(request.URL.Path)
+
+		log.Debugf("Handling multi part upload, sending %s to %s, RequestID id %s",
+				request.URL.Path,
+				multiUploadBackend.Endpoint,
+				request.Context().Value(log.ContextreqIDKey))
 
 		response, requestError = multiUploadBackend.RoundTrip(request)
 
