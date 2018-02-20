@@ -50,6 +50,8 @@ type MultiPartUploadUploadRing struct {
 func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends []http.RoundTripper) {
 
 	var backendsEndpoints []string
+	var activeBackendsEndpoints []string
+
 	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*Backend)
 
 	for _, roundTripper := range backends {
@@ -58,6 +60,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends [
 
 			if !backend.Maintenance {
 				multiPartRoundTripper.backendsRoundTrippers[backend.Endpoint.String()] = backend
+				activeBackendsEndpoints = append(activeBackendsEndpoints, backend.Endpoint.String())
 			}
 
 			backendsEndpoints = append(backendsEndpoints, backend.Endpoint.String())
@@ -65,7 +68,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends [
 	}
 
 	multiPartRoundTripper.backendsEndpoints = backendsEndpoints
-	multiPartRoundTripper.backendsRing = hashring.New(backendsEndpoints)
+	multiPartRoundTripper.backendsRing = hashring.New(activeBackendsEndpoints)
 }
 
 // RoundTrip performs a RoundTrip using the strategy described in MultiPartRoundTripper
@@ -73,11 +76,17 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 
 	if isMultiPartUploadRequest(request) {
 
-		if multiPartRoundTripper.isNotAbleToHandleMultiUpload() {
-			return nil, errors.New("can't handle multi upload")
+		if !multiPartRoundTripper.canHandleMultiUpload() {
+			log.Debugf("Multi upload for %s failed - no backends available.", request.URL.Path)
+			return nil, errors.New("Can't handle multi upload")
 		}
 
-		multiUploadBackend := multiPartRoundTripper.pickBackend(request.URL.Path)
+		multiUploadBackend, backendSelectError := multiPartRoundTripper.pickBackend(request.URL.Path)
+
+		if backendSelectError != nil {
+			log.Debugf("Multi upload failed for %s - %s", backendSelectError, request.URL.Path)
+			return nil, errors.New("Can't handle multi upload")
+		}
 
 		log.Debugf("Handling multi part upload, sending %s to %s, RequestID id %s",
 			request.URL.Path,
@@ -103,23 +112,25 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 	return multiPartRoundTripper.fallBackRoundTripper.RoundTrip(request)
 }
 
-func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath string) *Backend {
+func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath string) (*Backend, error) {
 
-	for {
+	backendEndpoint, nodeFound := multiPartRoundTripper.backendsRing.GetNode(objectPath)
 
-		backendEndpoint, _ := multiPartRoundTripper.backendsRing.GetNode(objectPath)
-		backend, ok := multiPartRoundTripper.backendsRoundTrippers[backendEndpoint]
-
-		if !ok || backend.Maintenance {
-			continue
-		}
-
-		return backend
+	if !nodeFound {
+		return nil, errors.New("Can't find backned for upload in multi uplaod ring")
 	}
+
+	backend, backendFound := multiPartRoundTripper.backendsRoundTrippers[backendEndpoint]
+
+	if !backendFound {
+		return nil, errors.New("Can't find backend for upload in backendsRoundTripper")
+	}
+
+	return backend, nil
 }
 
-func (multiPartRoundTripper *MultiPartRoundTripper) isNotAbleToHandleMultiUpload() bool {
-	return len(multiPartRoundTripper.backendsRoundTrippers) < 1
+func (multiPartRoundTripper *MultiPartRoundTripper) canHandleMultiUpload() bool {
+	return len(multiPartRoundTripper.backendsRoundTrippers) > 1
 }
 
 func isMultiPartUploadRequest(request *http.Request) bool {

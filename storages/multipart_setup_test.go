@@ -85,6 +85,6 @@ func TestShouldSetupMultiUploadRingAndMigrationEndpoints(testSuite *testing.T) {
 	multiPartRoundTripper := NewMultiPartRoundTripper(clusterToSetup, nil)
 
 	assert.Len(testSuite, multiPartRoundTripper.backendsRoundTrippers, 2)
-	assert.Equal(testSuite, multiPartRoundTripper.backendsRing.Size(), 3)
+	assert.Equal(testSuite, multiPartRoundTripper.backendsRing.Size(), 2)
 	assert.Len(testSuite, multiPartRoundTripper.backendsEndpoints, 3)
 }
