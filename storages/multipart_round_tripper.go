@@ -18,9 +18,9 @@ import (
 	"github.com/serialx/hashring"
 )
 
-//MultiPartRoundTripper handles the multi part upload. If multi part upload is detected, it delegates the request
-//to handle the operation in standard fashion
-//to the backend selected using the active backends hash ring, otherwise the cluster round tripper is used
+// MultiPartRoundTripper handles the multi part upload. If multi part upload is detected, it delegates the request
+// to handle the operation in standard fashion
+// to the backend selected using the active backends hash ring, otherwise the cluster round tripper is used
 type MultiPartRoundTripper struct {
 	fallBackRoundTripper  http.RoundTripper
 	syncLog               log.Logger
@@ -29,7 +29,7 @@ type MultiPartRoundTripper struct {
 	backendsEndpoints     []string
 }
 
-//NewMultiPartRoundTripper constructs a new MultiPartRoundTripper and returns a pointer to it
+// NewMultiPartRoundTripper constructs a new MultiPartRoundTripper and returns a pointer to it
 func NewMultiPartRoundTripper(cluster *Cluster, syncLog log.Logger) *MultiPartRoundTripper {
 
 	multiPartRoundTripper := &MultiPartRoundTripper{
@@ -41,7 +41,7 @@ func NewMultiPartRoundTripper(cluster *Cluster, syncLog log.Logger) *MultiPartRo
 	return multiPartRoundTripper
 }
 
-//MultiPartUploadUploadRing handles multi part uploads
+// MultiPartUploadUploadRing handles multi part uploads
 type MultiPartUploadUploadRing struct {
 	backendsRoundTrippers map[string]http.RoundTripper
 	activeBackendsRing    *hashring.HashRing
@@ -68,7 +68,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends [
 	multiPartRoundTripper.backendsRing = hashring.New(backendsEndpoints)
 }
 
-//RoundTrip performs a RoundTrip using the strategy described in MultiPartRoundTripper
+// RoundTrip performs a RoundTrip using the strategy described in MultiPartRoundTripper
 func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Request) (response *http.Response, requestError error) {
 
 	if isMultiPartUploadRequest(request) {
