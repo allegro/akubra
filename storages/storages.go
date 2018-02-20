@@ -97,7 +97,7 @@ func (c *Cluster) setupRoundTripper(syncLog log.Logger) {
 	clusterRoundTripper := NewMultiPartRoundTripper(c, syncLog)
 
 	c.transport = clusterRoundTripper
-	log.Debugf("Cluster %s has multi part setup successfully", c.name)
+	log.Debugf("Cluster %s has multimpart setup successfully", c.name)
 }
 
 // RoundTrip implements http.RoundTripper interface

@@ -18,7 +18,7 @@ import (
 	"github.com/serialx/hashring"
 )
 
-// MultiPartRoundTripper handles the multi part upload. If multi part upload is detected, it delegates the request
+// MultiPartRoundTripper handles the multipart upload. If multipart upload is detected, it delegates the request
 // to handle the operation in standard fashion
 // to the backend selected using the active backends hash ring, otherwise the cluster round tripper is used
 type MultiPartRoundTripper struct {
@@ -41,7 +41,7 @@ func NewMultiPartRoundTripper(cluster *Cluster, syncLog log.Logger) *MultiPartRo
 	return multiPartRoundTripper
 }
 
-// MultiPartUploadUploadRing handles multi part uploads
+// MultiPartUploadUploadRing handles multipart uploads
 type MultiPartUploadUploadRing struct {
 	backendsRoundTrippers map[string]http.RoundTripper
 	activeBackendsRing    *hashring.HashRing
@@ -88,7 +88,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 			return nil, errors.New("Can't handle multi upload")
 		}
 
-		log.Debugf("Handling multi part upload, sending %s to %s, RequestID id %s",
+		log.Debugf("Handling multipart upload, sending %s to %s, RequestID id %s",
 			request.URL.Path,
 			multiUploadBackend.Endpoint,
 			request.Context().Value(log.ContextreqIDKey))
@@ -96,7 +96,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 		response, requestError = multiUploadBackend.RoundTrip(request)
 
 		if requestError != nil {
-			log.Debugf("Error during multi part upload: %s", requestError)
+			log.Debugf("Error during multipart upload: %s", requestError)
 			return
 		}
 
@@ -104,7 +104,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 			go multiPartRoundTripper.reportCompletionToMigrator(response, multiUploadBackend.Endpoint.String())
 		}
 
-		log.Debugf("Served multi part request, response code %d, status %s", response.StatusCode, response.Status)
+		log.Debugf("Served multipart request, response code %d, status %s", response.StatusCode, response.Status)
 
 		return
 	}
@@ -214,6 +214,6 @@ func (multiPartRoundTripper *MultiPartRoundTripper) reportCompletionToMigrator(r
 
 		multiPartRoundTripper.syncLog.Println(string(logMsg))
 
-		log.Debugf("Sent a multi part upload migration request of object %s to backend %s", response.Request.URL.Path, destBackendEndpoint)
+		log.Debugf("Sent a multipart upload migration request of object %s to backend %s", response.Request.URL.Path, destBackendEndpoint)
 	}
 }
