@@ -1,20 +1,22 @@
 package storages
 
 import (
-	"testing"
-	"net/url"
-	"github.com/stretchr/testify/mock"
-	"net/http"
-	"github.com/stretchr/testify/assert"
-	"github.com/serialx/hashring"
-	"github.com/allegro/akubra/log"
-	"io/ioutil"
 	"bytes"
-	"sync"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"sync"
+	"testing"
+
+	"net/url"
+
 	"github.com/allegro/akubra/httphandler"
-	"context"
+	"github.com/allegro/akubra/log"
+	"github.com/serialx/hashring"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 type MockedSyncLog struct {
@@ -35,18 +37,17 @@ func TestShouldNotDetectMultiPartUploadRequestWhenItIsARegularUpload(testSuite *
 	syncLog := &MockedSyncLog{}
 	fallbackRoundTripper := &MockedRoundTripper{}
 	activeBackendRoundTripper := &MockedRoundTripper{}
-	multiPartUploadHashRing := hashring.New([]string{})
 
-	activeBackendUrl, _ := url.Parse("http://active:1234")
+	activeBackendURL, _ := url.Parse("http://active:1234")
 
 	activateBackend := &Backend{
 		RoundTripper: activeBackendRoundTripper,
-		Endpoint:     *activeBackendUrl,
+		Endpoint:     *activeBackendURL,
 		Maintenance:  false,
 		Name:         "activateBackend",
 	}
 
-	multiPartUploadHashRing = hashring.New([]string{activeBackendUrl.String()})
+	multiPartUploadHashRing := hashring.New([]string{activeBackendURL.String()})
 	activeBackendRoundTrippers := make(map[string]*Backend)
 	activeBackendRoundTrippers[activateBackend.Endpoint.String()] = activateBackend
 
@@ -108,9 +109,8 @@ func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenAllBackendsAreInMain
 	syncLog := &MockedSyncLog{}
 	fallbackRoundTripper := &MockedRoundTripper{}
 
-
-	maintenanceBackendUrl, _ := url.Parse("http://maintenance:8421")
-	hashRingOnlyWithMaitenanceBackend := hashring.New([]string{maintenanceBackendUrl.String()})
+	maintenanceBackendURL, _ := url.Parse("http://maintenance:8421")
+	hashRingOnlyWithMaitenanceBackend := hashring.New([]string{maintenanceBackendURL.String()})
 
 	multiPartRoundTripper := MultiPartRoundTripper{
 		fallbackRoundTripper,
@@ -131,11 +131,11 @@ func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenAllBackendsAreInMain
 
 func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartRequest(testSuite *testing.T) {
 
-	initiateRequestUrl, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploads")
-	initiateMultiPartUploadRequest := &http.Request{URL: initiateRequestUrl}
+	initiateRequestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploads")
+	initiateMultiPartUploadRequest := &http.Request{URL: initiateRequestURL}
 
-	uploadPartRequestUrl, _ := url.Parse("http://localhost:3212/someBucket/someObject?partNumber=1&uploadId=123")
-	uploadPartRequest := &http.Request{URL: uploadPartRequestUrl}
+	uploadPartRequestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?partNumber=1&uploadId=123")
+	uploadPartRequest := &http.Request{URL: uploadPartRequestURL}
 
 	responseForInitiate := &http.Response{Request: initiateMultiPartUploadRequest}
 	responseForPartUpload := &http.Response{Request: uploadPartRequest}
@@ -145,19 +145,19 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 	activeBackendRoundTripper1 := &MockedRoundTripper{}
 	activeBackendRoundTripper2 := &MockedRoundTripper{}
 
-	activeBackendUrl, _ := url.Parse("http://active:1234")
-	activeBackendUrl2, _ := url.Parse("http://active2:1234")
+	activeBackendURL, _ := url.Parse("http://active:1234")
+	activeBackendURL2, _ := url.Parse("http://active2:1234")
 
 	activateBackend1 := &Backend{
 		RoundTripper: activeBackendRoundTripper1,
-		Endpoint:     *activeBackendUrl,
+		Endpoint:     *activeBackendURL,
 		Maintenance:  false,
 		Name:         "activateBackend",
 	}
 
 	activateBackend2 := &Backend{
 		RoundTripper: activeBackendRoundTripper2,
-		Endpoint:     *activeBackendUrl2,
+		Endpoint:     *activeBackendURL2,
 		Maintenance:  false,
 		Name:         "activateBackend2",
 	}
@@ -173,19 +173,20 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 		nil,
 		activeBackendRoundTrippers,
 		multiPartUploadHashRing,
-		[]string{activeBackendUrl.String(), activeBackendUrl2.String()},
+		[]string{activeBackendURL.String(), activeBackendURL2.String()},
 	}
 
 	activeBackendRoundTripper1.On("RoundTrip", initiateMultiPartUploadRequest).Return(responseForInitiate, nil)
 	activeBackendRoundTripper1.On("RoundTrip", uploadPartRequest).Return(responseForPartUpload, nil)
 
-	akubraResponseForInitiateRequest, err := multiPartRoundTripper.RoundTrip(initiateMultiPartUploadRequest)
-	akubraResponseForPartUploadRequest, err := multiPartRoundTripper.RoundTrip(uploadPartRequest)
+	akubraResponseForInitiateRequest, err1 := multiPartRoundTripper.RoundTrip(initiateMultiPartUploadRequest)
+	akubraResponseForPartUploadRequest, err2 := multiPartRoundTripper.RoundTrip(uploadPartRequest)
 
 	assert.Equal(testSuite, akubraResponseForInitiateRequest, responseForInitiate)
 	assert.Equal(testSuite, akubraResponseForPartUploadRequest, responseForPartUpload)
 
-	assert.Nil(testSuite, err)
+	assert.Nil(testSuite, err1)
+	assert.Nil(testSuite, err2)
 
 	fallbackRoundTripper.AssertNumberOfCalls(testSuite, "RoundTrip", 0)
 	activeBackendRoundTripper1.AssertNumberOfCalls(testSuite, "RoundTrip", 2)
@@ -203,8 +204,8 @@ func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorWhenStatusCodeI
 
 func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSuite *testing.T) {
 
-	completeUploadRequestUrl, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=123")
-	completeUploadRequest := &http.Request{URL: completeUploadRequestUrl}
+	completeUploadRequestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=123")
+	completeUploadRequest := &http.Request{URL: completeUploadRequestURL}
 	completeUploadRequest = completeUploadRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, "1"))
 
 	responseForComplete := &http.Response{Request: completeUploadRequest}
@@ -223,10 +224,10 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 	fallbackRoundTripper := &MockedRoundTripper{}
 	activeBackendRoundTripper1 := &MockedRoundTripper{}
 
-	activeBackendUrl1, _ := url.Parse("http://active:1234")
+	activeBackendURL1, _ := url.Parse("http://active:1234")
 	activateBackend1 := &Backend{
 		RoundTripper: activeBackendRoundTripper1,
-		Endpoint:     *activeBackendUrl1,
+		Endpoint:     *activeBackendURL1,
 		Maintenance:  false,
 		Name:         "activateBackend1",
 	}
@@ -253,7 +254,7 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 			panic(fmt.Sprintf("Failed to unmarshall the response - %s", err))
 		}
 
-		if syncRequest.Path == "/someBucket/someObject" && (syncRequest.FailedHost == hostToSync || syncRequest.FailedHost == hostToSync2 ){
+		if syncRequest.Path == "/someBucket/someObject" && (syncRequest.FailedHost == hostToSync || syncRequest.FailedHost == hostToSync2) {
 			notificationWaitGroup.Done()
 		} else {
 			panic("Wrong host name in syncRequest")
@@ -265,7 +266,7 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 		syncLog,
 		activeBackendRoundTrippers,
 		multiPartUploadHashRing,
-		[]string{activeBackendUrl1.String(), hostToSync, hostToSync2},
+		[]string{activeBackendURL1.String(), hostToSync, hostToSync2},
 	}
 
 	activeBackendRoundTripper1.On("RoundTrip", completeUploadRequest).Return(responseForComplete, nil)
@@ -281,8 +282,8 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 
 func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 
-	completeUploadRequestUrl, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321")
-	completeUploadRequest := &http.Request{URL: completeUploadRequestUrl}
+	completeUploadRequestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321")
+	completeUploadRequest := &http.Request{URL: completeUploadRequestURL}
 
 	responseForComplete := &http.Response{Request: completeUploadRequest}
 	invalidXMLResponse := xmlResponse
@@ -293,22 +294,21 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 	activeBackendRoundTripper1 := &MockedRoundTripper{}
 	activeBackendRoundTripper2 := &MockedRoundTripper{}
 
-	activeBackendUrl, _ := url.Parse("http://active:1234")
+	activeBackendURL, _ := url.Parse("http://active:1234")
 	activateBackend1 := &Backend{
 		RoundTripper: activeBackendRoundTripper1,
-		Endpoint:     *activeBackendUrl,
+		Endpoint:     *activeBackendURL,
 		Maintenance:  false,
 		Name:         "activateBackend1",
 	}
 
-	activeBackendUrl2, _ := url.Parse("http://active2:1234")
+	activeBackendURL2, _ := url.Parse("http://active2:1234")
 	activateBackend2 := &Backend{
 		RoundTripper: activeBackendRoundTripper2,
-		Endpoint:     *activeBackendUrl2,
+		Endpoint:     *activeBackendURL2,
 		Maintenance:  false,
 		Name:         "activateBackend2",
 	}
-
 
 	multiPartUploadHashRing := hashring.New([]string{activateBackend1.Endpoint.String(), activateBackend2.Endpoint.String()})
 
@@ -323,7 +323,7 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 		syncLog,
 		activeBackendRoundTrippers,
 		multiPartUploadHashRing,
-		[]string{activeBackendUrl.String(), activeBackendUrl2.String()},
+		[]string{activeBackendURL.String(), activeBackendURL2.String()},
 	}
 
 	activeBackendRoundTripper1.On("RoundTrip", completeUploadRequest).Return(responseForComplete, nil)

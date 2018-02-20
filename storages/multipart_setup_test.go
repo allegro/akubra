@@ -26,11 +26,11 @@ func TestShouldReturnEmptyRingWhenProvidedBackendListIsEmpty(testSuite *testing.
 	fallbackRoundTripper := &MockedRoundTripper{}
 
 	clusterToSetup := &Cluster{
-		transport: fallbackRoundTripper,
-		backends: []http.RoundTripper{},
-		name: "some-cluster",
-		Logger: nil,
-		MethodSet: nil,
+		transport:   fallbackRoundTripper,
+		backends:    []http.RoundTripper{},
+		name:        "some-cluster",
+		Logger:      nil,
+		MethodSet:   nil,
 		respHandler: nil,
 	}
 
@@ -47,38 +47,38 @@ func TestShouldSetupMultiUploadRingAndMigrationEndpoints(testSuite *testing.T) {
 	activeBackendRoundTripper := &MockedRoundTripper{}
 	activeBackendRoundTripper2 := &MockedRoundTripper{}
 
-	activeBackendUrl, _ := url.Parse("http://backend:1234")
-	activeBackendUrl2, _ := url.Parse("http://backend2:1234")
+	activeBackendURL, _ := url.Parse("http://backend:1234")
+	activeBackendURL2, _ := url.Parse("http://backend2:1234")
 
 	activateBackend := &Backend{
 		RoundTripper: activeBackendRoundTripper,
-		Endpoint:     *activeBackendUrl,
+		Endpoint:     *activeBackendURL,
 		Maintenance:  false,
 		Name:         "activateBackend",
 	}
 
 	activateBackend2 := &Backend{
 		RoundTripper: activeBackendRoundTripper2,
-		Endpoint:     *activeBackendUrl2,
+		Endpoint:     *activeBackendURL2,
 		Maintenance:  false,
 		Name:         "activateBackend2",
 	}
 
-	maintenanceBackendUrl, _ := url.Parse("http://maintenance:8421")
+	maintenanceBackendURL, _ := url.Parse("http://maintenance:8421")
 
 	maintenanceBackend := &Backend{
 		RoundTripper: nil,
-		Endpoint:     *maintenanceBackendUrl,
+		Endpoint:     *maintenanceBackendURL,
 		Maintenance:  true,
 		Name:         "maintenanceBackend",
 	}
 
 	clusterToSetup := &Cluster{
-		transport: fallbackRoundTripper,
-		backends: []http.RoundTripper{activateBackend, activateBackend2, maintenanceBackend},
-		name: "some-cluster",
-		Logger: nil,
-		MethodSet: nil,
+		transport:   fallbackRoundTripper,
+		backends:    []http.RoundTripper{activateBackend, activateBackend2, maintenanceBackend},
+		name:        "some-cluster",
+		Logger:      nil,
+		MethodSet:   nil,
 		respHandler: nil,
 	}
 
