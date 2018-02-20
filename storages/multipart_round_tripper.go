@@ -24,9 +24,9 @@ import (
 type MultiPartRoundTripper struct {
 	fallBackRoundTripper  http.RoundTripper
 	syncLog               log.Logger
-	backendsRoundTrippers map[string]http.RoundTripper
-	activeBackendsRing    *hashring.HashRing
-	hostsToSync           []string
+	backendsRoundTrippers map[string]*Backend
+	backendsRing          *hashring.HashRing
+	backendsEndpoints     []string
 }
 
 //NewMultiPartRoundTripper constructs a new MultiPartRoundTripper and returns a pointer to it
@@ -45,33 +45,27 @@ func NewMultiPartRoundTripper(cluster *Cluster, syncLog log.Logger) *MultiPartRo
 type MultiPartUploadUploadRing struct {
 	backendsRoundTrippers map[string]http.RoundTripper
 	activeBackendsRing    *hashring.HashRing
-	hostsToSync           []string
 }
 
 func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends []http.RoundTripper) {
 
-	multiPartRoundTripper.hostsToSync = []string{}
-	multiPartRoundTripper.backendsRoundTrippers = make(map[string]http.RoundTripper)
-
-	var activeBackendsNames []string
+	var backendsEndpoints []string
+	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*Backend)
 
 	for _, roundTripper := range backends {
 
 		if backend, isBackendType := roundTripper.(*Backend); isBackendType {
 
-			if backend.Maintenance {
-
-				multiPartRoundTripper.hostsToSync = append(multiPartRoundTripper.hostsToSync, backend.Endpoint.String())
-
-			} else {
-
-				multiPartRoundTripper.backendsRoundTrippers[backend.Name] = backend
-				activeBackendsNames = append(activeBackendsNames, backend.Name)
+			if !backend.Maintenance {
+				multiPartRoundTripper.backendsRoundTrippers[backend.Endpoint.String()] = backend
 			}
+
+			backendsEndpoints = append(backendsEndpoints, backend.Endpoint.String())
 		}
 	}
 
-	multiPartRoundTripper.activeBackendsRing = hashring.New(activeBackendsNames)
+	multiPartRoundTripper.backendsEndpoints = backendsEndpoints
+	multiPartRoundTripper.backendsRing = hashring.New(backendsEndpoints)
 }
 
 //RoundTrip performs a RoundTrip using the strategy described in MultiPartRoundTripper
@@ -85,8 +79,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 
 		log.Debugf("Handling multi part upload, for object %s with id %s", request.URL.Path, request.Context().Value(log.ContextreqIDKey))
 
-		multiUploadBackendName, _ := multiPartRoundTripper.activeBackendsRing.GetNode(request.URL.Path)
-		multiUploadBackend := multiPartRoundTripper.backendsRoundTrippers[multiUploadBackendName]
+		multiUploadBackend := multiPartRoundTripper.pickBackend(request.URL.Path)
 
 		response, requestError = multiUploadBackend.RoundTrip(request)
 
@@ -96,7 +89,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 		}
 
 		if !isInitiateRequest(request) && isCompleteUploadResponseSuccessful(response) {
-			go multiPartRoundTripper.reportCompletionToMigrator(response)
+			go multiPartRoundTripper.reportCompletionToMigrator(response, multiUploadBackend.Endpoint.String())
 		}
 
 		log.Debugf("Served multi part request, response code %d, status %s", response.StatusCode, response.Status)
@@ -107,8 +100,23 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 	return multiPartRoundTripper.fallBackRoundTripper.RoundTrip(request)
 }
 
+func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath string) *Backend {
+
+	for {
+
+		backendEndpoint, _:= multiPartRoundTripper.backendsRing.GetNode(objectPath)
+		backend, inMaintenance := multiPartRoundTripper.backendsRoundTrippers[backendEndpoint]
+
+		if inMaintenance {
+			continue
+		}
+
+		return backend
+	}
+}
+
 func (multiPartRoundTripper *MultiPartRoundTripper) isNotAbleToHandleMultiUpload() bool {
-	return multiPartRoundTripper.activeBackendsRing.Size() < 1
+	return len(multiPartRoundTripper.backendsRoundTrippers) < 1
 }
 
 func isMultiPartUploadRequest(request *http.Request) bool {
@@ -162,13 +170,17 @@ func responseContainsCompleteUploadString(response *http.Response) bool {
 	return true
 }
 
-func (multiPartRoundTripper *MultiPartRoundTripper) reportCompletionToMigrator(response *http.Response) {
+func (multiPartRoundTripper *MultiPartRoundTripper) reportCompletionToMigrator(response *http.Response, uploadedBackendName string) {
 
-	for _, backendHostName := range multiPartRoundTripper.hostsToSync {
+	for _, destBackendEndpoint := range multiPartRoundTripper.backendsEndpoints {
+
+		if destBackendEndpoint == uploadedBackendName {
+			continue
+		}
 
 		syncLogMsg := &httphandler.SyncLogMessageData{
 			Method:        "PUT",
-			FailedHost:    backendHostName,
+			FailedHost:    destBackendEndpoint,
 			SuccessHost:   response.Request.Host,
 			Path:          response.Request.URL.Path,
 			AccessKey:     utils.ExtractAccessKey(response.Request),
@@ -188,6 +200,6 @@ func (multiPartRoundTripper *MultiPartRoundTripper) reportCompletionToMigrator(r
 
 		multiPartRoundTripper.syncLog.Println(string(logMsg))
 
-		log.Debugf("Sent a multi part upload migration request of object %s to backend %s", response.Request.URL.Path, backendHostName)
+		log.Debugf("Sent a multi part upload migration request of object %s to backend %s", response.Request.URL.Path, destBackendEndpoint)
 	}
 }

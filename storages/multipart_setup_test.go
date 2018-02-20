@@ -37,7 +37,7 @@ func TestShouldReturnEmptyRingAndEmptyHostnameListWhenProvidedBackendListIsEmpty
 
 	multiPartRoundTripper := NewMultiPartRoundTripper(clusterToSetup, nil)
 
-	assert.Equal(testSuite, multiPartRoundTripper.activeBackendsRing.Size(), 0)
+	assert.Equal(testSuite, multiPartRoundTripper.backendsRing.Size(), 0)
 	assert.Empty(testSuite, multiPartRoundTripper.hostsToSync)
 }
 
@@ -63,9 +63,9 @@ func TestShouldReturnMultiPartUploadRingAndEmptyHostnamesToSyncListWhenOnlyOneAc
 
 	multiPartRoundTripper := NewMultiPartRoundTripper(clusterToSetup, nil)
 
-	backendFromRing, _ := multiPartRoundTripper.activeBackendsRing.GetNode("arbitraryKey")
+	backendFromRing, _ := multiPartRoundTripper.backendsRing.GetNode("arbitraryKey")
 
-	assert.Equal(testSuite, multiPartRoundTripper.activeBackendsRing.Size(), 1)
+	assert.Equal(testSuite, multiPartRoundTripper.backendsRing.Size(), 1)
 	assert.Equal(testSuite, backendFromRing, backend.Name)
 	assert.Empty(testSuite, multiPartRoundTripper.hostsToSync)
 }
@@ -101,10 +101,10 @@ func TestShouldMarkBackendToBeSynchronizedWhenItIsInMaintenanceMode(testSuite *t
 
 	multiPartRoundTripper := NewMultiPartRoundTripper(clusterToSetup, nil)
 
-	backendFromRing, _ := multiPartRoundTripper.activeBackendsRing.GetNode("arbitraryKey")
+	backendFromRing, _ := multiPartRoundTripper.backendsRing.GetNode("arbitraryKey")
 
 	assert.Len(testSuite, multiPartRoundTripper.hostsToSync, 1)
 	assert.Equal(testSuite, multiPartRoundTripper.hostsToSync[0], maintenanceBackend.Endpoint.String())
-	assert.Equal(testSuite, multiPartRoundTripper.activeBackendsRing.Size(), 1)
+	assert.Equal(testSuite, multiPartRoundTripper.backendsRing.Size(), 1)
 	assert.Equal(testSuite, backendFromRing, activateBackend.Name)
 }
