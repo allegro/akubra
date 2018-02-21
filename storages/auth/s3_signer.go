@@ -28,7 +28,7 @@ const (
 	signV2Algorithm  = "AWS"
 	signV4Algorithm  = "AWS4-HMAC-SHA256"
 	regexV2Algorithm = "AWS +(?P<access_key>[a-zA-Z0-9_-]+):(?P<signature>(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?)"
-	regexV4Algorithm = "AWS4-HMAC-SHA256 +Credential=(?P<access_key>[a-zA-Z0-9_-]+)/[0-9]+/(?P<region>[a-zA-Z0-9-]*)/[a-zA-Z0-9-]+/aws4_request, *SignedHeaders=(?P<signed_headers>[a-z0-9-;]+), *Signature=(?P<signature>[a-z0-9]+)"
+	regexV4Algorithm = "AWS4-HMAC-SHA256 +Credential=(?P<access_key>[a-zA-Z0-9_-]+)/[0-9]+/(?P<region>[a-zA-Z0-9-]*)/[a-zA-Z0-9-]+/aws4_request,( +)?SignedHeaders=(?P<signed_headers>[a-z0-9-;]+),( +)?Signature=(?P<signature>[a-z0-9]+)"
 )
 
 var reV2 = regexp.MustCompile(regexV2Algorithm)
@@ -159,7 +159,7 @@ func extractAuthorizationHeader(authorizationHeader string) (authHeader parsedAu
 
 	if reV4.MatchString(authorizationHeader) {
 		match := reV4.FindStringSubmatch(authorizationHeader)
-		return parsedAuthorizationHeader{accessKey: match[1], signature: match[4], region: match[2], signedHeaders: match[3], version: signV4Algorithm}, nil
+		return parsedAuthorizationHeader{accessKey: match[1], signature: match[6], region: match[2], signedHeaders: match[4], version: signV4Algorithm}, nil
 	}
 
 	return parsedAuthorizationHeader{}, fmt.Errorf("cannot find correct authorization header")
