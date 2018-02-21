@@ -41,12 +41,6 @@ func NewMultiPartRoundTripper(cluster *Cluster, syncLog log.Logger) *MultiPartRo
 	return multiPartRoundTripper
 }
 
-// MultiPartUploadUploadRing handles multipart uploads
-type MultiPartUploadUploadRing struct {
-	backendsRoundTrippers map[string]http.RoundTripper
-	activeBackendsRing    *hashring.HashRing
-}
-
 func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends []http.RoundTripper) {
 
 	var backendsEndpoints []string
