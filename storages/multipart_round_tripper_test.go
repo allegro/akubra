@@ -204,8 +204,9 @@ func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorWhenStatusCodeI
 
 func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSuite *testing.T) {
 
+	activeBackendURL1, _ := url.Parse("http://active:1234")
 	completeUploadRequestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=123")
-	completeUploadRequest := &http.Request{URL: completeUploadRequestURL}
+	completeUploadRequest := &http.Request{URL: completeUploadRequestURL, Host: activeBackendURL1.Host}
 	completeUploadRequest = completeUploadRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, "1"))
 
 	responseForComplete := &http.Response{Request: completeUploadRequest}
@@ -224,7 +225,6 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 	fallbackRoundTripper := &MockedRoundTripper{}
 	activeBackendRoundTripper1 := &MockedRoundTripper{}
 
-	activeBackendURL1, _ := url.Parse("http://active:1234")
 	activateBackend1 := &Backend{
 		RoundTripper: activeBackendRoundTripper1,
 		Endpoint:     *activeBackendURL1,
@@ -266,7 +266,7 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 		syncLog,
 		activeBackendRoundTrippers,
 		multiPartUploadHashRing,
-		[]string{activeBackendURL1.String(), hostToSync, hostToSync2},
+		[]string{activeBackendURL1.Host, hostToSync, hostToSync2},
 	}
 
 	activeBackendRoundTripper1.On("RoundTrip", completeUploadRequest).Return(responseForComplete, nil)

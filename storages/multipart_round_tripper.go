@@ -101,7 +101,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 		}
 
 		if !isInitiateRequest(request) && isCompleteUploadResponseSuccessful(response) {
-			go multiPartRoundTripper.reportCompletionToMigrator(response, multiUploadBackend.Endpoint.String())
+			go multiPartRoundTripper.reportCompletionToMigrator(response)
 		}
 
 		log.Debugf("Served multipart request, response code %d, status %s", response.StatusCode, response.Status)
@@ -130,7 +130,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath strin
 }
 
 func (multiPartRoundTripper *MultiPartRoundTripper) canHandleMultiUpload() bool {
-	return len(multiPartRoundTripper.backendsRoundTrippers) > 1
+	return len(multiPartRoundTripper.backendsRoundTrippers) > 0
 }
 
 func isMultiPartUploadRequest(request *http.Request) bool {
@@ -184,11 +184,11 @@ func responseContainsCompleteUploadString(response *http.Response) bool {
 	return true
 }
 
-func (multiPartRoundTripper *MultiPartRoundTripper) reportCompletionToMigrator(response *http.Response, uploadedBackendName string) {
+func (multiPartRoundTripper *MultiPartRoundTripper) reportCompletionToMigrator(response *http.Response) {
 
 	for _, destBackendEndpoint := range multiPartRoundTripper.backendsEndpoints {
 
-		if destBackendEndpoint == uploadedBackendName {
+		if destBackendEndpoint == response.Request.Host {
 			continue
 		}
 
