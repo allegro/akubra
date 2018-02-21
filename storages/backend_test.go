@@ -6,12 +6,11 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/allegro/akubra/httphandler"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/allegro/akubra/storages/config"
 	"github.com/allegro/akubra/types"
+	"github.com/allegro/akubra/utils"
 )
 
 func newBackend(backendConfig config.Backend, transport http.RoundTripper) (*Backend, error) {
@@ -69,7 +68,7 @@ func TestBackendShouldWrapErrorWithBackendError(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, resp)
 
-	berr, ok := err.(httphandler.BackendError)
+	berr, ok := err.(utils.BackendError)
 	require.True(t, ok)
 	require.Equal(t, host, berr.Backend())
 }

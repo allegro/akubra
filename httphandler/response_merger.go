@@ -3,54 +3,14 @@ package httphandler
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"strings"
 	"time"
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/transport"
+	"github.com/allegro/akubra/utils"
 	set "github.com/deckarep/golang-set"
 )
-
-// BackendError interface helps logging inconsistencies
-type BackendError interface {
-	Backend() string
-	Err() error
-	Error() string
-}
-
-func requestID(req *http.Request) string {
-	return req.Context().Value(log.ContextreqIDKey).(string)
-}
-
-func extractDestinationHostName(r transport.ResErrTuple) string {
-	if r.Res != nil {
-		return r.Res.Request.URL.Host
-	}
-	berr, ok := r.Err.(BackendError)
-	if ok {
-		return berr.Backend()
-	}
-	log.Printf("Requested backend is not retrievable from tuple %#v", r)
-	return ""
-}
-
-func extractAccessKey(req *http.Request) string {
-	auth := req.Header.Get("Authorization")
-	if auth == "" {
-		return ""
-	}
-	chunks := strings.Split(auth, " ")
-	if len(chunks) < 2 || strings.TrimSpace(chunks[0]) != "AWS" {
-		return ""
-	}
-	sigChunk := strings.Split(chunks[1], ":")
-	if len(chunks) < 2 {
-		return ""
-	}
-	return strings.TrimSpace(sigChunk[0])
-}
 
 type responseMerger struct {
 	syncerrlog      log.Logger
@@ -77,14 +37,14 @@ func (rd *responseMerger) synclog(r, successfulTup transport.ResErrTuple) {
 		errorMsg = r.Err.Error()
 	}
 	contentLength := successfulTup.Res.ContentLength
-	reqID := requestID(successfulTup.Req)
+	reqID := utils.RequestID(successfulTup.Req)
 
 	syncLogMsg := &SyncLogMessageData{
 		Method:        r.Req.Method,
-		FailedHost:    extractDestinationHostName(r),
-		SuccessHost:   extractDestinationHostName(successfulTup),
+		FailedHost:    utils.ExtractDestinationHostName(r),
+		SuccessHost:   utils.ExtractDestinationHostName(successfulTup),
 		Path:          successfulTup.Req.URL.Path,
-		AccessKey:     extractAccessKey(r.Req),
+		AccessKey:     utils.ExtractAccessKey(r.Req),
 		UserAgent:     successfulTup.Req.Header.Get("User-Agent"),
 		ContentLength: contentLength,
 		ErrorMsg:      errorMsg,
@@ -126,8 +86,8 @@ func (rd *responseMerger) handleFailedResponces(
 }
 
 func logDebug(r transport.ResErrTuple) {
-	reqID := requestID(r.Req)
-	backend := extractDestinationHostName(r)
+	reqID := utils.RequestID(r.Req)
+	backend := utils.ExtractDestinationHostName(r)
 
 	statusCode := 0
 	if r.Res != nil {

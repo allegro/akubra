@@ -61,7 +61,7 @@ func DoesSignMatch(r *http.Request, cred Keys) APIErrorCode {
 			reqID := r.Context().Value(log.ContextreqIDKey)
 			log.Printf("Error while verifying V2 signature for request %s: %s", reqID, err)
 		}
-		if result != true {
+		if !result {
 			return ErrSignatureDoesNotMatch
 		}
 	case signV4Algorithm:
@@ -70,7 +70,7 @@ func DoesSignMatch(r *http.Request, cred Keys) APIErrorCode {
 			reqID := r.Context().Value(log.ContextreqIDKey)
 			log.Printf("Error while verifying V4 signature for request %s: %s", reqID, err)
 		}
-		if result != true {
+		if !result {
 			return ErrSignatureDoesNotMatch
 		}
 	default:

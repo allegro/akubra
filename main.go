@@ -118,7 +118,8 @@ func (s *service) start() error {
 		s.config.Clusters,
 		s.config.Backends,
 		earlyRespHandler,
-		lateRespHandler)
+		lateRespHandler,
+		syncLog)
 
 	if err != nil {
 		log.Fatalf("Storages initialization problem: %q", err)

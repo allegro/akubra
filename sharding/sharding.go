@@ -73,7 +73,7 @@ func (rf RingFactory) RegionRing(name string, regionCfg config.Region) (ShardsRi
 
 	cHashMap := hashring.NewWithWeights(clustersWeights)
 
-	allBackendsRoundTripper := rf.storages.ClusterShards(fmt.Sprintf("region-%s", name), regionShards...)
+	allBackendsRoundTripper := rf.storages.ClusterShards(fmt.Sprintf("region-%s", name), rf.syncLog, regionShards...)
 	regressionMap, err := rf.createRegressionMap(regionCfg)
 	if err != nil {
 		return ShardsRing{}, err
