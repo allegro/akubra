@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/storages/config"
 )
 
 const (
@@ -17,35 +18,35 @@ const (
 )
 
 // Decorators maps Backend type with httphadler decorators factory
-var Decorators = map[string]func(map[string]string, string) (httphandler.Decorator, error){
-	Passthrough: func(map[string]string, string) (httphandler.Decorator, error) {
+var Decorators = map[string]func(string, config.Backend) (httphandler.Decorator, error){
+	Passthrough: func(string, config.Backend) (httphandler.Decorator, error) {
 		return func(rt http.RoundTripper) http.RoundTripper {
 			return rt
 		}, nil
 	},
-	S3FixedKey: func(properties map[string]string, backend string) (httphandler.Decorator, error) {
-		accessKey, ok := properties["AccessKey"]
+	S3FixedKey: func(backend string, backendConf config.Backend) (httphandler.Decorator, error) {
+		accessKey, ok := backendConf.Properties["AccessKey"]
 		if !ok {
 			return nil, fmt.Errorf("no AccessKey defined for backend type %q", S3FixedKey)
 		}
 
-		secret, ok := properties["Secret"]
+		secret, ok := backendConf.Properties["Secret"]
 		if !ok {
 			return nil, fmt.Errorf("no Secret defined for backend type %q", S3FixedKey)
 		}
 
-		k := Keys{
+		keys := Keys{
 			AccessKeyID:     accessKey,
 			SecretAccessKey: secret,
 		}
-		return SignDecorator(k), nil
+		return SignDecorator(keys, backendConf.Region, backendConf.Endpoint.Host), nil
 	},
-	S3AuthService: func(properties map[string]string, backend string) (httphandler.Decorator, error) {
-		endpoint, ok := properties["AuthServiceEndpoint"]
+	S3AuthService: func(backend string, backendConf config.Backend) (httphandler.Decorator, error) {
+		endpoint, ok := backendConf.Properties["AuthServiceEndpoint"]
 		if !ok {
 			endpoint = "default"
 		}
 
-		return SignAuthServiceDecorator(backend, endpoint), nil
+		return SignAuthServiceDecorator(backend, backendConf.Region, endpoint, backendConf.Endpoint.Host), nil
 	},
 }
