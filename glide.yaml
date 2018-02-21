@@ -24,6 +24,10 @@ import:
 - package: gopkg.in/tylerb/graceful.v1
   version: ^1.2.15
 - package: gopkg.in/yaml.v2
+- package: github.com/bnogas/minio-go/
+  version: verify_signature
+  subpackages:
+  - s3signer
 testImport:
 - package: github.com/DATA-DOG/go-sqlmock
   version: ^1.2.0
