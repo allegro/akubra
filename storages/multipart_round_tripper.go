@@ -19,8 +19,8 @@ import (
 )
 
 // MultiPartRoundTripper handles the multipart upload. If multipart upload is detected, it delegates the request
-// to handle the operation in standard fashion
 // to the backend selected using the active backends hash ring, otherwise the cluster round tripper is used
+// to handle the operation in standard fashion
 type MultiPartRoundTripper struct {
 	fallBackRoundTripper  http.RoundTripper
 	syncLog               log.Logger
