@@ -14,15 +14,15 @@ type TestYaml struct {
 	URL YAMLUrl `yaml:"URL"`
 }
 
-// unmareshal func for tests
-var unmareshal = func(interface{}) error {
+// unmarshal func for tests
+var unmarshal = func(interface{}) error {
 	var err error
 	return err
 }
 
 func TestYAMLUrlParsingFailure(t *testing.T) {
 	testyaml := TestYaml{URL: YAMLUrl{&url.URL{}}}
-	err := testyaml.URL.UnmarshalYAML(unmareshal)
+	err := testyaml.URL.UnmarshalYAML(unmarshal)
 	assert.Equal(t, err.Error(), "url should match proto://host[:port]/path scheme - got \"\"")
 }
 
