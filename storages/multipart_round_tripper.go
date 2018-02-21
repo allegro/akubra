@@ -53,11 +53,11 @@ func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends [
 		if backend, isBackendType := roundTripper.(*Backend); isBackendType {
 
 			if !backend.Maintenance {
-				multiPartRoundTripper.backendsRoundTrippers[backend.Endpoint.String()] = backend
-				activeBackendsEndpoints = append(activeBackendsEndpoints, backend.Endpoint.String())
+				multiPartRoundTripper.backendsRoundTrippers[backend.Endpoint.Host] = backend
+				activeBackendsEndpoints = append(activeBackendsEndpoints, backend.Endpoint.Host)
 			}
 
-			backendsEndpoints = append(backendsEndpoints, backend.Endpoint.String())
+			backendsEndpoints = append(backendsEndpoints, backend.Endpoint.Host)
 		}
 	}
 
@@ -182,14 +182,14 @@ func (multiPartRoundTripper *MultiPartRoundTripper) reportCompletionToMigrator(r
 
 	for _, destBackendEndpoint := range multiPartRoundTripper.backendsEndpoints {
 
-		if destBackendEndpoint == response.Request.Host {
+		if destBackendEndpoint == response.Request.URL.Host {
 			continue
 		}
 
 		syncLogMsg := &httphandler.SyncLogMessageData{
 			Method:        "PUT",
 			FailedHost:    destBackendEndpoint,
-			SuccessHost:   response.Request.Host,
+			SuccessHost:   response.Request.URL.Host,
 			Path:          response.Request.URL.Path,
 			AccessKey:     utils.ExtractAccessKey(response.Request),
 			UserAgent:     response.Request.Header.Get("User-Agent"),
