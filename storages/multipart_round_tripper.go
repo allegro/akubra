@@ -36,7 +36,7 @@ func NewMultiPartRoundTripper(cluster *Cluster, syncLog log.Logger) *MultiPartRo
 		fallBackRoundTripper: cluster.transport,
 		syncLog:              syncLog,
 	}
-
+	log.Debug("NewMultipart ", cluster.Name(), " ", cluster.name, " ", len(cluster.Backends()))
 	multiPartRoundTripper.setupRoundTripper(cluster.Backends())
 	return multiPartRoundTripper
 }
@@ -53,6 +53,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends [
 		if backend, isBackendType := roundTripper.(*Backend); isBackendType {
 
 			if !backend.Maintenance {
+				log.Println("Added cluster ", backend.Name)
 				multiPartRoundTripper.backendsRoundTrippers[backend.Endpoint.Host] = backend
 				activeBackendsEndpoints = append(activeBackendsEndpoints, backend.Endpoint.Host)
 			}

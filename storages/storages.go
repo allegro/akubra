@@ -69,6 +69,7 @@ type Backend struct {
 
 // RoundTrip satisfies http.RoundTripper interface
 func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
+	log.Debug("RT Backend", b.Name)
 	r.URL.Host = b.Endpoint.Host
 	r.URL.Scheme = b.Endpoint.Scheme
 	reqID := r.Context().Value(log.ContextreqIDKey)
@@ -87,21 +88,24 @@ func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
-func (c *Cluster) setupRoundTripper(syncLog log.Logger) {
-
+func (c *Cluster) setupRoundTripper(syncLog log.Logger, enableMultipart bool) {
+	log.Debugf("Cluster %s enabled mp %t", c.Name(), enableMultipart)
 	multiTransport := transport.NewMultiTransport(
 		c.Backends(),
 		c.respHandler)
 
 	c.transport = multiTransport
-	clusterRoundTripper := NewMultiPartRoundTripper(c, syncLog)
+	if enableMultipart {
+		clusterRoundTripper := NewMultiPartRoundTripper(c, syncLog)
 
-	c.transport = clusterRoundTripper
-	log.Debugf("Cluster %s has multimpart setup successfully", c.name)
+		c.transport = clusterRoundTripper
+		log.Debugf("Cluster %s has multipart setup successfully", c.name)
+	}
 }
 
 // RoundTrip implements http.RoundTripper interface
 func (c *Cluster) RoundTrip(req *http.Request) (*http.Response, error) {
+	log.Debugf("RT cluster %s, %T", c.Name(), c.transport)
 	return c.transport.RoundTrip(req)
 }
 
@@ -133,7 +137,7 @@ func newCluster(name string, backendNames []string, backends map[string]http.Rou
 	}
 
 	cluster := &Cluster{backends: clusterBackends, name: name, respHandler: respHandler}
-	cluster.setupRoundTripper(synclog)
+	cluster.setupRoundTripper(synclog, true)
 	return cluster, nil
 }
 
@@ -159,7 +163,7 @@ func (st *Storages) ClusterShards(name string, syncLog log.Logger, clusters ...N
 	}
 	rh := responseMerger{merger: st.lateRespHandler}
 	newCluster := &Cluster{backends: backends, name: name, respHandler: rh.responseHandler}
-	newCluster.setupRoundTripper(syncLog)
+	newCluster.setupRoundTripper(syncLog, false)
 	st.Clusters[name] = newCluster
 	return newCluster
 }
@@ -203,12 +207,7 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 }
 
 func decorateBackend(transport http.RoundTripper, name string, backendConf config.Backend) (http.RoundTripper, error) {
-	backend := &Backend{
-		transport,
-		*backendConf.Endpoint.URL,
-		name,
-		backendConf.Maintenance,
-	}
+
 	errPrefix := fmt.Sprintf("initialization of backend '%s' resulted with error", name)
 	decoratorFactory, ok := auth.Decorators[backendConf.Type]
 	if !ok {
@@ -218,5 +217,11 @@ func decorateBackend(transport http.RoundTripper, name string, backendConf confi
 	if err != nil {
 		return nil, fmt.Errorf("%s: %q", errPrefix, err)
 	}
-	return httphandler.Decorate(backend, decorator), nil
+	backend := &Backend{
+		httphandler.Decorate(transport, decorator),
+		*backendConf.Endpoint.URL,
+		name,
+		backendConf.Maintenance,
+	}
+	return backend, nil
 }
