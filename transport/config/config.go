@@ -27,39 +27,36 @@ type ClientTransportDetail struct {
 
 // TriggersCompiledRules compiled rules
 type TriggersCompiledRules struct {
-	Method *regexp.Regexp
+	Method     *regexp.Regexp
 	Path       *regexp.Regexp
 	QueryParam *regexp.Regexp
 }
 
 // ClientTransportTriggers properties
 type ClientTransportTriggers struct {
-	Method string `yaml:"Method" validate:"min=1"`
-	Path       string `yaml:"Path" validate:"min=0"`
-	QueryParam string `yaml:"QueryParam" validate:"min=0"`
+	Method     string `yaml:"Method" validate:"min=1,max=64"`
+	Path       string `yaml:"Path" validate:"min=0,max=256"`
+	QueryParam string `yaml:"QueryParam" validate:"min=0,max=128"`
 	TriggersCompiledRules
 }
 
 // Transport properties
 type Transport struct {
 	Triggers        ClientTransportTriggers `yaml:"Triggers"`
-	MergingStrategy string                  `yaml:"MergingStrategy" validate:"min=1"`
+	MergingStrategy string                  `yaml:"MergingStrategy" validate:"min=1,max=64"`
 	Details         ClientTransportDetail   `yaml:"Details"`
 }
 
 // Transports map with Transport
 type Transports map[byte]Transport
 
-// Validate trigger
+// Validate trigger (QueryParam field isn't required)
 func (t *Transport) Validate() error {
 	if len(t.Triggers.Method) == 0 {
 		return errors.New("Method in Client->Transport->Trigger config is empty")
 	}
 	if len(t.Triggers.Path) == 0 {
 		return errors.New("Path in Client->Transport->Trigger config is empty")
-	}
-	if len(t.Triggers.QueryParam) == 0 {
-		return errors.New("QueryParam in Client->Transport->Trigger config is empty")
 	}
 	return nil
 }
@@ -89,6 +86,9 @@ func (t *Transport) DetailsMatched(method, path, queryParam string) bool {
 	}
 	methodMatched := t.Triggers.TriggersCompiledRules.Method.MatchString(method)
 	pathMatched := t.Triggers.TriggersCompiledRules.Path.MatchString(path)
-	queryMatched := t.Triggers.TriggersCompiledRules.QueryParam.MatchString(queryParam)
+	queryMatched := true
+	if len(queryParam) > 0 {
+		queryMatched = t.Triggers.TriggersCompiledRules.QueryParam.MatchString(queryParam)
+	}
 	return methodMatched && pathMatched && queryMatched
 }
