@@ -1,9 +1,10 @@
 package config
 
 import (
+	"errors"
+	"fmt"
 	"github.com/allegro/akubra/metrics"
 	"regexp"
-	"errors"
 )
 
 // ClientTransportDetail properties
@@ -25,70 +26,111 @@ type ClientTransportDetail struct {
 	DisableKeepAlives bool `yaml:"DisableKeepAlives"`
 }
 
-// TriggersCompiledRules compiled rules
-type TriggersCompiledRules struct {
-	Method     *regexp.Regexp
-	Path       *regexp.Regexp
-	QueryParam *regexp.Regexp
-}
-
 // ClientTransportTriggers properties
 type ClientTransportTriggers struct {
-	Method     string `yaml:"Method" validate:"min=1,max=64"`
-	Path       string `yaml:"Path" validate:"min=0,max=256"`
-	QueryParam string `yaml:"QueryParam" validate:"min=0,max=128"`
-	TriggersCompiledRules
+	Method     string `yaml:"Method" validate:"max=64"`
+	Path       string `yaml:"Path" validate:"max=64"`
+	QueryParam string `yaml:"QueryParam" validate:"max=64"`
+}
+
+// TriggersCompiledRules properties
+type TriggersCompiledRules struct {
+	MethodRegexp     *regexp.Regexp
+	PathRegexp       *regexp.Regexp
+	QueryParamRegexp *regexp.Regexp
+	IsCompiled       bool
 }
 
 // Transport properties
 type Transport struct {
-	Triggers        ClientTransportTriggers `yaml:"Triggers"`
-	MergingStrategy string                  `yaml:"MergingStrategy" validate:"min=1,max=64"`
-	Details         ClientTransportDetail   `yaml:"Details"`
+	Triggers              ClientTransportTriggers `yaml:"Triggers"`
+	TriggersCompiledRules TriggersCompiledRules
+	MergingStrategy       string                `yaml:"MergingStrategy"`
+	Details               ClientTransportDetail `yaml:"Details"`
 }
 
 // Transports map with Transport
-type Transports map[byte]Transport
+type Transports map[string]Transport
 
-// Validate trigger (QueryParam field isn't required)
-func (t *Transport) Validate() error {
-	if len(t.Triggers.Method) == 0 {
-		return errors.New("Method in Client->Transport->Trigger config is empty")
+// compileRule
+func (t *Transport) compileRule(regexpRule string) (compiledRule *regexp.Regexp, err error) {
+	if len(regexpRule) > 0 {
+		compiledRule, err = regexp.Compile(regexpRule)
 	}
-	if len(t.Triggers.Path) == 0 {
-		return errors.New("Path in Client->Transport->Trigger config is empty")
-	}
-	return nil
+	return
 }
 
 // compileRules preparing precompiled regular expressions for rules
 func (t *Transport) compileRules() error {
-	var err error
-	t.Triggers.TriggersCompiledRules.Method, err = regexp.Compile(t.Triggers.Method)
-	if err != nil {
-		return err
-	}
-	t.Triggers.TriggersCompiledRules.Path, err = regexp.Compile(t.Triggers.Path)
-	if err != nil {
-		return err
-	}
-	t.Triggers.TriggersCompiledRules.QueryParam, err = regexp.Compile(t.Triggers.QueryParam)
-	if err != nil {
-		return err
+	if !t.TriggersCompiledRules.IsCompiled {
+		if len(t.Triggers.Method) > 0 {
+			var err error
+			t.TriggersCompiledRules.MethodRegexp, err = t.compileRule(t.Triggers.Method)
+			if err != nil {
+				return errors.New(fmt.Sprintf("compileRule for Client->Transport->Trigger->Method error: %q", err))
+			}
+		}
+		if len(t.Triggers.Path) > 0 {
+			var err error
+			t.TriggersCompiledRules.PathRegexp, err = t.compileRule(t.Triggers.Path)
+			if err != nil {
+				return errors.New(fmt.Sprintf("compileRule for Client->Transport->Trigger->Path error: %q", err))
+			}
+		}
+		if len(t.Triggers.QueryParam) > 0 {
+			var err error
+			t.TriggersCompiledRules.QueryParamRegexp, err = t.compileRule(t.Triggers.QueryParam)
+			if err != nil {
+				return errors.New(fmt.Sprintf("compileRule for Client->Transport->Trigger->QueryParam error: %q", err))
+			}
+		}
+		t.TriggersCompiledRules.IsCompiled = true
 	}
 	return nil
 }
 
-// DetailsMatched verifying if all details matching with rules
-func (t *Transport) DetailsMatched(method, path, queryParam string) bool {
-	if t.Triggers.TriggersCompiledRules.Method == nil {
-		t.compileRules()
+// GetMatchedTransport return first details matching with rules from Triggers by arguments: method, path, queryParam
+func (t *Transports) GetMatchedTransport(method, path, queryParam string) (Transport, string, bool) {
+	var defaultTransport Transport
+	var defaultTransportName string
+
+	for transportName, transport := range *t {
+		transport.compileRules()
+		methodMatched, pathMatched, queryParamMatched := false, false, false
+		methodEmpty, pathEmpty, queryParamEmpty := false, false, false
+		methodIsDeclared, pathIsDeclared, queryIsDeclared :=
+			len(transport.Triggers.Method) > 0, len(transport.Triggers.Path) > 0, len(transport.Triggers.QueryParam) > 0
+
+		if methodIsDeclared {
+			methodMatched = transport.TriggersCompiledRules.MethodRegexp.MatchString(method)
+		} else {
+			methodEmpty = true
+			methodMatched = true
+		}
+		if pathIsDeclared {
+			pathMatched = transport.TriggersCompiledRules.PathRegexp.MatchString(path)
+		} else {
+			pathEmpty = true
+			pathMatched = true
+		}
+		if queryIsDeclared {
+			queryParamMatched = transport.TriggersCompiledRules.QueryParamRegexp.MatchString(queryParam)
+		} else {
+			queryParamEmpty = true
+			queryParamMatched = true
+		}
+
+		if methodMatched && pathMatched && queryParamMatched {
+			return transport, transportName, true
+		}
+		if methodEmpty && pathEmpty && queryParamEmpty && len(defaultTransportName) == 0 {
+			defaultTransport = transport
+			defaultTransportName = transportName
+		}
 	}
-	methodMatched := t.Triggers.TriggersCompiledRules.Method.MatchString(method)
-	pathMatched := t.Triggers.TriggersCompiledRules.Path.MatchString(path)
-	queryMatched := true
-	if len(queryParam) > 0 {
-		queryMatched = t.Triggers.TriggersCompiledRules.QueryParam.MatchString(queryParam)
+	if defaultTransport.TriggersCompiledRules.IsCompiled && len(defaultTransportName) > 0 {
+		return defaultTransport, defaultTransportName, true
 	}
-	return methodMatched && pathMatched && queryMatched
+
+	return Transport{}, "", false
 }

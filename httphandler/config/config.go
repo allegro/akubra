@@ -64,7 +64,7 @@ type ClientAdditionalHeader struct {
 // Client keeps backend client configuration
 type Client struct {
 	ClientAdditionalHeader
-	Transports	transport.Transports	`yaml:"Transports,omitempty"`
+	Transports transport.Transports `yaml:"Transports,omitempty"`
 }
 
 // HumanSizeUnits type for max. payload body size in bytes
@@ -108,6 +108,7 @@ func RequestHeaderContentLengthValidator(req http.Request, bodyMaxSize int64) in
 
 // Service section
 type Service struct {
-	Server Server `yaml:"Server,omitempty"`
-	Client Client `yaml:"Client,omitempty"`
+	Server     Server               `yaml:"Server,omitempty"`
+	Client     Client               `yaml:"Client,omitempty"`
+	Transports transport.Transports `yaml:"Transports,omitempty"`
 }

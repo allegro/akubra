@@ -402,7 +402,7 @@ func PrepareYamlConfig(
 
 	if transports == nil {
 		transports = transportConfig.Transports{
-			0: transportConfig.Transport{
+			"TestTransport": transportConfig.Transport{
 				Triggers:        clientTransportTriggers,
 				MergingStrategy: "test",
 				Details:         clientTransportDetail,

@@ -124,26 +124,35 @@ Service:
       - DELETE
     # behaviours in application with HTTP protocol condition for better transmission
     Transports:
-     -
-       Triggers:
-        - Method: GET|POST
-        - Path: /\s+/\s+$
-       MergingStrategy: Default
-       Details:
-         - MaxIdleConns: 200
-         - MaxIdleConnsPerHost: 1000
-         - IdleConnTimeout: 2s
-         - ResponseHeaderTimeout: 5s
-     -
-       Triggers:
-        - Method: GET|POST|PUT
-        - QueryParam: clientId=\s+
-       MergingStrategy: ListV1
-       Details:
-         - MaxIdleConns: 200
-         - MaxIdleConnsPerHost: 500
-         - IdleConnTimeout: 5s
-         - ResponseHeaderTimeout: 5s
+      Transport1:
+        Triggers:
+          Method: GET|POST
+          Path: .*
+        MergingStrategy: Default
+        Details:
+          MaxIdleConns: 200
+          MaxIdleConnsPerHost: 1000
+          IdleConnTimeout: 2s
+          ResponseHeaderTimeout: 5s
+      Transport2:
+        Triggers:
+          Method: GET|POST|PUT
+          QueryParam: clientId=\s+
+        MergingStrategy: ListV1
+        Details:
+          MaxIdleConns: 200
+          MaxIdleConnsPerHost: 500
+          IdleConnTimeout: 5s
+          ResponseHeaderTimeout: 5s
+      DefaultTransport:
+        Triggers:
+        MergingStrategy: Default
+        Details:
+          MaxIdleConns: 500
+          MaxIdleConnsPerHost: 500
+          IdleConnTimeout: 2s
+          ResponseHeaderTimeout: 2s
+
 
 # MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
 # Default 0 (no limit)
