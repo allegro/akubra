@@ -7,16 +7,9 @@ import (
 	"io"
 	"net/http"
 	"sync/atomic"
-	"time"
 
 	"github.com/allegro/akubra/httphandler/config"
 	"github.com/allegro/akubra/log"
-	transport "github.com/allegro/akubra/transport/config"
-)
-
-const (
-	defaultMaxIdleConnsPerHost   = 100
-	defaultResponseHeaderTimeout = 5 * time.Second
 )
 
 func randomStr(length int) string {
@@ -95,46 +88,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (h *Handler) validateIncomingRequest(req *http.Request) int {
 	return config.RequestHeaderContentLengthValidator(*req, h.bodyMaxSize)
-}
-
-// ConfigureHTTPTransports returns http.Transport with customized dialer,
-// MaxIdleConnsPerHost and DisableKeepAlives
-//TODO: func ConfigureHTTPTransports(conf config.Client) ([]*http.Transport, error) {
-func ConfigureHTTPTransports(conf config.Client) (*http.Transport, error) {
-	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
-	responseHeaderTimeout := defaultResponseHeaderTimeout
-
-	httpTransports := make([]*http.Transport, 0, len(conf.Transports))
-	var httpTransport *http.Transport
-	if len(conf.Transports) > 0 {
-		for _, transport := range conf.Transports {
-			httpTransport = perepareTransport(transport.Details, maxIdleConnsPerHost, responseHeaderTimeout)
-			break
-			httpTransports = append(httpTransports, httpTransport)
-		}
-	}
-
-	//TODO: return httpTransports, nil
-	return httpTransport, nil
-}
-
-// perepareTransport with details
-func perepareTransport(transportDetails transport.ClientTransportDetail, maxIdleConnsPerHost int,
-	responseHeaderTimeout time.Duration) *http.Transport {
-	if transportDetails.MaxIdleConnsPerHost != 0 {
-		maxIdleConnsPerHost = transportDetails.MaxIdleConnsPerHost
-	}
-	if transportDetails.ResponseHeaderTimeout.Duration != 0 {
-		responseHeaderTimeout = transportDetails.ResponseHeaderTimeout.Duration
-	}
-	httpTransport := &http.Transport{
-		MaxIdleConns:          transportDetails.MaxIdleConns,
-		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
-		IdleConnTimeout:       transportDetails.IdleConnTimeout.Duration,
-		ResponseHeaderTimeout: responseHeaderTimeout,
-		DisableKeepAlives:     transportDetails.DisableKeepAlives,
-	}
-	return httpTransport
 }
 
 // DecorateRoundTripper applies common http.RoundTripper decorators

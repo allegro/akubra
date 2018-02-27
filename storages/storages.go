@@ -52,7 +52,7 @@ type Cluster struct {
 type Storages struct {
 	clustersConf config.ClustersMap
 	backendsConf config.BackendsMap
-	transport    http.RoundTripper
+	Transports   transport.TransportContainer
 	Clusters     map[string]NamedCluster
 	Backends     map[string]http.RoundTripper
 	respHandler  transport.MultipleResponsesHandler
@@ -60,7 +60,7 @@ type Storages struct {
 
 // Backend represents any storage in akubra cluster
 type Backend struct {
-	http.RoundTripper
+	Transports  transport.TransportContainer
 	Endpoint    url.URL
 	Name        string
 	Maintenance bool
@@ -78,7 +78,12 @@ func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 			origErr: fmt.Errorf("backend %v in maintenance mode", b.Name)}
 	}
 	err := error(nil)
-	resp, oerror := b.RoundTripper.RoundTrip(r)
+
+	transportName := b.Transports.SelectTransport(r.Method, r.URL.Path, r.URL.RawQuery)
+	log.Debugf("Request %s - selected transport name: %s (by method: %s, path: %s, queryParams: %s)",
+		reqID, transportName, r.Method, r.URL.Path, r.URL.RawQuery)
+
+	resp, oerror := b.Transports.RoundTrippers[transportName].RoundTrip(r)
 
 	if oerror != nil {
 		err = &backendError{backend: b.Endpoint.Host, origErr: oerror}
@@ -158,7 +163,7 @@ func (st *Storages) ClusterShards(name string, clusters ...NamedCluster) NamedCl
 }
 
 // InitStorages setups storages
-func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap, respHandler transport.MultipleResponsesHandler) (*Storages, error) {
+func InitStorages(transportContainer transport.TransportContainer, clustersConf config.ClustersMap, backendsConf config.BackendsMap, respHandler transport.MultipleResponsesHandler) (*Storages, error) {
 	clusters := make(map[string]NamedCluster)
 	backends := make(map[string]http.RoundTripper)
 	if len(backendsConf) == 0 {
@@ -168,7 +173,7 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 		if backendConf.Maintenance {
 			log.Printf("backend %q in maintenance mode", name)
 		}
-		decoratedBackend, err := decorateBackend(transport, name, backendConf)
+		decoratedBackend, err := decorateBackend(transportContainer, name, backendConf)
 		if err != nil {
 			return nil, err
 		}
@@ -187,16 +192,16 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 	return &Storages{
 		clustersConf: clustersConf,
 		backendsConf: backendsConf,
-		transport:    transport,
+		Transports:   transportContainer,
 		Clusters:     clusters,
 		Backends:     backends,
 		respHandler:  respHandler,
 	}, nil
 }
 
-func decorateBackend(transport http.RoundTripper, name string, backendConf config.Backend) (http.RoundTripper, error) {
+func decorateBackend(transports transport.TransportContainer, name string, backendConf config.Backend) (http.RoundTripper, error) {
 	backend := &Backend{
-		transport,
+		transports,
 		*backendConf.Endpoint.URL,
 		name,
 		backendConf.Maintenance,

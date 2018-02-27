@@ -5,14 +5,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	httphandlerConfig "github.com/allegro/akubra/httphandler/config"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/metrics"
+	"github.com/allegro/akubra/transport/config"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
+)
 
-	"github.com/allegro/akubra/log"
-	"github.com/allegro/akubra/metrics"
+const (
+	DefaultTransportName         = "DefaultTransport"
+	defaultMaxIdleConnsPerHost   = 100
+	defaultResponseHeaderTimeout = 5 * time.Second
 )
 
 // ResErrTuple is intermediate structure for internal use of
@@ -54,6 +61,12 @@ func (r *ResErrTuple) DiscardBody() {
 // MultipleResponsesHandler should handle chan of incomming ReqResErrTuple
 // returned value's response and error will be passed to client
 type MultipleResponsesHandler func(in <-chan ResErrTuple) ResErrTuple
+
+// TransportContainer mapping initilized Transports with http.RoundTripper by transport name
+type TransportContainer struct {
+	RoundTrippers    map[string]http.RoundTripper
+	TransportsConfig config.Transports
+}
 
 func defaultHandleResponses(in <-chan ResErrTuple, out chan<- ResErrTuple) {
 	errs := []ResErrTuple{}
@@ -304,4 +317,57 @@ func NewMultiTransport(backends []http.RoundTripper,
 	return &MultiTransport{
 		Backends:        backends,
 		HandleResponses: responsesHandler}
+}
+
+// SetTransportsConfig
+func (tc *TransportContainer) SetTransportsConfig(clientConfig httphandlerConfig.Client) {
+	tc.TransportsConfig = clientConfig.Transports
+}
+
+// SelectTransport return transport name by method, path and queryParams
+func (tc *TransportContainer) SelectTransport(method, path, queryParams string) (transportName string) {
+	_, transportName, ok := tc.TransportsConfig.GetMatchedTransport(method, path, queryParams)
+	if !ok {
+		transportName = DefaultTransportName
+		log.DefaultLogger.Debugf("Selected %q transport in SelectTransport method", transportName)
+	}
+	return
+}
+
+// ConfigureHTTPTransportsContainer returns map Transports names from config. with http.Transport with customized dialer
+func ConfigureHTTPTransportsContainer(clientConf httphandlerConfig.Client) (transportContainer TransportContainer, err error) {
+	roundTrippers := make(map[string]http.RoundTripper)
+	transportContainer.SetTransportsConfig(clientConf)
+
+	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
+	responseHeaderTimeout := defaultResponseHeaderTimeout
+	if len(clientConf.Transports) > 0 {
+		for transportName, transport := range clientConf.Transports {
+			roundTrippers[transportName] = perepareTransport(transport.Details, maxIdleConnsPerHost, responseHeaderTimeout)
+		}
+		transportContainer.RoundTrippers = roundTrippers
+	} else {
+		return transportContainer, errors.New("Service->Server->Client->Transports config is empty")
+	}
+
+	return transportContainer, nil
+}
+
+// perepareTransport with details
+func perepareTransport(transportDetails config.ClientTransportDetail, maxIdleConnsPerHost int,
+	responseHeaderTimeout time.Duration) *http.Transport {
+	if transportDetails.MaxIdleConnsPerHost != 0 {
+		maxIdleConnsPerHost = transportDetails.MaxIdleConnsPerHost
+	}
+	if transportDetails.ResponseHeaderTimeout.Duration != 0 {
+		responseHeaderTimeout = transportDetails.ResponseHeaderTimeout.Duration
+	}
+	httpTransport := &http.Transport{
+		MaxIdleConns:          transportDetails.MaxIdleConns,
+		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
+		IdleConnTimeout:       transportDetails.IdleConnTimeout.Duration,
+		ResponseHeaderTimeout: responseHeaderTimeout,
+		DisableKeepAlives:     transportDetails.DisableKeepAlives,
+	}
+	return httpTransport
 }

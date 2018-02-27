@@ -1,23 +1,32 @@
 package storages
 
 import (
-	"fmt"
-	"net/http"
-	"net/url"
-	"testing"
-
-	"github.com/allegro/akubra/httphandler"
-
-	"github.com/stretchr/testify/require"
+	//"fmt"
+	//"net/http"
+	//"net/url"
+	//"testing"
+	//
+	//"github.com/allegro/akubra/httphandler"
+	//
+	//"github.com/stretchr/testify/require"
 
 	"github.com/allegro/akubra/storages/config"
-	"github.com/allegro/akubra/types"
+	//"github.com/allegro/akubra/types"
+	"github.com/allegro/akubra/transport"
 )
 
-func newBackend(backendConfig config.Backend, transport http.RoundTripper) (*Backend, error) {
-	return &Backend{Endpoint: *backendConfig.Endpoint.URL, RoundTripper: transport}, nil
+func newBackend(backendConfig config.Backend, transports transport.TransportContainer) (*Backend, error) {
+	return &Backend{Endpoint: *backendConfig.Endpoint.URL, Transports: transports}, nil
 }
-
+//
+//type transportContainerRt struct {
+//	rt func(*http.Request) (*http.Response, error)
+//}
+//
+//func (trt *transportContainerRt) RoundTrip(req *http.Request) (*http.Response, error) {
+//	return trt.rt(req)
+//}
+/*
 type testRt struct {
 	rt func(*http.Request) (*http.Response, error)
 }
@@ -25,6 +34,7 @@ type testRt struct {
 func (trt *testRt) RoundTrip(req *http.Request) (*http.Response, error) {
 	return trt.rt(req)
 }
+
 
 func TestBackendShouldChangeRequestHost(t *testing.T) {
 	host := "someremote.backend:8080"
@@ -73,3 +83,4 @@ func TestBackendShouldWrapErrorWithBackendError(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, host, berr.Backend())
 }
+*/

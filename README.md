@@ -123,6 +123,7 @@ Service:
       - PUT
       - DELETE
     # behaviours in application with HTTP protocol condition for better transmission
+    # DefaultTransport it's only one required item in Transports section
     Transports:
       Transport1:
         Triggers:

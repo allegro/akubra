@@ -70,7 +70,7 @@ func TestStorageTestSuite(t *testing.T) {
 func TestShouldNotInitStoragesWithWrongBackendType(t *testing.T) {
 	backendName := "backend1"
 	backendType := "unknown"
-	var transportRoundTripper http.RoundTripper
+	var transportContainer transport.TransportContainer
 	clustersConf := config.ClustersMap{}
 	clusterConfig := config.Cluster{
 		Backends: []string{"http://localhost"},
@@ -86,7 +86,7 @@ func TestShouldNotInitStoragesWithWrongBackendType(t *testing.T) {
 	}}
 	var respHandler transport.MultipleResponsesHandler
 
-	_, err := InitStorages(transportRoundTripper, clustersConf, backendsConf, respHandler)
+	_, err := InitStorages(transportContainer, clustersConf, backendsConf, respHandler)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(),

@@ -22,6 +22,7 @@ import (
 
 	"github.com/allegro/akubra/crdstore"
 	graceful "gopkg.in/tylerb/graceful.v1"
+	"github.com/allegro/akubra/transport"
 )
 
 // TechnicalEndpointGeneralTimeout for /configuration/validate endpoint
@@ -97,9 +98,9 @@ func mkServiceLogs(logConf logconfig.LoggingConfig) (syncLog, clusterSyncLog, ac
 	return
 }
 func (s *service) start() error {
-	roundtripper, err := httphandler.ConfigureHTTPTransports(s.config.Service.Client)
+	transportContainer, err := transport.ConfigureHTTPTransportsContainer(s.config.Service.Client)
 	if err != nil {
-		log.Fatalf("Couldn't set up client properties, %q", err)
+		log.Fatalf("Couldn't set up client Transports - err: %q", err)
 	}
 	syncLog, clusterSyncLog, accessLog, err := mkServiceLogs(s.config.Logging)
 	if err != nil {
@@ -111,8 +112,10 @@ func (s *service) start() error {
 	}
 	respHandler := httphandler.LateResponseHandler(syncLog, set.NewSetFromSlice(methods))
 	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
+	log.Printf("s.config.Backends: %q", s.config.Backends)
+	log.Printf("s.config.Clusters: %q", s.config.Clusters)
 	storage, err := storages.InitStorages(
-		roundtripper,
+		transportContainer,
 		s.config.Clusters,
 		s.config.Backends,
 		respHandler)
@@ -120,7 +123,8 @@ func (s *service) start() error {
 		log.Fatalf("Storages initialization problem: %q", err)
 	}
 
-	regionsRT, err := regions.NewRegions(s.config.Regions, *storage, roundtripper, clusterSyncLog)
+	defaultHTTPTransport := transportContainer.RoundTrippers[transport.DefaultTransportName]
+	regionsRT, err := regions.NewRegions(s.config.Regions, *storage, defaultHTTPTransport, clusterSyncLog)
 	if err != nil {
 		return err
 	}
