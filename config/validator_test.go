@@ -8,6 +8,7 @@ import (
 
 	httphandlerconfig "github.com/allegro/akubra/httphandler/config"
 	regionsconfig "github.com/allegro/akubra/regions/config"
+	transportconfig "github.com/allegro/akubra/transport/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	validator "gopkg.in/validator.v1"
@@ -267,4 +268,28 @@ func TestValidatorShouldFailWithMissingClusterDefinition(t *testing.T) {
 		t,
 		errors.New("No clusters defined for region \"testregion\""),
 		validationErrors["RegionsEntryLogicalValidator"][0])
+}
+qfunc TestValidatorShouldFailWithMissingLastTransportsItemWithoutTriggerDefinition(t *testing.T) {
+	testTransport := transportconfig.ClientTransportTriggers{
+		Method: "GET",
+		Path:   "/a/b",
+	}
+	transportsConfig := transportconfig.Transports{
+		"TransportGET1": {
+			Triggers:              testTransport,
+			TriggersCompiledRules: transportconfig.TriggersCompiledRules{},
+			MergingStrategy:       "",
+			Details:               transportconfig.ClientTransportDetail{},
+		},
+	}
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transportsConfig)
+	valid, validationErrors := yamlConfig.TransportsEntryLogicalValidator()
+	assert.False(t, valid)
+	assert.Equal(
+		t,
+		errors.New("No transport defined with empty \"Triggers\" in last item (dafault transport)"),
+		validationErrors["TransportsEntryLogicalValidator"][0])
 }

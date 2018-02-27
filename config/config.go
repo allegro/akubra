@@ -98,8 +98,9 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 	if valid && enableLogicalValidator {
 		validListenPorts, portsValidationErrors := conf.ListenPortsLogicalValidator()
 		validRegionsEntries, regionsValidationErrors := conf.RegionsEntryLogicalValidator()
-		valid = valid && validRegionsEntries && validListenPorts
-		validationErrors = mergeErrors(validationErrors, portsValidationErrors, regionsValidationErrors)
+		validTransportsEntries, transportsValidationErrors := conf.TransportsEntryLogicalValidator()
+		valid = valid && validListenPorts && validRegionsEntries && validTransportsEntries
+		validationErrors = mergeErrors(validationErrors, portsValidationErrors, regionsValidationErrors, transportsValidationErrors)
 	}
 
 	for propertyName, validatorMessage := range validationErrors {
