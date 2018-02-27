@@ -123,8 +123,7 @@ func (s *service) start() error {
 		log.Fatalf("Storages initialization problem: %q", err)
 	}
 
-	defaultHTTPTransport := transportContainer.RoundTrippers[transport.DefaultTransportName]
-	regionsRT, err := regions.NewRegions(s.config.Regions, *storage, defaultHTTPTransport, clusterSyncLog)
+	regionsRT, err := regions.NewRegions(s.config.Regions, *storage, clusterSyncLog)
 	if err != nil {
 		return err
 	}
