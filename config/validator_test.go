@@ -269,7 +269,7 @@ func TestValidatorShouldFailWithMissingClusterDefinition(t *testing.T) {
 		errors.New("No clusters defined for region \"testregion\""),
 		validationErrors["RegionsEntryLogicalValidator"][0])
 }
-qfunc TestValidatorShouldFailWithMissingLastTransportsItemWithoutTriggerDefinition(t *testing.T) {
+func TestValidatorShouldFailWithMissingLastTransportsItemWithoutTriggerDefinition(t *testing.T) {
 	testTransport := transportconfig.ClientTransportTriggers{
 		Method: "GET",
 		Path:   "/a/b",
