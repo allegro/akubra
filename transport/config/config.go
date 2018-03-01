@@ -97,10 +97,7 @@ func (t *Transport) compileRules() error {
 }
 
 // GetMatchedTransport return first details matching with rules from Triggers by arguments: method, path, queryParam
-func (t *Transports) GetMatchedTransport(method, path, queryParam string) (Transport, string, bool) {
-	var defaultTransport Transport
-	var defaultTransportName string
-
+func (t *Transports) GetMatchedTransport(method, path, queryParam string) (defaultTransport Transport, defaultTransportName string, ok bool) {
 	for transportName, transport := range *t {
 		transport.compileRules()
 		methodFlag, pathFlag, queryParamFlag := matchTransportFlags(transport, method, path, queryParam)
@@ -111,17 +108,14 @@ func (t *Transports) GetMatchedTransport(method, path, queryParam string) (Trans
 		if methodFlag.empty && pathFlag.empty && queryParamFlag.empty && len(defaultTransportName) == 0 {
 			defaultTransport = transport
 			defaultTransportName = transportName
+			ok = true
 		}
 	}
-	if defaultTransport.TriggersCompiledRules.IsCompiled && len(defaultTransportName) > 0 {
-		return defaultTransport, defaultTransportName, true
-	}
-
-	return Transport{}, "", false
+	return
 }
 
 // matchTransportFlags matching method, path and query for Transport
-func matchTransportFlags(transport Transport, method string, path string, queryParam string) (transportFlags, transportFlags, transportFlags) {
+func matchTransportFlags(transport Transport, method, path, queryParam string) (transportFlags, transportFlags, transportFlags) {
 	var methodFlag, pathFlag, queryParamFlag transportFlags
 
 	methodFlag.declared, pathFlag.declared, queryParamFlag.declared =

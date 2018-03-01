@@ -52,7 +52,7 @@ type Cluster struct {
 type Storages struct {
 	clustersConf config.ClustersMap
 	backendsConf config.BackendsMap
-	Transports   transport.TransportContainer
+	Transports   transport.Container
 	Clusters     map[string]NamedCluster
 	Backends     map[string]http.RoundTripper
 	respHandler  transport.MultipleResponsesHandler
@@ -60,7 +60,7 @@ type Storages struct {
 
 // Backend represents any storage in akubra cluster
 type Backend struct {
-	Transports  transport.TransportContainer
+	Transports  transport.Container
 	Endpoint    url.URL
 	Name        string
 	Maintenance bool
@@ -163,7 +163,7 @@ func (st *Storages) ClusterShards(name string, clusters ...NamedCluster) NamedCl
 }
 
 // InitStorages setups storages
-func InitStorages(transportContainer transport.TransportContainer, clustersConf config.ClustersMap, backendsConf config.BackendsMap, respHandler transport.MultipleResponsesHandler) (*Storages, error) {
+func InitStorages(transportContainer transport.Container, clustersConf config.ClustersMap, backendsConf config.BackendsMap, respHandler transport.MultipleResponsesHandler) (*Storages, error) {
 	clusters := make(map[string]NamedCluster)
 	backends := make(map[string]http.RoundTripper)
 	if len(backendsConf) == 0 {
@@ -199,7 +199,7 @@ func InitStorages(transportContainer transport.TransportContainer, clustersConf 
 	}, nil
 }
 
-func decorateBackend(transports transport.TransportContainer, name string, backendConf config.Backend) (http.RoundTripper, error) {
+func decorateBackend(transports transport.Container, name string, backendConf config.Backend) (http.RoundTripper, error) {
 	backend := &Backend{
 		transports,
 		*backendConf.Endpoint.URL,

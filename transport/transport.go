@@ -62,8 +62,8 @@ func (r *ResErrTuple) DiscardBody() {
 // returned value's response and error will be passed to client
 type MultipleResponsesHandler func(in <-chan ResErrTuple) ResErrTuple
 
-// TransportContainer mapping initilized Transports with http.RoundTripper by transport name
-type TransportContainer struct {
+// Container mapping initilized Transports with http.RoundTripper by transport name
+type Container struct {
 	RoundTrippers    map[string]http.RoundTripper
 	TransportsConfig config.Transports
 }
@@ -319,13 +319,13 @@ func NewMultiTransport(backends []http.RoundTripper,
 		HandleResponses: responsesHandler}
 }
 
-// SetTransportsConfig assign transport config to TransportContainer
-func (tc *TransportContainer) SetTransportsConfig(clientConfig httphandlerConfig.Client) {
+// SetTransportsConfig assign transport config to Container
+func (tc *Container) SetTransportsConfig(clientConfig httphandlerConfig.Client) {
 	tc.TransportsConfig = clientConfig.Transports
 }
 
 // SelectTransport return transport name by method, path and queryParams
-func (tc *TransportContainer) SelectTransport(method, path, queryParams string) (transportName string) {
+func (tc *Container) SelectTransport(method, path, queryParams string) (transportName string) {
 	_, transportName, ok := tc.TransportsConfig.GetMatchedTransport(method, path, queryParams)
 	if !ok {
 		log.DefaultLogger.Fatalf("Transport not matched with args. method: %s, path: %s, queryParams: %s", method, path, queryParams)
@@ -334,7 +334,7 @@ func (tc *TransportContainer) SelectTransport(method, path, queryParams string) 
 }
 
 // ConfigureHTTPTransportsContainer returns map Transports names from config. with http.Transport with customized dialer
-func ConfigureHTTPTransportsContainer(clientConf httphandlerConfig.Client) (transportContainer TransportContainer, err error) {
+func ConfigureHTTPTransportsContainer(clientConf httphandlerConfig.Client) (transportContainer Container, err error) {
 	roundTrippers := make(map[string]http.RoundTripper)
 	transportContainer.SetTransportsConfig(clientConf)
 

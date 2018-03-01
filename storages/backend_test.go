@@ -15,7 +15,7 @@ import (
 	"github.com/allegro/akubra/transport"
 )
 
-func newBackend(backendConfig config.Backend, transports transport.TransportContainer) (*Backend, error) {
+func newBackend(backendConfig config.Backend, transports transport.Container) (*Backend, error) {
 	return &Backend{Endpoint: *backendConfig.Endpoint.URL, Transports: transports}, nil
 }
 

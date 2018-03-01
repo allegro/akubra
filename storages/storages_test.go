@@ -70,7 +70,7 @@ func TestStorageTestSuite(t *testing.T) {
 func TestShouldNotInitStoragesWithWrongBackendType(t *testing.T) {
 	backendName := "backend1"
 	backendType := "unknown"
-	var transportContainer transport.TransportContainer
+	var transportContainer transport.Container
 	clustersConf := config.ClustersMap{}
 	clusterConfig := config.Cluster{
 		Backends: []string{"http://localhost"},
