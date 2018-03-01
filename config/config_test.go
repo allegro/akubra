@@ -13,12 +13,12 @@ import (
 	"strings"
 
 	httpHandlerConfig "github.com/allegro/akubra/httphandler/config"
-	transportConfig "github.com/allegro/akubra/transport/config"
 	logconfig "github.com/allegro/akubra/log/config"
 	"github.com/allegro/akubra/metrics"
 	regionsConfig "github.com/allegro/akubra/regions/config"
 	shardingconfig "github.com/allegro/akubra/sharding/config"
 	storageconfig "github.com/allegro/akubra/storages/config"
+	transportConfig "github.com/allegro/akubra/transport/config"
 	"github.com/stretchr/testify/assert"
 
 	yaml "gopkg.in/yaml.v2"
@@ -42,7 +42,15 @@ const (
       Cache-Control: public, s-maxage=600, max-age=600
     AdditionalResponseHeaders:
       Access-Control-Allow-Methods: GET, POST, OPTIONS
-  
+    Transports:
+      DefaultTransport:
+        Triggers:
+        MergingStrategy: Default
+        Details:
+          MaxIdleConns: 500
+          MaxIdleConnsPerHost: 500
+          IdleConnTimeout: 2s
+          ResponseHeaderTimeout: 2s
 Backends:
   dummy:
     Endpoint: "http://127.0.0.1:8080"

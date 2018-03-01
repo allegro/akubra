@@ -269,23 +269,57 @@ func TestValidatorShouldFailWithMissingClusterDefinition(t *testing.T) {
 		errors.New("No clusters defined for region \"testregion\""),
 		validationErrors["RegionsEntryLogicalValidator"][0])
 }
-func TestValidatorShouldFailWithMissingLastTransportsItemWithoutTriggerDefinition(t *testing.T) {
-	testTransport := transportconfig.ClientTransportTriggers{
-		Method: "GET",
-		Path:   "/a/b",
-	}
-	transportsConfig := transportconfig.Transports{
-		"TransportGET1": {
-			Triggers:              testTransport,
-			TriggersCompiledRules: transportconfig.TriggersCompiledRules{},
-			MergingStrategy:       "",
-			Details:               transportconfig.ClientTransportDetail{},
+
+func TestValidatorShouldFailWithEmptyTransportsDefinition(t *testing.T) {
+	transports := make(transportconfig.Transports)
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
+	valid, validationErrors := yamlConfig.TransportsEntryLogicalValidator()
+	assert.False(t, valid)
+	assert.Equal(
+		t,
+		errors.New("Empty transports definition"),
+		validationErrors["TransportsEntryLogicalValidator"][0])
+}
+
+func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
+	validTransports := make(transportconfig.Transports)
+	validTransports = transportconfig.Transports{
+		"TestTransport": transportconfig.Transport{
+			Triggers: transportconfig.ClientTransportTriggers{
+				Path: ".*",
+			},
+			MergingStrategy: "test",
+		},
+		"DefaultTransport": transportconfig.Transport{
+			Triggers:        transportconfig.ClientTransportTriggers{},
+			MergingStrategy: "Default",
 		},
 	}
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transportsConfig)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, validTransports)
+	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
+	assert.True(t, valid)
+}
+
+func TestValidatorShouldFailWithMissingLastTransportsItemWithoutTriggerDefinition(t *testing.T) {
+	invalidTransports := make(transportconfig.Transports)
+	invalidTransports = transportconfig.Transports{
+		"TestTransport": transportconfig.Transport{
+			Triggers: transportconfig.ClientTransportTriggers{
+				Method: "GET",
+			},
+			MergingStrategy: "test",
+		},
+	}
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, invalidTransports)
 	valid, validationErrors := yamlConfig.TransportsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(

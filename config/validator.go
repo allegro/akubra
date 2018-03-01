@@ -96,20 +96,21 @@ func (c *YamlConfig) RegionsEntryLogicalValidator() (valid bool, validationError
 // TransportsEntryLogicalValidator checks the correctness of "Transports" part of configuration file
 func (c *YamlConfig) TransportsEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
-	if len(c.Service.Transports) == 0 {
+	if len(c.Service.Client.Transports) == 0 {
 		errList = append(errList, errors.New("Empty transports definition"))
-	}
-	lastTransportHasEmptyTriggers := false
-	for _, transportConf := range c.Service.Transports {
-		methodIsDeclared, pathIsDeclared, queryIsDeclared :=
-			len(transportConf.Triggers.Method) > 0, len(transportConf.Triggers.Path) > 0, len(transportConf.Triggers.QueryParam) > 0
+	} else {
+		lastTransportHasEmptyTriggers := false
+		for _, transportConf := range c.Service.Client.Transports {
+			methodIsDeclared, pathIsDeclared, queryIsDeclared :=
+				len(transportConf.Triggers.Method) > 0, len(transportConf.Triggers.Path) > 0, len(transportConf.Triggers.QueryParam) > 0
 
-		if methodIsDeclared && pathIsDeclared && queryIsDeclared {
-			lastTransportHasEmptyTriggers = true
+			if !methodIsDeclared && !pathIsDeclared && !queryIsDeclared {
+				lastTransportHasEmptyTriggers = true
+			}
 		}
-	}
-	if !lastTransportHasEmptyTriggers {
-		errList = append(errList, errors.New("No transport defined with empty \"Triggers\" in last item (dafault transport)"))
+		if !lastTransportHasEmptyTriggers {
+			errList = append(errList, errors.New("No transport defined with empty \"Triggers\" in last item (dafault transport)"))
+		}
 	}
 	validationErrors, valid = prepareErrors(errList, "TransportsEntryLogicalValidator")
 	return
