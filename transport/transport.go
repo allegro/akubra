@@ -18,7 +18,6 @@ import (
 )
 
 const (
-	DefaultTransportName         = "DefaultTransport"
 	defaultMaxIdleConnsPerHost   = 100
 	defaultResponseHeaderTimeout = 5 * time.Second
 )
@@ -320,7 +319,7 @@ func NewMultiTransport(backends []http.RoundTripper,
 		HandleResponses: responsesHandler}
 }
 
-// SetTransportsConfig
+// SetTransportsConfig assign transport config to TransportContainer
 func (tc *TransportContainer) SetTransportsConfig(clientConfig httphandlerConfig.Client) {
 	tc.TransportsConfig = clientConfig.Transports
 }
@@ -329,8 +328,7 @@ func (tc *TransportContainer) SetTransportsConfig(clientConfig httphandlerConfig
 func (tc *TransportContainer) SelectTransport(method, path, queryParams string) (transportName string) {
 	_, transportName, ok := tc.TransportsConfig.GetMatchedTransport(method, path, queryParams)
 	if !ok {
-		transportName = DefaultTransportName
-		log.DefaultLogger.Debugf("Selected %q transport in SelectTransport method", transportName)
+		log.DefaultLogger.Fatalf("Transport not matched with args. method: %s, path: %s, queryParams: %s", method, path, queryParams)
 	}
 	return
 }

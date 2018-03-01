@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 
@@ -61,6 +60,13 @@ func (t *Transport) compileRule(regexpRule string) (compiledRule *regexp.Regexp,
 	return
 }
 
+// transportFlags for internal matching func
+type transportFlags struct {
+	declared bool
+	matched  bool
+	empty    bool
+}
+
 // compileRules preparing precompiled regular expressions for rules
 func (t *Transport) compileRules() error {
 	if !t.TriggersCompiledRules.IsCompiled {
@@ -68,21 +74,21 @@ func (t *Transport) compileRules() error {
 			var err error
 			t.TriggersCompiledRules.MethodRegexp, err = t.compileRule(t.Triggers.Method)
 			if err != nil {
-				return errors.New(fmt.Sprintf("compileRule for Client->Transport->Trigger->Method error: %q", err))
+				return fmt.Errorf("compileRule for Client->Transport->Trigger->Method error: %q", err)
 			}
 		}
 		if len(t.Triggers.Path) > 0 {
 			var err error
 			t.TriggersCompiledRules.PathRegexp, err = t.compileRule(t.Triggers.Path)
 			if err != nil {
-				return errors.New(fmt.Sprintf("compileRule for Client->Transport->Trigger->Path error: %q", err))
+				return fmt.Errorf("compileRule for Client->Transport->Trigger->Path error: %q", err)
 			}
 		}
 		if len(t.Triggers.QueryParam) > 0 {
 			var err error
 			t.TriggersCompiledRules.QueryParamRegexp, err = t.compileRule(t.Triggers.QueryParam)
 			if err != nil {
-				return errors.New(fmt.Sprintf("compileRule for Client->Transport->Trigger->QueryParam error: %q", err))
+				return fmt.Errorf("compileRule for Client->Transport->Trigger->QueryParam error: %q", err)
 			}
 		}
 		t.TriggersCompiledRules.IsCompiled = true
@@ -97,34 +103,12 @@ func (t *Transports) GetMatchedTransport(method, path, queryParam string) (Trans
 
 	for transportName, transport := range *t {
 		transport.compileRules()
-		methodMatched, pathMatched, queryParamMatched := false, false, false
-		methodEmpty, pathEmpty, queryParamEmpty := false, false, false
-		methodIsDeclared, pathIsDeclared, queryIsDeclared :=
-			len(transport.Triggers.Method) > 0, len(transport.Triggers.Path) > 0, len(transport.Triggers.QueryParam) > 0
+		methodFlag, pathFlag, queryParamFlag := matchTransportFlags(transport, method, path, queryParam)
 
-		if methodIsDeclared {
-			methodMatched = transport.TriggersCompiledRules.MethodRegexp.MatchString(method)
-		} else {
-			methodEmpty = true
-			methodMatched = true
-		}
-		if pathIsDeclared {
-			pathMatched = transport.TriggersCompiledRules.PathRegexp.MatchString(path)
-		} else {
-			pathEmpty = true
-			pathMatched = true
-		}
-		if queryIsDeclared {
-			queryParamMatched = transport.TriggersCompiledRules.QueryParamRegexp.MatchString(queryParam)
-		} else {
-			queryParamEmpty = true
-			queryParamMatched = true
-		}
-
-		if methodMatched && pathMatched && queryParamMatched {
+		if methodFlag.matched && pathFlag.matched && queryParamFlag.matched {
 			return transport, transportName, true
 		}
-		if methodEmpty && pathEmpty && queryParamEmpty && len(defaultTransportName) == 0 {
+		if methodFlag.empty && pathFlag.empty && queryParamFlag.empty && len(defaultTransportName) == 0 {
 			defaultTransport = transport
 			defaultTransportName = transportName
 		}
@@ -134,4 +118,32 @@ func (t *Transports) GetMatchedTransport(method, path, queryParam string) (Trans
 	}
 
 	return Transport{}, "", false
+}
+
+// matchTransportFlags matching method, path and query for Transport
+func matchTransportFlags(transport Transport, method string, path string, queryParam string) (transportFlags, transportFlags, transportFlags) {
+	var methodFlag, pathFlag, queryParamFlag transportFlags
+
+	methodFlag.declared, pathFlag.declared, queryParamFlag.declared =
+		len(transport.Triggers.Method) > 0, len(transport.Triggers.Path) > 0, len(transport.Triggers.QueryParam) > 0
+
+	if methodFlag.declared {
+		methodFlag.matched = transport.TriggersCompiledRules.MethodRegexp.MatchString(method)
+	} else {
+		methodFlag.empty = true
+		methodFlag.matched = true
+	}
+	if pathFlag.declared {
+		pathFlag.matched = transport.TriggersCompiledRules.PathRegexp.MatchString(path)
+	} else {
+		pathFlag.empty = true
+		pathFlag.matched = true
+	}
+	if queryParamFlag.declared {
+		queryParamFlag.matched = transport.TriggersCompiledRules.QueryParamRegexp.MatchString(queryParam)
+	} else {
+		queryParamFlag.empty = true
+		queryParamFlag.matched = true
+	}
+	return methodFlag, pathFlag, queryParamFlag
 }

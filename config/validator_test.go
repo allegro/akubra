@@ -285,8 +285,7 @@ func TestValidatorShouldFailWithEmptyTransportsDefinition(t *testing.T) {
 }
 
 func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
-	validTransports := make(transportconfig.Transports)
-	validTransports = transportconfig.Transports{
+	validTransports := transportconfig.Transports{
 		"TestTransport": transportconfig.Transport{
 			Triggers: transportconfig.ClientTransportTriggers{
 				Path: ".*",
@@ -307,8 +306,7 @@ func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 }
 
 func TestValidatorShouldFailWithMissingLastTransportsItemWithoutTriggerDefinition(t *testing.T) {
-	invalidTransports := make(transportconfig.Transports)
-	invalidTransports = transportconfig.Transports{
+	invalidTransports := transportconfig.Transports{
 		"TestTransport": transportconfig.Transport{
 			Triggers: transportconfig.ClientTransportTriggers{
 				Method: "GET",
