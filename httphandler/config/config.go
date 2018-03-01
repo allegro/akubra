@@ -108,6 +108,6 @@ func RequestHeaderContentLengthValidator(req http.Request, bodyMaxSize int64) in
 
 // Service section
 type Service struct {
-	Server     Server               `yaml:"Server,omitempty"`
-	Client     Client               `yaml:"Client,omitempty"`
+	Server Server `yaml:"Server,omitempty"`
+	Client Client `yaml:"Client,omitempty"`
 }

@@ -3,8 +3,9 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/allegro/akubra/metrics"
 	"regexp"
+
+	"github.com/allegro/akubra/metrics"
 )
 
 // ClientTransportDetail properties

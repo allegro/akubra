@@ -5,15 +5,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	httphandlerConfig "github.com/allegro/akubra/httphandler/config"
-	"github.com/allegro/akubra/log"
-	"github.com/allegro/akubra/metrics"
-	"github.com/allegro/akubra/transport/config"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
+
+	httphandlerConfig "github.com/allegro/akubra/httphandler/config"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/metrics"
+	"github.com/allegro/akubra/transport/config"
 )
 
 const (

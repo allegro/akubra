@@ -18,6 +18,7 @@ import (
 func newBackend(backendConfig config.Backend, transports transport.TransportContainer) (*Backend, error) {
 	return &Backend{Endpoint: *backendConfig.Endpoint.URL, Transports: transports}, nil
 }
+
 //
 //type transportContainerRt struct {
 //	rt func(*http.Request) (*http.Response, error)
