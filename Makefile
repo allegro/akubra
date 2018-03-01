@@ -6,14 +6,13 @@ all: formatting lint test build
 
 formatting :
 	$(GO) get golang.org/x/tools/cmd/goimports
-	goimports -w .
 
 lint: deps-lint
 	gometalinter ./... \
 	--disable=gotype \
 	--disable=dupl \
 	--deadline=600s \
-	--enable=goimports \
+	--disable=goimports \
 	--vendor \
 	--fast
 
