@@ -45,7 +45,6 @@ const (
     Transports:
       DefaultTransport:
         Triggers:
-        MergingStrategy: Default
         Details:
           MaxIdleConns: 500
           MaxIdleConnsPerHost: 500
@@ -411,9 +410,8 @@ func PrepareYamlConfig(
 	if transports == nil {
 		transports = transportConfig.Transports{
 			"TestTransport": transportConfig.Transport{
-				Triggers:        clientTransportTriggers,
-				MergingStrategy: "test",
-				Details:         clientTransportDetail,
+				Triggers: clientTransportTriggers,
+				Details:  clientTransportDetail,
 			},
 		}
 	}

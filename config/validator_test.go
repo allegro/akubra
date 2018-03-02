@@ -14,20 +14,6 @@ import (
 	validator "gopkg.in/validator.v1"
 )
 
-// import (
-// 	"testing"
-
-// 	"net/http"
-// 	"net/http/httptest"
-
-// 	shardingconfig "github.com/allegro/akubra/sharding/config"
-// 	validator "gopkg.in/validator.v1"
-
-// 	"errors"
-
-// 	"github.com/stretchr/testify/assert"
-// )
-
 type CustomItemsTestUnique struct {
 	Items []string `validate:"UniqueValuesSlice=Items"`
 }
@@ -290,11 +276,9 @@ func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 			Triggers: transportconfig.ClientTransportTriggers{
 				Path: ".*",
 			},
-			MergingStrategy: "test",
 		},
 		"DefaultTransport": transportconfig.Transport{
 			Triggers:        transportconfig.ClientTransportTriggers{},
-			MergingStrategy: "Default",
 		},
 	}
 	var size httphandlerconfig.HumanSizeUnits
@@ -311,7 +295,6 @@ func TestValidatorShouldFailWithMissingLastTransportsItemWithoutTriggerDefinitio
 			Triggers: transportconfig.ClientTransportTriggers{
 				Method: "GET",
 			},
-			MergingStrategy: "test",
 		},
 	}
 	var size httphandlerconfig.HumanSizeUnits

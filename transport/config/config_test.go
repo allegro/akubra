@@ -15,7 +15,6 @@ Transports:
     Triggers:
       Method: GET|POST
       Path: .*
-    MergingStrategy: Default
     Details:
       MaxIdleConns: 200
       MaxIdleConnsPerHost: 1000
@@ -25,7 +24,6 @@ Transports:
     Triggers:
       Method: GET|POST|PUT
       QueryParam: acl
-    MergingStrategy: ListV1
     Details:
       MaxIdleConns: 200
       MaxIdleConnsPerHost: 500
@@ -33,7 +31,6 @@ Transports:
       ResponseHeaderTimeout: 5s
   DefaultTransport:
     Triggers:
-    MergingStrategy: Default
     Details:
       MaxIdleConns: 500
       MaxIdleConnsPerHost: 500
@@ -58,7 +55,6 @@ var testConfig TransportConfigTest
 // NewTransportConfigTest tests func for updating fields values in tests cases
 func (t *Transport) NewTransportConfigTest() *Transport {
 	t.Triggers = prepareTransportConfig("^GET|POST$", "/path/aa", "")
-	t.MergingStrategy = ""
 	return t
 }
 

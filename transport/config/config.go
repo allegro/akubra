@@ -45,7 +45,6 @@ type TriggersCompiledRules struct {
 type Transport struct {
 	Triggers              ClientTransportTriggers `yaml:"Triggers"`
 	TriggersCompiledRules TriggersCompiledRules
-	MergingStrategy       string                `yaml:"MergingStrategy"`
 	Details               ClientTransportDetail `yaml:"Details"`
 }
 

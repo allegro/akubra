@@ -123,13 +123,12 @@ Service:
       - PUT
       - DELETE
     # behaviours in application with HTTP protocol condition for better transmission
-    # DefaultTransport it's only one required item in Transports section
+    # DefaultTransport it's only one required item in Transports section (logical validator is implemented)
     Transports:
       Transport1:
         Triggers:
           Method: GET|POST
           Path: .*
-        MergingStrategy: Default
         Details:
           MaxIdleConns: 200
           MaxIdleConnsPerHost: 1000
@@ -139,7 +138,6 @@ Service:
         Triggers:
           Method: GET|POST|PUT
           QueryParam: clientId=\s+
-        MergingStrategy: ListV1
         Details:
           MaxIdleConns: 200
           MaxIdleConnsPerHost: 500
@@ -147,7 +145,6 @@ Service:
           ResponseHeaderTimeout: 5s
       DefaultTransport:
         Triggers:
-        MergingStrategy: Default
         Details:
           MaxIdleConns: 500
           MaxIdleConnsPerHost: 500
