@@ -123,9 +123,10 @@ Service:
       - PUT
       - DELETE
     # behaviours in application with HTTP protocol condition for better transmission
-    # DefaultTransport it's only one required item in Transports section (logical validator is implemented)
+    # DefaultTransport (with empty Triggers) it's only one required item in Transports section (logical validator is implemented)
     Transports:
-      Transport1:
+      -
+        Name: Transport1
         Triggers:
           Method: GET|POST
           Path: .*
@@ -134,16 +135,18 @@ Service:
           MaxIdleConnsPerHost: 1000
           IdleConnTimeout: 2s
           ResponseHeaderTimeout: 5s
-      Transport2:
+      -
+        Name: Transport2
         Triggers:
           Method: GET|POST|PUT
-          QueryParam: clientId=\s+
+          QueryParam: acl
         Details:
           MaxIdleConns: 200
           MaxIdleConnsPerHost: 500
           IdleConnTimeout: 5s
           ResponseHeaderTimeout: 5s
-      DefaultTransport:
+      -
+        Name: DefaultTransport
         Triggers:
         Details:
           MaxIdleConns: 500

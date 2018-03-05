@@ -43,7 +43,7 @@ const (
     AdditionalResponseHeaders:
       Access-Control-Allow-Methods: GET, POST, OPTIONS
     Transports:
-      DefaultTransport:
+      - Name: DefaultTransport
         Triggers:
         Details:
           MaxIdleConns: 500
@@ -409,7 +409,8 @@ func PrepareYamlConfig(
 
 	if transports == nil {
 		transports = transportConfig.Transports{
-			"TestTransport": transportConfig.Transport{
+			transportConfig.Transport{
+				Name:     "TestTransport",
 				Triggers: clientTransportTriggers,
 				Details:  clientTransportDetail,
 			},

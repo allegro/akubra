@@ -341,8 +341,8 @@ func ConfigureHTTPTransportsContainer(clientConf httphandlerConfig.Client) (tran
 	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
 	responseHeaderTimeout := defaultResponseHeaderTimeout
 	if len(clientConf.Transports) > 0 {
-		for transportName, transport := range clientConf.Transports {
-			roundTrippers[transportName] = perepareTransport(transport.Details, maxIdleConnsPerHost, responseHeaderTimeout)
+		for _, transport := range clientConf.Transports {
+			roundTrippers[transport.Name] = perepareTransport(transport.Details, maxIdleConnsPerHost, responseHeaderTimeout)
 		}
 		transportContainer.RoundTrippers = roundTrippers
 	} else {

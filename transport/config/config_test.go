@@ -11,7 +11,8 @@ import (
 const testDataWithDefaultEmptyTriggers = `
 ---
 Transports:
-  Transport1:
+  -
+    Name: Transport1
     Triggers:
       Method: GET|POST
       Path: .*
@@ -20,7 +21,8 @@ Transports:
       MaxIdleConnsPerHost: 1000
       IdleConnTimeout: 2s
       ResponseHeaderTimeout: 5s
-  Transport2:
+  -
+    Name: Transport2
     Triggers:
       Method: GET|POST|PUT
       QueryParam: acl
@@ -29,7 +31,8 @@ Transports:
       MaxIdleConnsPerHost: 500
       IdleConnTimeout: 5s
       ResponseHeaderTimeout: 5s
-  DefaultTransport:
+  -
+    Name: DefaultTransport
     Triggers:
     Details:
       MaxIdleConns: 500
@@ -79,6 +82,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 	transportsWithTriggers := []map[string]Transport{
 		{
 			"Transport1": Transport{
+				Name: "Transport1",
 				Triggers: ClientTransportTriggers{
 					Method: "POST",
 					Path:   "/aaa/bbb",
@@ -87,6 +91,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 		},
 		{
 			"Transport2": Transport{
+				Name: "Transport2",
 				Triggers: ClientTransportTriggers{
 					Method:     "PUT",
 					QueryParam: "acl",
@@ -95,6 +100,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 		},
 		{
 			"DefaultTransport": Transport{
+				Name: "DefaultTransport",
 				Triggers: ClientTransportTriggers{
 					Method:     "PUT",
 					QueryParam: "clientId=123",
@@ -103,6 +109,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 		},
 		{
 			"DefaultTransport": Transport{
+				Name: "DefaultTransport",
 				Triggers: ClientTransportTriggers{
 					Method:     "",
 					Path:       "",
@@ -122,8 +129,8 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 }
 
 func extractProperties(transportTriggerKV map[string]Transport) (transportName string, method string, path string, queryParam string) {
-	for transportNameKey, emulatedTransportProps := range transportTriggerKV {
-		transportName = transportNameKey
+	for _, emulatedTransportProps := range transportTriggerKV {
+		transportName = emulatedTransportProps.Name
 		method = emulatedTransportProps.Triggers.Method
 		path = emulatedTransportProps.Triggers.Path
 		queryParam = emulatedTransportProps.Triggers.QueryParam

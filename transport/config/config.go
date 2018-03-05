@@ -43,13 +43,14 @@ type TriggersCompiledRules struct {
 
 // Transport properties
 type Transport struct {
+	Name                  string `yaml:"Name"`
 	Triggers              ClientTransportTriggers `yaml:"Triggers"`
 	TriggersCompiledRules TriggersCompiledRules
 	Details               ClientTransportDetail `yaml:"Details"`
 }
 
 // Transports map with Transport
-type Transports map[string]Transport
+type Transports []Transport
 
 // compileRule
 func (t *Transport) compileRule(regexpRule string) (compiledRule *regexp.Regexp, err error) {
@@ -97,16 +98,16 @@ func (t *Transport) compileRules() error {
 
 // GetMatchedTransport return first details matching with rules from Triggers by arguments: method, path, queryParam
 func (t *Transports) GetMatchedTransport(method, path, queryParam string) (defaultTransport Transport, defaultTransportName string, ok bool) {
-	for transportName, transport := range *t {
+	for _, transport := range *t {
 		transport.compileRules()
 		methodFlag, pathFlag, queryParamFlag := matchTransportFlags(transport, method, path, queryParam)
 
 		if methodFlag.matched && pathFlag.matched && queryParamFlag.matched {
-			return transport, transportName, true
+			return transport, transport.Name, true
 		}
 		if methodFlag.empty && pathFlag.empty && queryParamFlag.empty && len(defaultTransportName) == 0 {
 			defaultTransport = transport
-			defaultTransportName = transportName
+			defaultTransportName = transport.Name
 			ok = true
 		}
 	}

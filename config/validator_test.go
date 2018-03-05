@@ -257,7 +257,7 @@ func TestValidatorShouldFailWithMissingClusterDefinition(t *testing.T) {
 }
 
 func TestValidatorShouldFailWithEmptyTransportsDefinition(t *testing.T) {
-	transports := make(transportconfig.Transports)
+	transports := make(transportconfig.Transports, 0)
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
@@ -272,13 +272,15 @@ func TestValidatorShouldFailWithEmptyTransportsDefinition(t *testing.T) {
 
 func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 	validTransports := transportconfig.Transports{
-		"TestTransport": transportconfig.Transport{
+		transportconfig.Transport{
+			Name: "TestTransport",
 			Triggers: transportconfig.ClientTransportTriggers{
 				Path: ".*",
 			},
 		},
-		"DefaultTransport": transportconfig.Transport{
-			Triggers:        transportconfig.ClientTransportTriggers{},
+		transportconfig.Transport{
+			Name:     "DefaultTransport",
+			Triggers: transportconfig.ClientTransportTriggers{},
 		},
 	}
 	var size httphandlerconfig.HumanSizeUnits
@@ -291,7 +293,8 @@ func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 
 func TestValidatorShouldFailWithMissingLastTransportsItemWithoutTriggerDefinition(t *testing.T) {
 	invalidTransports := transportconfig.Transports{
-		"TestTransport": transportconfig.Transport{
+		transportconfig.Transport{
+			Name: "TestTransport",
 			Triggers: transportconfig.ClientTransportTriggers{
 				Method: "GET",
 			},
