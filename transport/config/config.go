@@ -43,7 +43,7 @@ type TriggersCompiledRules struct {
 
 // Transport properties
 type Transport struct {
-	Name                  string `yaml:"Name"`
+	Name                  string                  `yaml:"Name"`
 	Triggers              ClientTransportTriggers `yaml:"Triggers"`
 	TriggersCompiledRules TriggersCompiledRules
 	Details               ClientTransportDetail `yaml:"Details"`
