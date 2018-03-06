@@ -2,14 +2,17 @@ VERSION := `cat VERSION`
 LDFLAGS := -X main.version=$(VERSION)
 GO := "$(GOROOT)/bin/go"
 
-all: lint test build
+all: formatting lint test build
+
+formatting :
+	$(GO) get golang.org/x/tools/cmd/goimports
 
 lint: deps-lint
 	gometalinter ./... \
 	--disable=gotype \
 	--disable=dupl \
 	--deadline=600s \
-	--enable=goimports \
+	--disable=goimports \
 	--vendor \
 	--fast
 

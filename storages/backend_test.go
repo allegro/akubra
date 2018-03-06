@@ -80,7 +80,7 @@ func TestBackendShouldWrapErrorWithBackendError(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, resp)
 
-	berr, ok := err.(httphandler.BackendError)
+	berr, ok := err.(utils.BackendError)
 	require.True(t, ok)
 	require.Equal(t, host, berr.Backend())
 }
