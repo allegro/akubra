@@ -325,7 +325,7 @@ func (tc *Container) SetTransportsConfig(clientConfig httphandlerConfig.Client) 
 	tc.TransportsConfig = clientConfig.Transports
 }
 
-// SelectTransport return transport name by method, path and queryParams
+// SelectTransport returns transport name by method, path and queryParams
 func (tc *Container) SelectTransport(method, path, queryParams string) (transportName string) {
 	_, transportName, ok := tc.TransportsConfig.GetMatchedTransport(method, path, queryParams)
 	if !ok {
@@ -334,7 +334,7 @@ func (tc *Container) SelectTransport(method, path, queryParams string) (transpor
 	return
 }
 
-// ConfigureHTTPTransportsContainer returns map Transports names from config. with http.Transport with customized dialer
+// ConfigureHTTPTransportsContainer returns RoundTrippers mapped by transport name from configuration
 func ConfigureHTTPTransportsContainer(clientConf httphandlerConfig.Client) (transportContainer Container, err error) {
 	roundTrippers := make(map[string]http.RoundTripper)
 	transportContainer.SetTransportsConfig(clientConf)

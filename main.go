@@ -114,8 +114,7 @@ func (s *service) start() error {
 	earlyRespHandler := httphandler.EarliestResponseHandler(syncLog, set.NewSetFromSlice(methods))
 
 	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
-	log.Printf("s.config.Backends: %q", s.config.Backends)
-	log.Printf("s.config.Clusters: %q", s.config.Clusters)
+
 	storage, err := storages.InitStorages(
 		transportContainer,
 		s.config.Clusters,
