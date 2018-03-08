@@ -1,33 +1,24 @@
 package storages
 
 import (
-	//"fmt"
-	//"net/http"
-	//"net/url"
-	//"testing"
-	//
-	//"github.com/allegro/akubra/httphandler"
-	//
-	//"github.com/stretchr/testify/require"
+	"fmt"
+	"net/http"
+	"net/url"
+	"testing"
 
 	"github.com/allegro/akubra/storages/config"
-	//"github.com/allegro/akubra/types"
 	"github.com/allegro/akubra/transport"
+	transportConfig "github.com/allegro/akubra/transport/config"
+	"github.com/allegro/akubra/utils"
+	"github.com/stretchr/testify/require"
+
+	"github.com/allegro/akubra/types"
 )
 
 func newBackend(backendConfig config.Backend, transports transport.Container) (*Backend, error) {
 	return &Backend{Endpoint: *backendConfig.Endpoint.URL, Transports: transports}, nil
 }
 
-//
-//type transportContainerRt struct {
-//	rt func(*http.Request) (*http.Response, error)
-//}
-//
-//func (trt *transportContainerRt) RoundTrip(req *http.Request) (*http.Response, error) {
-//	return trt.rt(req)
-//}
-/*
 type testRt struct {
 	rt func(*http.Request) (*http.Response, error)
 }
@@ -35,7 +26,6 @@ type testRt struct {
 func (trt *testRt) RoundTrip(req *http.Request) (*http.Response, error) {
 	return trt.rt(req)
 }
-
 
 func TestBackendShouldChangeRequestHost(t *testing.T) {
 	host := "someremote.backend:8080"
@@ -48,7 +38,7 @@ func TestBackendShouldChangeRequestHost(t *testing.T) {
 	}
 
 	backendConfig := config.Backend{Endpoint: hostURL, Type: "passthrough"}
-	b, err := newBackend(backendConfig, &testRt{rt: roundtripper})
+	b, err := newBackend(backendConfig, prepareTestTransportContainer(roundtripper))
 	require.NoError(t, err)
 
 	r, err := http.NewRequest("GET", "http://localhost:8080", nil)
@@ -70,7 +60,7 @@ func TestBackendShouldWrapErrorWithBackendError(t *testing.T) {
 	}
 
 	backendConfig := config.Backend{Endpoint: hostURL, Type: "passthrough"}
-	b, err := newBackend(backendConfig, &testRt{rt: roundtripper})
+	b, err := newBackend(backendConfig, prepareTestTransportContainer(roundtripper))
 	require.NoError(t, err)
 
 	r, err := http.NewRequest("GET", "http://localhost:8080", nil)
@@ -84,4 +74,20 @@ func TestBackendShouldWrapErrorWithBackendError(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, host, berr.Backend())
 }
-*/
+
+func prepareTestTransportContainer(roundtripper func(*http.Request) (*http.Response, error)) transport.Container {
+	return transport.Container{
+		RoundTrippers: map[string]http.RoundTripper{
+			"DefaultTransport": &testRt{rt: roundtripper},
+		},
+		TransportsConfig: transportConfig.Transports{transportConfig.Transport{
+			Name: "DefaultTransport",
+			Triggers: transportConfig.ClientTransportTriggers{
+				Method:     "",
+				Path:       "",
+				QueryParam: "",
+			},
+		},
+		},
+	}
+}
