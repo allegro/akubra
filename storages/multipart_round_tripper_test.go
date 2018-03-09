@@ -14,6 +14,8 @@ import (
 
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/transport"
+	"github.com/allegro/akubra/transport/config"
 	"github.com/serialx/hashring"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -148,7 +150,11 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 	activeBackendURL, _ := url.Parse("http://active:1234")
 	activeBackendURL2, _ := url.Parse("http://active2:1234")
 
+	transportContainer1 := preapreTestContainerByRoundTripper(activeBackendRoundTripper1)
+	transportContainer2 := preapreTestContainerByRoundTripper(activeBackendRoundTripper2)
+
 	activateBackend1 := &Backend{
+		Transports:   transportContainer1,
 		RoundTripper: activeBackendRoundTripper1,
 		Endpoint:     *activeBackendURL,
 		Maintenance:  false,
@@ -156,6 +162,7 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 	}
 
 	activateBackend2 := &Backend{
+		Transports:   transportContainer2,
 		RoundTripper: activeBackendRoundTripper2,
 		Endpoint:     *activeBackendURL2,
 		Maintenance:  false,
@@ -225,7 +232,10 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 	fallbackRoundTripper := &MockedRoundTripper{}
 	activeBackendRoundTripper1 := &MockedRoundTripper{}
 
+	transportContainer1 := preapreTestContainerByRoundTripper(activeBackendRoundTripper1)
+
 	activateBackend1 := &Backend{
+		Transports:   transportContainer1,
 		RoundTripper: activeBackendRoundTripper1,
 		Endpoint:     *activeBackendURL1,
 		Maintenance:  false,
@@ -295,7 +305,10 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 	activeBackendRoundTripper2 := &MockedRoundTripper{}
 
 	activeBackendURL, _ := url.Parse("http://active:1234")
+	transportContainer1 := preapreTestContainerByRoundTripper(activeBackendRoundTripper1)
+
 	activateBackend1 := &Backend{
+		Transports:   transportContainer1,
 		RoundTripper: activeBackendRoundTripper1,
 		Endpoint:     *activeBackendURL,
 		Maintenance:  false,
@@ -303,7 +316,10 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 	}
 
 	activeBackendURL2, _ := url.Parse("http://active2:1234")
+	transportContainer2 := preapreTestContainerByRoundTripper(activeBackendRoundTripper2)
+
 	activateBackend2 := &Backend{
+		Transports:   transportContainer2,
 		RoundTripper: activeBackendRoundTripper2,
 		Endpoint:     *activeBackendURL2,
 		Maintenance:  false,
@@ -334,4 +350,21 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 	fallbackRoundTripper.AssertNumberOfCalls(testSuite, "RoundTrip", 0)
 	activeBackendRoundTripper1.AssertNumberOfCalls(testSuite, "RoundTrip", 1)
 	syncLog.AssertNumberOfCalls(testSuite, "Println", 0)
+}
+
+func preapreTestContainerByRoundTripper(roundTripper http.RoundTripper) transport.Container {
+	return transport.Container{
+		RoundTrippers: map[string]http.RoundTripper{
+			"DefaultTransport": roundTripper,
+		},
+		TransportsConfig: config.Transports{config.Transport{
+			Name: "DefaultTransport",
+			Triggers: config.ClientTransportTriggers{
+				Method:     "",
+				Path:       "",
+				QueryParam: "",
+			},
+		},
+		},
+	}
 }

@@ -61,10 +61,11 @@ type Storages struct {
 
 // Backend represents any storage in akubra cluster
 type Backend struct {
-	Transports  transport.Container
-	Endpoint    url.URL
-	Name        string
-	Maintenance bool
+	Transports   transport.Container
+	RoundTripper http.RoundTripper
+	Endpoint     url.URL
+	Name         string
+	Maintenance  bool
 }
 
 // RoundTrip satisfies http.RoundTripper interface
@@ -210,6 +211,7 @@ func InitStorages(transportContainer transport.Container, clustersConf config.Cl
 func decorateBackend(transports transport.Container, name string, backendConf config.Backend) (http.RoundTripper, error) {
 	backend := &Backend{
 		transports,
+		transports.DefaultRoundTripper,
 		*backendConf.Endpoint.URL,
 		name,
 		backendConf.Maintenance,

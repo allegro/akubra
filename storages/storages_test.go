@@ -86,9 +86,9 @@ func TestShouldNotInitStoragesWithWrongBackendType(t *testing.T) {
 	}}
 	var respHandler transport.MultipleResponsesHandler
 
-  _, err := InitStorages(transportContainer, clustersConf, backendsConf, respHandler, respHandler, nil)
+	_, err := InitStorages(transportContainer, clustersConf, backendsConf, respHandler, respHandler, nil)
 
-  require.Error(t, err)
+	require.Error(t, err)
 	require.Contains(t, err.Error(),
 		"initialization of backend 'backend1' resulted with error: no decorator defined for type 'unknown'")
 }

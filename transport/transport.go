@@ -62,10 +62,11 @@ func (r *ResErrTuple) DiscardBody() {
 // returned value's response and error will be passed to client
 type MultipleResponsesHandler func(in <-chan ResErrTuple) ResErrTuple
 
-// Container mapping initilized Transports with http.RoundTripper by transport name
+// Container mapping initialized Transports with http.RoundTripper by transport name
 type Container struct {
-	RoundTrippers    map[string]http.RoundTripper
-	TransportsConfig config.Transports
+	DefaultRoundTripper http.RoundTripper
+	RoundTrippers       map[string]http.RoundTripper
+	TransportsConfig    config.Transports
 }
 
 func defaultHandleResponses(in <-chan ResErrTuple, out chan<- ResErrTuple) {
@@ -342,10 +343,13 @@ func ConfigureHTTPTransportsContainer(clientConf httphandlerConfig.Client) (tran
 	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
 	responseHeaderTimeout := defaultResponseHeaderTimeout
 	if len(clientConf.Transports) > 0 {
+		var defaultRoundTripper http.RoundTripper
 		for _, transport := range clientConf.Transports {
 			roundTrippers[transport.Name] = perepareTransport(transport.Details, maxIdleConnsPerHost, responseHeaderTimeout)
+			defaultRoundTripper = roundTrippers[transport.Name]
 		}
 		transportContainer.RoundTrippers = roundTrippers
+		transportContainer.DefaultRoundTripper = defaultRoundTripper
 	} else {
 		return transportContainer, errors.New("Service->Server->Client->Transports config is empty")
 	}
