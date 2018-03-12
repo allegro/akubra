@@ -70,9 +70,6 @@ type transportFlags struct {
 // compileRules prepares precompiled regular expressions for rules
 func (t *Transport) compileRules() error {
 	if !t.TriggersCompiledRules.IsCompiled {
-		//TODO: var triggersCompiledRules TriggersCompiledRules
-
-
 		if len(t.Triggers.Method) > 0 {
 			var err error
 			t.TriggersCompiledRules.MethodRegexp, err = t.compileRule(t.Triggers.Method)
@@ -104,7 +101,6 @@ func (t *Transports) GetMatchedTransport(method, path, queryParam string) (match
 	for _, transport := range *t {
 		err := transport.compileRules()
 		if err != nil {
-			fmt.Errorf("could't get matched transport - problem with compiling rules")
 			return matchedTransport, matchedTransportName, false
 		}
 		methodFlag, pathFlag, queryParamFlag := matchTransportFlags(transport, method, path, queryParam)
