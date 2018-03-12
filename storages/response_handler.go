@@ -120,25 +120,27 @@ func extractResults(resp *http.Response) ListBucketResult {
 	buf := &bytes.Buffer{}
 
 	if _, rerr := buf.ReadFrom(resp.Body); rerr != nil {
-		log.Debug("Problem reading ObjectStore response body, %s", rerr)
+		log.Debugf("Problem reading ObjectStore response body, %s", rerr)
 		return lbr
 	}
 
 	if cerr := resp.Body.Close(); cerr != nil {
-		log.Debug("Problem closing ObjectStore response body, %s", cerr)
+		log.Debugf("Problem closing ObjectStore response body, %s", cerr)
 		return lbr
 	}
 
 	bodyBytes := buf.Bytes()
 	err := xml.Unmarshal(bodyBytes, &lbr)
 	if err != nil {
-		log.Debug("ListBucketResult unmarshalling problem %s", err)
+		log.Debugf("ListBucketResult unmarshalling problem %s", err)
 	}
+
 	return lbr
 }
 
 func (rm *responseMerger) createResponse(successes []transport.ResErrTuple) (resp *http.Response, err error) {
 	if len(successes) == 0 {
+		log.Printf("No successful response")
 		err = fmt.Errorf("No successful responses")
 		return
 	}
@@ -194,6 +196,7 @@ func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-cha
 			tuple.DiscardBody()
 		}
 	}
+
 	if len(successes) > 0 {
 		if !isSuccess(firstTuple) {
 			firstTuple.DiscardBody()
@@ -207,33 +210,70 @@ func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-cha
 	return firstTuple
 }
 
-func (rm *responseMerger) responseHandler(in <-chan transport.ResErrTuple) transport.ResErrTuple {
-	firstTuple := <-in
-	path := firstTuple.Req.URL.Path
-	method := firstTuple.Req.Method
-	reqQuery := firstTuple.Req.URL.Query()
+var unsupportedQueryParamNames = []string{
+	"acl",
+	"uploads",
+	"list-type",
+	"versions",
+	"tags",
+	"requestPayment",
+	"replication",
+	"policy",
+	"notification",
+	"metrics",
+	"logging",
+	"location",
+	"lifecycle",
+	"inventory",
+	"encryption",
+	"cors",
+	"analytics",
+	"accelerate",
+	"website",
+}
 
-	if (reqQuery != nil && reqQuery["acl"] != nil) || method != http.MethodGet || !isBucketPath(path) {
-
-		if reqQuery.Get("list-type") == listTypeV2 {
-			return transport.ResErrTuple{
-				Req: firstTuple.Req,
-				Res: &http.Response{
-					Request:    firstTuple.Req,
-					StatusCode: http.StatusNotImplemented,
-				},
+func (rm *responseMerger) isMergable(req *http.Request) bool {
+	path := req.URL.Path
+	method := req.Method
+	reqQuery := req.URL.Query()
+	unsupprotedQuery := false
+	if reqQuery != nil {
+		for _, key := range unsupportedQueryParamNames {
+			if reqQuery[key] != nil {
+				unsupprotedQuery = true
+				break
 			}
 		}
-		inCopy := make(chan transport.ResErrTuple)
-		go func() {
-			inCopy <- firstTuple
-
-			for tuple := range in {
-				inCopy <- tuple
-			}
-			close(inCopy)
-		}()
-		return rm.merger(inCopy)
 	}
-	return rm.merge(firstTuple, in)
+	return !unsupprotedQuery && (method == http.MethodGet) && isBucketPath(path)
+}
+
+func (rm *responseMerger) responseHandler(in <-chan transport.ResErrTuple) transport.ResErrTuple {
+	firstTuple := <-in
+	req := firstTuple.Req
+	reqQuery := req.URL.Query()
+	if rm.isMergable(req) {
+		return rm.merge(firstTuple, in)
+	}
+
+	if reqQuery.Get("list-type") == listTypeV2 {
+		return transport.ResErrTuple{
+			Req: req,
+			Res: &http.Response{
+				Request:    req,
+				StatusCode: http.StatusNotImplemented,
+			},
+		}
+	}
+
+	inCopy := make(chan transport.ResErrTuple)
+	go func() {
+		inCopy <- firstTuple
+
+		for tuple := range in {
+			inCopy <- tuple
+		}
+		close(inCopy)
+	}()
+	return rm.merger(inCopy)
 }
