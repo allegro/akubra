@@ -99,17 +99,13 @@ func (c *YamlConfig) TransportsEntryLogicalValidator() (valid bool, validationEr
 	if len(c.Service.Client.Transports) == 0 {
 		errList = append(errList, errors.New("Empty transports definition"))
 	} else {
-		lastTransportHasEmptyTriggers := false
+		iter := 1
 		for _, transportConf := range c.Service.Client.Transports {
-			methodIsDeclared, pathIsDeclared, queryIsDeclared :=
-				len(transportConf.Triggers.Method) > 0, len(transportConf.Triggers.Path) > 0, len(transportConf.Triggers.QueryParam) > 0
-
-			if !methodIsDeclared && !pathIsDeclared && !queryIsDeclared {
-				lastTransportHasEmptyTriggers = true
+			if (len(transportConf.Triggers.Method) > 0 || len(transportConf.Triggers.Path) > 0 || len(transportConf.Triggers.QueryParam) > 0) && iter == len(c.Service.Client.Transports) {
+				errList = append(errList, errors.New("No transport defined with empty \"Triggers\" in last item (dafault transport)"))
+				break
 			}
-		}
-		if !lastTransportHasEmptyTriggers {
-			errList = append(errList, errors.New("No transport defined with empty \"Triggers\" in last item (dafault transport)"))
+			iter++
 		}
 	}
 	validationErrors, valid = prepareErrors(errList, "TransportsEntryLogicalValidator")
@@ -149,9 +145,7 @@ func mergeErrors(maps ...map[string][]error) (output map[string][]error) {
 
 // prepareErrors
 func prepareErrors(errList []error, validatorName string) (validationErrors map[string][]error, valid bool) {
-	valid = true
-	if len(errList) > 0 {
-		valid = false
+	if valid = len(errList) < 1; !valid {
 		errorsList := make(map[string][]error)
 		errorsList[validatorName] = errList
 		validationErrors = mergeErrors(validationErrors, errorsList)

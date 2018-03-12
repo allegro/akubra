@@ -311,3 +311,35 @@ func TestValidatorShouldFailWithMissingLastTransportsItemWithoutTriggerDefinitio
 		errors.New("No transport defined with empty \"Triggers\" in last item (dafault transport)"),
 		validationErrors["TransportsEntryLogicalValidator"][0])
 }
+
+func TestValidatorShouldFailWithMissingLastTransportsItem(t *testing.T) {
+	invalidTransports := transportconfig.Transports{
+		transportconfig.Transport{
+			Name: "TestTransport1",
+			Triggers: transportconfig.ClientTransportTriggers{
+				Method: "GET",
+			},
+		},
+		transportconfig.Transport{
+			Name:     "DefaultTransport",
+			Triggers: transportconfig.ClientTransportTriggers{},
+		},
+		transportconfig.Transport{
+			Name: "TestTransport3",
+			Triggers: transportconfig.ClientTransportTriggers{
+				Method: "GET",
+				Path: "/bucket/.*",
+			},
+		},
+	}
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	yamlConfig := PrepareYamlConfig(size, 51, 55, "127.0.0.1:82",
+		"127.0.0.1:1235", "127.0.0.1:1236", nil, invalidTransports)
+	valid, validationErrors := yamlConfig.TransportsEntryLogicalValidator()
+	assert.False(t, valid)
+	assert.Equal(
+		t,
+		errors.New("No transport defined with empty \"Triggers\" in last item (dafault transport)"),
+		validationErrors["TransportsEntryLogicalValidator"][0])
+}

@@ -70,6 +70,9 @@ type transportFlags struct {
 // compileRules prepares precompiled regular expressions for rules
 func (t *Transport) compileRules() error {
 	if !t.TriggersCompiledRules.IsCompiled {
+		//TODO: var triggersCompiledRules TriggersCompiledRules
+
+
 		if len(t.Triggers.Method) > 0 {
 			var err error
 			t.TriggersCompiledRules.MethodRegexp, err = t.compileRule(t.Triggers.Method)
@@ -97,18 +100,21 @@ func (t *Transport) compileRules() error {
 }
 
 // GetMatchedTransport returns first details matching with rules from Triggers by arguments: method, path, queryParam
-func (t *Transports) GetMatchedTransport(method, path, queryParam string) (defaultTransport Transport, defaultTransportName string, ok bool) {
+func (t *Transports) GetMatchedTransport(method, path, queryParam string) (matchedTransport Transport, matchedTransportName string, ok bool) {
 	for _, transport := range *t {
-		transport.compileRules()
+		err := transport.compileRules()
+		if err != nil {
+			fmt.Errorf("could't get matched transport - problem with compiling rules")
+			return matchedTransport, matchedTransportName, false
+		}
 		methodFlag, pathFlag, queryParamFlag := matchTransportFlags(transport, method, path, queryParam)
 
 		if methodFlag.matched && pathFlag.matched && queryParamFlag.matched {
 			return transport, transport.Name, true
 		}
-		if methodFlag.empty && pathFlag.empty && queryParamFlag.empty && len(defaultTransportName) == 0 {
-			defaultTransport = transport
-			defaultTransportName = transport.Name
-			ok = true
+		if methodFlag.empty && pathFlag.empty && queryParamFlag.empty && len(matchedTransportName) == 0 {
+			matchedTransport = transport
+			matchedTransportName = transport.Name
 		}
 	}
 	return

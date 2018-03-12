@@ -150,8 +150,8 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 	activeBackendURL, _ := url.Parse("http://active:1234")
 	activeBackendURL2, _ := url.Parse("http://active2:1234")
 
-	transportContainer1 := preapreTestContainerByRoundTripper(activeBackendRoundTripper1)
-	transportContainer2 := preapreTestContainerByRoundTripper(activeBackendRoundTripper2)
+	transportContainer1 := prepareTestContainerByRoundTripper(activeBackendRoundTripper1)
+	transportContainer2 := prepareTestContainerByRoundTripper(activeBackendRoundTripper2)
 
 	activateBackend1 := &Backend{
 		Transports:   transportContainer1,
@@ -232,7 +232,7 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 	fallbackRoundTripper := &MockedRoundTripper{}
 	activeBackendRoundTripper1 := &MockedRoundTripper{}
 
-	transportContainer1 := preapreTestContainerByRoundTripper(activeBackendRoundTripper1)
+	transportContainer1 := prepareTestContainerByRoundTripper(activeBackendRoundTripper1)
 
 	activateBackend1 := &Backend{
 		Transports:   transportContainer1,
@@ -305,7 +305,7 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 	activeBackendRoundTripper2 := &MockedRoundTripper{}
 
 	activeBackendURL, _ := url.Parse("http://active:1234")
-	transportContainer1 := preapreTestContainerByRoundTripper(activeBackendRoundTripper1)
+	transportContainer1 := prepareTestContainerByRoundTripper(activeBackendRoundTripper1)
 
 	activateBackend1 := &Backend{
 		Transports:   transportContainer1,
@@ -316,7 +316,7 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 	}
 
 	activeBackendURL2, _ := url.Parse("http://active2:1234")
-	transportContainer2 := preapreTestContainerByRoundTripper(activeBackendRoundTripper2)
+	transportContainer2 := prepareTestContainerByRoundTripper(activeBackendRoundTripper2)
 
 	activateBackend2 := &Backend{
 		Transports:   transportContainer2,
@@ -352,7 +352,7 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 	syncLog.AssertNumberOfCalls(testSuite, "Println", 0)
 }
 
-func preapreTestContainerByRoundTripper(roundTripper http.RoundTripper) transport.Container {
+func prepareTestContainerByRoundTripper(roundTripper http.RoundTripper) transport.Container {
 	return transport.Container{
 		RoundTrippers: map[string]http.RoundTripper{
 			"DefaultTransport": roundTripper,

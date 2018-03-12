@@ -117,6 +117,15 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 				},
 			},
 		},
+		{
+			"DefaultTransport": Transport{
+				Name: "DefaultTransport",
+				Triggers: ClientTransportTriggers{
+					Method:     "",
+					Path:       "",
+				},
+			},
+		},
 	}
 	transports := prepareTransportsTestData(testDataWithDefaultEmptyTriggers)
 
