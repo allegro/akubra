@@ -343,13 +343,15 @@ func ConfigureHTTPTransportsContainer(clientConf httphandlerConfig.Client) (tran
 	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
 	responseHeaderTimeout := defaultResponseHeaderTimeout
 	if len(clientConf.Transports) > 0 {
-		var defaultRoundTripper http.RoundTripper
+		iter := 1
 		for _, transport := range clientConf.Transports {
 			roundTrippers[transport.Name] = perepareTransport(transport.Details, maxIdleConnsPerHost, responseHeaderTimeout)
-			defaultRoundTripper = roundTrippers[transport.Name]
+			if iter == len(clientConf.Transports) {
+				transportContainer.DefaultRoundTripper = roundTrippers[transport.Name]
+			}
+			iter++
 		}
 		transportContainer.RoundTrippers = roundTrippers
-		transportContainer.DefaultRoundTripper = defaultRoundTripper
 	} else {
 		return transportContainer, errors.New("Service->Server->Client->Transports config is empty")
 	}
