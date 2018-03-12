@@ -99,13 +99,11 @@ func (c *YamlConfig) TransportsEntryLogicalValidator() (valid bool, validationEr
 	if len(c.Service.Client.Transports) == 0 {
 		errList = append(errList, errors.New("Empty transports definition"))
 	} else {
-		iter := 1
 		for _, transportConf := range c.Service.Client.Transports {
-			if (len(transportConf.Triggers.Method) > 0 || len(transportConf.Triggers.Path) > 0 || len(transportConf.Triggers.QueryParam) > 0) && iter == len(c.Service.Client.Transports) {
-				errList = append(errList, errors.New("No transport defined with empty \"Triggers\" in last item (dafault transport)"))
+			if len(transportConf.Triggers.Method) == 0 && len(transportConf.Triggers.Path) == 0 && len(transportConf.Triggers.QueryParam) == 0 {
+				errList = append(errList, errors.New("Wrong transport defined with empty properties in \"Triggers\""))
 				break
 			}
-			iter++
 		}
 	}
 	validationErrors, valid = prepareErrors(errList, "TransportsEntryLogicalValidator")

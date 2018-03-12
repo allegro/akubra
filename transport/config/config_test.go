@@ -15,7 +15,6 @@ Transports:
     Name: Transport1
     Triggers:
       Method: GET|POST
-      Path: .*
     Details:
       MaxIdleConns: 200
       MaxIdleConnsPerHost: 1000
@@ -32,8 +31,10 @@ Transports:
       IdleConnTimeout: 5s
       ResponseHeaderTimeout: 5s
   -
-    Name: DefaultTransport
+    Name: Transport3
     Triggers:
+      Path: /bucket.*
+      QueryParam: clientId=.*
     Details:
       MaxIdleConns: 500
       MaxIdleConnsPerHost: 500
@@ -99,30 +100,12 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 			},
 		},
 		{
-			"DefaultTransport": Transport{
-				Name: "DefaultTransport",
+			"Transport3": Transport{
+				Name: "Transport3",
 				Triggers: ClientTransportTriggers{
-					Method:     "PUT",
+					Method:     "HEAD",
+					Path:       "/bucket102",
 					QueryParam: "clientId=123",
-				},
-			},
-		},
-		{
-			"DefaultTransport": Transport{
-				Name: "DefaultTransport",
-				Triggers: ClientTransportTriggers{
-					Method:     "",
-					Path:       "",
-					QueryParam: "",
-				},
-			},
-		},
-		{
-			"DefaultTransport": Transport{
-				Name: "DefaultTransport",
-				Triggers: ClientTransportTriggers{
-					Method:     "",
-					Path:       "",
 				},
 			},
 		},

@@ -45,6 +45,7 @@ const (
     Transports:
       - Name: DefaultTransport
         Triggers:
+          Method: GET|PUT|POST
         Details:
           MaxIdleConns: 500
           MaxIdleConnsPerHost: 500

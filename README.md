@@ -122,8 +122,10 @@ Service:
       - GET
       - PUT
       - DELETE
-    # behaviours in application with HTTP protocol condition for better transmission
-    # DefaultTransport (with empty Triggers) it's only one required item in Transports section (logical validator is implemented)
+    # Behaviours in application with HTTP protocol condition for better transmission
+    # Important!
+    # Required one no empty Triggers property (Method, Path, QueryParam) in Transports section (logical validator is implemented).
+    # In runtime no matching request (by Triggers props. definition) generating responses with code HTTP 5xx from backend.
     Transports:
       -
         Name: Transport1
@@ -145,14 +147,6 @@ Service:
           MaxIdleConnsPerHost: 500
           IdleConnTimeout: 5s
           ResponseHeaderTimeout: 5s
-      -
-        Name: DefaultTransport
-        Triggers:
-        Details:
-          MaxIdleConns: 500
-          MaxIdleConnsPerHost: 500
-          IdleConnTimeout: 2s
-          ResponseHeaderTimeout: 2s
 
 
 # MaxIdleConns see: https://golang.org/pkg/net/http/#Transport

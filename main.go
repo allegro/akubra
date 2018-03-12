@@ -57,6 +57,13 @@ func main() {
 		log.Fatalf("Improperly configured %s", err)
 	}
 
+	valid, errs := config.ValidateConf(conf.YamlConfig, true)
+	if !valid {
+		fmt.Printf("YAML validation - errors: %q", errs)
+		os.Exit(2)
+	}
+	log.Println("Configuration checked - OK.")
+
 	if *testConfig {
 		os.Exit(0)
 	}
