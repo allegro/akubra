@@ -59,13 +59,33 @@ type Storages struct {
 	earlyRespHandler transport.MultipleResponsesHandler
 }
 
+// TransportRoundTripper for slecte
+type TransportRoundTripper struct {
+	Transports transport.Container
+	http.RoundTripper
+}
+
 // Backend represents any storage in akubra cluster
 type Backend struct {
-	Transports   transport.Container
 	RoundTripper http.RoundTripper
 	Endpoint     url.URL
 	Name         string
 	Maintenance  bool
+}
+
+// RoundTrip extends TransportRoundTripper struct wtih RoundTripper and transports container
+func (trt *TransportRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	return trt.SelectTransportByRequest(request).RoundTrip(request)
+}
+
+// SelectTransportByRequest for selecting RoundTripper by request object from transports container
+func (trt *TransportRoundTripper) SelectTransportByRequest(request *http.Request) (selectedRoundTripper http.RoundTripper) {
+	selectedTransportName := trt.Transports.SelectTransport(request.Method, request.URL.Path, request.URL.RawQuery)
+	reqID := request.Context().Value(log.ContextreqIDKey)
+	log.Debugf("Request %s - selected transport name: %s (by method: %s, path: %s, queryParams: %s)",
+		reqID, selectedTransportName, request.Method, request.URL.Path, request.URL.RawQuery)
+
+	return trt.Transports.RoundTrippers[selectedTransportName]
 }
 
 // RoundTrip satisfies http.RoundTripper interface
@@ -80,12 +100,7 @@ func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 			origErr: fmt.Errorf("backend %v in maintenance mode", b.Name)}
 	}
 	err := error(nil)
-
-	transportName := b.Transports.SelectTransport(r.Method, r.URL.Path, r.URL.RawQuery)
-	log.Debugf("Request %s - selected transport name: %s (by method: %s, path: %s, queryParams: %s)",
-		reqID, transportName, r.Method, r.URL.Path, r.URL.RawQuery)
-
-	resp, oerror := b.Transports.RoundTrippers[transportName].RoundTrip(r)
+	resp, oerror := b.RoundTripper.RoundTrip(r)
 
 	if oerror != nil {
 		err = &backendError{backend: b.Endpoint.Host, origErr: oerror}
@@ -210,7 +225,6 @@ func InitStorages(transportContainer transport.Container, clustersConf config.Cl
 
 func decorateBackend(transports transport.Container, name string, backendConf config.Backend) (http.RoundTripper, error) {
 	backend := &Backend{
-		transports,
 		transports.DefaultRoundTripper,
 		*backendConf.Endpoint.URL,
 		name,

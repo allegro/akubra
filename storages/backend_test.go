@@ -16,7 +16,7 @@ import (
 )
 
 func newBackend(backendConfig config.Backend, transports transport.Container) (*Backend, error) {
-	return &Backend{Endpoint: *backendConfig.Endpoint.URL, Transports: transports}, nil
+	return &Backend{Endpoint: *backendConfig.Endpoint.URL, RoundTripper: transports.DefaultRoundTripper}, nil
 }
 
 type testRt struct {

@@ -275,8 +275,8 @@ func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 		transportconfig.Transport{
 			Name: "TestTransport",
 			Matchers: transportconfig.ClientTransportMatchers{
-				Method: "GET",
-				Path: ".*",
+				Method:     "GET",
+				Path:       ".*",
 				QueryParam: "",
 			},
 		},
@@ -311,8 +311,8 @@ func TestShouldValidWithEmptyPropertiesInmatchersDefinition(t *testing.T) {
 		transportconfig.Transport{
 			Name: "TestTransport123",
 			Matchers: transportconfig.ClientTransportMatchers{
-				Method: "",
-				Path: "",
+				Method:     "",
+				Path:       "",
 				QueryParam: "",
 			},
 		},
@@ -336,8 +336,8 @@ func TestValidatorShouldValidateTransportsWithEmptyMatchers(t *testing.T) {
 		transportconfig.Transport{
 			Name: "DefaultTestTransport",
 			Matchers: transportconfig.ClientTransportMatchers{
-				Method: "",
-				Path: "",
+				Method:     "",
+				Path:       "",
 				QueryParam: "",
 			},
 		},
