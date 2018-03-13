@@ -148,6 +148,7 @@ func isCompleteUploadResponseSuccessful(response *http.Response) bool {
 func responseContainsCompleteUploadString(response *http.Response) bool {
 
 	responseBodyBytes, bodyReadError := ioutil.ReadAll(response.Body)
+	response.Body.Close()
 
 	if bodyReadError != nil {
 
