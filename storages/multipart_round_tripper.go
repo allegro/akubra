@@ -148,7 +148,6 @@ func isCompleteUploadResponseSuccessful(response *http.Response) bool {
 func responseContainsCompleteUploadString(response *http.Response) bool {
 
 	responseBodyBytes, bodyReadError := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 
 	if bodyReadError != nil {
 
@@ -158,7 +157,10 @@ func responseContainsCompleteUploadString(response *http.Response) bool {
 
 		return false
 	}
-
+	err := response.Body.Close()
+	if err != nil {
+		log.Println("Could not close response.Body")
+	}
 	response.Body = ioutil.NopCloser(bytes.NewBuffer(responseBodyBytes))
 
 	var completeMultipartUploadResult types.CompleteMultipartUploadResult
