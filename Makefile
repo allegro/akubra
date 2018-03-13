@@ -1,8 +1,12 @@
 VERSION := `cat VERSION`
 LDFLAGS := -X main.version=$(VERSION)
 GO := "$(GOROOT)/bin/go"
+GOOS := `go env GOOS`
 
-all: formatting lint test build
+all:  formatting lint test build
+
+linux: formatting lint test
+	GOOS=linux $(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1'.
 
 formatting :
 	$(GO) get golang.org/x/tools/cmd/goimports
