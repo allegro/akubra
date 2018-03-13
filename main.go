@@ -105,7 +105,7 @@ func mkServiceLogs(logConf logconfig.LoggingConfig) (syncLog, clusterSyncLog, ac
 	return
 }
 func (s *service) start() error {
-	transportContainer, err := transport.ConfigureHTTPTransportsContainer(s.config.Service.Client)
+	transportMatcher, err := transport.ConfigureHTTPTransports(s.config.Service.Client)
 	if err != nil {
 		log.Fatalf("Couldn't set up client Transports - err: %q", err)
 	}
@@ -123,7 +123,7 @@ func (s *service) start() error {
 	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
 
 	storage, err := storages.InitStorages(
-		transportContainer,
+		transportMatcher,
 		s.config.Clusters,
 		s.config.Backends,
 		earlyRespHandler,

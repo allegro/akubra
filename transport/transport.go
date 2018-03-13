@@ -62,8 +62,8 @@ func (r *ResErrTuple) DiscardBody() {
 // returned value's response and error will be passed to client
 type MultipleResponsesHandler func(in <-chan ResErrTuple) ResErrTuple
 
-// Container mapping initialized Transports with http.RoundTripper by transport name
-type Container struct {
+// TransportMatcher mapping initialized Transports with http.RoundTripper by transport name
+type TransportMatcher struct {
 	DefaultRoundTripper http.RoundTripper
 	RoundTrippers       map[string]http.RoundTripper
 	TransportsConfig    config.Transports
@@ -321,13 +321,13 @@ func NewMultiTransport(backends []http.RoundTripper,
 		HandleResponses: responsesHandler}
 }
 
-// SetTransportsConfig assign transport config to Container
-func (tc *Container) SetTransportsConfig(clientConfig httphandlerConfig.Client) {
+// SetTransportsConfig assign transport config to TransportMatcher
+func (tc *TransportMatcher) SetTransportsConfig(clientConfig httphandlerConfig.Client) {
 	tc.TransportsConfig = clientConfig.Transports
 }
 
 // SelectTransport returns transport name by method, path and queryParams
-func (tc *Container) SelectTransport(method, path, queryParams string) (transportName string) {
+func (tc *TransportMatcher) SelectTransport(method, path, queryParams string) (transportName string) {
 	_, transportName, ok := tc.TransportsConfig.GetMatchedTransport(method, path, queryParams)
 	if !ok {
 		log.DefaultLogger.Fatalf("Transport not matched with args. method: %s, path: %s, queryParams: %s", method, path, queryParams)
@@ -335,10 +335,10 @@ func (tc *Container) SelectTransport(method, path, queryParams string) (transpor
 	return
 }
 
-// ConfigureHTTPTransportsContainer returns RoundTrippers mapped by transport name from configuration
-func ConfigureHTTPTransportsContainer(clientConf httphandlerConfig.Client) (transportContainer Container, err error) {
+// ConfigureHTTPTransports returns RoundTrippers mapped by transport name from configuration
+func ConfigureHTTPTransports(clientConf httphandlerConfig.Client) (transportMatcher TransportMatcher, err error) {
 	roundTrippers := make(map[string]http.RoundTripper)
-	transportContainer.SetTransportsConfig(clientConf)
+	transportMatcher.SetTransportsConfig(clientConf)
 
 	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
 	responseHeaderTimeout := defaultResponseHeaderTimeout
@@ -347,16 +347,16 @@ func ConfigureHTTPTransportsContainer(clientConf httphandlerConfig.Client) (tran
 		for _, transport := range clientConf.Transports {
 			roundTrippers[transport.Name] = perepareTransport(transport.Details, maxIdleConnsPerHost, responseHeaderTimeout)
 			if iter == len(clientConf.Transports) {
-				transportContainer.DefaultRoundTripper = roundTrippers[transport.Name]
+				transportMatcher.DefaultRoundTripper = roundTrippers[transport.Name]
 			}
 			iter++
 		}
-		transportContainer.RoundTrippers = roundTrippers
+		transportMatcher.RoundTrippers = roundTrippers
 	} else {
-		return transportContainer, errors.New("Service->Server->Client->Transports config is empty")
+		return transportMatcher, errors.New("Service->Server->Client->Transports config is empty")
 	}
 
-	return transportContainer, nil
+	return transportMatcher, nil
 }
 
 // perepareTransport with details
