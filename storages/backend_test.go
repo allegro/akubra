@@ -6,17 +6,15 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/allegro/akubra/storages/config"
-	"github.com/allegro/akubra/transport"
-	transportConfig "github.com/allegro/akubra/transport/config"
-	"github.com/allegro/akubra/utils"
 	"github.com/stretchr/testify/require"
 
+	"github.com/allegro/akubra/storages/config"
 	"github.com/allegro/akubra/types"
+	"github.com/allegro/akubra/utils"
 )
 
-func newBackend(backendConfig config.Backend, transports transport.Container) (*Backend, error) {
-	return &Backend{Endpoint: *backendConfig.Endpoint.URL, RoundTripper: transports.DefaultRoundTripper}, nil
+func newBackend(backendConfig config.Backend, transport http.RoundTripper) (*Backend, error) {
+	return &Backend{Endpoint: *backendConfig.Endpoint.URL, RoundTripper: transport}, nil
 }
 
 type testRt struct {
@@ -38,7 +36,7 @@ func TestBackendShouldChangeRequestHost(t *testing.T) {
 	}
 
 	backendConfig := config.Backend{Endpoint: hostURL, Type: "passthrough"}
-	b, err := newBackend(backendConfig, prepareTestTransportContainer(roundtripper))
+	b, err := newBackend(backendConfig, &testRt{rt: roundtripper})
 	require.NoError(t, err)
 
 	r, err := http.NewRequest("GET", "http://localhost:8080", nil)
@@ -60,7 +58,7 @@ func TestBackendShouldWrapErrorWithBackendError(t *testing.T) {
 	}
 
 	backendConfig := config.Backend{Endpoint: hostURL, Type: "passthrough"}
-	b, err := newBackend(backendConfig, prepareTestTransportContainer(roundtripper))
+	b, err := newBackend(backendConfig, &testRt{rt: roundtripper})
 	require.NoError(t, err)
 
 	r, err := http.NewRequest("GET", "http://localhost:8080", nil)
@@ -73,21 +71,4 @@ func TestBackendShouldWrapErrorWithBackendError(t *testing.T) {
 	berr, ok := err.(utils.BackendError)
 	require.True(t, ok)
 	require.Equal(t, host, berr.Backend())
-}
-
-func prepareTestTransportContainer(roundtripper func(*http.Request) (*http.Response, error)) transport.Container {
-	return transport.Container{
-		RoundTrippers: map[string]http.RoundTripper{
-			"DefaultTransport": &testRt{rt: roundtripper},
-		},
-		TransportsConfig: transportConfig.Transports{transportConfig.Transport{
-			Name: "DefaultTransport",
-			Matchers: transportConfig.ClientTransportMatchers{
-				Method:     "",
-				Path:       "",
-				QueryParam: "",
-			},
-		},
-		},
-	}
 }
