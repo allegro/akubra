@@ -40,6 +40,14 @@ Transports:
       MaxIdleConnsPerHost: 500
       IdleConnTimeout: 2s
       ResponseHeaderTimeout: 2s
+  -
+    Name: DefaultTransport
+    Matchers:
+    Details:
+      MaxIdleConns: 500
+      MaxIdleConnsPerHost: 500
+      IdleConnTimeout: 2s
+      ResponseHeaderTimeout: 2s
 
 `
 
@@ -106,6 +114,16 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 					Method:     "HEAD",
 					Path:       "/bucket102",
 					QueryParam: "clientId=123",
+				},
+			},
+		},
+		{
+			"DefaultTransport": Transport{
+				Name: "DefaultTransport",
+				Matchers: ClientTransportMatchers{
+					Method:     "",
+					Path:       "",
+					QueryParam: "",
 				},
 			},
 		},

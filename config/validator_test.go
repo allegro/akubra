@@ -306,7 +306,7 @@ func TestValidatorShouldProcessTransportsWithSuccessWithNotDefinedMatchersProper
 	assert.True(t, valid)
 }
 
-func TestValidatorShouldFailWithEmptyPropertiesInTransportsDefinition(t *testing.T) {
+func TestShouldValidWithEmptyPropertiesInmatchersDefinition(t *testing.T) {
 	invalidTransports := transportconfig.Transports{
 		transportconfig.Transport{
 			Name: "TestTransport123",
@@ -321,10 +321,31 @@ func TestValidatorShouldFailWithEmptyPropertiesInTransportsDefinition(t *testing
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 51, 55, "127.0.0.1:82",
 		"127.0.0.1:1235", "127.0.0.1:1236", nil, invalidTransports)
-	valid, validationErrors := yamlConfig.TransportsEntryLogicalValidator()
-	assert.False(t, valid)
-	assert.Equal(
-		t,
-		errors.New("Wrong transport defined with empty properties in \"Matchers\""),
-		validationErrors["TransportsEntryLogicalValidator"][0])
+	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
+	assert.True(t, valid)
+}
+
+func TestValidatorShouldValidateTransportsWithEmptyMatchers(t *testing.T) {
+	validTransports := transportconfig.Transports{
+		transportconfig.Transport{
+			Name: "TestTransport",
+			Matchers: transportconfig.ClientTransportMatchers{
+				Method: "GET",
+			},
+		},
+		transportconfig.Transport{
+			Name: "DefaultTestTransport",
+			Matchers: transportconfig.ClientTransportMatchers{
+				Method: "",
+				Path: "",
+				QueryParam: "",
+			},
+		},
+	}
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, validTransports)
+	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
+	assert.True(t, valid)
 }

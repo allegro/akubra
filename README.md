@@ -123,9 +123,11 @@ Service:
       - PUT
       - DELETE
     # Behaviours in application with HTTP protocol condition for better transmission
-    # Important!
-    # Required one no empty Matchers property (Method, Path, QueryParam) in Transports section (logical validator is implemented).
-    # In runtime no matching request (by Matchers props. definition) generating responses with code HTTP 5xx from backend.
+    # Rules for Transports definition:
+    # - required minimum one item in 'Transports' section
+    # - required empty or one property (Method, Path, QueryParam) in 'Matchers' section
+    # - if empty 'Matchers' section is defined it will be matching with any requests
+    # - in runtime no matching request (by 'Matchers' props. definition) generating responses with code HTTP 5xx
     Transports:
       -
         Name: Transport1
