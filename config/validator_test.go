@@ -274,7 +274,7 @@ func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 	validTransports := transportconfig.Transports{
 		transportconfig.Transport{
 			Name: "TestTransport",
-			Triggers: transportconfig.ClientTransportTriggers{
+			Matchers: transportconfig.ClientTransportMatchers{
 				Method: "GET",
 				Path: ".*",
 				QueryParam: "",
@@ -289,11 +289,11 @@ func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 	assert.True(t, valid)
 }
 
-func TestValidatorShouldProcessTransportsWithSuccessWithNotDefinedTriggersProperties(t *testing.T) {
+func TestValidatorShouldProcessTransportsWithSuccessWithNotDefinedMatchersProperties(t *testing.T) {
 	invalidTransports := transportconfig.Transports{
 		transportconfig.Transport{
 			Name: "TestTransport",
-			Triggers: transportconfig.ClientTransportTriggers{
+			Matchers: transportconfig.ClientTransportMatchers{
 				Method: "GET",
 			},
 		},
@@ -310,7 +310,7 @@ func TestValidatorShouldFailWithEmptyPropertiesInTransportsDefinition(t *testing
 	invalidTransports := transportconfig.Transports{
 		transportconfig.Transport{
 			Name: "TestTransport123",
-			Triggers: transportconfig.ClientTransportTriggers{
+			Matchers: transportconfig.ClientTransportMatchers{
 				Method: "",
 				Path: "",
 				QueryParam: "",
@@ -325,6 +325,6 @@ func TestValidatorShouldFailWithEmptyPropertiesInTransportsDefinition(t *testing
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("Wrong transport defined with empty properties in \"Triggers\""),
+		errors.New("Wrong transport defined with empty properties in \"Matchers\""),
 		validationErrors["TransportsEntryLogicalValidator"][0])
 }

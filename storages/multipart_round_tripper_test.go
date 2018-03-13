@@ -359,7 +359,7 @@ func prepareTestContainerByRoundTripper(roundTripper http.RoundTripper) transpor
 		},
 		TransportsConfig: config.Transports{config.Transport{
 			Name: "DefaultTransport",
-			Triggers: config.ClientTransportTriggers{
+			Matchers: config.ClientTransportMatchers{
 				Method:     "",
 				Path:       "",
 				QueryParam: "",

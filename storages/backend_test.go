@@ -82,7 +82,7 @@ func prepareTestTransportContainer(roundtripper func(*http.Request) (*http.Respo
 		},
 		TransportsConfig: transportConfig.Transports{transportConfig.Transport{
 			Name: "DefaultTransport",
-			Triggers: transportConfig.ClientTransportTriggers{
+			Matchers: transportConfig.ClientTransportMatchers{
 				Method:     "",
 				Path:       "",
 				QueryParam: "",

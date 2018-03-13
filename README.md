@@ -124,12 +124,12 @@ Service:
       - DELETE
     # Behaviours in application with HTTP protocol condition for better transmission
     # Important!
-    # Required one no empty Triggers property (Method, Path, QueryParam) in Transports section (logical validator is implemented).
-    # In runtime no matching request (by Triggers props. definition) generating responses with code HTTP 5xx from backend.
+    # Required one no empty Matchers property (Method, Path, QueryParam) in Transports section (logical validator is implemented).
+    # In runtime no matching request (by Matchers props. definition) generating responses with code HTTP 5xx from backend.
     Transports:
       -
         Name: Transport1
-        Triggers:
+        Matchers:
           Method: GET|POST
           Path: .*
         Details:
@@ -139,7 +139,7 @@ Service:
           ResponseHeaderTimeout: 5s
       -
         Name: Transport2
-        Triggers:
+        Matchers:
           Method: GET|POST|PUT
           QueryParam: acl
         Details:
@@ -147,7 +147,14 @@ Service:
           MaxIdleConnsPerHost: 500
           IdleConnTimeout: 5s
           ResponseHeaderTimeout: 5s
-
+      -
+        Name: DefaultTransport
+        Matchers:
+        Details:
+          MaxIdleConns: 300
+          MaxIdleConnsPerHost: 600
+          IdleConnTimeout: 2s
+          ResponseHeaderTimeout: 2s
 
 # MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
 # Default 0 (no limit)

@@ -100,8 +100,8 @@ func (c *YamlConfig) TransportsEntryLogicalValidator() (valid bool, validationEr
 		errList = append(errList, errors.New("Empty transports definition"))
 	} else {
 		for _, transportConf := range c.Service.Client.Transports {
-			if len(transportConf.Triggers.Method) == 0 && len(transportConf.Triggers.Path) == 0 && len(transportConf.Triggers.QueryParam) == 0 {
-				errList = append(errList, errors.New("Wrong transport defined with empty properties in \"Triggers\""))
+			if len(transportConf.Matchers.Method) == 0 && len(transportConf.Matchers.Path) == 0 && len(transportConf.Matchers.QueryParam) == 0 {
+				errList = append(errList, errors.New("Wrong transport defined with empty properties in \"Matchers\""))
 				break
 			}
 		}

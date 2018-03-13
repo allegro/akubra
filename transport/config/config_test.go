@@ -8,12 +8,12 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const testDataWithDefaultEmptyTriggers = `
+const testDataWithDefaultEmptyMatchers = `
 ---
 Transports:
   -
     Name: Transport1
-    Triggers:
+    Matchers:
       Method: GET|POST
     Details:
       MaxIdleConns: 200
@@ -22,7 +22,7 @@ Transports:
       ResponseHeaderTimeout: 5s
   -
     Name: Transport2
-    Triggers:
+    Matchers:
       Method: GET|POST|PUT
       QueryParam: acl
     Details:
@@ -32,7 +32,7 @@ Transports:
       ResponseHeaderTimeout: 5s
   -
     Name: Transport3
-    Triggers:
+    Matchers:
       Path: /bucket.*
       QueryParam: clientId=.*
     Details:
@@ -58,7 +58,7 @@ var testConfig TransportConfigTest
 
 // NewTransportConfigTest tests func for updating fields values in tests cases
 func (t *Transport) NewTransportConfigTest() *Transport {
-	t.Triggers = prepareTransportConfig("^GET|POST$", "/path/aa", "")
+	t.Matchers = prepareTransportConfig("^GET|POST$", "/path/aa", "")
 	return t
 }
 
@@ -70,7 +70,7 @@ func TestShouldCompileRules(t *testing.T) {
 
 func TestShouldNotCompileRules(t *testing.T) {
 	testConfig := TransportConfigTest{Transport{
-		Triggers: ClientTransportTriggers{
+		Matchers: ClientTransportMatchers{
 			Method: "\\p",
 		},
 	},
@@ -80,11 +80,11 @@ func TestShouldNotCompileRules(t *testing.T) {
 }
 
 func TestShouldGetMatchedTransport(t *testing.T) {
-	transportsWithTriggers := []map[string]Transport{
+	transportsWithMatchers := []map[string]Transport{
 		{
 			"Transport1": Transport{
 				Name: "Transport1",
-				Triggers: ClientTransportTriggers{
+				Matchers: ClientTransportMatchers{
 					Method: "POST",
 					Path:   "/aaa/bbb",
 				},
@@ -93,7 +93,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 		{
 			"Transport2": Transport{
 				Name: "Transport2",
-				Triggers: ClientTransportTriggers{
+				Matchers: ClientTransportMatchers{
 					Method:     "PUT",
 					QueryParam: "acl",
 				},
@@ -102,7 +102,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 		{
 			"Transport3": Transport{
 				Name: "Transport3",
-				Triggers: ClientTransportTriggers{
+				Matchers: ClientTransportMatchers{
 					Method:     "HEAD",
 					Path:       "/bucket102",
 					QueryParam: "clientId=123",
@@ -110,9 +110,9 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 			},
 		},
 	}
-	transports := prepareTransportsTestData(testDataWithDefaultEmptyTriggers)
+	transports := prepareTransportsTestData(testDataWithDefaultEmptyMatchers)
 
-	for _, transportTriggerKV := range transportsWithTriggers {
+	for _, transportTriggerKV := range transportsWithMatchers {
 		transportNameKey, methodPrepared, pathPrepared, queryParamPrepared := extractProperties(transportTriggerKV)
 		_, transportName, ok := transports.GetMatchedTransport(methodPrepared, pathPrepared, queryParamPrepared)
 		assert.True(t, ok)
@@ -123,9 +123,9 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 func extractProperties(transportTriggerKV map[string]Transport) (transportName string, method string, path string, queryParam string) {
 	for _, emulatedTransportProps := range transportTriggerKV {
 		transportName = emulatedTransportProps.Name
-		method = emulatedTransportProps.Triggers.Method
-		path = emulatedTransportProps.Triggers.Path
-		queryParam = emulatedTransportProps.Triggers.QueryParam
+		method = emulatedTransportProps.Matchers.Method
+		path = emulatedTransportProps.Matchers.Path
+		queryParam = emulatedTransportProps.Matchers.QueryParam
 	}
 	return
 }
@@ -138,8 +138,8 @@ func prepareTransportsTestData(dataYaml string) Transports {
 	return ttc.Transports
 }
 
-func prepareTransportConfig(method, path, queryParam string) ClientTransportTriggers {
-	return ClientTransportTriggers{
+func prepareTransportConfig(method, path, queryParam string) ClientTransportMatchers {
+	return ClientTransportMatchers{
 		Method:     method,
 		Path:       path,
 		QueryParam: queryParam,
