@@ -52,7 +52,7 @@ type Cluster struct {
 type Storages struct {
 	clustersConf     config.ClustersMap
 	backendsConf     config.BackendsMap
-	Transports       transport.TransportMatcher
+	Transports       transport.Matcher
 	Clusters         map[string]NamedCluster
 	Backends         map[string]http.RoundTripper
 	lateRespHandler  transport.MultipleResponsesHandler
@@ -61,7 +61,7 @@ type Storages struct {
 
 // TransportRoundTripper for slecte
 type TransportRoundTripper struct {
-	Transports transport.TransportMatcher
+	Transports transport.Matcher
 	http.RoundTripper
 }
 
@@ -186,7 +186,7 @@ func (st *Storages) ClusterShards(name string, syncLog log.Logger, clusters ...N
 }
 
 // InitStorages setups storages
-func InitStorages(transportMatcher transport.TransportMatcher, clustersConf config.ClustersMap, backendsConf config.BackendsMap, earlyRespHandler, lateRespHandler transport.MultipleResponsesHandler, syncLog log.Logger) (*Storages, error) {
+func InitStorages(transportMatcher transport.Matcher, clustersConf config.ClustersMap, backendsConf config.BackendsMap, earlyRespHandler, lateRespHandler transport.MultipleResponsesHandler, syncLog log.Logger) (*Storages, error) {
 	clusters := make(map[string]NamedCluster)
 	backends := make(map[string]http.RoundTripper)
 	if len(backendsConf) == 0 {
@@ -223,7 +223,7 @@ func InitStorages(transportMatcher transport.TransportMatcher, clustersConf conf
 	}, nil
 }
 
-func decorateBackend(transports transport.TransportMatcher, name string, backendConf config.Backend) (http.RoundTripper, error) {
+func decorateBackend(transports transport.Matcher, name string, backendConf config.Backend) (http.RoundTripper, error) {
 	backend := &Backend{
 		transports.DefaultRoundTripper,
 		*backendConf.Endpoint.URL,

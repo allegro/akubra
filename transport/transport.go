@@ -62,8 +62,8 @@ func (r *ResErrTuple) DiscardBody() {
 // returned value's response and error will be passed to client
 type MultipleResponsesHandler func(in <-chan ResErrTuple) ResErrTuple
 
-// TransportMatcher mapping initialized Transports with http.RoundTripper by transport name
-type TransportMatcher struct {
+// Matcher mapping initialized Transports with http.RoundTripper by transport name
+type Matcher struct {
 	DefaultRoundTripper http.RoundTripper
 	RoundTrippers       map[string]http.RoundTripper
 	TransportsConfig    config.Transports
@@ -321,13 +321,13 @@ func NewMultiTransport(backends []http.RoundTripper,
 		HandleResponses: responsesHandler}
 }
 
-// SetTransportsConfig assign transport config to TransportMatcher
-func (tc *TransportMatcher) SetTransportsConfig(clientConfig httphandlerConfig.Client) {
+// SetTransportsConfig assign transport config to Matcher
+func (tc *Matcher) SetTransportsConfig(clientConfig httphandlerConfig.Client) {
 	tc.TransportsConfig = clientConfig.Transports
 }
 
 // SelectTransport returns transport name by method, path and queryParams
-func (tc *TransportMatcher) SelectTransport(method, path, queryParams string) (transportName string) {
+func (tc *Matcher) SelectTransport(method, path, queryParams string) (transportName string) {
 	_, transportName, ok := tc.TransportsConfig.GetMatchedTransport(method, path, queryParams)
 	if !ok {
 		log.DefaultLogger.Fatalf("Transport not matched with args. method: %s, path: %s, queryParams: %s", method, path, queryParams)
@@ -336,7 +336,7 @@ func (tc *TransportMatcher) SelectTransport(method, path, queryParams string) (t
 }
 
 // ConfigureHTTPTransports returns RoundTrippers mapped by transport name from configuration
-func ConfigureHTTPTransports(clientConf httphandlerConfig.Client) (transportMatcher TransportMatcher, err error) {
+func ConfigureHTTPTransports(clientConf httphandlerConfig.Client) (transportMatcher Matcher, err error) {
 	roundTrippers := make(map[string]http.RoundTripper)
 	transportMatcher.SetTransportsConfig(clientConf)
 
