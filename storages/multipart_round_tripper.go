@@ -53,7 +53,6 @@ func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends [
 		if backend, isBackendType := roundTripper.(*Backend); isBackendType {
 
 			if !backend.Maintenance {
-				log.Println("Added cluster ", backend.Name)
 				multiPartRoundTripper.backendsRoundTrippers[backend.Endpoint.Host] = backend
 				activeBackendsEndpoints = append(activeBackendsEndpoints, backend.Endpoint.Host)
 			}
