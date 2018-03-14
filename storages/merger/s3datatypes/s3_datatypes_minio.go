@@ -1,6 +1,7 @@
-package storages
+package s3datatypes
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 )
@@ -34,18 +35,47 @@ type ObjectInfo struct {
 	Err error `json:"-"`
 }
 
+func (oi ObjectInfo) String() string {
+	return oi.Key
+}
+
 // CommonPrefix container for prefix response.
 type CommonPrefix struct {
 	Prefix string
+}
+
+func (cp CommonPrefix) String() string {
+	return cp.Prefix
+}
+
+type ObjectInfos []ObjectInfo
+
+func (ois ObjectInfos) ToStringer() []fmt.Stringer {
+	stringers := make([]fmt.Stringer, 0, len(ois))
+	for _, item := range ois {
+		stringer := fmt.Stringer(item)
+		stringers = append(stringers, stringer)
+	}
+	return stringers
+}
+
+func (ois *ObjectInfos) FromStringer(stringers []fmt.Stringer) bool {
+	newOis := make(ObjectInfos, 0, len(stringers))
+	for _, stringer := range stringers {
+		item := stringer.(ObjectInfo)
+		newOis = append(newOis, item)
+	}
+	ois = &newOis
+	return true
 }
 
 // ListBucketResult container for listObjects response.
 type ListBucketResult struct {
 	// A response can contain CommonPrefixes only if you have
 	// specified a delimiter.
-	CommonPrefixes []CommonPrefix
+	CommonPrefixes CommonPrefixes
 	// Metadata about each object returned.
-	Contents  []ObjectInfo
+	Contents  ObjectInfos
 	Delimiter string
 
 	// Encoding type used to encode object keys in the response.
@@ -130,9 +160,9 @@ type ListVersionsResult struct {
 type ListBucketV2Result struct {
 	// A response can contain CommonPrefixes only if you have
 	// specified a delimiter.
-	CommonPrefixes []CommonPrefix
+	CommonPrefixes CommonPrefixes
 	// Metadata about each object returned.
-	Contents  []ObjectInfo
+	Contents  ObjectInfos
 	Delimiter string
 
 	// Encoding type used to encode object keys in the response.
@@ -153,6 +183,27 @@ type ListBucketV2Result struct {
 	// FetchOwner and StartAfter are currently not used
 	FetchOwner string
 	StartAfter string
+}
+
+type CommonPrefixes []CommonPrefix
+
+func (cp CommonPrefixes) ToStringer() []fmt.Stringer {
+	stringers := make([]fmt.Stringer, 0, len(cp))
+	for _, item := range cp {
+		stringer := fmt.Stringer(item)
+		stringers = append(stringers, stringer)
+	}
+	return stringers
+}
+
+func (cp *CommonPrefixes) FromStringer(stringers []fmt.Stringer) bool {
+	cpp := make(CommonPrefixes, 0, len(stringers))
+	for _, stringer := range stringers {
+		item := stringer.(CommonPrefix)
+		cpp = append(cpp, item)
+	}
+	cp = &cpp
+	return true
 }
 
 type ListMultipartUploadsResult struct {
