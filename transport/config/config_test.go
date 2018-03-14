@@ -132,9 +132,9 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 
 	for _, transportMatcherKV := range transportsWithMatchers {
 		transportNameKey, methodPrepared, pathPrepared, queryParamPrepared := extractProperties(transportMatcherKV)
-		transportName, ok := transports.GetMatchedTransport(methodPrepared, pathPrepared, queryParamPrepared)
+		transport, ok := transports.GetMatchedTransport(methodPrepared, pathPrepared, queryParamPrepared)
 		assert.True(t, ok)
-		assert.Equal(t, transportNameKey, transportName, "Should be equal")
+		assert.Equal(t, transportNameKey, transport.Name, "Should be equal")
 	}
 }
 

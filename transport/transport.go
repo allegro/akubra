@@ -325,9 +325,9 @@ func (m *Matcher) SetTransportsConfig(clientConfig httphandlerConfig.Client) {
 	m.TransportsConfig = clientConfig.Transports
 }
 
-// SelectTransportName returns transport name by method, path and queryParams
-func (m *Matcher) SelectTransportName(method, path, queryParams string) (transportName string) {
-	transportName, ok := m.TransportsConfig.GetMatchedTransport(method, path, queryParams)
+// SelectTransport returns transport instance by method, path and queryParams
+func (m *Matcher) SelectTransport(method, path, queryParams string) (matchedTransport config.Transport) {
+	matchedTransport, ok := m.TransportsConfig.GetMatchedTransport(method, path, queryParams)
 	if !ok {
 		log.DefaultLogger.Fatalf("Transport not matched with args. method: %s, path: %s, queryParams: %s", method, path, queryParams)
 	}
@@ -341,12 +341,12 @@ func (m *Matcher) RoundTrip(request *http.Request) (*http.Response, error) {
 
 // SelectTransportRoundTripper for selecting RoundTripper by request object from transports matcher
 func (m *Matcher) SelectTransportRoundTripper(request *http.Request) (selectedRoundTripper http.RoundTripper) {
-	selectedTransportName := m.SelectTransportName(request.Method, request.URL.Path, request.URL.RawQuery)
+	selectedTransport := m.SelectTransport(request.Method, request.URL.Path, request.URL.RawQuery)
 	reqID := request.Context().Value(log.ContextreqIDKey)
 	log.DefaultLogger.Debugf("Request %s - selected transport name: %s (by method: %s, path: %s, queryParams: %s)",
-		reqID, selectedTransportName, request.Method, request.URL.Path, request.URL.RawQuery)
+		reqID, selectedTransport.Name, request.Method, request.URL.Path, request.URL.RawQuery)
 
-	return m.RoundTrippers[selectedTransportName]
+	return m.RoundTrippers[selectedTransport.Name]
 }
 
 // ConfigureHTTPTransports returns RoundTrippers mapped by transport name from configuration

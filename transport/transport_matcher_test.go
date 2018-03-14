@@ -19,7 +19,7 @@ func TestShouldSetTransportsConfig(t *testing.T) {
 	assert.Equal(t, unit.TransportsConfig, clientConfig.Transports)
 }
 
-func TestShouldSelectTransportName(t *testing.T) {
+func TestShouldSelectTransport(t *testing.T) {
 	expectedTransportName := "TestTransport2"
 	testMethod := "GET"
 
@@ -39,9 +39,9 @@ func TestShouldSelectTransportName(t *testing.T) {
 	}
 	unit.SetTransportsConfig(prepareClientCoinfig(expectedTransportName, testMethod))
 
-	selectedTransportName := unit.SelectTransportName(testRequest.Method, testRequest.URL.Path, testRequest.URL.RawQuery)
+	selectedTransport := unit.SelectTransport(testRequest.Method, testRequest.URL.Path, testRequest.URL.RawQuery)
 
-	assert.Equal(t, expectedTransportName, selectedTransportName)
+	assert.Equal(t, expectedTransportName, selectedTransport.Name)
 }
 
 func prepareClientCoinfig(transportName, method string) httphandlerConfig.Client {

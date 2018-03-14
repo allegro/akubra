@@ -95,20 +95,22 @@ func (t *Transport) compileRules() error {
 }
 
 // GetMatchedTransport returns first details matching with rules from Matchers by arguments: method, path, queryParam
-func (t *Transports) GetMatchedTransport(method, path, queryParam string) (matchedTransportName string, ok bool) {
+func (t *Transports) GetMatchedTransport(method, path, queryParam string) (matchedTransport Transport, ok bool) {
+	var matchedTransportName string
 	for _, transport := range *t {
 		err := transport.compileRules()
 		if err != nil {
-			return matchedTransportName, false
+			return matchedTransport, false
 		}
 		methodFlag, pathFlag, queryParamFlag := matchTransportFlags(transport, method, path, queryParam)
 
 		if methodFlag.matched && pathFlag.matched && queryParamFlag.matched {
-			return transport.Name, true
+			return transport, true
 		}
 		if methodFlag.empty && pathFlag.empty && queryParamFlag.empty && len(matchedTransportName) == 0 {
-			matchedTransportName = transport.Name
+			matchedTransport = transport
 		}
+		matchedTransportName = transport.Name
 	}
 	return
 }
