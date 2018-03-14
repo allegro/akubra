@@ -5,9 +5,9 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/allegro/akubra/transport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/allegro/akubra/transport"
 )
 
 type MockedRoundTripper struct {

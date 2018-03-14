@@ -130,16 +130,16 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 	}
 	transports := prepareTransportsTestData(testDataWithDefaultEmptyMatchers)
 
-	for _, transportTriggerKV := range transportsWithMatchers {
-		transportNameKey, methodPrepared, pathPrepared, queryParamPrepared := extractProperties(transportTriggerKV)
-		_, transportName, ok := transports.GetMatchedTransport(methodPrepared, pathPrepared, queryParamPrepared)
+	for _, transportMatcherKV := range transportsWithMatchers {
+		transportNameKey, methodPrepared, pathPrepared, queryParamPrepared := extractProperties(transportMatcherKV)
+		transportName, ok := transports.GetMatchedTransport(methodPrepared, pathPrepared, queryParamPrepared)
 		assert.True(t, ok)
 		assert.Equal(t, transportNameKey, transportName, "Should be equal")
 	}
 }
 
-func extractProperties(transportTriggerKV map[string]Transport) (transportName string, method string, path string, queryParam string) {
-	for _, emulatedTransportProps := range transportTriggerKV {
+func extractProperties(transportMatcherKV map[string]Transport) (transportName string, method string, path string, queryParam string) {
+	for _, emulatedTransportProps := range transportMatcherKV {
 		transportName = emulatedTransportProps.Name
 		method = emulatedTransportProps.Matchers.Method
 		path = emulatedTransportProps.Matchers.Path

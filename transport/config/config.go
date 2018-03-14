@@ -70,22 +70,20 @@ type transportFlags struct {
 // compileRules prepares precompiled regular expressions for rules
 func (t *Transport) compileRules() error {
 	if !t.MatchersCompiledRules.IsCompiled {
+		var err error
 		if len(t.Matchers.Method) > 0 {
-			var err error
 			t.MatchersCompiledRules.MethodRegexp, err = t.compileRule(t.Matchers.Method)
 			if err != nil {
 				return fmt.Errorf("compileRule for Client->Transport->Trigger->Method error: %q", err)
 			}
 		}
 		if len(t.Matchers.Path) > 0 {
-			var err error
 			t.MatchersCompiledRules.PathRegexp, err = t.compileRule(t.Matchers.Path)
 			if err != nil {
 				return fmt.Errorf("compileRule for Client->Transport->Trigger->Path error: %q", err)
 			}
 		}
 		if len(t.Matchers.QueryParam) > 0 {
-			var err error
 			t.MatchersCompiledRules.QueryParamRegexp, err = t.compileRule(t.Matchers.QueryParam)
 			if err != nil {
 				return fmt.Errorf("compileRule for Client->Transport->Trigger->QueryParam error: %q", err)
@@ -97,19 +95,18 @@ func (t *Transport) compileRules() error {
 }
 
 // GetMatchedTransport returns first details matching with rules from Matchers by arguments: method, path, queryParam
-func (t *Transports) GetMatchedTransport(method, path, queryParam string) (matchedTransport Transport, matchedTransportName string, ok bool) {
+func (t *Transports) GetMatchedTransport(method, path, queryParam string) (matchedTransportName string, ok bool) {
 	for _, transport := range *t {
 		err := transport.compileRules()
 		if err != nil {
-			return matchedTransport, matchedTransportName, false
+			return matchedTransportName, false
 		}
 		methodFlag, pathFlag, queryParamFlag := matchTransportFlags(transport, method, path, queryParam)
 
 		if methodFlag.matched && pathFlag.matched && queryParamFlag.matched {
-			return transport, transport.Name, true
+			return transport.Name, true
 		}
 		if methodFlag.empty && pathFlag.empty && queryParamFlag.empty && len(matchedTransportName) == 0 {
-			matchedTransport = transport
 			matchedTransportName = transport.Name
 		}
 	}

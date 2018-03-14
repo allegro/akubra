@@ -325,23 +325,23 @@ func (m *Matcher) SetTransportsConfig(clientConfig httphandlerConfig.Client) {
 	m.TransportsConfig = clientConfig.Transports
 }
 
-// SelectTransport returns transport name by method, path and queryParams
-func (m *Matcher) SelectTransport(method, path, queryParams string) (transportName string) {
-	_, transportName, ok := m.TransportsConfig.GetMatchedTransport(method, path, queryParams)
+// SelectTransportName returns transport name by method, path and queryParams
+func (m *Matcher) SelectTransportName(method, path, queryParams string) (transportName string) {
+	transportName, ok := m.TransportsConfig.GetMatchedTransport(method, path, queryParams)
 	if !ok {
 		log.DefaultLogger.Fatalf("Transport not matched with args. method: %s, path: %s, queryParams: %s", method, path, queryParams)
 	}
 	return
 }
 
-// RoundTrip extends TransportRoundTripper struct wtih RoundTripper and transports container
+// RoundTrip for transport matching
 func (m *Matcher) RoundTrip(request *http.Request) (*http.Response, error) {
-	return m.SelectTransportByRequest(request).RoundTrip(request)
+	return m.SelectTransportRoundTripper(request).RoundTrip(request)
 }
 
-// SelectTransportByRequest for selecting RoundTripper by request object from transports container
-func (m *Matcher) SelectTransportByRequest(request *http.Request) (selectedRoundTripper http.RoundTripper) {
-	selectedTransportName := m.SelectTransport(request.Method, request.URL.Path, request.URL.RawQuery)
+// SelectTransportRoundTripper for selecting RoundTripper by request object from transports matcher
+func (m *Matcher) SelectTransportRoundTripper(request *http.Request) (selectedRoundTripper http.RoundTripper) {
+	selectedTransportName := m.SelectTransportName(request.Method, request.URL.Path, request.URL.RawQuery)
 	reqID := request.Context().Value(log.ContextreqIDKey)
 	log.DefaultLogger.Debugf("Request %s - selected transport name: %s (by method: %s, path: %s, queryParams: %s)",
 		reqID, selectedTransportName, request.Method, request.URL.Path, request.URL.RawQuery)
