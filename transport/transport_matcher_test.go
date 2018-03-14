@@ -10,34 +10,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestShouldSetTransportsConfig(t *testing.T) {
-	clientConfig := prepareClientCoinfig("TestTransport", "GET|POST")
-	unit := &Matcher{}
-
-	unit.SetTransportsConfig(clientConfig)
-
-	assert.Equal(t, unit.TransportsConfig, clientConfig.Transports)
-}
-
 func TestShouldSelectTransport(t *testing.T) {
 	expectedTransportName := "TestTransport2"
 	testMethod := "GET"
 
-	configTransport := config.Transport{
-		Name: expectedTransportName,
-		Matchers: config.ClientTransportMatchers{
-			Method: testMethod,
-		},
-		Details: config.ClientTransportDetail{},
-	}
+	clientConfig := prepareClientCoinfig(expectedTransportName, testMethod)
 	url, _ := url.Parse("http://localhost/")
 	testRequest := &http.Request{URL: url, Method: testMethod}
 	unit := &Matcher{
-		TransportsConfig: config.Transports{
-			configTransport,
-		},
+		TransportsConfig: clientConfig.Transports,
 	}
-	unit.SetTransportsConfig(prepareClientCoinfig(expectedTransportName, testMethod))
 
 	selectedTransport := unit.SelectTransport(testRequest.Method, testRequest.URL.Path, testRequest.URL.RawQuery)
 
@@ -50,6 +32,7 @@ func prepareClientCoinfig(transportName, method string) httphandlerConfig.Client
 		Matchers: config.ClientTransportMatchers{
 			Method: method,
 		},
+		Details: config.ClientTransportDetail{},
 	},
 	}
 	return httphandlerConfig.Client{

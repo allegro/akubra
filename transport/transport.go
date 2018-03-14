@@ -352,9 +352,7 @@ func (m *Matcher) SelectTransportRoundTripper(request *http.Request) (selectedRo
 // ConfigureHTTPTransports returns RoundTrippers mapped by transport name from configuration
 func ConfigureHTTPTransports(clientConf httphandlerConfig.Client) (http.RoundTripper, error) {
 	roundTrippers := make(map[string]http.RoundTripper)
-	transportMatcher := &Matcher{}
-	transportMatcher.SetTransportsConfig(clientConf)
-
+	transportMatcher := &Matcher{TransportsConfig: clientConf.Transports}
 	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
 	responseHeaderTimeout := defaultResponseHeaderTimeout
 	if len(clientConf.Transports) > 0 {
