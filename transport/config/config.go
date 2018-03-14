@@ -120,8 +120,9 @@ func (t *Transports) GetMatchedTransport(method, path, queryParam string) (match
 func matchTransportFlags(transport Transport, method, path, queryParam string) (transportFlags, transportFlags, transportFlags) {
 	var methodFlag, pathFlag, queryParamFlag transportFlags
 
-	methodFlag.declared, pathFlag.declared, queryParamFlag.declared =
-		len(transport.Matchers.Method) > 0, len(transport.Matchers.Path) > 0, len(transport.Matchers.QueryParam) > 0
+	methodFlag.declared = len(transport.Matchers.Method) > 0
+	pathFlag.declared = len(transport.Matchers.Path) > 0
+	queryParamFlag.declared = len(transport.Matchers.QueryParam) > 0
 
 	if methodFlag.declared {
 		methodFlag.matched = transport.MatchersCompiledRules.MethodRegexp.MatchString(method)
