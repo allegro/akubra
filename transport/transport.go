@@ -66,7 +66,6 @@ type MultipleResponsesHandler func(in <-chan ResErrTuple) ResErrTuple
 type Matcher struct {
 	RoundTrippers    map[string]http.RoundTripper
 	TransportsConfig config.Transports
-	http.RoundTripper
 }
 
 func defaultHandleResponses(in <-chan ResErrTuple, out chan<- ResErrTuple) {
@@ -337,8 +336,6 @@ func (m *Matcher) SelectTransport(method, path, queryParams string) (transportNa
 
 // RoundTrip extends TransportRoundTripper struct wtih RoundTripper and transports container
 func (m *Matcher) RoundTrip(request *http.Request) (*http.Response, error) {
-	log.DefaultLogger.Debugf("CALL: TransportRoundTripper -> m.SelectTransportByRequest(request).RoundTrip(request): %q", request)
-
 	return m.SelectTransportByRequest(request).RoundTrip(request)
 }
 
@@ -353,8 +350,9 @@ func (m *Matcher) SelectTransportByRequest(request *http.Request) (selectedRound
 }
 
 // ConfigureHTTPTransports returns RoundTrippers mapped by transport name from configuration
-func ConfigureHTTPTransports(clientConf httphandlerConfig.Client) (transportMatcher Matcher, err error) {
+func ConfigureHTTPTransports(clientConf httphandlerConfig.Client) (http.RoundTripper, error) {
 	roundTrippers := make(map[string]http.RoundTripper)
+	transportMatcher := &Matcher{}
 	transportMatcher.SetTransportsConfig(clientConf)
 
 	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost

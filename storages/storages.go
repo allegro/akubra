@@ -60,7 +60,7 @@ type Storages struct {
 
 // Backend represents any storage in akubra cluster
 type Backend struct {
-	RoundTripper transport.Matcher
+	RoundTripper http.RoundTripper
 	Endpoint     url.URL
 	Name         string
 	Maintenance  bool
@@ -164,7 +164,7 @@ func (st *Storages) ClusterShards(name string, syncLog log.Logger, clusters ...N
 }
 
 // InitStorages setups storages
-func InitStorages(transportMatcher transport.Matcher, clustersConf config.ClustersMap, backendsConf config.BackendsMap, earlyRespHandler, lateRespHandler transport.MultipleResponsesHandler, syncLog log.Logger) (*Storages, error) {
+func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap, earlyRespHandler, lateRespHandler transport.MultipleResponsesHandler, syncLog log.Logger) (*Storages, error) {
 	clusters := make(map[string]NamedCluster)
 	backends := make(map[string]http.RoundTripper)
 	if len(backendsConf) == 0 {
@@ -174,7 +174,7 @@ func InitStorages(transportMatcher transport.Matcher, clustersConf config.Cluste
 		if backendConf.Maintenance {
 			log.Printf("backend %q in maintenance mode", name)
 		}
-		decoratedBackend, err := decorateBackend(transportMatcher, name, backendConf)
+		decoratedBackend, err := decorateBackend(transport, name, backendConf)
 		if err != nil {
 			return nil, err
 		}
@@ -200,9 +200,9 @@ func InitStorages(transportMatcher transport.Matcher, clustersConf config.Cluste
 	}, nil
 }
 
-func decorateBackend(transportMatcher transport.Matcher, name string, backendConf config.Backend) (http.RoundTripper, error) {
+func decorateBackend(transport http.RoundTripper, name string, backendConf config.Backend) (http.RoundTripper, error) {
 	backend := &Backend{
-		transportMatcher,
+		transport,
 		*backendConf.Endpoint.URL,
 		name,
 		backendConf.Maintenance,
