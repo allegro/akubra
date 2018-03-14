@@ -236,16 +236,16 @@ func (rm *responseMerger) isMergable(req *http.Request) bool {
 	path := req.URL.Path
 	method := req.Method
 	reqQuery := req.URL.Query()
-	unsupprotedQuery := false
+	unsupportedQuery := false
 	if reqQuery != nil {
 		for _, key := range unsupportedQueryParamNames {
 			if reqQuery[key] != nil {
-				unsupprotedQuery = true
+				unsupportedQuery = true
 				break
 			}
 		}
 	}
-	return !unsupprotedQuery && (method == http.MethodGet) && isBucketPath(path)
+	return !unsupportedQuery && (method == http.MethodGet) && isBucketPath(path)
 }
 
 func (rm *responseMerger) responseHandler(in <-chan transport.ResErrTuple) transport.ResErrTuple {
