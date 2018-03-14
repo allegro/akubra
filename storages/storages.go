@@ -52,6 +52,7 @@ type Cluster struct {
 type Storages struct {
 	clustersConf     config.ClustersMap
 	backendsConf     config.BackendsMap
+	Transports       transport.Matcher
 	Clusters         map[string]NamedCluster
 	Backends         map[string]http.RoundTripper
 	lateRespHandler  transport.MultipleResponsesHandler
@@ -185,7 +186,7 @@ func (st *Storages) ClusterShards(name string, syncLog log.Logger, clusters ...N
 }
 
 // InitStorages setups storages
-func InitStorages(transports http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap, earlyRespHandler, lateRespHandler transport.MultipleResponsesHandler, syncLog log.Logger) (*Storages, error) {
+func InitStorages(transportMatcher transport.Matcher, clustersConf config.ClustersMap, backendsConf config.BackendsMap, earlyRespHandler, lateRespHandler transport.MultipleResponsesHandler, syncLog log.Logger) (*Storages, error) {
 	clusters := make(map[string]NamedCluster)
 	backends := make(map[string]http.RoundTripper)
 	if len(backendsConf) == 0 {
@@ -195,7 +196,7 @@ func InitStorages(transports http.RoundTripper, clustersConf config.ClustersMap,
 		if backendConf.Maintenance {
 			log.Printf("backend %q in maintenance mode", name)
 		}
-		decoratedBackend, err := decorateBackend(transports, name, backendConf)
+		decoratedBackend, err := decorateBackend(transportMatcher, name, backendConf)
 		if err != nil {
 			return nil, err
 		}
@@ -214,6 +215,7 @@ func InitStorages(transports http.RoundTripper, clustersConf config.ClustersMap,
 	return &Storages{
 		clustersConf:     clustersConf,
 		backendsConf:     backendsConf,
+		Transports:       transportMatcher,
 		Clusters:         clusters,
 		Backends:         backends,
 		earlyRespHandler: earlyRespHandler,
@@ -221,9 +223,9 @@ func InitStorages(transports http.RoundTripper, clustersConf config.ClustersMap,
 	}, nil
 }
 
-func decorateBackend(transports http.RoundTripper, name string, backendConf config.Backend) (http.RoundTripper, error) {
+func decorateBackend(transports transport.Matcher, name string, backendConf config.Backend) (http.RoundTripper, error) {
 	backend := &Backend{
-		transports,
+		transports.DefaultRoundTripper,
 		*backendConf.Endpoint.URL,
 		name,
 		backendConf.Maintenance,
