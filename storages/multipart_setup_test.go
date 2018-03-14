@@ -7,11 +7,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/allegro/akubra/transport"
 )
 
 type MockedRoundTripper struct {
 	mock.Mock
-	http.RoundTripper
+	transport.Matcher
 }
 
 func (mockedRoundTripper *MockedRoundTripper) RoundTrip(request *http.Request) (response *http.Response, err error) {

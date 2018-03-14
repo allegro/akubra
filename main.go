@@ -104,6 +104,7 @@ func mkServiceLogs(logConf logconfig.LoggingConfig) (syncLog, clusterSyncLog, ac
 	}
 	return
 }
+
 func (s *service) start() error {
 	transportMatcher, err := transport.ConfigureHTTPTransports(s.config.Service.Client)
 	if err != nil {

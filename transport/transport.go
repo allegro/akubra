@@ -64,9 +64,9 @@ type MultipleResponsesHandler func(in <-chan ResErrTuple) ResErrTuple
 
 // Matcher mapping initialized Transports with http.RoundTripper by transport name
 type Matcher struct {
-	DefaultRoundTripper http.RoundTripper
-	RoundTrippers       map[string]http.RoundTripper
-	TransportsConfig    config.Transports
+	RoundTrippers    map[string]http.RoundTripper
+	TransportsConfig config.Transports
+	http.RoundTripper
 }
 
 func defaultHandleResponses(in <-chan ResErrTuple, out chan<- ResErrTuple) {
@@ -322,17 +322,34 @@ func NewMultiTransport(backends []http.RoundTripper,
 }
 
 // SetTransportsConfig assign transport config to Matcher
-func (tc *Matcher) SetTransportsConfig(clientConfig httphandlerConfig.Client) {
-	tc.TransportsConfig = clientConfig.Transports
+func (m *Matcher) SetTransportsConfig(clientConfig httphandlerConfig.Client) {
+	m.TransportsConfig = clientConfig.Transports
 }
 
 // SelectTransport returns transport name by method, path and queryParams
-func (tc *Matcher) SelectTransport(method, path, queryParams string) (transportName string) {
-	_, transportName, ok := tc.TransportsConfig.GetMatchedTransport(method, path, queryParams)
+func (m *Matcher) SelectTransport(method, path, queryParams string) (transportName string) {
+	_, transportName, ok := m.TransportsConfig.GetMatchedTransport(method, path, queryParams)
 	if !ok {
 		log.DefaultLogger.Fatalf("Transport not matched with args. method: %s, path: %s, queryParams: %s", method, path, queryParams)
 	}
 	return
+}
+
+// RoundTrip extends TransportRoundTripper struct wtih RoundTripper and transports container
+func (m *Matcher) RoundTrip(request *http.Request) (*http.Response, error) {
+	log.DefaultLogger.Debugf("CALL: TransportRoundTripper -> m.SelectTransportByRequest(request).RoundTrip(request): %q", request)
+
+	return m.SelectTransportByRequest(request).RoundTrip(request)
+}
+
+// SelectTransportByRequest for selecting RoundTripper by request object from transports container
+func (m *Matcher) SelectTransportByRequest(request *http.Request) (selectedRoundTripper http.RoundTripper) {
+	selectedTransportName := m.SelectTransport(request.Method, request.URL.Path, request.URL.RawQuery)
+	reqID := request.Context().Value(log.ContextreqIDKey)
+	log.DefaultLogger.Debugf("Request %s - selected transport name: %s (by method: %s, path: %s, queryParams: %s)",
+		reqID, selectedTransportName, request.Method, request.URL.Path, request.URL.RawQuery)
+
+	return m.RoundTrippers[selectedTransportName]
 }
 
 // ConfigureHTTPTransports returns RoundTrippers mapped by transport name from configuration
@@ -343,13 +360,8 @@ func ConfigureHTTPTransports(clientConf httphandlerConfig.Client) (transportMatc
 	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
 	responseHeaderTimeout := defaultResponseHeaderTimeout
 	if len(clientConf.Transports) > 0 {
-		iter := 1
 		for _, transport := range clientConf.Transports {
 			roundTrippers[transport.Name] = perepareTransport(transport.Details, maxIdleConnsPerHost, responseHeaderTimeout)
-			if iter == len(clientConf.Transports) {
-				transportMatcher.DefaultRoundTripper = roundTrippers[transport.Name]
-			}
-			iter++
 		}
 		transportMatcher.RoundTrippers = roundTrippers
 	} else {
@@ -361,7 +373,7 @@ func ConfigureHTTPTransports(clientConf httphandlerConfig.Client) (transportMatc
 
 // perepareTransport with details
 func perepareTransport(transportDetails config.ClientTransportDetail, maxIdleConnsPerHost int,
-	responseHeaderTimeout time.Duration) *http.Transport {
+	responseHeaderTimeout time.Duration) http.RoundTripper {
 	if transportDetails.MaxIdleConnsPerHost != 0 {
 		maxIdleConnsPerHost = transportDetails.MaxIdleConnsPerHost
 	}

@@ -11,10 +11,11 @@ import (
 	"github.com/allegro/akubra/storages/config"
 	"github.com/allegro/akubra/types"
 	"github.com/allegro/akubra/utils"
+	"github.com/allegro/akubra/transport"
 )
 
-func newBackend(backendConfig config.Backend, transport http.RoundTripper) (*Backend, error) {
-	return &Backend{Endpoint: *backendConfig.Endpoint.URL, RoundTripper: transport}, nil
+func newBackend(backendConfig config.Backend, transportRoundTripper transport.Matcher) (*Backend, error) {
+	return &Backend{Endpoint: *backendConfig.Endpoint.URL, RoundTripper: transportRoundTripper}, nil
 }
 
 type testRt struct {

@@ -52,40 +52,18 @@ type Cluster struct {
 type Storages struct {
 	clustersConf     config.ClustersMap
 	backendsConf     config.BackendsMap
-	Transports       transport.Matcher
 	Clusters         map[string]NamedCluster
 	Backends         map[string]http.RoundTripper
 	lateRespHandler  transport.MultipleResponsesHandler
 	earlyRespHandler transport.MultipleResponsesHandler
 }
 
-// TransportRoundTripper for slecte
-type TransportRoundTripper struct {
-	Transports transport.Matcher
-	http.RoundTripper
-}
-
 // Backend represents any storage in akubra cluster
 type Backend struct {
-	RoundTripper http.RoundTripper
+	RoundTripper transport.Matcher
 	Endpoint     url.URL
 	Name         string
 	Maintenance  bool
-}
-
-// RoundTrip extends TransportRoundTripper struct wtih RoundTripper and transports container
-func (trt *TransportRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
-	return trt.SelectTransportByRequest(request).RoundTrip(request)
-}
-
-// SelectTransportByRequest for selecting RoundTripper by request object from transports container
-func (trt *TransportRoundTripper) SelectTransportByRequest(request *http.Request) (selectedRoundTripper http.RoundTripper) {
-	selectedTransportName := trt.Transports.SelectTransport(request.Method, request.URL.Path, request.URL.RawQuery)
-	reqID := request.Context().Value(log.ContextreqIDKey)
-	log.Debugf("Request %s - selected transport name: %s (by method: %s, path: %s, queryParams: %s)",
-		reqID, selectedTransportName, request.Method, request.URL.Path, request.URL.RawQuery)
-
-	return trt.Transports.RoundTrippers[selectedTransportName]
 }
 
 // RoundTrip satisfies http.RoundTripper interface
@@ -215,7 +193,6 @@ func InitStorages(transportMatcher transport.Matcher, clustersConf config.Cluste
 	return &Storages{
 		clustersConf:     clustersConf,
 		backendsConf:     backendsConf,
-		Transports:       transportMatcher,
 		Clusters:         clusters,
 		Backends:         backends,
 		earlyRespHandler: earlyRespHandler,
@@ -223,9 +200,9 @@ func InitStorages(transportMatcher transport.Matcher, clustersConf config.Cluste
 	}, nil
 }
 
-func decorateBackend(transports transport.Matcher, name string, backendConf config.Backend) (http.RoundTripper, error) {
+func decorateBackend(transportMatcher transport.Matcher, name string, backendConf config.Backend) (http.RoundTripper, error) {
 	backend := &Backend{
-		transports.DefaultRoundTripper,
+		transportMatcher,
 		*backendConf.Endpoint.URL,
 		name,
 		backendConf.Maintenance,
