@@ -23,7 +23,7 @@ type CustomItemsTestNoEmpty struct {
 	Items []string `validate:"NoEmptyValuesSlice=Items"`
 }
 
-var testTransportDetails = transportconfig.ClientTransportDetail{
+var testTransportProperties = transportconfig.ClientTransportProperties{
 	MaxIdleConns:        100,
 	MaxIdleConnsPerHost: 100,
 	IdleConnTimeout: metrics.Interval{
@@ -292,7 +292,7 @@ func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 				Path:       ".*",
 				QueryParam: "",
 			},
-			Details: testTransportDetails,
+			Properties: testTransportProperties,
 		},
 	}
 	var size httphandlerconfig.HumanSizeUnits
@@ -310,7 +310,7 @@ func TestValidatorShouldProcessTransportsWithSuccessWithNotDefinedMatchersProper
 			Matchers: transportconfig.ClientTransportMatchers{
 				Method: "GET",
 			},
-			Details: testTransportDetails,
+			Properties: testTransportProperties,
 		},
 	}
 	var size httphandlerconfig.HumanSizeUnits
@@ -330,7 +330,7 @@ func TestShouldValidWithEmptyPropertiesInmatchersDefinition(t *testing.T) {
 				Path:       "",
 				QueryParam: "",
 			},
-			Details: testTransportDetails,
+			Properties: testTransportProperties,
 		},
 	}
 	var size httphandlerconfig.HumanSizeUnits
@@ -348,7 +348,7 @@ func TestValidatorShouldValidateTransportsWithEmptyMatchers(t *testing.T) {
 			Matchers: transportconfig.ClientTransportMatchers{
 				Method: "GET",
 			},
-			Details: testTransportDetails,
+			Properties: testTransportProperties,
 		},
 		transportconfig.Transport{
 			Name: "DefaultTestTransport",
@@ -357,7 +357,7 @@ func TestValidatorShouldValidateTransportsWithEmptyMatchers(t *testing.T) {
 				Path:       "",
 				QueryParam: "",
 			},
-			Details: testTransportDetails,
+			Properties: testTransportProperties,
 		},
 	}
 	var size httphandlerconfig.HumanSizeUnits
@@ -368,7 +368,7 @@ func TestValidatorShouldValidateTransportsWithEmptyMatchers(t *testing.T) {
 	assert.True(t, valid)
 }
 
-func TestShouldFailTransportsEntryLogicalValidatorWithoutDetails(t *testing.T) {
+func TestShouldFailTransportsEntryLogicalValidatorWithoutProperties(t *testing.T) {
 	invalidTransports := transportconfig.Transports{
 		transportconfig.Transport{
 			Name: "TestTransport",
@@ -385,6 +385,6 @@ func TestShouldFailTransportsEntryLogicalValidatorWithoutDetails(t *testing.T) {
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("Wrong or empty transport 'Details' for 'Name': TestTransport"),
+		errors.New("Wrong or empty transport 'Properties' for 'Name': TestTransport"),
 		validationErrors["TransportsEntryLogicalValidator"][0])
 }

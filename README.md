@@ -134,7 +134,7 @@ Service:
         Matchers:
           Method: GET|POST
           Path: .*
-        Details:
+        Properties:
           MaxIdleConns: 200
           MaxIdleConnsPerHost: 1000
           IdleConnTimeout: 2s
@@ -144,7 +144,7 @@ Service:
         Matchers:
           Method: GET|POST|PUT
           QueryParam: acl
-        Details:
+        Properties:
           MaxIdleConns: 200
           MaxIdleConnsPerHost: 500
           IdleConnTimeout: 5s
@@ -152,7 +152,7 @@ Service:
       -
         Name: DefaultTransport
         Matchers:
-        Details:
+        Properties:
           MaxIdleConns: 300
           MaxIdleConnsPerHost: 600
           IdleConnTimeout: 2s

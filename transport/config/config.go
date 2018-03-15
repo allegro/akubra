@@ -7,8 +7,8 @@ import (
 	"github.com/allegro/akubra/metrics"
 )
 
-// ClientTransportDetail properties
-type ClientTransportDetail struct {
+// ClientTransportProperties details
+type ClientTransportProperties struct {
 	// MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
 	// Default 0 (no limit)
 	MaxIdleConns int `yaml:"MaxIdleConns" validate:"min=0"`
@@ -46,7 +46,7 @@ type Transport struct {
 	Name                  string                  `yaml:"Name"`
 	Matchers              ClientTransportMatchers `yaml:"Matchers"`
 	MatchersCompiledRules MatchersCompiledRules
-	Details               ClientTransportDetail `yaml:"Details"`
+	Properties            ClientTransportProperties `yaml:"Properties"`
 }
 
 // Transports map with Transport

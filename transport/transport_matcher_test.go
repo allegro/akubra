@@ -65,7 +65,7 @@ func prepareClientCoinfig(transportName, method string) httphandlerConfig.Client
 		Matchers: transportConfig.ClientTransportMatchers{
 			Method: method,
 		},
-		Details: transportConfig.ClientTransportDetail{},
+		Properties: transportConfig.ClientTransportProperties{},
 	},
 	}
 	return httphandlerConfig.Client{

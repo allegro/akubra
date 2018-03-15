@@ -89,7 +89,7 @@ func TestShouldNotCompileRules(t *testing.T) {
 }
 
 func TestShouldGetMatchedTransport(t *testing.T) {
-	testDetails := ClientTransportDetail{
+	testDetails := ClientTransportProperties{
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 100,
 		IdleConnTimeout: metrics.Interval{

@@ -46,7 +46,7 @@ const (
       - Name: DefaultTransport
         Matchers:
           Method: GET|PUT|POST
-        Details:
+        Properties:
           MaxIdleConns: 500
           MaxIdleConnsPerHost: 500
           IdleConnTimeout: 2s
@@ -400,7 +400,7 @@ func PrepareYamlConfig(
 		QueryParam: "?acl",
 	}
 
-	clientTransportDetail := transportConfig.ClientTransportDetail{
+	clientTransportDetail := transportConfig.ClientTransportProperties{
 		MaxIdleConns:          maxIdleConns,
 		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
 		IdleConnTimeout:       metrics.Interval{Duration: idleConnTimeoutInp},
@@ -411,9 +411,9 @@ func PrepareYamlConfig(
 	if transports == nil {
 		transports = transportConfig.Transports{
 			transportConfig.Transport{
-				Name:     "TestTransport",
-				Matchers: clientTransportMatchers,
-				Details:  clientTransportDetail,
+				Name:       "TestTransport",
+				Matchers:   clientTransportMatchers,
+				Properties: clientTransportDetail,
 			},
 		}
 	}
