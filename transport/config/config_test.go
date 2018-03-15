@@ -16,7 +16,7 @@ Transports:
     Name: Transport1
     Matchers:
       Method: GET|POST
-    Details:
+    Properties:
       MaxIdleConns: 200
       MaxIdleConnsPerHost: 1000
       IdleConnTimeout: 2s
@@ -26,7 +26,7 @@ Transports:
     Matchers:
       Method: GET|POST|PUT
       QueryParam: acl
-    Details:
+    Properties:
       MaxIdleConns: 200
       MaxIdleConnsPerHost: 500
       IdleConnTimeout: 5s
@@ -36,7 +36,7 @@ Transports:
     Matchers:
       Path: /bucket.*
       QueryParam: clientId=.*
-    Details:
+    Properties:
       MaxIdleConns: 500
       MaxIdleConnsPerHost: 500
       IdleConnTimeout: 2s
@@ -44,7 +44,7 @@ Transports:
   -
     Name: DefaultTransport
     Matchers:
-    Details:
+    Properties:
       MaxIdleConns: 500
       MaxIdleConnsPerHost: 500
       IdleConnTimeout: 2s
@@ -89,7 +89,7 @@ func TestShouldNotCompileRules(t *testing.T) {
 }
 
 func TestShouldGetMatchedTransport(t *testing.T) {
-	testDetails := ClientTransportProperties{
+	testProperties := ClientTransportProperties{
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 100,
 		IdleConnTimeout: metrics.Interval{
@@ -108,7 +108,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 					Method: "POST",
 					Path:   "/aaa/bbb",
 				},
-				Details: testDetails,
+				Properties: testProperties,
 			},
 		},
 		{
@@ -118,7 +118,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 					Method:     "PUT",
 					QueryParam: "acl",
 				},
-				Details: testDetails,
+				Properties: testProperties,
 			},
 		},
 		{
@@ -129,7 +129,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 					Path:       "/bucket102",
 					QueryParam: "clientId=123",
 				},
-				Details: testDetails,
+				Properties: testProperties,
 			},
 		},
 		{
@@ -140,7 +140,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 					Path:       "",
 					QueryParam: "",
 				},
-				Details: testDetails,
+				Properties: testProperties,
 			},
 		},
 	}
