@@ -342,11 +342,15 @@ func (m *Matcher) RoundTrip(request *http.Request) (*http.Response, error) {
 // SelectTransportRoundTripper for selecting RoundTripper by request object from transports matcher
 func (m *Matcher) SelectTransportRoundTripper(request *http.Request) (selectedRoundTripper http.RoundTripper) {
 	selectedTransport := m.SelectTransport(request.Method, request.URL.Path, request.URL.RawQuery)
-	reqID := request.Context().Value(log.ContextreqIDKey)
-	log.DefaultLogger.Debugf("Request %s - selected transport name: %s (by method: %s, path: %s, queryParams: %s)",
-		reqID, selectedTransport.Name, request.Method, request.URL.Path, request.URL.RawQuery)
+	if len(selectedTransport.Name) > 0 {
+		reqID := request.Context().Value(log.ContextreqIDKey)
+		log.DefaultLogger.Debugf("Request %s - selected transport name: %s (by method: %s, path: %s, queryParams: %s)",
+			reqID, selectedTransport.Name, request.Method, request.URL.Path, request.URL.RawQuery)
 
-	return m.RoundTrippers[selectedTransport.Name]
+		selectedRoundTripper = m.RoundTrippers[selectedTransport.Name]
+	}
+
+	return
 }
 
 // ConfigureHTTPTransports returns RoundTrippers mapped by transport name from configuration

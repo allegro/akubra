@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	httphandlerconfig "github.com/allegro/akubra/httphandler/config"
+	"github.com/allegro/akubra/metrics"
 	regionsconfig "github.com/allegro/akubra/regions/config"
 	transportconfig "github.com/allegro/akubra/transport/config"
 	"github.com/stretchr/testify/assert"
@@ -20,6 +21,18 @@ type CustomItemsTestUnique struct {
 
 type CustomItemsTestNoEmpty struct {
 	Items []string `validate:"NoEmptyValuesSlice=Items"`
+}
+
+var testTransportDetails = transportconfig.ClientTransportDetail{
+	MaxIdleConns:        100,
+	MaxIdleConnsPerHost: 100,
+	IdleConnTimeout: metrics.Interval{
+		Duration: 1,
+	},
+	ResponseHeaderTimeout: metrics.Interval{
+		Duration: 1,
+	},
+	DisableKeepAlives: false,
 }
 
 func TestShouldValidateWhenValuesInSliceAreUnique(t *testing.T) {
@@ -279,6 +292,7 @@ func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 				Path:       ".*",
 				QueryParam: "",
 			},
+			Details: testTransportDetails,
 		},
 	}
 	var size httphandlerconfig.HumanSizeUnits
@@ -296,6 +310,7 @@ func TestValidatorShouldProcessTransportsWithSuccessWithNotDefinedMatchersProper
 			Matchers: transportconfig.ClientTransportMatchers{
 				Method: "GET",
 			},
+			Details: testTransportDetails,
 		},
 	}
 	var size httphandlerconfig.HumanSizeUnits
@@ -315,6 +330,7 @@ func TestShouldValidWithEmptyPropertiesInmatchersDefinition(t *testing.T) {
 				Path:       "",
 				QueryParam: "",
 			},
+			Details: testTransportDetails,
 		},
 	}
 	var size httphandlerconfig.HumanSizeUnits
@@ -332,6 +348,7 @@ func TestValidatorShouldValidateTransportsWithEmptyMatchers(t *testing.T) {
 			Matchers: transportconfig.ClientTransportMatchers{
 				Method: "GET",
 			},
+			Details: testTransportDetails,
 		},
 		transportconfig.Transport{
 			Name: "DefaultTestTransport",
@@ -340,6 +357,7 @@ func TestValidatorShouldValidateTransportsWithEmptyMatchers(t *testing.T) {
 				Path:       "",
 				QueryParam: "",
 			},
+			Details: testTransportDetails,
 		},
 	}
 	var size httphandlerconfig.HumanSizeUnits
@@ -348,4 +366,25 @@ func TestValidatorShouldValidateTransportsWithEmptyMatchers(t *testing.T) {
 		"127.0.0.1:1234", "127.0.0.1:1235", nil, validTransports)
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
+}
+
+func TestShouldFailTransportsEntryLogicalValidatorWithoutDetails(t *testing.T) {
+	invalidTransports := transportconfig.Transports{
+		transportconfig.Transport{
+			Name: "TestTransport",
+			Matchers: transportconfig.ClientTransportMatchers{
+				Method: "PUT",
+			},
+		},
+	}
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, invalidTransports)
+	valid, validationErrors := yamlConfig.TransportsEntryLogicalValidator()
+	assert.False(t, valid)
+	assert.Equal(
+		t,
+		errors.New("Wrong or empty transport 'Details' for 'Name': TestTransport"),
+		validationErrors["TransportsEntryLogicalValidator"][0])
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/allegro/akubra/metrics"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
 )
@@ -88,6 +89,17 @@ func TestShouldNotCompileRules(t *testing.T) {
 }
 
 func TestShouldGetMatchedTransport(t *testing.T) {
+	testDetails := ClientTransportDetail{
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 100,
+		IdleConnTimeout: metrics.Interval{
+			Duration: 1,
+		},
+		ResponseHeaderTimeout: metrics.Interval{
+			Duration: 1,
+		},
+		DisableKeepAlives: false,
+	}
 	transportsWithMatchers := []map[string]Transport{
 		{
 			"Transport1": Transport{
@@ -96,6 +108,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 					Method: "POST",
 					Path:   "/aaa/bbb",
 				},
+				Details: testDetails,
 			},
 		},
 		{
@@ -105,6 +118,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 					Method:     "PUT",
 					QueryParam: "acl",
 				},
+				Details: testDetails,
 			},
 		},
 		{
@@ -115,6 +129,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 					Path:       "/bucket102",
 					QueryParam: "clientId=123",
 				},
+				Details: testDetails,
 			},
 		},
 		{
@@ -125,6 +140,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 					Path:       "",
 					QueryParam: "",
 				},
+				Details: testDetails,
 			},
 		},
 	}

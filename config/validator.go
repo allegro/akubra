@@ -98,6 +98,14 @@ func (c *YamlConfig) TransportsEntryLogicalValidator() (valid bool, validationEr
 	errList := make([]error, 0)
 	if len(c.Service.Client.Transports) == 0 {
 		errList = append(errList, errors.New("Empty transports definition"))
+	} else {
+		for _, transportConf := range c.Service.Client.Transports {
+			details := transportConf.Details
+			if details.MaxIdleConns == 0 || details.MaxIdleConnsPerHost == 0 || details.IdleConnTimeout.Duration == 0 || details.ResponseHeaderTimeout.Duration == 0 {
+				errList = append(errList, fmt.Errorf("Wrong or empty transport 'Details' for 'Name': %s", transportConf.Name))
+				break
+			}
+		}
 	}
 	validationErrors, valid = prepareErrors(errList, "TransportsEntryLogicalValidator")
 	return
