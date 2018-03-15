@@ -44,7 +44,7 @@ const (
       Access-Control-Allow-Methods: GET, POST, OPTIONS
     Transports:
       - Name: DefaultTransport
-        Matchers:
+        ApplyRule:
           Method: GET|PUT|POST
         Properties:
           MaxIdleConns: 500
@@ -394,7 +394,7 @@ func PrepareYamlConfig(
 		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 	}
 
-	clientTransportMatchers := transportConfig.ClientTransportMatchers{
+	clientTransportApplyRule := transportConfig.ClientTransportApplyRule{
 		Method:     "GET",
 		Path:       "/path",
 		QueryParam: "?acl",
@@ -412,7 +412,7 @@ func PrepareYamlConfig(
 		transports = transportConfig.Transports{
 			transportConfig.Transport{
 				Name:       "TestTransport",
-				Matchers:   clientTransportMatchers,
+				ApplyRule:  clientTransportApplyRule,
 				Properties: clientTransportDetail,
 			},
 		}

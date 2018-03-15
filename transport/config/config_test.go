@@ -9,12 +9,12 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const testDataWithDefaultEmptyMatchers = `
+const testDataWithDefaultEmptyApplyRule = `
 ---
 Transports:
   -
     Name: Transport1
-    Matchers:
+    ApplyRule:
       Method: GET|POST
     Properties:
       MaxIdleConns: 200
@@ -23,7 +23,7 @@ Transports:
       ResponseHeaderTimeout: 5s
   -
     Name: Transport2
-    Matchers:
+    ApplyRule:
       Method: GET|POST|PUT
       QueryParam: acl
     Properties:
@@ -33,7 +33,7 @@ Transports:
       ResponseHeaderTimeout: 5s
   -
     Name: Transport3
-    Matchers:
+    ApplyRule:
       Path: /bucket.*
       QueryParam: clientId=.*
     Properties:
@@ -43,7 +43,7 @@ Transports:
       ResponseHeaderTimeout: 2s
   -
     Name: DefaultTransport
-    Matchers:
+    ApplyRule:
     Properties:
       MaxIdleConns: 500
       MaxIdleConnsPerHost: 500
@@ -67,7 +67,7 @@ var testConfig TransportConfigTest
 
 // NewTransportConfigTest tests func for updating fields values in tests cases
 func (t *Transport) NewTransportConfigTest() *Transport {
-	t.Matchers = prepareTransportConfig("^GET|POST$", "/path/aa", "")
+	t.ApplyRule = prepareTransportConfig("^GET|POST$", "/path/aa", "")
 	return t
 }
 
@@ -79,7 +79,7 @@ func TestShouldCompileRules(t *testing.T) {
 
 func TestShouldNotCompileRules(t *testing.T) {
 	testConfig := TransportConfigTest{Transport{
-		Matchers: ClientTransportMatchers{
+		ApplyRule: ClientTransportApplyRule{
 			Method: "\\p",
 		},
 	},
@@ -100,11 +100,11 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 		},
 		DisableKeepAlives: false,
 	}
-	transportsWithMatchers := []map[string]Transport{
+	transportsWithApplyRule := []map[string]Transport{
 		{
 			"Transport1": Transport{
 				Name: "Transport1",
-				Matchers: ClientTransportMatchers{
+				ApplyRule: ClientTransportApplyRule{
 					Method: "POST",
 					Path:   "/aaa/bbb",
 				},
@@ -114,7 +114,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 		{
 			"Transport2": Transport{
 				Name: "Transport2",
-				Matchers: ClientTransportMatchers{
+				ApplyRule: ClientTransportApplyRule{
 					Method:     "PUT",
 					QueryParam: "acl",
 				},
@@ -124,7 +124,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 		{
 			"Transport3": Transport{
 				Name: "Transport3",
-				Matchers: ClientTransportMatchers{
+				ApplyRule: ClientTransportApplyRule{
 					Method:     "HEAD",
 					Path:       "/bucket102",
 					QueryParam: "clientId=123",
@@ -135,7 +135,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 		{
 			"DefaultTransport": Transport{
 				Name: "DefaultTransport",
-				Matchers: ClientTransportMatchers{
+				ApplyRule: ClientTransportApplyRule{
 					Method:     "",
 					Path:       "",
 					QueryParam: "",
@@ -144,9 +144,9 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 			},
 		},
 	}
-	transports := prepareTransportsTestData(testDataWithDefaultEmptyMatchers)
+	transports := prepareTransportsTestData(testDataWithDefaultEmptyApplyRule)
 
-	for _, transportMatcherKV := range transportsWithMatchers {
+	for _, transportMatcherKV := range transportsWithApplyRule {
 		transportNameKey, methodPrepared, pathPrepared, queryParamPrepared := extractProperties(transportMatcherKV)
 		transport, ok := transports.GetMatchedTransport(methodPrepared, pathPrepared, queryParamPrepared)
 		assert.True(t, ok)
@@ -157,9 +157,9 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 func extractProperties(transportMatcherKV map[string]Transport) (transportName string, method string, path string, queryParam string) {
 	for _, emulatedTransportProps := range transportMatcherKV {
 		transportName = emulatedTransportProps.Name
-		method = emulatedTransportProps.Matchers.Method
-		path = emulatedTransportProps.Matchers.Path
-		queryParam = emulatedTransportProps.Matchers.QueryParam
+		method = emulatedTransportProps.ApplyRule.Method
+		path = emulatedTransportProps.ApplyRule.Path
+		queryParam = emulatedTransportProps.ApplyRule.QueryParam
 	}
 	return
 }
@@ -172,8 +172,8 @@ func prepareTransportsTestData(dataYaml string) Transports {
 	return ttc.Transports
 }
 
-func prepareTransportConfig(method, path, queryParam string) ClientTransportMatchers {
-	return ClientTransportMatchers{
+func prepareTransportConfig(method, path, queryParam string) ClientTransportApplyRule {
+	return ClientTransportApplyRule{
 		Method:     method,
 		Path:       path,
 		QueryParam: queryParam,
