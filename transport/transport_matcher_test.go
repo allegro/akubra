@@ -5,15 +5,28 @@ import (
 	"net/url"
 	"testing"
 
+	"fmt"
+
 	httphandlerConfig "github.com/allegro/akubra/httphandler/config"
-	"github.com/allegro/akubra/transport/config"
+	"github.com/allegro/akubra/log"
+	transportConfig "github.com/allegro/akubra/transport/config"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
+
+type LoggerMock struct {
+	mock.Mock
+	log.Logger
+}
+
+func (log *LoggerMock) Fatal(v ...interface{}) {
+	log.Called(v)
+}
 
 func TestShouldSelectTransport(t *testing.T) {
 	expectedTransportName := "TestTransport2"
 	testMethod := "GET"
-
+	logger := log.DefaultLogger
 	clientConfig := prepareClientCoinfig(expectedTransportName, testMethod)
 	url, _ := url.Parse("http://localhost/")
 	testRequest := &http.Request{URL: url, Method: testMethod}
@@ -21,18 +34,38 @@ func TestShouldSelectTransport(t *testing.T) {
 		TransportsConfig: clientConfig.Transports,
 	}
 
-	selectedTransport := unit.SelectTransport(testRequest.Method, testRequest.URL.Path, testRequest.URL.RawQuery)
+	selectedTransport, err := unit.SelectTransport(testRequest.Method, testRequest.URL.Path, testRequest.URL.RawQuery, logger)
 
 	assert.Equal(t, expectedTransportName, selectedTransport.Name)
+	assert.Nil(t, err)
+}
+
+func TestShouldFailSelectTransportWhenNoMatches(t *testing.T) {
+	testMethod := "HEAD"
+	testPath := "/bucket/"
+	expectedErrorMsg := fmt.Sprintf(
+		"Transport not matched with args. method: %s, path: %s, queryParams: ", testMethod, testPath)
+	clientConfig := prepareClientCoinfig("TestTransport3", "POST")
+	unit := &Matcher{
+		TransportsConfig: clientConfig.Transports,
+	}
+
+	logMock := &LoggerMock{}
+	logMock.On("Fatal", []interface{}{expectedErrorMsg}).Return()
+
+	_, err := unit.SelectTransport(testMethod, testPath, "", logMock)
+
+	assert.Errorf(t, err, expectedErrorMsg)
+	logMock.AssertNumberOfCalls(t, "Fatal", 1)
 }
 
 func prepareClientCoinfig(transportName, method string) httphandlerConfig.Client {
-	testConfig := config.Transports{config.Transport{
+	testConfig := transportConfig.Transports{transportConfig.Transport{
 		Name: transportName,
-		Matchers: config.ClientTransportMatchers{
+		Matchers: transportConfig.ClientTransportMatchers{
 			Method: method,
 		},
-		Details: config.ClientTransportDetail{},
+		Details: transportConfig.ClientTransportDetail{},
 	},
 	}
 	return httphandlerConfig.Client{

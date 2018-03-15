@@ -320,31 +320,32 @@ func NewMultiTransport(backends []http.RoundTripper,
 		HandleResponses: responsesHandler}
 }
 
-// SetTransportsConfig assign transport config to Matcher
-func (m *Matcher) SetTransportsConfig(clientConfig httphandlerConfig.Client) {
-	m.TransportsConfig = clientConfig.Transports
-}
-
 // SelectTransport returns transport instance by method, path and queryParams
-func (m *Matcher) SelectTransport(method, path, queryParams string) (matchedTransport config.Transport) {
+func (m *Matcher) SelectTransport(method, path, queryParams string, log log.Logger) (matchedTransport config.Transport, err error) {
 	matchedTransport, ok := m.TransportsConfig.GetMatchedTransport(method, path, queryParams)
 	if !ok {
-		log.DefaultLogger.Fatalf("Transport not matched with args. method: %s, path: %s, queryParams: %s", method, path, queryParams)
+		errMsg := fmt.Sprintf("Transport not matched with args. method: %s, path: %s, queryParams: %s", method, path, queryParams)
+		err = errors.New(errMsg)
+		log.Fatal(errMsg)
 	}
 	return
 }
 
 // RoundTrip for transport matching
-func (m *Matcher) RoundTrip(request *http.Request) (*http.Response, error) {
-	return m.SelectTransportRoundTripper(request).RoundTrip(request)
+func (m *Matcher) RoundTrip(request *http.Request) (response *http.Response, err error) {
+	selectedRoundTriper, err := m.SelectTransportRoundTripper(request)
+	if err == nil {
+		return selectedRoundTriper.RoundTrip(request)
+	}
+	return
 }
 
 // SelectTransportRoundTripper for selecting RoundTripper by request object from transports matcher
-func (m *Matcher) SelectTransportRoundTripper(request *http.Request) (selectedRoundTripper http.RoundTripper) {
-	selectedTransport := m.SelectTransport(request.Method, request.URL.Path, request.URL.RawQuery)
+func (m *Matcher) SelectTransportRoundTripper(request *http.Request) (selectedRoundTripper http.RoundTripper, err error) {
+	selectedTransport, err := m.SelectTransport(request.Method, request.URL.Path, request.URL.RawQuery, log.DefaultLogger)
 	if len(selectedTransport.Name) > 0 {
 		reqID := request.Context().Value(log.ContextreqIDKey)
-		log.DefaultLogger.Debugf("Request %s - selected transport name: %s (by method: %s, path: %s, queryParams: %s)",
+		log.Debugf("Request %s - selected transport name: %s (by method: %s, path: %s, queryParams: %s)",
 			reqID, selectedTransport.Name, request.Method, request.URL.Path, request.URL.RawQuery)
 
 		selectedRoundTripper = m.RoundTrippers[selectedTransport.Name]
