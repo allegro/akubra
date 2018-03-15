@@ -62,7 +62,7 @@ func TestShouldFailSelectTransportWhenNoMatches(t *testing.T) {
 func prepareClientCoinfig(transportName, method string) httphandlerConfig.Client {
 	testConfig := transportConfig.Transports{transportConfig.Transport{
 		Name: transportName,
-		ApplyRule: transportConfig.ClientTransportApplyRule{
+		ApplyRules: transportConfig.ClientTransportApplyRules{
 			Method: method,
 		},
 		Properties: transportConfig.ClientTransportProperties{},
