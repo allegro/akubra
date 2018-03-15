@@ -19,7 +19,7 @@ type LoggerMock struct {
 	log.Logger
 }
 
-func (log *LoggerMock) Fatal(v ...interface{}) {
+func (log *LoggerMock) Print(v ...interface{}) {
 	log.Called(v)
 }
 
@@ -51,12 +51,12 @@ func TestShouldFailSelectTransportWhenNoMatches(t *testing.T) {
 	}
 
 	logMock := &LoggerMock{}
-	logMock.On("Fatal", []interface{}{expectedErrorMsg}).Return()
+	logMock.On("Print", []interface{}{expectedErrorMsg}).Return()
 
 	_, err := unit.SelectTransport(testMethod, testPath, "", logMock)
 
 	assert.Errorf(t, err, expectedErrorMsg)
-	logMock.AssertNumberOfCalls(t, "Fatal", 1)
+	logMock.AssertNumberOfCalls(t, "Print", 1)
 }
 
 func prepareClientCoinfig(transportName, method string) httphandlerConfig.Client {

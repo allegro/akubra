@@ -326,7 +326,7 @@ func (m *Matcher) SelectTransport(method, path, queryParams string, log log.Logg
 	if !ok {
 		errMsg := fmt.Sprintf("Transport not matched with args. method: %s, path: %s, queryParams: %s", method, path, queryParams)
 		err = errors.New(errMsg)
-		log.Fatal(errMsg)
+		log.Print(errMsg)
 	}
 	return
 }
