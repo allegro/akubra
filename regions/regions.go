@@ -2,9 +2,11 @@ package regions
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/allegro/akubra/log"
 
@@ -38,7 +40,7 @@ func (rg Regions) getNoSuchDomainResponse(req *http.Request) *http.Response {
 
 // RoundTrip performs round trip to target
 func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
-	reqHost, _, err := net.SplitHostPort(req.Host)
+	reqHost, err := rg.extractDestinationHost(req)
 	if err != nil {
 		reqHost = req.Host
 	}
@@ -50,6 +52,21 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 		return rg.defaultRing.DoRequest(req)
 	}
 	return rg.getNoSuchDomainResponse(req), nil
+}
+
+func (rg Regions) extractDestinationHost(request *http.Request) (host string, err error) {
+
+	host, _, err = net.SplitHostPort(request.Host)
+	hostWithoutBucketName := removeBucketNameFromHost(host)
+
+	if _, isKnownRegion := rg.multiCluters[hostWithoutBucketName]; isKnownRegion {
+		host = hostWithoutBucketName
+	}
+	return
+}
+
+func removeBucketNameFromHost(host string) string{
+	return strings.SplitN(host, ".", 2)[1]
 }
 
 // NewRegions build new region http.RoundTripper
