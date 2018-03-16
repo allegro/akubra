@@ -94,7 +94,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 			return
 		}
 
-		if !isInitiateRequest(request) && isCompleteUploadResponseSuccessful(response) {
+		if isCompleteUploadResponseSuccessful(response) {
 			go multiPartRoundTripper.reportCompletionToMigrator(response)
 		}
 
@@ -147,7 +147,13 @@ func isCompleteUploadResponseSuccessful(response *http.Response) bool {
 
 func responseContainsCompleteUploadString(response *http.Response) bool {
 
+	if isInitiateRequest(response.Request) {
+		response.Body.Close()
+		return false
+	}
+
 	responseBodyBytes, bodyReadError := ioutil.ReadAll(response.Body)
+	response.Body.Close()
 
 	if bodyReadError != nil {
 
