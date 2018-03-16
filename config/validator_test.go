@@ -287,7 +287,7 @@ func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 	validTransports := transportconfig.Transports{
 		transportconfig.Transport{
 			Name: "TestTransport",
-			ApplyRules: transportconfig.ClientTransportApplyRules{
+			Rules: transportconfig.ClientTransportRules{
 				Method:     "GET",
 				Path:       ".*",
 				QueryParam: "",
@@ -303,11 +303,11 @@ func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 	assert.True(t, valid)
 }
 
-func TestValidatorShouldProcessTransportsWithSuccessWithNotDefinedApplyRulesProperties(t *testing.T) {
+func TestValidatorShouldProcessTransportsWithSuccessWithNotDefinedRulesProperties(t *testing.T) {
 	invalidTransports := transportconfig.Transports{
 		transportconfig.Transport{
 			Name: "TestTransport",
-			ApplyRules: transportconfig.ClientTransportApplyRules{
+			Rules: transportconfig.ClientTransportRules{
 				Method: "GET",
 			},
 			Properties: testTransportProperties,
@@ -321,11 +321,11 @@ func TestValidatorShouldProcessTransportsWithSuccessWithNotDefinedApplyRulesProp
 	assert.True(t, valid)
 }
 
-func TestShouldValidWithEmptyPropertiesInApplyRulesDefinition(t *testing.T) {
+func TestShouldValidWithEmptyPropertiesInRulesDefinition(t *testing.T) {
 	invalidTransports := transportconfig.Transports{
 		transportconfig.Transport{
 			Name: "TestTransport123",
-			ApplyRules: transportconfig.ClientTransportApplyRules{
+			Rules: transportconfig.ClientTransportRules{
 				Method:     "",
 				Path:       "",
 				QueryParam: "",
@@ -341,18 +341,18 @@ func TestShouldValidWithEmptyPropertiesInApplyRulesDefinition(t *testing.T) {
 	assert.True(t, valid)
 }
 
-func TestValidatorShouldValidateTransportsWithEmptyApplyRules(t *testing.T) {
+func TestValidatorShouldValidateTransportsWithEmptyRules(t *testing.T) {
 	validTransports := transportconfig.Transports{
 		transportconfig.Transport{
 			Name: "TestTransport",
-			ApplyRules: transportconfig.ClientTransportApplyRules{
+			Rules: transportconfig.ClientTransportRules{
 				Method: "GET",
 			},
 			Properties: testTransportProperties,
 		},
 		transportconfig.Transport{
 			Name: "DefaultTestTransport",
-			ApplyRules: transportconfig.ClientTransportApplyRules{
+			Rules: transportconfig.ClientTransportRules{
 				Method:     "",
 				Path:       "",
 				QueryParam: "",
@@ -372,7 +372,7 @@ func TestShouldFailTransportsEntryLogicalValidatorWithoutProperties(t *testing.T
 	invalidTransports := transportconfig.Transports{
 		transportconfig.Transport{
 			Name: "TestTransport",
-			ApplyRules: transportconfig.ClientTransportApplyRules{
+			Rules: transportconfig.ClientTransportRules{
 				Method: "PUT",
 			},
 		},

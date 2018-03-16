@@ -26,15 +26,15 @@ type ClientTransportProperties struct {
 	DisableKeepAlives bool `yaml:"DisableKeepAlives"`
 }
 
-// ClientTransportApplyRules properties
-type ClientTransportApplyRules struct {
+// ClientTransportRules properties
+type ClientTransportRules struct {
 	Method     string `yaml:"Method" validate:"max=64"`
 	Path       string `yaml:"Path" validate:"max=64"`
 	QueryParam string `yaml:"QueryParam" validate:"max=64"`
 }
 
-// CompiledApplyRules properties
-type CompiledApplyRules struct {
+// CompiledRules properties
+type CompiledRules struct {
 	MethodRegexp     *regexp.Regexp
 	PathRegexp       *regexp.Regexp
 	QueryParamRegexp *regexp.Regexp
@@ -43,10 +43,10 @@ type CompiledApplyRules struct {
 
 // Transport properties
 type Transport struct {
-	Name               string                    `yaml:"Name"`
-	ApplyRules         ClientTransportApplyRules `yaml:"ApplyRules"`
-	CompiledApplyRules CompiledApplyRules
-	Properties         ClientTransportProperties `yaml:"Properties"`
+	Name          string               `yaml:"Name"`
+	Rules         ClientTransportRules `yaml:"Rules"`
+	CompiledRules CompiledRules
+	Properties    ClientTransportProperties `yaml:"Properties"`
 }
 
 // Transports map with Transport
@@ -69,32 +69,32 @@ type transportFlags struct {
 
 // compileRules prepares precompiled regular expressions for rules
 func (t *Transport) compileRules() error {
-	if !t.CompiledApplyRules.IsCompiled {
+	if !t.CompiledRules.IsCompiled {
 		var err error
-		if len(t.ApplyRules.Method) > 0 {
-			t.CompiledApplyRules.MethodRegexp, err = t.compileRule(t.ApplyRules.Method)
+		if len(t.Rules.Method) > 0 {
+			t.CompiledRules.MethodRegexp, err = t.compileRule(t.Rules.Method)
 			if err != nil {
 				return fmt.Errorf("compileRule for Client->Transport->Trigger->Method error: %q", err)
 			}
 		}
-		if len(t.ApplyRules.Path) > 0 {
-			t.CompiledApplyRules.PathRegexp, err = t.compileRule(t.ApplyRules.Path)
+		if len(t.Rules.Path) > 0 {
+			t.CompiledRules.PathRegexp, err = t.compileRule(t.Rules.Path)
 			if err != nil {
 				return fmt.Errorf("compileRule for Client->Transport->Trigger->Path error: %q", err)
 			}
 		}
-		if len(t.ApplyRules.QueryParam) > 0 {
-			t.CompiledApplyRules.QueryParamRegexp, err = t.compileRule(t.ApplyRules.QueryParam)
+		if len(t.Rules.QueryParam) > 0 {
+			t.CompiledRules.QueryParamRegexp, err = t.compileRule(t.Rules.QueryParam)
 			if err != nil {
 				return fmt.Errorf("compileRule for Client->Transport->Trigger->QueryParam error: %q", err)
 			}
 		}
-		t.CompiledApplyRules.IsCompiled = true
+		t.CompiledRules.IsCompiled = true
 	}
 	return nil
 }
 
-// GetMatchedTransport returns first details matching with rules from ApplyRules by arguments: method, path, queryParam
+// GetMatchedTransport returns first details matching with rules from Rules by arguments: method, path, queryParam
 func (t *Transports) GetMatchedTransport(method, path, queryParam string) (matchedTransport Transport, ok bool) {
 	var matchedTransportName string
 	for _, transport := range *t {
@@ -119,24 +119,24 @@ func (t *Transports) GetMatchedTransport(method, path, queryParam string) (match
 func matchTransportFlags(transport Transport, method, path, queryParam string) (transportFlags, transportFlags, transportFlags) {
 	var methodFlag, pathFlag, queryParamFlag transportFlags
 
-	methodFlag.declared = len(transport.ApplyRules.Method) > 0
-	pathFlag.declared = len(transport.ApplyRules.Path) > 0
-	queryParamFlag.declared = len(transport.ApplyRules.QueryParam) > 0
+	methodFlag.declared = len(transport.Rules.Method) > 0
+	pathFlag.declared = len(transport.Rules.Path) > 0
+	queryParamFlag.declared = len(transport.Rules.QueryParam) > 0
 
 	if methodFlag.declared {
-		methodFlag.matched = transport.CompiledApplyRules.MethodRegexp.MatchString(method)
+		methodFlag.matched = transport.CompiledRules.MethodRegexp.MatchString(method)
 	} else {
 		methodFlag.empty = true
 		methodFlag.matched = true
 	}
 	if pathFlag.declared {
-		pathFlag.matched = transport.CompiledApplyRules.PathRegexp.MatchString(path)
+		pathFlag.matched = transport.CompiledRules.PathRegexp.MatchString(path)
 	} else {
 		pathFlag.empty = true
 		pathFlag.matched = true
 	}
 	if queryParamFlag.declared {
-		queryParamFlag.matched = transport.CompiledApplyRules.QueryParamRegexp.MatchString(queryParam)
+		queryParamFlag.matched = transport.CompiledRules.QueryParamRegexp.MatchString(queryParam)
 	} else {
 		queryParamFlag.empty = true
 		queryParamFlag.matched = true

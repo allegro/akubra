@@ -125,13 +125,13 @@ Service:
     # Behaviours in application with HTTP protocol condition for better transmission
     # Rules for Transports definition:
     # - required minimum one item in 'Transports' section
-    # - required empty or one property (Method, Path, QueryParam) in 'ApplyRules' section
-    # - if empty 'ApplyRules' section is defined it will be matching with any requests
-    # - in runtime no matching request (by 'ApplyRules' props. definition) generating responses with code HTTP 5xx
+    # - required empty or one property (Method, Path, QueryParam) in 'Rules' section
+    # - if empty 'Rules' section is defined it will be matching with any requests
+    # - in runtime no matching request (by 'Rules' props. definition) generating responses with code HTTP 5xx
     Transports:
       -
         Name: Transport1
-        ApplyRules:
+        Rules:
           Method: GET|POST
           Path: .*
         Properties:
@@ -141,7 +141,7 @@ Service:
           ResponseHeaderTimeout: 5s
       -
         Name: Transport2
-        ApplyRules:
+        Rules:
           Method: GET|POST|PUT
           QueryParam: acl
         Properties:
@@ -151,7 +151,7 @@ Service:
           ResponseHeaderTimeout: 5s
       -
         Name: DefaultTransport
-        ApplyRules:
+        Rules:
         Properties:
           MaxIdleConns: 300
           MaxIdleConnsPerHost: 600
