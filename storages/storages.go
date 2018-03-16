@@ -60,7 +60,7 @@ type Storages struct {
 
 // Backend represents any storage in akubra cluster
 type Backend struct {
-	RoundTripper http.RoundTripper
+	http.RoundTripper
 	Endpoint     url.URL
 	Name         string
 	Maintenance  bool
