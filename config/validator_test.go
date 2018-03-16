@@ -388,3 +388,33 @@ func TestShouldFailTransportsEntryLogicalValidatorWithoutProperties(t *testing.T
 		errors.New("Wrong or empty transport 'Properties' for 'Name': TestTransport"),
 		validationErrors["TransportsEntryLogicalValidator"][0])
 }
+
+func TestShouldPassTransportsEntryLogicalValidatorWhenIdleConnTimeoutPropertyIsZero(t *testing.T) {
+	testTransportProps := transportconfig.ClientTransportProperties{
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 100,
+		IdleConnTimeout: metrics.Interval{
+			Duration: 0,
+		},
+		ResponseHeaderTimeout: metrics.Interval{
+			Duration: 1,
+		},
+		DisableKeepAlives: false,
+	}
+
+	invalidTransports := transportconfig.Transports{
+		transportconfig.Transport{
+			Name: "TestTransport",
+			Rules: transportconfig.ClientTransportRules{
+				Method: "PUT",
+			},
+			Properties: testTransportProps,
+		},
+	}
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, invalidTransports)
+	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
+	assert.True(t, valid)
+}

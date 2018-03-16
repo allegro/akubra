@@ -101,7 +101,7 @@ func (c *YamlConfig) TransportsEntryLogicalValidator() (valid bool, validationEr
 	} else {
 		for _, transportConf := range c.Service.Client.Transports {
 			properties := transportConf.Properties
-			if properties.MaxIdleConns == 0 || properties.MaxIdleConnsPerHost == 0 || properties.IdleConnTimeout.Duration == 0 || properties.ResponseHeaderTimeout.Duration == 0 {
+			if properties.MaxIdleConns == 0 || properties.MaxIdleConnsPerHost == 0 || properties.ResponseHeaderTimeout.Duration == 0 {
 				errList = append(errList, fmt.Errorf("Wrong or empty transport 'Properties' for 'Name': %s", transportConf.Name))
 				break
 			}
