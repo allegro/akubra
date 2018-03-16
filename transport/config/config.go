@@ -69,28 +69,30 @@ type transportFlags struct {
 
 // compileRules prepares precompiled regular expressions for rules
 func (t *Transport) compileRules() error {
-	if !t.CompiledRules.IsCompiled {
-		var err error
-		if len(t.Rules.Method) > 0 {
-			t.CompiledRules.MethodRegexp, err = t.compileRule(t.Rules.Method)
-			if err != nil {
-				return fmt.Errorf("compileRule for Client->Transport->Trigger->Method error: %q", err)
-			}
-		}
-		if len(t.Rules.Path) > 0 {
-			t.CompiledRules.PathRegexp, err = t.compileRule(t.Rules.Path)
-			if err != nil {
-				return fmt.Errorf("compileRule for Client->Transport->Trigger->Path error: %q", err)
-			}
-		}
-		if len(t.Rules.QueryParam) > 0 {
-			t.CompiledRules.QueryParamRegexp, err = t.compileRule(t.Rules.QueryParam)
-			if err != nil {
-				return fmt.Errorf("compileRule for Client->Transport->Trigger->QueryParam error: %q", err)
-			}
-		}
-		t.CompiledRules.IsCompiled = true
+	if t.CompiledRules.IsCompiled {
+		return nil
 	}
+	var err error
+	if len(t.Rules.Method) > 0 {
+		t.CompiledRules.MethodRegexp, err = t.compileRule(t.Rules.Method)
+		if err != nil {
+			return fmt.Errorf("compileRule for Client->Transport->Trigger->Method error: %q", err)
+		}
+	}
+	if len(t.Rules.Path) > 0 {
+		t.CompiledRules.PathRegexp, err = t.compileRule(t.Rules.Path)
+		if err != nil {
+			return fmt.Errorf("compileRule for Client->Transport->Trigger->Path error: %q", err)
+		}
+	}
+	if len(t.Rules.QueryParam) > 0 {
+		t.CompiledRules.QueryParamRegexp, err = t.compileRule(t.Rules.QueryParam)
+		if err != nil {
+			return fmt.Errorf("compileRule for Client->Transport->Trigger->QueryParam error: %q", err)
+		}
+	}
+	t.CompiledRules.IsCompiled = true
+
 	return nil
 }
 
