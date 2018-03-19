@@ -210,13 +210,16 @@ func decorateBackend(transport http.RoundTripper, name string, backendConf confi
 		backendConf.Maintenance,
 	}
 	errPrefix := fmt.Sprintf("initialization of backend '%s' resulted with error", name)
-	decoratorFactory, ok := auth.Decorators[backendConf.Type]
+	authDecoratorFactory, ok := auth.Decorators[backendConf.Type]
 	if !ok {
 		return nil, fmt.Errorf("%s: no decorator defined for type '%s'", errPrefix, backendConf.Type)
 	}
-	decorator, err := decoratorFactory(name, backendConf)
+	authDecorator, err := authDecoratorFactory(name, backendConf)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %q", errPrefix, err)
 	}
-	return httphandler.Decorate(backend, decorator), nil
+	if backendConf.DomainStyle{
+		return httphandler.Decorate(backend, domainStyleDecorator, authDecorator), nil
+	}
+	return httphandler.Decorate(backend, authDecorator), nil
 }

@@ -2,9 +2,7 @@ package regions
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"strings"
 
@@ -13,6 +11,12 @@ import (
 	"github.com/allegro/akubra/regions/config"
 	"github.com/allegro/akubra/sharding"
 	storage "github.com/allegro/akubra/storages"
+	"net"
+)
+
+const (
+	HOST   = "X-Host"
+	BUCKET = "X-Bucket"
 )
 
 // Regions container for multiclusters
@@ -40,13 +44,24 @@ func (rg Regions) getNoSuchDomainResponse(req *http.Request) *http.Response {
 
 // RoundTrip performs round trip to target
 func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
-	reqHost, err := rg.extractDestinationHost(req)
+	reqHost, _, err := net.SplitHostPort(req.Host)
 	if err != nil {
 		reqHost = req.Host
 	}
 	shardsRing, ok := rg.multiCluters[reqHost]
 	if ok {
+		req.Header.Set(HOST, reqHost)
+		req.Header.Set(BUCKET, "")
 		return shardsRing.DoRequest(req)
+	}
+	reqHost, bucketName := removeBucketNameFromHost(reqHost)
+	if reqHost != "" && bucketName != "" {
+		shardsRing, ok = rg.multiCluters[reqHost]
+		if ok {
+			req.Header.Set(HOST, reqHost)
+			req.Header.Set(BUCKET, bucketName)
+			return shardsRing.DoRequest(req)
+		}
 	}
 	if rg.defaultRing != nil {
 		return rg.defaultRing.DoRequest(req)
@@ -54,19 +69,13 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	return rg.getNoSuchDomainResponse(req), nil
 }
 
-func (rg Regions) extractDestinationHost(request *http.Request) (host string, err error) {
 
-	host, _, err = net.SplitHostPort(request.Host)
-	hostWithoutBucketName := removeBucketNameFromHost(host)
-
-	if _, isKnownRegion := rg.multiCluters[hostWithoutBucketName]; isKnownRegion {
-		host = hostWithoutBucketName
+func removeBucketNameFromHost(host string) (string, string){
+	splitted := strings.SplitN(host, ".", 2)
+	if len(splitted) > 1 {
+		return splitted[0], splitted[1]
 	}
-	return
-}
-
-func removeBucketNameFromHost(host string) string{
-	return strings.SplitN(host, ".", 2)[1]
+	return "", ""
 }
 
 // NewRegions build new region http.RoundTripper

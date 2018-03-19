@@ -15,11 +15,12 @@ const (
 
 // Backend defines backend
 type Backend struct {
-	Endpoint    types.YAMLUrl     `yaml:"Endpoint"`
-	Type        string            `yaml:"Type"`
-	Maintenance bool              `yaml:"Maintenance"`
-	Region      string            `yaml:"Region"`
-	Properties  map[string]string `yaml:"Properties"`
+	Endpoint    types.YAMLUrl     	`yaml:"Endpoint"`
+	Type        string            	`yaml:"Type"`
+	Maintenance bool              	`yaml:"Maintenance"`
+	Region      string            	`yaml:"Region"`
+	Properties  map[string]string 	`yaml:"Properties"`
+	DomainStyle bool				`yaml:"DomainStyle"`
 }
 
 // BackendsMap is map of Backend
