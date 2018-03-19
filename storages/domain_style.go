@@ -3,6 +3,7 @@ package storages
 import (
 	"net/http"
 	"fmt"
+	"github.com/allegro/akubra/log"
 )
 
 const (
@@ -11,21 +12,21 @@ const (
 	PATH_STYLE_FORMAT = "/%s%s"
 )
 
-type domainStyleRewriter struct {
+type domainStyleInterceptor struct {
 	roundTripper http.RoundTripper
 }
 
 var domainStyleDecorator = func(roundTripper http.RoundTripper) http.RoundTripper {
-	return &domainStyleRewriter{roundTripper}
+	return &domainStyleInterceptor{roundTripper}
 }
 
-func (rewriter *domainStyleRewriter) RoundTrip(req *http.Request) (*http.Response, error) {
+func (interceptor *domainStyleInterceptor) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	host := req.Header.Get(HOST)
 	bucket := req.Header.Get(BUCKET)
 
 	if host == "" {
-		return nil, fmt.Errorf("Missing host header!")
+		return nil, fmt.Errorf("Missing host header, request id %d!", req.Context().Value(log.ContextreqIDKey))
 	}
 
 	if bucket != "" {
@@ -36,5 +37,5 @@ func (rewriter *domainStyleRewriter) RoundTrip(req *http.Request) (*http.Respons
 	req.URL.Host = host
 	req.Header.Del(HOST)
 
-	return rewriter.roundTripper.RoundTrip(req)
+	return interceptor.roundTripper.RoundTrip(req)
 }
