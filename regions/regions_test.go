@@ -7,6 +7,7 @@ import (
 	"github.com/allegro/akubra/sharding"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/allegro/akubra/storages"
 )
 
 type ShardsRingMock struct {
@@ -77,4 +78,50 @@ func TestShouldReturnResponseFromShardsRingOnHostWithPort(t *testing.T) {
 	response, _ := regions.RoundTrip(request)
 
 	assert.Equal(t, 200, response.StatusCode)
+}
+
+func TestShouldDetectADomainStyleRequestAndExtractBucketNameFromHost(t *testing.T) {
+	regions := &Regions{
+		multiCluters: make(map[string]sharding.ShardsRingAPI),
+	}
+
+	originalRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
+	interceptedRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
+	interceptedRequest.Header.Add(storages.HOST, "test.qxlint")
+	interceptedRequest.Header.Add(storages.BUCKET, "bucket")
+
+	expectedResponse := &http.Response{
+		Status:     "200 OK",
+		StatusCode: 200,
+	}
+	shardsRingMock := &ShardsRingMock{}
+	shardsRingMock.On("DoRequest", interceptedRequest).Return(expectedResponse)
+	regions.assignShardsRing("test.qxlint", shardsRingMock)
+
+	response, _ := regions.RoundTrip(originalRequest)
+
+	assert.Equal(t, 200, response.StatusCode)
+	assert.Equal(t, "test.qxlint", originalRequest.Header.Get(storages.HOST))
+	assert.Equal(t,"bucket", originalRequest.Header.Get(storages.BUCKET))
+}
+func TestShouldDetectADomainStyleRequestButFailOnMissingRegions(t *testing.T) {
+	regions := &Regions{
+		multiCluters: make(map[string]sharding.ShardsRingAPI),
+	}
+
+	requestWithNotSupportedDomain:= &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
+	expectedResponse := &http.Response{
+		Status:     "404 Bad request",
+		StatusCode: 404,
+	}
+
+	shardsRingMock := &ShardsRingMock{}
+	shardsRingMock.On("DoRequest", requestWithNotSupportedDomain).Return(expectedResponse)
+	regions.assignShardsRing("test2.qxlint", shardsRingMock)
+
+	response, _ := regions.RoundTrip(requestWithNotSupportedDomain)
+
+	assert.Equal(t, 404, response.StatusCode)
+	assert.Empty(t, requestWithNotSupportedDomain.Header.Get(storages.HOST))
+	assert.Empty(t, requestWithNotSupportedDomain.Header.Get(storages.BUCKET))
 }

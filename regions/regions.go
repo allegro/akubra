@@ -68,7 +68,7 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 func removeBucketNameFromHost(host string) (string, string){
 	splitted := strings.SplitN(host, ".", 2)
 	if len(splitted) > 1 {
-		return splitted[0], splitted[1]
+		return splitted[1], splitted[0]
 	}
 	return "", ""
 }
