@@ -31,12 +31,12 @@ func (interceptor *domainStyleInterceptor) RoundTrip(req *http.Request) (*http.R
 
 	if bucket != "" {
 		req.URL.Path = fmt.Sprintf(PATH_STYLE_FORMAT, bucket, req.URL.Path)
-		req.Header.Del(BUCKET)
 		log.Debugf("Rewritten domain style url to path style url for request ", req.Context().Value(log.ContextreqIDKey))
 
 	}
 
 	req.Host = host
 	req.Header.Del(HOST)
+	req.Header.Del(BUCKET)
 	return interceptor.roundTripper.RoundTrip(req)
 }
