@@ -279,7 +279,7 @@ func TestValidatorShouldFailWithADomainContainingOtherDomainIsDefined(t *testing
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("Invalid domain other.domain.dc! There is a domain domain.dc already defined"),
+		errors.New("Invalid domain other.domain.dc! Domain conflicts with domain.dc"),
 		validationErrors["DomainsEntryLogicalValidator"][0])
 }
 
@@ -295,7 +295,7 @@ func TestValidatorShouldFailWithWrongDomainDeclarationOrder(t *testing.T) {
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("Invalid domain order in config. Domain domain.dc should appear first, but other.domain.dc did"),
+		errors.New("Invalid domain domain.dc! Domain conflicts with other.domain.dc"),
 		validationErrors["DomainsEntryLogicalValidator"][0])
 }
 
@@ -318,7 +318,7 @@ func TestValidatorShouldFailWithADomainContainingOtherDomainIsDefinedInDifferent
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("Invalid domain other.domain.dc! There is a domain domain.dc already defined"),
+		errors.New("Invalid domain other.domain.dc! Domain conflicts with domain.dc"),
 		validationErrors["DomainsEntryLogicalValidator"][0])
 }
 
