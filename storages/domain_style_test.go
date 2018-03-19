@@ -55,8 +55,8 @@ func TestShouldPrependBucketNameToPathWhenRequestIsDomainStyle(t *testing.T) {
 
 	originalRequest = originalRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, 123))
 
-	pathSyleUrl, _ := url.Parse("http://test.qxlint/bucket/object")
-	interceptedRequest := &http.Request{URL: pathSyleUrl, Header: map[string][]string{}}
+	pathStyleUrl, _ := url.Parse("http://test.qxlint/bucket/object")
+	interceptedRequest := &http.Request{URL: pathStyleUrl, Header: map[string][]string{}, Host: "test.qxlint"}
 	interceptedRequest = interceptedRequest.WithContext(originalRequest.Context())
 
 	expectedResponse := &http.Response{

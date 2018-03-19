@@ -21,7 +21,6 @@ var domainStyleDecorator = func(roundTripper http.RoundTripper) http.RoundTrippe
 }
 
 func (interceptor *domainStyleInterceptor) RoundTrip(req *http.Request) (*http.Response, error) {
-
 	host := req.Header.Get(HOST)
 	bucket := req.Header.Get(BUCKET)
 
@@ -32,10 +31,10 @@ func (interceptor *domainStyleInterceptor) RoundTrip(req *http.Request) (*http.R
 	if bucket != "" {
 		req.URL.Path = fmt.Sprintf(PATH_STYLE_FORMAT, bucket, req.URL.Path)
 		log.Debugf("Rewritten domain style url to path style url for request ", req.Context().Value(log.ContextreqIDKey))
-
 	}
 
 	req.Host = host
+	req.URL.Host = host
 	req.Header.Del(HOST)
 	req.Header.Del(BUCKET)
 	return interceptor.roundTripper.RoundTrip(req)
