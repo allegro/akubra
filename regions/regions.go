@@ -45,15 +45,15 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	shardsRing, ok := rg.multiCluters[reqHost]
 	if ok {
-		req.Header.Add(storage.HOST, reqHost)
-		req.Header.Add(storage.BUCKET, "")
+		req.Header.Add(storage.InternalHostHeader, reqHost)
+		req.Header.Add(storage.InternalBucketHeader, "")
 		return shardsRing.DoRequest(req)
 	}
-	host, bucketName, hostFound := rg.findHostInDomainStyle(reqHost)
-	if hostFound {
+	host, bucketName := rg.findHostInDomainStyle(reqHost)
+	if host != "" && bucketName != "" {
 		shardsRing, _ = rg.multiCluters[host]
-		req.Header.Add(storage.HOST, host)
-		req.Header.Add(storage.BUCKET, bucketName)
+		req.Header.Add(storage.InternalHostHeader, host)
+		req.Header.Add(storage.InternalBucketHeader, bucketName)
 		return shardsRing.DoRequest(req)
 
 	}
@@ -62,27 +62,30 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	return rg.getNoSuchDomainResponse(req), nil
 }
-func (rg Regions) findHostInDomainStyle(originalHost string) (currentHost, bucket string, ok bool) {
-
+func (rg Regions) findHostInDomainStyle(originalHost string) (currentHost, bucket string) {
 	currentHost = ""
+	longestMatchingIndex := 0
+	longestMatchingHost := currentHost
 	lastSubDomainIndex := strings.LastIndex(originalHost, ".")
 
 	for lastSubDomainIndex != -1 {
 
 		currentHost = originalHost[lastSubDomainIndex+ 1:] + currentHost
 
-		_, ok = rg.multiCluters[currentHost]
+		_, ok := rg.multiCluters[currentHost]
 
 		if ok {
-			return currentHost, originalHost[:lastSubDomainIndex], ok
+			longestMatchingIndex = lastSubDomainIndex
+			longestMatchingHost = currentHost
+		} else if longestMatchingHost != "" {
+			break
 		}
 
 		currentHost = "." + currentHost
 		originalHost = originalHost[:lastSubDomainIndex]
 		lastSubDomainIndex = strings.LastIndex(originalHost, ".")
 	}
-
-	return "", "", false
+	return longestMatchingHost, originalHost[:longestMatchingIndex]
 }
 
 

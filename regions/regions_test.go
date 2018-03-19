@@ -87,8 +87,8 @@ func TestShouldDetectADomainStyleRequestAndExtractBucketNameFromHost(t *testing.
 
 	originalRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
 	interceptedRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
-	interceptedRequest.Header.Add(storages.HOST, "test.qxlint")
-	interceptedRequest.Header.Add(storages.BUCKET, "bucket")
+	interceptedRequest.Header.Add(storages.InternalHostHeader, "test.qxlint")
+	interceptedRequest.Header.Add(storages.InternalBucketHeader, "bucket")
 
 	expectedResponse := &http.Response{
 		Status:     "200 OK",
@@ -101,8 +101,33 @@ func TestShouldDetectADomainStyleRequestAndExtractBucketNameFromHost(t *testing.
 	response, _ := regions.RoundTrip(originalRequest)
 
 	assert.Equal(t, 200, response.StatusCode)
-	assert.Equal(t, "test.qxlint", originalRequest.Header.Get(storages.HOST))
-	assert.Equal(t,"bucket", originalRequest.Header.Get(storages.BUCKET))
+	assert.Equal(t, "test.qxlint", originalRequest.Header.Get(storages.InternalHostHeader))
+	assert.Equal(t,"bucket", originalRequest.Header.Get(storages.InternalBucketHeader))
+}
+
+func TestShouldUseTheLongestMatchingHost(t *testing.T) {
+	regions := &Regions{
+		multiCluters: make(map[string]sharding.ShardsRingAPI),
+	}
+
+	originalRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
+	interceptedRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
+	interceptedRequest.Header.Add(storages.InternalHostHeader, "test.qxlint")
+	interceptedRequest.Header.Add(storages.InternalBucketHeader, "bucket")
+
+	expectedResponse := &http.Response{
+		Status:     "200 OK",
+		StatusCode: 200,
+	}
+	shardsRingMock := &ShardsRingMock{}
+	shardsRingMock.On("DoRequest", interceptedRequest).Return(expectedResponse)
+	regions.assignShardsRing("test.qxlint", shardsRingMock)
+
+	response, _ := regions.RoundTrip(originalRequest)
+
+	assert.Equal(t, 200, response.StatusCode)
+	assert.Equal(t, "test.qxlint", originalRequest.Header.Get(storages.InternalHostHeader))
+	assert.Equal(t,"bucket", originalRequest.Header.Get(storages.InternalBucketHeader))
 }
 
 func TestShouldDetectADomainStyleRequestAndExtractMultiLabelBucketNameFromHost(t *testing.T) {
@@ -110,24 +135,27 @@ func TestShouldDetectADomainStyleRequestAndExtractMultiLabelBucketNameFromHost(t
 		multiCluters: make(map[string]sharding.ShardsRingAPI),
 	}
 
-	originalRequest := &http.Request{Host: "sub.bucket.test.qxlint", Header: map[string][]string{}}
-	interceptedRequest := &http.Request{Host: "sub.bucket.test.qxlint", Header: map[string][]string{}}
-	interceptedRequest.Header.Add(storages.HOST, "test.qxlint")
-	interceptedRequest.Header.Add(storages.BUCKET, "sub.bucket")
+	originalRequest := &http.Request{Host: "sub.bucket.subtest.test.qxlint", Header: map[string][]string{}}
+	interceptedRequest := &http.Request{Host: "sub.bucket.subtest.test.qxlint", Header: map[string][]string{}}
+	interceptedRequest.Header.Add(storages.InternalHostHeader, "subtest.test.qxlint")
+	interceptedRequest.Header.Add(storages.InternalBucketHeader, "sub.bucket")
 
 	expectedResponse := &http.Response{
 		Status:     "200 OK",
 		StatusCode: 200,
 	}
 	shardsRingMock := &ShardsRingMock{}
-	shardsRingMock.On("DoRequest", interceptedRequest).Return(expectedResponse)
+	shardsRingMock1 := &ShardsRingMock{}
+
 	regions.assignShardsRing("test.qxlint", shardsRingMock)
+	regions.assignShardsRing("subtest.test.qxlint", shardsRingMock1)
+	shardsRingMock1.On("DoRequest", interceptedRequest).Return(expectedResponse)
 
 	response, _ := regions.RoundTrip(originalRequest)
 
 	assert.Equal(t, 200, response.StatusCode)
-	assert.Equal(t, "test.qxlint", originalRequest.Header.Get(storages.HOST))
-	assert.Equal(t,"sub.bucket", originalRequest.Header.Get(storages.BUCKET))
+	assert.Equal(t, "subtest.test.qxlint", originalRequest.Header.Get(storages.InternalHostHeader))
+	assert.Equal(t,"sub.bucket", originalRequest.Header.Get(storages.InternalBucketHeader))
 }
 
 func TestShouldDetectADomainStyleRequestButFailOnMissingRegions(t *testing.T) {
@@ -148,6 +176,6 @@ func TestShouldDetectADomainStyleRequestButFailOnMissingRegions(t *testing.T) {
 	response, _ := regions.RoundTrip(requestWithNotSupportedDomain)
 
 	assert.Equal(t, 404, response.StatusCode)
-	assert.Empty(t, requestWithNotSupportedDomain.Header.Get(storages.HOST))
-	assert.Empty(t, requestWithNotSupportedDomain.Header.Get(storages.BUCKET))
+	assert.Empty(t, requestWithNotSupportedDomain.Header.Get(storages.InternalHostHeader))
+	assert.Empty(t, requestWithNotSupportedDomain.Header.Get(storages.InternalBucketHeader))
 }
