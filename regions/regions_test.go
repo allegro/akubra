@@ -38,7 +38,7 @@ func TestShouldReturnResponseFromShardsRing(t *testing.T) {
 	regions := &Regions{
 		multiCluters: shardsMap,
 	}
-	request := &http.Request{Host: "test1.qxlint"}
+	request := &http.Request{Host: "test1.qxlint", Header: map[string][]string{}}
 	expectedResponse := &http.Response{
 		Status:     "200 OK",
 		StatusCode: 200,
@@ -65,7 +65,7 @@ func TestShouldReturnResponseFromShardsRingOnHostWithPort(t *testing.T) {
 	regions := &Regions{
 		multiCluters: shardsMap,
 	}
-	request := &http.Request{Host: "test1.qxlint:1234"}
+	request := &http.Request{Host: "test1.qxlint:1234", Header: map[string][]string{}}
 	expectedResponse := &http.Response{
 		Status:     "200 OK",
 		StatusCode: 200,

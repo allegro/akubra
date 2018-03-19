@@ -14,11 +14,6 @@ import (
 	"net"
 )
 
-const (
-	HOST   = "X-Host"
-	BUCKET = "X-Bucket"
-)
-
 // Regions container for multiclusters
 type Regions struct {
 	multiCluters map[string]sharding.ShardsRingAPI
@@ -50,16 +45,16 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	shardsRing, ok := rg.multiCluters[reqHost]
 	if ok {
-		req.Header.Set(HOST, reqHost)
-		req.Header.Set(BUCKET, "")
+		req.Header.Add(storage.HOST, reqHost)
+		req.Header.Add(storage.BUCKET, "")
 		return shardsRing.DoRequest(req)
 	}
 	reqHost, bucketName := removeBucketNameFromHost(reqHost)
 	if reqHost != "" && bucketName != "" {
 		shardsRing, ok = rg.multiCluters[reqHost]
 		if ok {
-			req.Header.Set(HOST, reqHost)
-			req.Header.Set(BUCKET, bucketName)
+			req.Header.Add(storage.HOST, reqHost)
+			req.Header.Add(storage.BUCKET, bucketName)
 			return shardsRing.DoRequest(req)
 		}
 	}
