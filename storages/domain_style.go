@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	HOST              = "X-Host"
-	BUCKET            = "X-Bucket"
+	HOST              = "X-Akubra-Internal-Host"
+	BUCKET            = "X-Akubra-Internal-Bucket"
 	PATH_STYLE_FORMAT = "/%s%s"
 )
 
