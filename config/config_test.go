@@ -43,7 +43,7 @@ const (
     AdditionalResponseHeaders:
       Access-Control-Allow-Methods: GET, POST, OPTIONS
     Transports:
-      - Name: DefaultTransport
+      - Name: TransportForMethods:GET|PUT|POST
         Rules:
           Method: GET|PUT|POST
         Properties:
