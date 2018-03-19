@@ -142,3 +142,40 @@ func RequestHeaderContentTypeValidator(req http.Request, requiredContentType str
 	}
 	return 0
 }
+
+
+// DomainsEntryLogicalValidator checks the correctness of "Domains" part of configuration file
+func (c *YamlConfig) DomainsEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
+	errList := make([]error, 0)
+	var domains []string
+	for _, regionConf := range c.Regions {
+		for _, domain := range regionConf.Domains {
+			for _, alreadyDefinedDomain := range domains {
+				if domain == alreadyDefinedDomain {
+					continue
+				}
+				if strings.Contains(domain, alreadyDefinedDomain) {
+					errList = append(
+						errList,
+						fmt.Errorf("Invalid domain %s! There is a domain %s already defined", domain, alreadyDefinedDomain))
+					continue
+				} else if strings.Contains(alreadyDefinedDomain, domain) {
+					errList = append(
+						errList,
+						fmt.Errorf("Invalid domain order in config. Domain %s should appear first, but %s did", alreadyDefinedDomain, domain))
+					continue
+				}
+			}
+			domains = append(domains, domain)
+		}
+	}
+	if len(errList) > 0 {
+		valid = false
+		errorsList := make(map[string][]error)
+		errorsList["DomainsEntryLogicalValidator"] = errList
+		validationErrors = mergeErrors(validationErrors, errorsList)
+	} else {
+		valid = true
+	}
+	return
+}

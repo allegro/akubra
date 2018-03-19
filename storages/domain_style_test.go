@@ -22,8 +22,8 @@ func TestShouldFailWhenTheCustomHostHeaderIsMissing(t *testing.T) {
 }
 
 func TestShouldNotAlterThePathWhenBucketNameIsEmpty(t *testing.T) {
-	reqUrl, _ := url.Parse("http://test.qxlint/bucket/object")
-	originalRequest := &http.Request{URL: reqUrl, Header: map[string][]string{}}
+	reqURL, _ := url.Parse("http://test.qxlint/bucket/object")
+	originalRequest := &http.Request{URL: reqURL, Header: map[string][]string{}}
 	originalRequest.Header.Add(InternalHostHeader, "test.qxlint")
 	originalRequest = originalRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, 123))
 
@@ -48,15 +48,15 @@ func TestShouldNotAlterThePathWhenBucketNameIsEmpty(t *testing.T) {
 }
 
 func TestShouldPrependBucketNameToPathWhenRequestIsDomainStyle(t *testing.T) {
-	domainStyleUrl, _ := url.Parse("http://bucket.test.qxlint/object")
-	originalRequest := &http.Request{URL: domainStyleUrl, Header: map[string][]string{}}
+	domainStyleURL, _ := url.Parse("http://bucket.test.qxlint/object")
+	originalRequest := &http.Request{URL: domainStyleURL, Header: map[string][]string{}}
 	originalRequest.Header.Add(InternalHostHeader, "test.qxlint")
 	originalRequest.Header.Add(InternalBucketHeader, "bucket")
 
 	originalRequest = originalRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, 123))
 
-	pathStyleUrl, _ := url.Parse("http://test.qxlint/bucket/object")
-	interceptedRequest := &http.Request{URL: pathStyleUrl, Header: map[string][]string{}, Host: "test.qxlint"}
+	pathStyleURL, _ := url.Parse("http://test.qxlint/bucket/object")
+	interceptedRequest := &http.Request{URL: pathStyleURL, Header: map[string][]string{}, Host: "test.qxlint"}
 	interceptedRequest = interceptedRequest.WithContext(originalRequest.Context())
 
 	expectedResponse := &http.Response{
