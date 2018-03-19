@@ -49,7 +49,7 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 		req.Header.Add(storage.BUCKET, "")
 		return shardsRing.DoRequest(req)
 	}
-	reqHost, bucketName := removeBucketNameFromHost(reqHost)
+	reqHost, bucketName := splitBucketNameAndHost(reqHost)
 	if reqHost != "" && bucketName != "" {
 		shardsRing, ok = rg.multiCluters[reqHost]
 		if ok {
@@ -65,7 +65,7 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 
-func removeBucketNameFromHost(host string) (string, string){
+func splitBucketNameAndHost(host string) (string, string){
 	splitted := strings.SplitN(host, ".", 2)
 	if len(splitted) > 1 {
 		return splitted[1], splitted[0]
