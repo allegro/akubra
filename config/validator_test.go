@@ -322,6 +322,29 @@ func TestValidatorShouldFailWithADomainContainingOtherDomainIsDefinedInDifferent
 		validationErrors["DomainsEntryLogicalValidator"][0])
 }
 
+func TestValidatorShouldFailWhenDomainIsUsedMultipleTimes(t *testing.T) {
+	regionConfig := regionsconfig.Region{
+		Domains: []string{"domain.dc"},
+	}
+	regionConfig1 := regionsconfig.Region{
+		Domains: []string{"domain.dc"},
+	}
+
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	regions := map[string]regionsconfig.Region{
+		"testregion": regionConfig,
+		"testregion1": regionConfig1,
+	}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
+	valid, validationErrors := yamlConfig.DomainsEntryLogicalValidator()
+	assert.False(t, valid)
+	assert.Equal(
+		t,
+		errors.New("Invalid domain domain.dc! Domain already defined"),
+		validationErrors["DomainsEntryLogicalValidator"][0])
+}
+
 func TestValidatorShouldPassWithProperDomainsDefined(t *testing.T) {
 	regionConfig := regionsconfig.Region{
 		Domains: []string{"domain.dc", "sub.domain.dc2"},

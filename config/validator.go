@@ -149,24 +149,25 @@ func (c *YamlConfig) DomainsEntryLogicalValidator() (valid bool, validationError
 	errList := make([]error, 0)
 	var domains []string
 	for _, regionConf := range c.Regions {
-		for _, domain := range regionConf.Domains {
+		for _, regionDomain := range regionConf.Domains {
 			for _, alreadyDefinedDomain := range domains {
-				if domain == alreadyDefinedDomain {
-					continue
-				}
-				if strings.HasSuffix(domain, "." + alreadyDefinedDomain) {
+				if regionDomain == alreadyDefinedDomain {
 					errList = append(
 						errList,
-						fmt.Errorf("Invalid domain %s! There is a domain %s already defined", domain, alreadyDefinedDomain))
-					continue
-				} else if strings.HasSuffix(alreadyDefinedDomain, "." + domain) {
+						fmt.Errorf("Invalid domain %s! Domain already defined", regionDomain))
+				} else if strings.HasSuffix(regionDomain, "." + alreadyDefinedDomain) {
 					errList = append(
 						errList,
-						fmt.Errorf("Invalid domain order in config. Domain %s should appear first, but %s did", domain, alreadyDefinedDomain))
+						fmt.Errorf("Invalid domain %s! There is a domain %s already defined", regionDomain, alreadyDefinedDomain))
+					continue
+				} else if strings.HasSuffix(alreadyDefinedDomain, "." + regionDomain) {
+					errList = append(
+						errList,
+						fmt.Errorf("Invalid domain order in config. Domain %s should appear first, but %s did", regionDomain, alreadyDefinedDomain))
 					continue
 				}
 			}
-			domains = append(domains, domain)
+			domains = append(domains, regionDomain)
 		}
 	}
 	if len(errList) > 0 {
