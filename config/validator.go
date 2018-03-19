@@ -154,15 +154,15 @@ func (c *YamlConfig) DomainsEntryLogicalValidator() (valid bool, validationError
 				if domain == alreadyDefinedDomain {
 					continue
 				}
-				if strings.Contains(domain, alreadyDefinedDomain) {
+				if strings.HasSuffix(domain, "." + alreadyDefinedDomain) {
 					errList = append(
 						errList,
 						fmt.Errorf("Invalid domain %s! There is a domain %s already defined", domain, alreadyDefinedDomain))
 					continue
-				} else if strings.Contains(alreadyDefinedDomain, domain) {
+				} else if strings.HasSuffix(alreadyDefinedDomain, "." + domain) {
 					errList = append(
 						errList,
-						fmt.Errorf("Invalid domain order in config. Domain %s should appear first, but %s did", alreadyDefinedDomain, domain))
+						fmt.Errorf("Invalid domain order in config. Domain %s should appear first, but %s did", domain, alreadyDefinedDomain))
 					continue
 				}
 			}
