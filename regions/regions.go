@@ -8,10 +8,11 @@ import (
 
 	"github.com/allegro/akubra/log"
 
+	"net"
+
 	"github.com/allegro/akubra/regions/config"
 	"github.com/allegro/akubra/sharding"
 	storage "github.com/allegro/akubra/storages"
-	"net"
 )
 
 // Regions container for multiclusters
@@ -62,30 +63,27 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	return rg.getNoSuchDomainResponse(req), nil
 }
+
 func (rg Regions) findHostInDomainStyle(originalHost string) (currentHost, bucket string) {
+
 	currentHost = ""
-	longestMatchingIndex := 0
-	longestMatchingHost := currentHost
 	lastSubDomainIndex := strings.LastIndex(originalHost, ".")
 
 	for lastSubDomainIndex != -1 {
 
-		currentHost = originalHost[lastSubDomainIndex+ 1:] + currentHost
+		currentHost = originalHost[lastSubDomainIndex + 1:] + currentHost
 
 		_, ok := rg.multiCluters[currentHost]
 
 		if ok {
-			longestMatchingIndex = lastSubDomainIndex
-			longestMatchingHost = currentHost
-		} else if longestMatchingHost != "" {
-			break
+			return currentHost, originalHost[:lastSubDomainIndex]
 		}
 
 		currentHost = "." + currentHost
 		originalHost = originalHost[:lastSubDomainIndex]
 		lastSubDomainIndex = strings.LastIndex(originalHost, ".")
 	}
-	return longestMatchingHost, originalHost[:longestMatchingIndex]
+	return "", ""
 }
 
 

@@ -105,39 +105,14 @@ func TestShouldDetectADomainStyleRequestAndExtractBucketNameFromHost(t *testing.
 	assert.Equal(t,"bucket", originalRequest.Header.Get(storages.InternalBucketHeader))
 }
 
-func TestShouldUseTheLongestMatchingHost(t *testing.T) {
-	regions := &Regions{
-		multiCluters: make(map[string]sharding.ShardsRingAPI),
-	}
-
-	originalRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
-	interceptedRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
-	interceptedRequest.Header.Add(storages.InternalHostHeader, "test.qxlint")
-	interceptedRequest.Header.Add(storages.InternalBucketHeader, "bucket")
-
-	expectedResponse := &http.Response{
-		Status:     "200 OK",
-		StatusCode: 200,
-	}
-	shardsRingMock := &ShardsRingMock{}
-	shardsRingMock.On("DoRequest", interceptedRequest).Return(expectedResponse)
-	regions.assignShardsRing("test.qxlint", shardsRingMock)
-
-	response, _ := regions.RoundTrip(originalRequest)
-
-	assert.Equal(t, 200, response.StatusCode)
-	assert.Equal(t, "test.qxlint", originalRequest.Header.Get(storages.InternalHostHeader))
-	assert.Equal(t,"bucket", originalRequest.Header.Get(storages.InternalBucketHeader))
-}
-
 func TestShouldDetectADomainStyleRequestAndExtractMultiLabelBucketNameFromHost(t *testing.T) {
 	regions := &Regions{
 		multiCluters: make(map[string]sharding.ShardsRingAPI),
 	}
 
-	originalRequest := &http.Request{Host: "sub.bucket.subtest.test.qxlint", Header: map[string][]string{}}
-	interceptedRequest := &http.Request{Host: "sub.bucket.subtest.test.qxlint", Header: map[string][]string{}}
-	interceptedRequest.Header.Add(storages.InternalHostHeader, "subtest.test.qxlint")
+	originalRequest := &http.Request{Host: "sub.bucket.test.qxlint", Header: map[string][]string{}}
+	interceptedRequest := &http.Request{Host: "sub.bucket.test.qxlint", Header: map[string][]string{}}
+	interceptedRequest.Header.Add(storages.InternalHostHeader, "test.qxlint")
 	interceptedRequest.Header.Add(storages.InternalBucketHeader, "sub.bucket")
 
 	expectedResponse := &http.Response{
@@ -145,16 +120,14 @@ func TestShouldDetectADomainStyleRequestAndExtractMultiLabelBucketNameFromHost(t
 		StatusCode: 200,
 	}
 	shardsRingMock := &ShardsRingMock{}
-	shardsRingMock1 := &ShardsRingMock{}
 
 	regions.assignShardsRing("test.qxlint", shardsRingMock)
-	regions.assignShardsRing("subtest.test.qxlint", shardsRingMock1)
-	shardsRingMock1.On("DoRequest", interceptedRequest).Return(expectedResponse)
+	shardsRingMock.On("DoRequest", interceptedRequest).Return(expectedResponse)
 
 	response, _ := regions.RoundTrip(originalRequest)
 
 	assert.Equal(t, 200, response.StatusCode)
-	assert.Equal(t, "subtest.test.qxlint", originalRequest.Header.Get(storages.InternalHostHeader))
+	assert.Equal(t, "test.qxlint", originalRequest.Header.Get(storages.InternalHostHeader))
 	assert.Equal(t,"sub.bucket", originalRequest.Header.Get(storages.InternalBucketHeader))
 }
 
