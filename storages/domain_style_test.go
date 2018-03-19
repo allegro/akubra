@@ -18,7 +18,7 @@ func TestShouldFailWhenTheCustomHostHeaderIsMissing(t *testing.T) {
 	response, err := domainStyleDecorator.RoundTrip(request)
 
 	assert.Nil(t, response)
-	assert.Equal(t, err.Error(), "Missing host header, request id 123!")
+	assert.Equal(t, err.Error(), "Missing host header, request id 123")
 }
 
 func TestShouldNotAlterThePathWhenBucketNameIsEmpty(t *testing.T) {
