@@ -218,7 +218,7 @@ func decorateBackend(transport http.RoundTripper, name string, backendConf confi
 	if err != nil {
 		return nil, fmt.Errorf("%s: %q", errPrefix, err)
 	}
-	if backendConf.DomainStyle{
+	if backendConf.ForcePathStyle {
 		return httphandler.Decorate(backend, domainStyleDecorator, authDecorator), nil
 	}
 	return httphandler.Decorate(backend, authDecorator), nil
