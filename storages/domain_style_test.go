@@ -29,6 +29,7 @@ func TestShouldNotAlterThePathWhenBucketNameIsEmpty(t *testing.T) {
 
 	interceptedRequest := &http.Request{}
 	*interceptedRequest = *originalRequest
+	interceptedRequest.Host = "test.qxlint"
 	interceptedRequest.Header = map[string][]string{}
 
 	expectedResponse := &http.Response{
