@@ -57,28 +57,28 @@ type TransportsTestCfg struct {
 	Transports Transports `yaml:"Transports"`
 }
 
-// TransportConfigTest for tests defaults
-type TransportConfigTest struct {
-	Transport
+// TransportMatcherDefinitionTest for tests defaults
+type TransportMatcherDefinitionTest struct {
+	TransportMatcherDefinition
 }
 
 // testConfig temporary test properties
-var testConfig TransportConfigTest
+var testConfig TransportMatcherDefinitionTest
 
 // NewTransportConfigTest tests func for updating fields values in tests cases
-func (t *Transport) NewTransportConfigTest() *Transport {
+func (t *TransportMatcherDefinition) NewTransportConfigTest() *TransportMatcherDefinition {
 	t.Rules = prepareTransportConfig("^GET|POST$", "/path/aa", "")
 	return t
 }
 
 func TestShouldCompileRules(t *testing.T) {
-	testConfig := TransportConfigTest{}
+	testConfig := TransportMatcherDefinitionTest{}
 	err := testConfig.compileRules()
 	assert.NoError(t, err, "Should be correct")
 }
 
 func TestShouldNotCompileRules(t *testing.T) {
-	testConfig := TransportConfigTest{Transport{
+	testConfig := TransportMatcherDefinitionTest{TransportMatcherDefinition{
 		Rules: ClientTransportRules{
 			Method: "\\p",
 		},
@@ -100,9 +100,9 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 		},
 		DisableKeepAlives: false,
 	}
-	transportsWithRules := []map[string]Transport{
+	transportsWithRules := []map[string]TransportMatcherDefinition{
 		{
-			"Transport1": Transport{
+			"Transport1": TransportMatcherDefinition{
 				Name: "Transport1",
 				Rules: ClientTransportRules{
 					Method: "POST",
@@ -112,7 +112,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 			},
 		},
 		{
-			"Transport2": Transport{
+			"Transport2": TransportMatcherDefinition{
 				Name: "Transport2",
 				Rules: ClientTransportRules{
 					Method:     "PUT",
@@ -122,7 +122,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 			},
 		},
 		{
-			"Transport3": Transport{
+			"Transport3": TransportMatcherDefinition{
 				Name: "Transport3",
 				Rules: ClientTransportRules{
 					Method:     "HEAD",
@@ -133,7 +133,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 			},
 		},
 		{
-			"DefaultTransport": Transport{
+			"DefaultTransport": TransportMatcherDefinition{
 				Name: "DefaultTransport",
 				Rules: ClientTransportRules{
 					Method:     "",
@@ -154,7 +154,7 @@ func TestShouldGetMatchedTransport(t *testing.T) {
 	}
 }
 
-func extractProperties(transportMatcherKV map[string]Transport) (transportName string, method string, path string, queryParam string) {
+func extractProperties(transportMatcherKV map[string]TransportMatcherDefinition) (transportName string, method string, path string, queryParam string) {
 	for _, emulatedTransportProps := range transportMatcherKV {
 		transportName = emulatedTransportProps.Name
 		method = emulatedTransportProps.Rules.Method

@@ -60,7 +60,7 @@ func TestShouldFailSelectTransportWhenNoMatches(t *testing.T) {
 }
 
 func prepareClientCoinfig(transportName, method string) httphandlerConfig.Client {
-	testConfig := transportConfig.Transports{transportConfig.Transport{
+	testConfig := transportConfig.Transports{transportConfig.TransportMatcherDefinition{
 		Name: transportName,
 		Rules: transportConfig.ClientTransportRules{
 			Method: method,

@@ -410,7 +410,7 @@ func PrepareYamlConfig(
 
 	if transports == nil {
 		transports = transportConfig.Transports{
-			transportConfig.Transport{
+			transportConfig.TransportMatcherDefinition{
 				Name:       "TestTransport",
 				Rules:      clientTransportRules,
 				Properties: clientTransportDetail,

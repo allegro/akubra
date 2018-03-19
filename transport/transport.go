@@ -320,7 +320,7 @@ func NewMultiTransport(backends []http.RoundTripper,
 }
 
 // SelectTransport returns transport instance by method, path and queryParams
-func (m *Matcher) SelectTransport(method, path, queryParams string, log log.Logger) (matchedTransport config.Transport, err error) {
+func (m *Matcher) SelectTransport(method, path, queryParams string, log log.Logger) (matchedTransport config.TransportMatcherDefinition, err error) {
 	matchedTransport, ok := m.TransportsConfig.GetMatchedTransport(method, path, queryParams)
 	if !ok {
 		errMsg := fmt.Sprintf("Transport not matched with args. method: %s, path: %s, queryParams: %s", method, path, queryParams)

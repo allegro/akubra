@@ -41,19 +41,19 @@ type CompiledRules struct {
 	IsCompiled       bool
 }
 
-// Transport properties
-type Transport struct {
+// TransportMatcherDefinition properties
+type TransportMatcherDefinition struct {
 	Name          string               `yaml:"Name"`
 	Rules         ClientTransportRules `yaml:"Rules"`
 	CompiledRules CompiledRules
 	Properties    ClientTransportProperties `yaml:"Properties"`
 }
 
-// Transports map with Transport
-type Transports []Transport
+// Transports map with TransportMatcherDefinition
+type Transports []TransportMatcherDefinition
 
 // compileRule
-func (t *Transport) compileRule(regexpRule string) (compiledRule *regexp.Regexp, err error) {
+func (t *TransportMatcherDefinition) compileRule(regexpRule string) (compiledRule *regexp.Regexp, err error) {
 	if len(regexpRule) > 0 {
 		compiledRule, err = regexp.Compile(regexpRule)
 	}
@@ -68,7 +68,7 @@ type transportFlags struct {
 }
 
 // compileRules prepares precompiled regular expressions for rules
-func (t *Transport) compileRules() error {
+func (t *TransportMatcherDefinition) compileRules() error {
 	if t.CompiledRules.IsCompiled {
 		return nil
 	}
@@ -76,19 +76,19 @@ func (t *Transport) compileRules() error {
 	if len(t.Rules.Method) > 0 {
 		t.CompiledRules.MethodRegexp, err = t.compileRule(t.Rules.Method)
 		if err != nil {
-			return fmt.Errorf("compileRule for Client->Transport->Trigger->Method error: %q", err)
+			return fmt.Errorf("compileRule for Client->TransportMatcherDefinition->Trigger->Method error: %q", err)
 		}
 	}
 	if len(t.Rules.Path) > 0 {
 		t.CompiledRules.PathRegexp, err = t.compileRule(t.Rules.Path)
 		if err != nil {
-			return fmt.Errorf("compileRule for Client->Transport->Trigger->Path error: %q", err)
+			return fmt.Errorf("compileRule for Client->TransportMatcherDefinition->Trigger->Path error: %q", err)
 		}
 	}
 	if len(t.Rules.QueryParam) > 0 {
 		t.CompiledRules.QueryParamRegexp, err = t.compileRule(t.Rules.QueryParam)
 		if err != nil {
-			return fmt.Errorf("compileRule for Client->Transport->Trigger->QueryParam error: %q", err)
+			return fmt.Errorf("compileRule for Client->TransportMatcherDefinition->Trigger->QueryParam error: %q", err)
 		}
 	}
 	t.CompiledRules.IsCompiled = true
@@ -97,7 +97,7 @@ func (t *Transport) compileRules() error {
 }
 
 // GetMatchedTransport returns first details matching with rules from Rules by arguments: method, path, queryParam
-func (t *Transports) GetMatchedTransport(method, path, queryParam string) (matchedTransport Transport, ok bool) {
+func (t *Transports) GetMatchedTransport(method, path, queryParam string) (matchedTransport TransportMatcherDefinition, ok bool) {
 	var matchedTransportName string
 	for _, transport := range *t {
 		err := transport.compileRules()
@@ -117,8 +117,8 @@ func (t *Transports) GetMatchedTransport(method, path, queryParam string) (match
 	return
 }
 
-// matchTransportFlags matches method, path and query for Transport
-func matchTransportFlags(transport Transport, method, path, queryParam string) (transportFlags, transportFlags, transportFlags) {
+// matchTransportFlags matches method, path and query for TransportMatcherDefinition
+func matchTransportFlags(transport TransportMatcherDefinition, method, path, queryParam string) (transportFlags, transportFlags, transportFlags) {
 	var methodFlag, pathFlag, queryParamFlag transportFlags
 
 	methodFlag.declared = len(transport.Rules.Method) > 0

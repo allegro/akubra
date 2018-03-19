@@ -285,7 +285,7 @@ func TestValidatorShouldFailWithEmptyTransportsDefinition(t *testing.T) {
 
 func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 	validTransports := transportconfig.Transports{
-		transportconfig.Transport{
+		transportconfig.TransportMatcherDefinition{
 			Name: "TestTransport",
 			Rules: transportconfig.ClientTransportRules{
 				Method:     "GET",
@@ -305,7 +305,7 @@ func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 
 func TestValidatorShouldProcessTransportsWithSuccessWithNotDefinedRulesProperties(t *testing.T) {
 	invalidTransports := transportconfig.Transports{
-		transportconfig.Transport{
+		transportconfig.TransportMatcherDefinition{
 			Name: "TestTransport",
 			Rules: transportconfig.ClientTransportRules{
 				Method: "GET",
@@ -323,7 +323,7 @@ func TestValidatorShouldProcessTransportsWithSuccessWithNotDefinedRulesPropertie
 
 func TestShouldValidWithEmptyPropertiesInRulesDefinition(t *testing.T) {
 	invalidTransports := transportconfig.Transports{
-		transportconfig.Transport{
+		transportconfig.TransportMatcherDefinition{
 			Name: "TestTransport123",
 			Rules: transportconfig.ClientTransportRules{
 				Method:     "",
@@ -343,14 +343,14 @@ func TestShouldValidWithEmptyPropertiesInRulesDefinition(t *testing.T) {
 
 func TestValidatorShouldValidateTransportsWithEmptyRules(t *testing.T) {
 	validTransports := transportconfig.Transports{
-		transportconfig.Transport{
+		transportconfig.TransportMatcherDefinition{
 			Name: "TestTransport",
 			Rules: transportconfig.ClientTransportRules{
 				Method: "GET",
 			},
 			Properties: testTransportProperties,
 		},
-		transportconfig.Transport{
+		transportconfig.TransportMatcherDefinition{
 			Name: "DefaultTestTransport",
 			Rules: transportconfig.ClientTransportRules{
 				Method:     "",
@@ -370,7 +370,7 @@ func TestValidatorShouldValidateTransportsWithEmptyRules(t *testing.T) {
 
 func TestShouldFailTransportsEntryLogicalValidatorWithoutProperties(t *testing.T) {
 	invalidTransports := transportconfig.Transports{
-		transportconfig.Transport{
+		transportconfig.TransportMatcherDefinition{
 			Name: "TestTransport",
 			Rules: transportconfig.ClientTransportRules{
 				Method: "PUT",
@@ -403,7 +403,7 @@ func TestShouldPassTransportsEntryLogicalValidatorWhenIdleConnTimeoutPropertyIsZ
 	}
 
 	invalidTransports := transportconfig.Transports{
-		transportconfig.Transport{
+		transportconfig.TransportMatcherDefinition{
 			Name: "TestTransport",
 			Rules: transportconfig.ClientTransportRules{
 				Method: "PUT",
