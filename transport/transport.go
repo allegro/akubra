@@ -18,8 +18,7 @@ import (
 )
 
 const (
-	defaultMaxIdleConnsPerHost   = 100
-	defaultResponseHeaderTimeout = 5 * time.Second
+	defaultMaxIdleConnsPerHost = 100
 )
 
 // ResErrTuple is intermediate structure for internal use of
@@ -359,10 +358,9 @@ func ConfigureHTTPTransports(clientConf httphandlerConfig.Client) (http.RoundTri
 	roundTrippers := make(map[string]http.RoundTripper)
 	transportMatcher := &Matcher{TransportsConfig: clientConf.Transports}
 	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
-	responseHeaderTimeout := defaultResponseHeaderTimeout
 	if len(clientConf.Transports) > 0 {
 		for _, transport := range clientConf.Transports {
-			roundTrippers[transport.Name] = perepareTransport(transport.Properties, maxIdleConnsPerHost, responseHeaderTimeout)
+			roundTrippers[transport.Name] = perepareTransport(transport.Properties, maxIdleConnsPerHost)
 		}
 		transportMatcher.RoundTrippers = roundTrippers
 	} else {
@@ -373,19 +371,15 @@ func ConfigureHTTPTransports(clientConf httphandlerConfig.Client) (http.RoundTri
 }
 
 // perepareTransport with properties
-func perepareTransport(properties config.ClientTransportProperties, maxIdleConnsPerHost int,
-	responseHeaderTimeout time.Duration) http.RoundTripper {
+func perepareTransport(properties config.ClientTransportProperties, maxIdleConnsPerHost int) http.RoundTripper {
 	if properties.MaxIdleConnsPerHost != 0 {
 		maxIdleConnsPerHost = properties.MaxIdleConnsPerHost
-	}
-	if properties.ResponseHeaderTimeout.Duration != 0 {
-		responseHeaderTimeout = properties.ResponseHeaderTimeout.Duration
 	}
 	httpTransport := &http.Transport{
 		MaxIdleConns:          properties.MaxIdleConns,
 		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
 		IdleConnTimeout:       properties.IdleConnTimeout.Duration,
-		ResponseHeaderTimeout: responseHeaderTimeout,
+		ResponseHeaderTimeout: properties.ResponseHeaderTimeout.Duration,
 		DisableKeepAlives:     properties.DisableKeepAlives,
 	}
 	return httpTransport
