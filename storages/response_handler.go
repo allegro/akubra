@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/merger"
 	"github.com/allegro/akubra/transport"
 )
@@ -21,7 +22,19 @@ func isSuccess(tup transport.ResErrTuple) bool {
 	return true
 }
 
-func (rm *responseMerger) createResponse(successes []transport.ResErrTuple) (resp *http.Response, err error) {
+func (rm *responseMerger) createResponse(firstTuple transport.ResErrTuple, successes []transport.ResErrTuple) (resp *http.Response, err error) {
+	reqQuery := firstTuple.Req.URL.Query()
+	log.Println("Create response")
+	if reqQuery.Get("list-type") == listTypeV2 {
+		log.Println("Create response v2", len(successes))
+
+		return merger.MergeListV2Responses(successes)
+	}
+
+	if reqQuery["versions"] != nil {
+		return merger.MergeVersionsResponses(successes)
+	}
+
 	return merger.MergeListResponses(successes)
 }
 
@@ -43,7 +56,8 @@ func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-cha
 		if !isSuccess(firstTuple) {
 			firstTuple.DiscardBody()
 		}
-		res, err := rm.createResponse(successes)
+
+		res, err := rm.createResponse(firstTuple, successes)
 		return transport.ResErrTuple{
 			Res: res,
 			Err: err,
@@ -55,8 +69,8 @@ func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-cha
 var unsupportedQueryParamNames = []string{
 	"acl",
 	"uploads",
-	"list-type",
-	"versions",
+	// "list-type",
+	// "versions",
 	"tags",
 	"requestPayment",
 	"replication",
@@ -100,20 +114,20 @@ func isBucketPath(path string) bool {
 func (rm *responseMerger) responseHandler(in <-chan transport.ResErrTuple) transport.ResErrTuple {
 	firstTuple := <-in
 	req := firstTuple.Req
-	reqQuery := req.URL.Query()
 	if rm.isMergable(req) {
 		return rm.merge(firstTuple, in)
 	}
 
-	if reqQuery.Get("list-type") == listTypeV2 {
-		return transport.ResErrTuple{
-			Req: req,
-			Res: &http.Response{
-				Request:    req,
-				StatusCode: http.StatusNotImplemented,
-			},
-		}
-	}
+	// reqQuery := req.URL.Query()
+	// if reqQuery.Get("list-type") == listTypeV2 {
+	// 	return transport.ResErrTuple{
+	// 		Req: req,
+	// 		Res: &http.Response{
+	// 			Request:    req,
+	// 			StatusCode: http.StatusNotImplemented,
+	// 		},
+	// 	}
+	// }
 
 	inCopy := make(chan transport.ResErrTuple)
 	go func() {

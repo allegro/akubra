@@ -86,6 +86,7 @@ func (oc *objectsContainer) first(limit int) []fmt.Stringer {
 	if limit >= len(oc.list) {
 		return oc.list
 	}
+	log.Debug("returning %d elements, has %d", limit, len(oc.list))
 	return oc.list[0:limit]
 }
 
@@ -118,6 +119,7 @@ func extractListResults(resp *http.Response) s3datatypes.ListBucketResult {
 func pickResultSet(os objectsContainer, ps objectsContainer, maxKeys int, lbr s3datatypes.ListBucketResult) s3datatypes.ListBucketResult {
 	lbr.CommonPrefixes.FromStringer(ps.first(maxKeys))
 	oLen := maxKeys - len(lbr.CommonPrefixes)
+	log.Println("oLen", oLen, maxKeys)
 	lbr.Contents.FromStringer(os.first(oLen))
 	isTruncated := os.Len()+ps.Len() > maxKeys
 	if !isTruncated {

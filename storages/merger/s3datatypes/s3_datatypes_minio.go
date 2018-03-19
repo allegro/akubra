@@ -48,8 +48,10 @@ func (cp CommonPrefix) String() string {
 	return cp.Prefix
 }
 
+//ObjectInfos is slice of ObjectInfo
 type ObjectInfos []ObjectInfo
 
+// ToStringer returns slice of stringers
 func (ois ObjectInfos) ToStringer() []fmt.Stringer {
 	stringers := make([]fmt.Stringer, 0, len(ois))
 	for _, item := range ois {
@@ -59,14 +61,14 @@ func (ois ObjectInfos) ToStringer() []fmt.Stringer {
 	return stringers
 }
 
-func (ois *ObjectInfos) FromStringer(stringers []fmt.Stringer) bool {
+// FromStringer returns asserted stringer slice to ObjectInfos
+func (ois ObjectInfos) FromStringer(stringers []fmt.Stringer) ObjectInfos {
 	newOis := make(ObjectInfos, 0, len(stringers))
 	for _, stringer := range stringers {
 		item := stringer.(ObjectInfo)
 		newOis = append(newOis, item)
 	}
-	ois = &newOis
-	return true
+	return ObjectInfos(newOis)
 }
 
 // ListBucketResult container for listObjects response.
@@ -101,7 +103,7 @@ type ListBucketResult struct {
 	Prefix     string
 }
 
-// OwnerInfo owner info container
+// UserInfo owner info container
 type UserInfo struct {
 	ID          string
 	DisplayName string
@@ -119,6 +121,10 @@ type VersionInfo struct {
 	Owner        UserInfo
 }
 
+func (vi VersionInfo) String() string {
+	return vi.Key
+}
+
 // DeleteMarkerInfo container
 type DeleteMarkerInfo struct {
 	Key          string
@@ -126,6 +132,10 @@ type DeleteMarkerInfo struct {
 	IsLatest     bool
 	LastModified time.Time
 	Owner        UserInfo
+}
+
+func (dmi DeleteMarkerInfo) String() string {
+	return dmi.Key
 }
 
 // ListVersionsResult container for Bucket Object versions response
@@ -141,8 +151,8 @@ type ListVersionsResult struct {
 	// A flag that indicates whether or not ListObjects returned all of the results
 	// that satisfied the search criteria.
 	IsTruncated  bool
-	Version      []VersionInfo
-	DeleteMarker []DeleteMarkerInfo
+	Version      VersionInfos
+	DeleteMarker DeleteMarkerInfos
 	// When response is truncated (the IsTruncated element value in
 	// the response is true), you can use the key name in this field
 	// as marker in the subsequent request to get next set of objects.
@@ -154,6 +164,52 @@ type ListVersionsResult struct {
 	// next set of object keys.
 	NextKeyMarker       string
 	NextVersionIDMarker string `xml:"NextVersionIdMarker"`
+}
+
+// VersionInfos is slice []VersionInfo
+type VersionInfos []VersionInfo
+
+// ToStringer returns asserted ObjectInfos to Stringer slice
+func (cp VersionInfos) ToStringer() []fmt.Stringer {
+	stringers := make([]fmt.Stringer, 0, len(cp))
+	for _, item := range cp {
+		stringer := fmt.Stringer(item)
+		stringers = append(stringers, stringer)
+	}
+	return stringers
+}
+
+// FromStringer returns asserted stringer slice to VersionInfos
+func (cp VersionInfos) FromStringer(stringers []fmt.Stringer) VersionInfos {
+	cpp := make(VersionInfos, 0, len(stringers))
+	for _, stringer := range stringers {
+		item := stringer.(VersionInfo)
+		cpp = append(cpp, item)
+	}
+	return VersionInfos(cpp)
+}
+
+// DeleteMarkerInfos is slice []DeleteMarkerInfo
+type DeleteMarkerInfos []DeleteMarkerInfo
+
+// ToStringer returns asserted ObjectInfos to Stringer slice
+func (cp DeleteMarkerInfos) ToStringer() []fmt.Stringer {
+	stringers := make([]fmt.Stringer, 0, len(cp))
+	for _, item := range cp {
+		stringer := fmt.Stringer(item)
+		stringers = append(stringers, stringer)
+	}
+	return stringers
+}
+
+// FromStringer returns asserted stringer slice to DeleteMarkerInfos
+func (cp DeleteMarkerInfos) FromStringer(stringers []fmt.Stringer) DeleteMarkerInfos {
+	cpp := make(DeleteMarkerInfos, 0, len(stringers))
+	for _, stringer := range stringers {
+		item := stringer.(DeleteMarkerInfo)
+		cpp = append(cpp, item)
+	}
+	return DeleteMarkerInfos(cpp)
 }
 
 // ListBucketV2Result container for listObjects response version 2.
@@ -185,8 +241,10 @@ type ListBucketV2Result struct {
 	StartAfter string
 }
 
+// CommonPrefixes is slice of CommonPrefix
 type CommonPrefixes []CommonPrefix
 
+// ToStringer returns asserted ObjectInfos to Stringer slice
 func (cp CommonPrefixes) ToStringer() []fmt.Stringer {
 	stringers := make([]fmt.Stringer, 0, len(cp))
 	for _, item := range cp {
@@ -196,14 +254,14 @@ func (cp CommonPrefixes) ToStringer() []fmt.Stringer {
 	return stringers
 }
 
-func (cp *CommonPrefixes) FromStringer(stringers []fmt.Stringer) bool {
+// FromStringer returns asserted stringer slice to CommonPrefixes
+func (cp CommonPrefixes) FromStringer(stringers []fmt.Stringer) CommonPrefixes {
 	cpp := make(CommonPrefixes, 0, len(stringers))
 	for _, stringer := range stringers {
 		item := stringer.(CommonPrefix)
 		cpp = append(cpp, item)
 	}
-	cp = &cpp
-	return true
+	return CommonPrefixes(cpp)
 }
 
 type ListMultipartUploadsResult struct {

@@ -13,7 +13,7 @@ import (
 	"github.com/allegro/akubra/transport"
 )
 
-func MergeListV2Responses(successes []transport.ResErrTuple) (resp *http.Response, err error) {
+func MergeVersionsResponses(successes []transport.ResErrTuple) (resp *http.Response, err error) {
 	if len(successes) == 0 {
 		log.Printf("No successful response")
 		err = fmt.Errorf("No successful responses")
@@ -27,12 +27,12 @@ func MergeListV2Responses(successes []transport.ResErrTuple) (resp *http.Respons
 		list: make([]fmt.Stringer, 0),
 		set:  make(map[string]struct{}),
 	}
-	var listBucketResult s3datatypes.ListBucketV2Result
+	var listBucketResult s3datatypes.ListVersionsResult
 	for _, tuple := range successes {
 		resp = tuple.Res
-		listBucketResult = extractListv2Results(resp)
-		oContainer.append(listBucketResult.Contents.ToStringer()...)
-		pContainer.append(listBucketResult.CommonPrefixes.ToStringer()...)
+		listBucketResult = extractListVersionsResults(resp)
+		oContainer.append(listBucketResult.Version.ToStringer()...)
+		pContainer.append(listBucketResult.DeleteMarker.ToStringer()...)
 	}
 
 	req := successes[0].Res.Request
@@ -43,7 +43,7 @@ func MergeListV2Responses(successes []transport.ResErrTuple) (resp *http.Respons
 		maxKeys = 1000
 	}
 
-	listBucketResult = pickListV2ResultSet(oContainer, pContainer, maxKeys, listBucketResult)
+	listBucketResult = pickVersionResultSet(oContainer, pContainer, maxKeys, listBucketResult)
 
 	bodyBytes, err := xml.Marshal(listBucketResult)
 	if err != nil {
@@ -59,8 +59,8 @@ func MergeListV2Responses(successes []transport.ResErrTuple) (resp *http.Respons
 	return resp, nil
 }
 
-func extractListv2Results(resp *http.Response) s3datatypes.ListBucketV2Result {
-	lbr := s3datatypes.ListBucketV2Result{}
+func extractListVersionsResults(resp *http.Response) s3datatypes.ListVersionsResult {
+	lbr := s3datatypes.ListVersionsResult{}
 	if resp.Body == nil {
 		return lbr
 	}
@@ -85,10 +85,10 @@ func extractListv2Results(resp *http.Response) s3datatypes.ListBucketV2Result {
 	return lbr
 }
 
-func pickListV2ResultSet(os objectsContainer, ps objectsContainer, maxKeys int, lbr s3datatypes.ListBucketV2Result) s3datatypes.ListBucketV2Result {
-	lbr.CommonPrefixes.FromStringer(ps.first(maxKeys))
-	oLen := maxKeys - len(lbr.CommonPrefixes)
-	lbr.Contents.FromStringer(os.first(oLen))
+func pickVersionResultSet(ps objectsContainer, os objectsContainer, maxKeys int, lbr s3datatypes.ListVersionsResult) s3datatypes.ListVersionsResult {
+	lbr.Version = lbr.Version.FromStringer(ps.first(maxKeys))
+	oLen := maxKeys - len(lbr.Version)
+	lbr.DeleteMarker = lbr.DeleteMarker.FromStringer(os.first(oLen))
 	isTruncated := os.Len()+ps.Len() > maxKeys
 	if !isTruncated {
 		return lbr

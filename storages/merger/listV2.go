@@ -33,6 +33,8 @@ func MergeListV2Responses(successes []transport.ResErrTuple) (resp *http.Respons
 		listBucketResult = extractListv2Results(resp)
 		oContainer.append(listBucketResult.Contents.ToStringer()...)
 		pContainer.append(listBucketResult.CommonPrefixes.ToStringer()...)
+		log.Debugf("len oContainer %v", oContainer.list)
+		log.Debugf("len pContainer %v", pContainer.list)
 	}
 
 	req := successes[0].Res.Request
@@ -86,9 +88,10 @@ func extractListv2Results(resp *http.Response) s3datatypes.ListBucketV2Result {
 }
 
 func pickListV2ResultSet(os objectsContainer, ps objectsContainer, maxKeys int, lbr s3datatypes.ListBucketV2Result) s3datatypes.ListBucketV2Result {
-	lbr.CommonPrefixes.FromStringer(ps.first(maxKeys))
+	lbr.CommonPrefixes = lbr.CommonPrefixes.FromStringer(ps.first(maxKeys))
 	oLen := maxKeys - len(lbr.CommonPrefixes)
-	lbr.Contents.FromStringer(os.first(oLen))
+	log.Debugf("%v %d", os.first(oLen), oLen)
+	lbr.Contents = lbr.Contents.FromStringer(os.first(oLen))
 	isTruncated := os.Len()+ps.Len() > maxKeys
 	if !isTruncated {
 		return lbr
