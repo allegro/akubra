@@ -49,29 +49,42 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 		req.Header.Add(storage.BUCKET, "")
 		return shardsRing.DoRequest(req)
 	}
-	reqHost, bucketName := splitBucketNameAndHost(reqHost)
-	if reqHost != "" && bucketName != "" {
-		shardsRing, ok = rg.multiCluters[reqHost]
-		if ok {
-			req.Header.Add(storage.HOST, reqHost)
-			req.Header.Add(storage.BUCKET, bucketName)
-			return shardsRing.DoRequest(req)
-		}
+	host, bucketName, hostFound := rg.findHostInDomainStyle(reqHost)
+	if hostFound {
+		shardsRing, _ = rg.multiCluters[host]
+		req.Header.Add(storage.HOST, host)
+		req.Header.Add(storage.BUCKET, bucketName)
+		return shardsRing.DoRequest(req)
+
 	}
 	if rg.defaultRing != nil {
 		return rg.defaultRing.DoRequest(req)
 	}
 	return rg.getNoSuchDomainResponse(req), nil
 }
+func (rg Regions) findHostInDomainStyle(originalHost string) (currentHost, bucket string, ok bool) {
 
+	currentHost = ""
+	lastSubDomainIndex := strings.LastIndex(originalHost, ".")
 
-func splitBucketNameAndHost(host string) (string, string){
-	splitted := strings.SplitN(host, ".", 2)
-	if len(splitted) > 1 {
-		return splitted[1], splitted[0]
+	for lastSubDomainIndex != -1 {
+
+		currentHost = originalHost[lastSubDomainIndex+ 1:] + currentHost
+
+		_, ok = rg.multiCluters[currentHost]
+
+		if ok {
+			return currentHost, originalHost[:lastSubDomainIndex], ok
+		}
+
+		currentHost = "." + currentHost
+		originalHost = originalHost[:lastSubDomainIndex]
+		lastSubDomainIndex = strings.LastIndex(originalHost, ".")
 	}
-	return "", ""
+
+	return "", "", false
 }
+
 
 // NewRegions build new region http.RoundTripper
 func NewRegions(conf config.Regions, storages storage.Storages, transport http.RoundTripper, syncLogger log.Logger) (http.RoundTripper, error) {
