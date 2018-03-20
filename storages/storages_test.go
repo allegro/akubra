@@ -101,11 +101,11 @@ func TestShouldDecorateBackendWithDomainStyleDecoratorOnlyWhenItHasForcePathStyl
 	pathStyleBackendName := "pathStyleBackend"
 	domainStyleBackendName := "domainStyleBackend"
 
-	pathStyleBackendUrl, _ := url.Parse("http://pahtStyle.com:8080")
-	domainStyleBackendUrl, _ := url.Parse("http://domainStyle.com:8080")
+	pathStyleBackendURL, _ := url.Parse("http://pahtStyle.com:8080")
+	domainStyleBackendURL, _ := url.Parse("http://domainStyle.com:8080")
 
 	pathStyleBackendConfig := config.Backend{
-		Endpoint: types.YAMLUrl{URL: pathStyleBackendUrl},
+		Endpoint: types.YAMLUrl{URL: pathStyleBackendURL},
 		Maintenance: false,
 		ForcePathStyle: false,
 		Properties: make(map[string]string),
@@ -113,7 +113,7 @@ func TestShouldDecorateBackendWithDomainStyleDecoratorOnlyWhenItHasForcePathStyl
 		Type: "passthrough",
 	}
 	domainStyleBackendConfig := config.Backend{
-		Endpoint: types.YAMLUrl{URL: domainStyleBackendUrl},
+		Endpoint: types.YAMLUrl{URL: domainStyleBackendURL},
 		Maintenance: false,
 		ForcePathStyle: true,
 		Properties: make(map[string]string),
