@@ -10,16 +10,15 @@ import (
 // ClientTransportProperties details
 type ClientTransportProperties struct {
 	// MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
-	// Default 0 (no limit)
+	// Zero means no limit.
 	MaxIdleConns int `yaml:"MaxIdleConns" validate:"min=0"`
 	// MaxIdleConnsPerHost see: https://golang.org/pkg/net/http/#Transport
-	// Default 100
+	// If zero, DefaultMaxIdleConnsPerHost is used.
 	MaxIdleConnsPerHost int `yaml:"MaxIdleConnsPerHost" validate:"min=0"`
 	// IdleConnTimeout see: https://golang.org/pkg/net/http/#Transport
-	// Default 0 (no limit)
+	// Zero means no limit.
 	IdleConnTimeout metrics.Interval `yaml:"IdleConnTimeout"`
 	// ResponseHeaderTimeout see: https://golang.org/pkg/net/http/#Transport
-	// Default 5s (no limit)
 	ResponseHeaderTimeout metrics.Interval `yaml:"ResponseHeaderTimeout"`
 	// DisableKeepAlives see: https://golang.org/pkg/net/http/#Transport
 	// Default false

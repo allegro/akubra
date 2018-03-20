@@ -286,11 +286,11 @@ Response:
 
 ## Transports and Rules with dedicated timeouts
 
-It's guarantee high availability and better transmission.
+This feature guarantee high availability and better transmission.
 
 For example, when one specific HTTP method has lag we can set timeouts with special 'Rule'.
-Another example, when user dds big chunks by multi upload,
-default timeout needs to be changed with into dedicated 'Transport' with 'Rule' for this case.
+Another example, when user adds big chunks by multi upload,
+default timeout needs to be changed with dedicated 'Transport' with 'Rule' for this case.
 
 We have 'Rules' for 'Transports' definitions:
  - required minimum one item in 'Transports' section

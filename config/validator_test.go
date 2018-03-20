@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/validator.v1"
+	"time"
 )
 
 type CustomItemsTestUnique struct {
@@ -321,7 +322,7 @@ func TestValidatorShouldProcessTransportsWithSuccessWithNotDefinedRulesPropertie
 	assert.True(t, valid)
 }
 
-func TestShouldValidWithEmptyPropertiesInRulesDefinition(t *testing.T) {
+func TestShouldValidateWithEmptyPropertiesInRulesDefinition(t *testing.T) {
 	transports := transportconfig.Transports{
 		transportconfig.TransportMatcherDefinition{
 			Name: "TestTransport123",
@@ -368,7 +369,7 @@ func TestValidatorShouldValidateTransportsWithEmptyRules(t *testing.T) {
 	assert.True(t, valid)
 }
 
-func TestShouldFailTransportsEntryLogicalValidatorWithoutProperties(t *testing.T) {
+func TestValidatorShouldFailOnTransportWithoutProperties(t *testing.T) {
 	transports := transportconfig.Transports{
 		transportconfig.TransportMatcherDefinition{
 			Name: "TestTransport",
@@ -389,20 +390,65 @@ func TestShouldFailTransportsEntryLogicalValidatorWithoutProperties(t *testing.T
 		validationErrors["TransportsEntryLogicalValidator"][0])
 }
 
-func TestShouldPassTransportsEntryLogicalValidatorWhenIdleConnTimeoutPropertyIsZero(t *testing.T) {
+func TestShouldPassTransportsEntryLogicalValidatorWhenIdleConnTimeoutDurationIsZero(t *testing.T) {
+	transports := prepareTransportsForEntryLogicalValidatorTest(100, 200, 0, 1)
+
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
+	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
+	assert.True(t, valid)
+}
+
+func TestShouldFailTransportsEntryLogicalValidatorWhenResponseHeaderTimeoutDurationIsZero(t *testing.T) {
+	transports := prepareTransportsForEntryLogicalValidatorTest(100, 200, 1, 0)
+
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
+	result, _ := yamlConfig.TransportsEntryLogicalValidator()
+	assert.False(t, result)
+}
+
+func TestShouldPassTransportsEntryLogicalValidatorWhenMaxIdleConnsIsZero(t *testing.T) {
+	transports := prepareTransportsForEntryLogicalValidatorTest(0, 100, 3, 1)
+
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
+	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
+	assert.True(t, valid)
+}
+
+func TestShouldPassTransportsEntryLogicalValidatorWhenMaxIdleConnsPerHostIsZero(t *testing.T) {
+	transports := prepareTransportsForEntryLogicalValidatorTest(20, 0, 2, 1)
+
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
+	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
+	assert.True(t, valid)
+}
+
+func prepareTransportsForEntryLogicalValidatorTest(maxIdleConns, maxIdleConnsPerHost int,
+	idleConnTimeoutDuration, responseHeaderTimeoutDuration time.Duration) transportconfig.Transports {
 	testTransportProps := transportconfig.ClientTransportProperties{
-		MaxIdleConns:        100,
-		MaxIdleConnsPerHost: 100,
+		MaxIdleConns:        maxIdleConns,
+		MaxIdleConnsPerHost: maxIdleConnsPerHost,
 		IdleConnTimeout: metrics.Interval{
-			Duration: 0,
+			Duration: idleConnTimeoutDuration,
 		},
 		ResponseHeaderTimeout: metrics.Interval{
-			Duration: 1,
+			Duration: responseHeaderTimeoutDuration,
 		},
 		DisableKeepAlives: false,
 	}
 
-	transports := transportconfig.Transports{
+	return transportconfig.Transports{
 		transportconfig.TransportMatcherDefinition{
 			Name: "TestTransport",
 			Rules: transportconfig.ClientTransportRules{
@@ -411,10 +457,4 @@ func TestShouldPassTransportsEntryLogicalValidatorWhenIdleConnTimeoutPropertyIsZ
 			Properties: testTransportProps,
 		},
 	}
-	var size httphandlerconfig.HumanSizeUnits
-	size.SizeInBytes = 2048
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
-	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
-	assert.True(t, valid)
 }

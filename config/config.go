@@ -16,8 +16,8 @@ import (
 	"github.com/allegro/akubra/metrics"
 	confregions "github.com/allegro/akubra/regions/config"
 	storages "github.com/allegro/akubra/storages/config"
-	validator "gopkg.in/validator.v1"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/validator.v1"
+	"gopkg.in/yaml.v2"
 )
 
 // TechnicalEndpointBodyMaxSize for /configuration/validate endpoint

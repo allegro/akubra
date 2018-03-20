@@ -21,7 +21,7 @@ import (
 	transportConfig "github.com/allegro/akubra/transport/config"
 	"github.com/stretchr/testify/assert"
 
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 const (
