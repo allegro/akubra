@@ -151,7 +151,7 @@ func (c *YamlConfig) DomainsEntryLogicalValidator() (valid bool, validationError
 	for _, regionConf := range c.Regions {
 		for _, regionDomain := range regionConf.Domains {
 			if isDefined, otherDomain := isAlreadyDefinedInDomains(regionDomain, definedDomains); isDefined {
-				err := fmt.Errorf("Invalid domain '%s', it conflicts with '%s'\n", regionDomain, otherDomain)
+				err := fmt.Errorf("Invalid domain '%s', it conflicts with '%s'", regionDomain, otherDomain)
 				errList = append(errList, err)
 			} else {
 				definedDomains = append(definedDomains, regionDomain)
