@@ -13,6 +13,7 @@ import (
 	"github.com/allegro/akubra/transport"
 )
 
+// MergeVersionsResponses unifies responses from multiple backends
 func MergeVersionsResponses(successes []transport.ResErrTuple) (resp *http.Response, err error) {
 	if len(successes) == 0 {
 		log.Printf("No successful response")

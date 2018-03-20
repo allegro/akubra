@@ -13,6 +13,7 @@ import (
 	"github.com/allegro/akubra/transport"
 )
 
+// MergeListV2Responses unifies responses from multiple backends
 func MergeListV2Responses(successes []transport.ResErrTuple) (resp *http.Response, err error) {
 	if len(successes) == 0 {
 		log.Printf("No successful response")
@@ -97,6 +98,32 @@ func pickListV2ResultSet(os objectsContainer, ps objectsContainer, maxKeys int, 
 		return lbr
 	}
 	// TODO-mj: pack NextContinuatio
+	if oLen > 0 {
+		lbr.ContinuationToken = lbr.Contents[len(lbr.Contents)-1].Key
+	} else {
+		lbr.ContinuationToken = lbr.CommonPrefixes[len(lbr.CommonPrefixes)-1].Prefix
+	}
 	lbr.IsTruncated = isTruncated
 	return lbr
+}
+
+type interceptor struct {
+	rt http.RoundTripper
+}
+
+const listTypeV2 = "2"
+
+func (i *interceptor) RoundTrip(req *http.Request) (*http.Response, error) {
+	reqQuery := req.URL.Query()
+	if reqQuery.Get("list-type") == listTypeV2 && len(reqQuery.Get("continuation-token")) > 0 {
+		reqQuery.Set("start-after", reqQuery.Get("continuation-token"))
+		reqQuery.Del("continuation-token")
+		req.URL.RawQuery = reqQuery.Encode()
+	}
+	return i.rt.RoundTrip(req)
+}
+
+// ListV2Interceptor rewrites listV2 query params
+func ListV2Interceptor(roundTripper http.RoundTripper) http.RoundTripper {
+	return &interceptor{rt: roundTripper}
 }

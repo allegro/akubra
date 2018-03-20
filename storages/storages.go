@@ -11,6 +11,7 @@ import (
 
 	"github.com/allegro/akubra/storages/auth"
 	"github.com/allegro/akubra/storages/config"
+	"github.com/allegro/akubra/storages/merger"
 	set "github.com/deckarep/golang-set"
 )
 
@@ -217,7 +218,7 @@ func decorateBackend(transport http.RoundTripper, name string, backendConf confi
 		return nil, fmt.Errorf("%s: %q", errPrefix, err)
 	}
 	backend := &Backend{
-		httphandler.Decorate(transport, decorator),
+		httphandler.Decorate(transport, decorator, merger.ListV2Interceptor),
 		*backendConf.Endpoint.URL,
 		name,
 		backendConf.Maintenance,

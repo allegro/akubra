@@ -264,6 +264,7 @@ func (cp CommonPrefixes) FromStringer(stringers []fmt.Stringer) CommonPrefixes {
 	return CommonPrefixes(cpp)
 }
 
+// ListMultipartUploadsResult decodes s3 multipart upload results
 type ListMultipartUploadsResult struct {
 	Bucket             string
 	KeyMarker          string
