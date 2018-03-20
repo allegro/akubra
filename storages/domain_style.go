@@ -30,7 +30,11 @@ func (interceptor *domainStyleInterceptor) RoundTrip(req *http.Request) (*http.R
 		return nil, fmt.Errorf("Missing host header, request id %d", req.Context().Value(log.ContextreqIDKey))
 	}
 	if bucket != "" {
-		pathStyleUrl := fmt.Sprintf(PathStyleFormat, bucket, req.URL.Path)
+		oldPath := ""
+		if len(req.URL.Path) > 0 {
+			oldPath = req.URL.Path[1:]
+		}
+		pathStyleUrl := fmt.Sprintf(PathStyleFormat, bucket, oldPath)
 		log.Debugf("Rewritten domain style url (%s) to path style url (%s) for request %s",
 			req.Context().Value(log.ContextreqIDKey), req.URL.Path, pathStyleUrl)
 		req.URL.Path = pathStyleUrl
