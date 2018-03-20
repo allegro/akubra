@@ -40,14 +40,14 @@ var (
 
 	// CLI flags
 	configFile = kingpin.
-			Flag("config", "Configuration file path e.g.: \"conf/dev.yaml\"").
-			Short('c').
-			Required().
-			ExistingFile()
+		Flag("config", "Configuration file path e.g.: \"conf/dev.yaml\"").
+		Short('c').
+		Required().
+		ExistingFile()
 	testConfig = kingpin.
-			Flag("test-config", "Testing only configuration file from 'config' arg. (app. not starting).").
-			Short('t').
-			Bool()
+		Flag("test-config", "Testing only configuration file from 'config' arg. (app. not starting).").
+		Short('t').
+		Bool()
 )
 
 func main() {
