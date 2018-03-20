@@ -286,17 +286,17 @@ Response:
 
 ## Transports and Rules with dedicated timeouts
 
-It's transparent feature for end users for guarantee high availability and better transmission.
+It's guarantee high availability and better transmission.
 
-For example, when one specific HTTP method has lag we can modifying timeouts with special 'Rule'.
-Another example, when user adding biggest chunks by multi upload,
-default timeout need to be changing into dedicated 'Transport' with 'Rule' for this case.
+For example, when one specific HTTP method has lag we can set timeouts with special 'Rule'.
+Another example, when user dds big chunks by multi upload,
+default timeout needs to be changed with into dedicated 'Transport' with 'Rule' for this case.
 
 We have 'Rules' for 'Transports' definitions:
  - required minimum one item in 'Transports' section
  - required empty or one property (Method, Path, QueryParam) in 'Rules' section
- - if empty 'Rules' section is defined it will be matching with any requests
- - in runtime no matching request (by 'Rules' props. definition) generating responses with code HTTP 5xx
+ - if empty 'Rules' section is defined it will match with any requests
+ - when transport cannot be matched, http 500 error code will be sent to client.
 
 
 ## Limitations

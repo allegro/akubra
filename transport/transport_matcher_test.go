@@ -34,7 +34,7 @@ func TestShouldSelectTransport(t *testing.T) {
 		TransportsConfig: clientConfig.Transports,
 	}
 
-	selectedTransport, err := unit.SelectTransport(testRequest.Method, testRequest.URL.Path, testRequest.URL.RawQuery, logger)
+	selectedTransport, err := unit.SelectTransportDefinition(testRequest.Method, testRequest.URL.Path, testRequest.URL.RawQuery, logger)
 
 	assert.Equal(t, expectedTransportName, selectedTransport.Name)
 	assert.Nil(t, err)
@@ -53,7 +53,7 @@ func TestShouldFailSelectTransportWhenNoMatches(t *testing.T) {
 	logMock := &LoggerMock{}
 	logMock.On("Print", []interface{}{expectedErrorMsg}).Return()
 
-	_, err := unit.SelectTransport(testMethod, testPath, "", logMock)
+	_, err := unit.SelectTransportDefinition(testMethod, testPath, "", logMock)
 
 	assert.Errorf(t, err, expectedErrorMsg)
 	logMock.AssertNumberOfCalls(t, "Print", 1)

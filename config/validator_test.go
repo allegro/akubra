@@ -12,7 +12,7 @@ import (
 	transportconfig "github.com/allegro/akubra/transport/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	validator "gopkg.in/validator.v1"
+	"gopkg.in/validator.v1"
 )
 
 type CustomItemsTestUnique struct {
@@ -284,7 +284,7 @@ func TestValidatorShouldFailWithEmptyTransportsDefinition(t *testing.T) {
 }
 
 func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
-	validTransports := transportconfig.Transports{
+	transports := transportconfig.Transports{
 		transportconfig.TransportMatcherDefinition{
 			Name: "TestTransport",
 			Rules: transportconfig.ClientTransportRules{
@@ -298,13 +298,13 @@ func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, validTransports)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
 
 func TestValidatorShouldProcessTransportsWithSuccessWithNotDefinedRulesProperties(t *testing.T) {
-	invalidTransports := transportconfig.Transports{
+	transports := transportconfig.Transports{
 		transportconfig.TransportMatcherDefinition{
 			Name: "TestTransport",
 			Rules: transportconfig.ClientTransportRules{
@@ -316,13 +316,13 @@ func TestValidatorShouldProcessTransportsWithSuccessWithNotDefinedRulesPropertie
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, invalidTransports)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
 
 func TestShouldValidWithEmptyPropertiesInRulesDefinition(t *testing.T) {
-	invalidTransports := transportconfig.Transports{
+	transports := transportconfig.Transports{
 		transportconfig.TransportMatcherDefinition{
 			Name: "TestTransport123",
 			Rules: transportconfig.ClientTransportRules{
@@ -336,13 +336,13 @@ func TestShouldValidWithEmptyPropertiesInRulesDefinition(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 51, 55, "127.0.0.1:82",
-		"127.0.0.1:1235", "127.0.0.1:1236", nil, invalidTransports)
+		"127.0.0.1:1235", "127.0.0.1:1236", nil, transports)
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
 
 func TestValidatorShouldValidateTransportsWithEmptyRules(t *testing.T) {
-	validTransports := transportconfig.Transports{
+	transports := transportconfig.Transports{
 		transportconfig.TransportMatcherDefinition{
 			Name: "TestTransport",
 			Rules: transportconfig.ClientTransportRules{
@@ -363,13 +363,13 @@ func TestValidatorShouldValidateTransportsWithEmptyRules(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, validTransports)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
 
 func TestShouldFailTransportsEntryLogicalValidatorWithoutProperties(t *testing.T) {
-	invalidTransports := transportconfig.Transports{
+	transports := transportconfig.Transports{
 		transportconfig.TransportMatcherDefinition{
 			Name: "TestTransport",
 			Rules: transportconfig.ClientTransportRules{
@@ -380,7 +380,7 @@ func TestShouldFailTransportsEntryLogicalValidatorWithoutProperties(t *testing.T
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, invalidTransports)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
 	valid, validationErrors := yamlConfig.TransportsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -402,7 +402,7 @@ func TestShouldPassTransportsEntryLogicalValidatorWhenIdleConnTimeoutPropertyIsZ
 		DisableKeepAlives: false,
 	}
 
-	invalidTransports := transportconfig.Transports{
+	transports := transportconfig.Transports{
 		transportconfig.TransportMatcherDefinition{
 			Name: "TestTransport",
 			Rules: transportconfig.ClientTransportRules{
@@ -414,7 +414,7 @@ func TestShouldPassTransportsEntryLogicalValidatorWhenIdleConnTimeoutPropertyIsZ
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, invalidTransports)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }

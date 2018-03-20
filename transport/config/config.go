@@ -96,27 +96,6 @@ func (t *TransportMatcherDefinition) compileRules() error {
 	return nil
 }
 
-// GetMatchedTransport returns first details matching with rules from Rules by arguments: method, path, queryParam
-func (t *Transports) GetMatchedTransport(method, path, queryParam string) (matchedTransport TransportMatcherDefinition, ok bool) {
-	var matchedTransportName string
-	for _, transport := range *t {
-		err := transport.compileRules()
-		if err != nil {
-			return matchedTransport, false
-		}
-		methodFlag, pathFlag, queryParamFlag := matchTransportFlags(transport, method, path, queryParam)
-
-		if methodFlag.matched && pathFlag.matched && queryParamFlag.matched {
-			return transport, true
-		}
-		if methodFlag.empty && pathFlag.empty && queryParamFlag.empty && len(matchedTransportName) == 0 {
-			matchedTransport = transport
-		}
-		matchedTransportName = transport.Name
-	}
-	return
-}
-
 // matchTransportFlags matches method, path and query for TransportMatcherDefinition
 func matchTransportFlags(transport TransportMatcherDefinition, method, path, queryParam string) (transportFlags, transportFlags, transportFlags) {
 	var methodFlag, pathFlag, queryParamFlag transportFlags
@@ -144,4 +123,25 @@ func matchTransportFlags(transport TransportMatcherDefinition, method, path, que
 		queryParamFlag.matched = true
 	}
 	return methodFlag, pathFlag, queryParamFlag
+}
+
+// GetMatchedTransportDefinition returns first details matching with rules from Rules by arguments: method, path, queryParam
+func (t *Transports) GetMatchedTransportDefinition(method, path, queryParam string) (matchedTransport TransportMatcherDefinition, ok bool) {
+	var matchedTransportName string
+	for _, transport := range *t {
+		err := transport.compileRules()
+		if err != nil {
+			return matchedTransport, false
+		}
+		methodFlag, pathFlag, queryParamFlag := matchTransportFlags(transport, method, path, queryParam)
+
+		if methodFlag.matched && pathFlag.matched && queryParamFlag.matched {
+			return transport, true
+		}
+		if methodFlag.empty && pathFlag.empty && queryParamFlag.empty && len(matchedTransportName) == 0 {
+			matchedTransport = transport
+		}
+		matchedTransportName = transport.Name
+	}
+	return
 }

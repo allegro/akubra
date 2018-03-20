@@ -319,9 +319,9 @@ func NewMultiTransport(backends []http.RoundTripper,
 		HandleResponses: responsesHandler}
 }
 
-// SelectTransport returns transport instance by method, path and queryParams
-func (m *Matcher) SelectTransport(method, path, queryParams string, log log.Logger) (matchedTransport config.TransportMatcherDefinition, err error) {
-	matchedTransport, ok := m.TransportsConfig.GetMatchedTransport(method, path, queryParams)
+// SelectTransportDefinition returns transport instance by method, path and queryParams
+func (m *Matcher) SelectTransportDefinition(method, path, queryParams string, log log.Logger) (matchedTransport config.TransportMatcherDefinition, err error) {
+	matchedTransport, ok := m.TransportsConfig.GetMatchedTransportDefinition(method, path, queryParams)
 	if !ok {
 		errMsg := fmt.Sprintf("Transport not matched with args. method: %s, path: %s, queryParams: %s", method, path, queryParams)
 		err = errors.New(errMsg)
@@ -341,7 +341,7 @@ func (m *Matcher) RoundTrip(request *http.Request) (response *http.Response, err
 
 // SelectTransportRoundTripper for selecting RoundTripper by request object from transports matcher
 func (m *Matcher) SelectTransportRoundTripper(request *http.Request) (selectedRoundTripper http.RoundTripper, err error) {
-	selectedTransport, err := m.SelectTransport(request.Method, request.URL.Path, request.URL.RawQuery, log.DefaultLogger)
+	selectedTransport, err := m.SelectTransportDefinition(request.Method, request.URL.Path, request.URL.RawQuery, log.DefaultLogger)
 	if len(selectedTransport.Name) > 0 {
 		reqID := request.Context().Value(log.ContextreqIDKey)
 		log.Debugf("Request %s - selected transport name: %s (by method: %s, path: %s, queryParams: %s)",
