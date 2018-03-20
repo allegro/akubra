@@ -65,27 +65,20 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (rg Regions) findHostInDomainStyle(originalHost string) (currentHost, bucket string) {
-
 	currentHost = ""
 	lastSubDomainIndex := strings.LastIndex(originalHost, ".")
-
 	for lastSubDomainIndex != -1 {
-
 		currentHost = originalHost[lastSubDomainIndex + 1:] + currentHost
-
 		_, ok := rg.multiCluters[currentHost]
-
 		if ok {
 			return currentHost, originalHost[:lastSubDomainIndex]
 		}
-
 		currentHost = "." + currentHost
 		originalHost = originalHost[:lastSubDomainIndex]
 		lastSubDomainIndex = strings.LastIndex(originalHost, ".")
 	}
-	return "", ""
+	return
 }
-
 
 // NewRegions build new region http.RoundTripper
 func NewRegions(conf config.Regions, storages storage.Storages, transport http.RoundTripper, syncLogger log.Logger) (http.RoundTripper, error) {

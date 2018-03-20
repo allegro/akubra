@@ -147,22 +147,15 @@ func RequestHeaderContentTypeValidator(req http.Request, requiredContentType str
 // DomainsEntryLogicalValidator checks the correctness of "Domains" part of configuration file
 func (c *YamlConfig) DomainsEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
-	var domains []string
+	var definedDomains []string
 	for _, regionConf := range c.Regions {
 		for _, regionDomain := range regionConf.Domains {
-			for _, alreadyDefinedDomain := range domains {
-				if regionDomain == alreadyDefinedDomain {
-					errList = append(
-						errList,
-						fmt.Errorf("Invalid domain %s! Domain already defined", regionDomain))
-				} else if strings.HasSuffix(regionDomain, "." + alreadyDefinedDomain) ||
-						  strings.HasSuffix(alreadyDefinedDomain, "." + regionDomain) {
-					errList = append(
-						errList,
-						fmt.Errorf("Invalid domain %s! Domain conflicts with %s", regionDomain, alreadyDefinedDomain))
-				}
+			if isDefined, otherDomain := isAlreadyDefinedInDomains(regionDomain, definedDomains); isDefined {
+				err := fmt.Errorf("Invalid domain '%s', it conflicts with '%s'\n", regionDomain, otherDomain)
+				errList = append(errList, err)
+			} else {
+				definedDomains = append(definedDomains, regionDomain)
 			}
-			domains = append(domains, regionDomain)
 		}
 	}
 	if len(errList) > 0 {
@@ -172,6 +165,16 @@ func (c *YamlConfig) DomainsEntryLogicalValidator() (valid bool, validationError
 		validationErrors = mergeErrors(validationErrors, errorsList)
 	} else {
 		valid = true
+	}
+	return
+}
+func isAlreadyDefinedInDomains(domain string, definedDomains []string) (isDefined bool , otherDomain string) {
+	for _, alreadyDefinedDomain := range definedDomains {
+		if domain == alreadyDefinedDomain ||
+			strings.HasSuffix(domain, "." + alreadyDefinedDomain) ||
+			strings.HasSuffix(alreadyDefinedDomain, "." + domain) {
+				return true, alreadyDefinedDomain
+		}
 	}
 	return
 }

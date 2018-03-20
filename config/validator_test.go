@@ -267,7 +267,7 @@ func TestValidatorShouldFailWithMissingClusterDefinition(t *testing.T) {
 		validationErrors["RegionsEntryLogicalValidator"][0])
 }
 
-func TestValidatorShouldFailWithADomainContainingOtherDomainIsDefined(t *testing.T) {
+func TestValidatorShouldFailWhenADomainContainingOtherDomainAsSubDomainIsDefined(t *testing.T) {
 	regionConfig := regionsconfig.Region{
 		Domains: []string{"domain.dc", "other.domain.dc"},
 	}
@@ -279,7 +279,7 @@ func TestValidatorShouldFailWithADomainContainingOtherDomainIsDefined(t *testing
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("Invalid domain other.domain.dc! Domain conflicts with domain.dc"),
+		errors.New("Invalid domain 'other.domain.dc', it conflicts with 'domain.dc'\n"),
 		validationErrors["DomainsEntryLogicalValidator"][0])
 }
 
@@ -295,7 +295,7 @@ func TestValidatorShouldFailWithWrongDomainDeclarationOrder(t *testing.T) {
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("Invalid domain domain.dc! Domain conflicts with other.domain.dc"),
+		errors.New("Invalid domain 'domain.dc', it conflicts with 'other.domain.dc'\n"),
 		validationErrors["DomainsEntryLogicalValidator"][0])
 }
 
@@ -318,7 +318,7 @@ func TestValidatorShouldFailWithADomainContainingOtherDomainIsDefinedInDifferent
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("Invalid domain other.domain.dc! Domain conflicts with domain.dc"),
+		errors.New("Invalid domain 'other.domain.dc', it conflicts with 'domain.dc'\n"),
 		validationErrors["DomainsEntryLogicalValidator"][0])
 }
 
@@ -341,7 +341,7 @@ func TestValidatorShouldFailWhenDomainIsUsedMultipleTimes(t *testing.T) {
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("Invalid domain domain.dc! Domain already defined"),
+		errors.New("Invalid domain 'domain.dc', it conflicts with 'domain.dc'\n"),
 		validationErrors["DomainsEntryLogicalValidator"][0])
 }
 
