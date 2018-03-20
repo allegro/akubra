@@ -69,8 +69,8 @@ func (rg Regions) findHostInDomainStyle(originalHost string) (currentHost, bucke
 	lastSubDomainIndex := strings.LastIndex(originalHost, ".")
 	for lastSubDomainIndex != -1 {
 		currentHost = originalHost[lastSubDomainIndex + 1:] + currentHost
-		_, ok := rg.multiCluters[currentHost]
-		if ok {
+		_, domainFoundInConfig := rg.multiCluters[currentHost]
+		if domainFoundInConfig {
 			return currentHost, originalHost[:lastSubDomainIndex]
 		}
 		currentHost = "." + currentHost
