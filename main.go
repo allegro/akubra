@@ -25,7 +25,10 @@ import (
 )
 
 // TechnicalEndpointGeneralTimeout for /configuration/validate endpoint
-const TechnicalEndpointGeneralTimeout = 5 * time.Second
+const (
+	TechnicalEndpointGeneralTimeout = 5 * time.Second
+	InvalidConfigError = 2
+)
 
 type service struct {
 	config config.Config
@@ -59,7 +62,7 @@ func main() {
 	valid, errs := config.ValidateConf(conf.YamlConfig, true)
 	if !valid {
 		fmt.Printf("YAML validation - errors: %q", errs)
-		os.Exit(2)
+		os.Exit(InvalidConfigError)
 	}
 	log.Println("Configuration checked - OK.")
 
