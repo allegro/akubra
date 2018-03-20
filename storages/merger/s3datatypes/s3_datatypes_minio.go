@@ -68,7 +68,7 @@ func (ois ObjectInfos) FromStringer(stringers []fmt.Stringer) ObjectInfos {
 		item := stringer.(ObjectInfo)
 		newOis = append(newOis, item)
 	}
-	return ObjectInfos(newOis)
+	return newOis
 }
 
 // ListBucketResult container for listObjects response.
@@ -170,9 +170,9 @@ type ListVersionsResult struct {
 type VersionInfos []VersionInfo
 
 // ToStringer returns asserted ObjectInfos to Stringer slice
-func (cp VersionInfos) ToStringer() []fmt.Stringer {
-	stringers := make([]fmt.Stringer, 0, len(cp))
-	for _, item := range cp {
+func (vi VersionInfos) ToStringer() []fmt.Stringer {
+	stringers := make([]fmt.Stringer, 0, len(vi))
+	for _, item := range vi {
 		stringer := fmt.Stringer(item)
 		stringers = append(stringers, stringer)
 	}
@@ -180,22 +180,22 @@ func (cp VersionInfos) ToStringer() []fmt.Stringer {
 }
 
 // FromStringer returns asserted stringer slice to VersionInfos
-func (cp VersionInfos) FromStringer(stringers []fmt.Stringer) VersionInfos {
-	cpp := make(VersionInfos, 0, len(stringers))
+func (vi VersionInfos) FromStringer(stringers []fmt.Stringer) VersionInfos {
+	vii := make(VersionInfos, 0, len(stringers))
 	for _, stringer := range stringers {
 		item := stringer.(VersionInfo)
-		cpp = append(cpp, item)
+		vii = append(vii, item)
 	}
-	return VersionInfos(cpp)
+	return vii
 }
 
 // DeleteMarkerInfos is slice []DeleteMarkerInfo
 type DeleteMarkerInfos []DeleteMarkerInfo
 
 // ToStringer returns asserted ObjectInfos to Stringer slice
-func (cp DeleteMarkerInfos) ToStringer() []fmt.Stringer {
-	stringers := make([]fmt.Stringer, 0, len(cp))
-	for _, item := range cp {
+func (dmi DeleteMarkerInfos) ToStringer() []fmt.Stringer {
+	stringers := make([]fmt.Stringer, 0, len(dmi))
+	for _, item := range dmi {
 		stringer := fmt.Stringer(item)
 		stringers = append(stringers, stringer)
 	}
@@ -203,13 +203,13 @@ func (cp DeleteMarkerInfos) ToStringer() []fmt.Stringer {
 }
 
 // FromStringer returns asserted stringer slice to DeleteMarkerInfos
-func (cp DeleteMarkerInfos) FromStringer(stringers []fmt.Stringer) DeleteMarkerInfos {
-	cpp := make(DeleteMarkerInfos, 0, len(stringers))
+func (dmi DeleteMarkerInfos) FromStringer(stringers []fmt.Stringer) DeleteMarkerInfos {
+	dmii := make(DeleteMarkerInfos, 0, len(stringers))
 	for _, stringer := range stringers {
 		item := stringer.(DeleteMarkerInfo)
-		cpp = append(cpp, item)
+		dmii = append(dmii, item)
 	}
-	return DeleteMarkerInfos(cpp)
+	return dmii
 }
 
 // ListBucketV2Result container for listObjects response version 2.
@@ -261,7 +261,7 @@ func (cp CommonPrefixes) FromStringer(stringers []fmt.Stringer) CommonPrefixes {
 		item := stringer.(CommonPrefix)
 		cpp = append(cpp, item)
 	}
-	return CommonPrefixes(cpp)
+	return cpp
 }
 
 // ListMultipartUploadsResult decodes s3 multipart upload results
