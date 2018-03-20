@@ -56,7 +56,6 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 		req.Header.Add(storage.InternalHostHeader, host)
 		req.Header.Add(storage.InternalBucketHeader, bucketName)
 		return shardsRing.DoRequest(req)
-
 	}
 	if rg.defaultRing != nil {
 		return rg.defaultRing.DoRequest(req)
