@@ -1,7 +1,6 @@
 package storages
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -97,13 +96,11 @@ func (rm *responseMerger) isMergable(req *http.Request) bool {
 	if reqQuery != nil {
 		for _, key := range unsupportedQueryParamNames {
 			if reqQuery[key] != nil {
-				fmt.Println("Unsupported key ", key)
 				unsupportedQuery = true
 				break
 			}
 		}
 	}
-	fmt.Println("!unsupportedQuery && (method == http.MethodGet) && isBucketPath(path)", !unsupportedQuery, (method == http.MethodGet), isBucketPath(path))
 	return !unsupportedQuery && (method == http.MethodGet) && isBucketPath(path)
 }
 func isBucketPath(path string) bool {
@@ -117,9 +114,7 @@ func isBucketPath(path string) bool {
 func (rm *responseMerger) responseHandler(in <-chan transport.ResErrTuple) transport.ResErrTuple {
 	firstTuple := <-in
 	req := firstTuple.Req
-	fmt.Println("Been here")
 	if rm.isMergable(req) {
-		fmt.Println("Is mergable")
 		return rm.merge(firstTuple, in)
 	}
 

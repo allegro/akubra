@@ -16,9 +16,7 @@ import (
 
 // MergeListResponses unifies responses from multiple backends
 func MergeListResponses(successes []transport.ResErrTuple) (resp *http.Response, err error) {
-	fmt.Println("MergeListResponses Been here")
 	if len(successes) == 0 {
-		log.Printf("No successful response")
 		err = fmt.Errorf("No successful responses")
 		return
 	}
@@ -122,9 +120,7 @@ func pickResultSet(os objectsContainer, ps objectsContainer, maxKeys int, lbr s3
 	lbr.CommonPrefixes = lbr.CommonPrefixes.FromStringer(ps.first(maxKeys))
 
 	oLen := maxKeys - len(lbr.CommonPrefixes)
-	log.Println("oLen", oLen, maxKeys)
 	lbr.Contents = lbr.Contents.FromStringer(os.first(oLen))
-	fmt.Println("len contents, prefixes", len(lbr.Contents), len(lbr.CommonPrefixes))
 	isTruncated := os.Len()+ps.Len() > maxKeys
 	if !isTruncated {
 		return lbr

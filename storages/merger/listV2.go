@@ -16,7 +16,6 @@ import (
 // MergeListV2Responses unifies responses from multiple backends
 func MergeListV2Responses(successes []transport.ResErrTuple) (resp *http.Response, err error) {
 	if len(successes) == 0 {
-		log.Printf("No successful response")
 		err = fmt.Errorf("No successful responses")
 		return
 	}
