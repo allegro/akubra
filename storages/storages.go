@@ -27,12 +27,12 @@ func (be *backendError) Err() error {
 	return be.origErr
 }
 
-func (be *backendError) Error() string {
+func (be *backendError) Error() (errMsg string) {
+	errMsg = fmt.Sprintf("backend %s responded with error %s", be.backend, be.origErr)
 	if transportDefinitionError, ok := be.origErr.(*transport.DefinitionError); ok {
-		return fmt.Sprintf("backend %s not responded with reason: %s", be.backend, transportDefinitionError.Error())
-	} else {
-		return fmt.Sprintf("backend %s responded with error %s", be.backend, be.origErr)
+		errMsg = fmt.Sprintf("backend %s not responded with reason: %s", be.backend, transportDefinitionError.Error())
 	}
+	return
 }
 
 // NamedCluster interface
