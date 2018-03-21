@@ -28,7 +28,11 @@ func (be *backendError) Err() error {
 }
 
 func (be *backendError) Error() string {
-	return fmt.Sprintf("backend %s responded with error %s", be.backend, be.origErr)
+	if transportDefinitionError, ok := be.origErr.(*transport.DefinitionError); ok {
+		return fmt.Sprintf("backend %s not responded with reason: %s", be.backend, transportDefinitionError.Error())
+	} else {
+		return fmt.Sprintf("backend %s responded with error %s", be.backend, be.origErr)
+	}
 }
 
 // NamedCluster interface
@@ -61,9 +65,9 @@ type Storages struct {
 // Backend represents any storage in akubra cluster
 type Backend struct {
 	http.RoundTripper
-	Endpoint     url.URL
-	Name         string
-	Maintenance  bool
+	Endpoint    url.URL
+	Name        string
+	Maintenance bool
 }
 
 // RoundTrip satisfies http.RoundTripper interface

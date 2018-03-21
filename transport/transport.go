@@ -33,6 +33,11 @@ type ResErrTuple struct {
 	Failed bool
 }
 
+// DefinitionError properties for Transports
+type DefinitionError struct {
+	error
+}
+
 func discardReadCloser(rc io.ReadCloser) error {
 	_, err := io.Copy(ioutil.Discard, rc)
 	if err != nil {
@@ -324,7 +329,7 @@ func (m *Matcher) SelectTransportDefinition(method, path, queryParams string, lo
 	matchedTransport, ok := m.TransportsConfig.GetMatchedTransportDefinition(method, path, queryParams)
 	if !ok {
 		errMsg := fmt.Sprintf("Transport not matched with args. method: %s, path: %s, queryParams: %s", method, path, queryParams)
-		err = errors.New(errMsg)
+		err = &DefinitionError{errors.New(errMsg)}
 		log.Print(errMsg)
 	}
 	return

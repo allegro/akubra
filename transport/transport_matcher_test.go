@@ -7,6 +7,7 @@ import (
 
 	"fmt"
 
+	"errors"
 	httphandlerConfig "github.com/allegro/akubra/httphandler/config"
 	"github.com/allegro/akubra/log"
 	transportConfig "github.com/allegro/akubra/transport/config"
@@ -45,6 +46,7 @@ func TestShouldFailSelectTransportWhenNoMatches(t *testing.T) {
 	testPath := "/bucket/"
 	expectedErrorMsg := fmt.Sprintf(
 		"Transport not matched with args. method: %s, path: %s, queryParams: ", testMethod, testPath)
+	defError := &DefinitionError{errors.New(expectedErrorMsg)}
 	clientConfig := prepareClientConfig("TestTransport3", "POST")
 	unit := &Matcher{
 		TransportsConfig: clientConfig.Transports,
@@ -56,6 +58,7 @@ func TestShouldFailSelectTransportWhenNoMatches(t *testing.T) {
 	_, err := unit.SelectTransportDefinition(testMethod, testPath, "", logMock)
 
 	assert.Errorf(t, err, expectedErrorMsg)
+	assert.Equal(t, err, defError)
 	logMock.AssertNumberOfCalls(t, "Print", 1)
 }
 
