@@ -27,7 +27,7 @@ func TestShouldSelectTransport(t *testing.T) {
 	expectedTransportName := "TestTransport2"
 	testMethod := "GET"
 	logger := log.DefaultLogger
-	clientConfig := prepareClientCoinfig(expectedTransportName, testMethod)
+	clientConfig := prepareClientConfig(expectedTransportName, testMethod)
 	url, _ := url.Parse("http://localhost/")
 	testRequest := &http.Request{URL: url, Method: testMethod}
 	unit := &Matcher{
@@ -45,7 +45,7 @@ func TestShouldFailSelectTransportWhenNoMatches(t *testing.T) {
 	testPath := "/bucket/"
 	expectedErrorMsg := fmt.Sprintf(
 		"Transport not matched with args. method: %s, path: %s, queryParams: ", testMethod, testPath)
-	clientConfig := prepareClientCoinfig("TestTransport3", "POST")
+	clientConfig := prepareClientConfig("TestTransport3", "POST")
 	unit := &Matcher{
 		TransportsConfig: clientConfig.Transports,
 	}
@@ -59,7 +59,7 @@ func TestShouldFailSelectTransportWhenNoMatches(t *testing.T) {
 	logMock.AssertNumberOfCalls(t, "Print", 1)
 }
 
-func prepareClientCoinfig(transportName, method string) httphandlerConfig.Client {
+func prepareClientConfig(transportName, method string) httphandlerConfig.Client {
 	testConfig := transportConfig.Transports{transportConfig.TransportMatcherDefinition{
 		Name: transportName,
 		Rules: transportConfig.ClientTransportRules{

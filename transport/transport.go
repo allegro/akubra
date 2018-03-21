@@ -346,7 +346,6 @@ func (m *Matcher) SelectTransportRoundTripper(request *http.Request) (selectedRo
 		reqID := request.Context().Value(log.ContextreqIDKey)
 		log.Debugf("Request %s - selected transport name: %s (by method: %s, path: %s, queryParams: %s)",
 			reqID, selectedTransport.Name, request.Method, request.URL.Path, request.URL.RawQuery)
-
 		selectedRoundTripper = m.RoundTrippers[selectedTransport.Name]
 	}
 
@@ -364,7 +363,7 @@ func ConfigureHTTPTransports(clientConf httphandlerConfig.Client) (http.RoundTri
 		}
 		transportMatcher.RoundTrippers = roundTrippers
 	} else {
-		return transportMatcher, errors.New("Service->Server->Client->Transports config is empty")
+		return nil, errors.New("Service->Server->Client->Transports config is empty")
 	}
 
 	return transportMatcher, nil
