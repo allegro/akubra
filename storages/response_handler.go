@@ -69,8 +69,6 @@ func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-cha
 var unsupportedQueryParamNames = []string{
 	"acl",
 	"uploads",
-	// "list-type",
-	// "versions",
 	"tags",
 	"requestPayment",
 	"replication",
