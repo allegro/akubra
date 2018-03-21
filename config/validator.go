@@ -9,6 +9,8 @@ import (
 	"net/http"
 
 	confregions "github.com/allegro/akubra/regions/config"
+	"github.com/allegro/akubra/storages/auth"
+	"github.com/allegro/akubra/storages/config"
 	set "github.com/deckarep/golang-set"
 )
 
@@ -158,16 +160,9 @@ func (c *YamlConfig) DomainsEntryLogicalValidator() (valid bool, validationError
 			}
 		}
 	}
-	if len(errList) > 0 {
-		valid = false
-		errorsList := make(map[string][]error)
-		errorsList["DomainsEntryLogicalValidator"] = errList
-		validationErrors = mergeErrors(validationErrors, errorsList)
-	} else {
-		valid = true
-	}
-	return
+	return mergeErrorsFromValidator(errList, "DomainsEntryLogicalValidator")
 }
+
 func isAlreadyDefinedInDomains(domain string, definedDomains []string) (isDefined bool , otherDomain string) {
 	for _, alreadyDefinedDomain := range definedDomains {
 		if domain == alreadyDefinedDomain ||
@@ -175,6 +170,46 @@ func isAlreadyDefinedInDomains(domain string, definedDomains []string) (isDefine
 			strings.HasSuffix(alreadyDefinedDomain, "." + domain) {
 				return true, alreadyDefinedDomain
 		}
+	}
+	return
+}
+
+// DomainsEntryLogicalValidator checks the correctness of "Domains" part of configuration file
+func (c *YamlConfig) BackendsLogicalValidator() (valid bool, validationErrors map[string][]error) {
+	errList := make([]error, 0)
+	for backendName, backendConfig := range c.Backends {
+		if backendConfig.ForcePathStyle {
+			switch backendConfig.Type {
+				case auth.Passthrough:
+					err := fmt.Errorf("Backend %s has ForcePathStyle turned on, but it's of wrong type", backendName)
+					errList = append(errList, err)
+				case auth.S3AuthService:
+					errList = checkIfPropertiesArePresent(backendName, backendConfig, errList,"AuthServiceEndpoint")
+				case auth.S3FixedKey:
+					errList = checkIfPropertiesArePresent(backendName, backendConfig, errList, "AccessKey", "Secret")
+			}
+		}
+	}
+	return mergeErrorsFromValidator(errList, "BackendsLogicalValidator")
+}
+func checkIfPropertiesArePresent(backendName string, backendConfig config.Backend, errList []error, propertiesToCheck ...string) []error {
+	for _, property := range propertiesToCheck {
+		if _, isPropertyPresent := backendConfig.Properties[property]; !isPropertyPresent {
+			err := fmt.Errorf("Backend %s has ForcePathStyle turned on, but it's missing %s", backendName, property)
+			errList = append(errList, err)
+		}
+	}
+	return errList
+}
+
+func mergeErrorsFromValidator(errList []error, validatorName string) (valid bool, validationErrors map[string][]error) {
+	if len(errList) > 0 {
+		valid = false
+		errorsList := make(map[string][]error)
+		errorsList[validatorName] = errList
+		validationErrors = mergeErrors(validationErrors, errorsList)
+	} else {
+		valid = true
 	}
 	return
 }

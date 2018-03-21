@@ -222,7 +222,7 @@ func decorateBackend(transport http.RoundTripper, name string, backendConf confi
 		backendConf.Maintenance,
 	}
 	if backendConf.ForcePathStyle {
-		return httphandler.Decorate(backend, domainStyleDecorator, authDecorator), nil
+		return httphandler.Decorate(backend, authDecorator, domainStyleDecorator), nil
 	}
 	return httphandler.Decorate(backend, authDecorator), nil
 }

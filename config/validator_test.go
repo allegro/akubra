@@ -2,15 +2,18 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	httphandlerconfig "github.com/allegro/akubra/httphandler/config"
 	regionsconfig "github.com/allegro/akubra/regions/config"
+	"github.com/allegro/akubra/storages/auth"
+	"github.com/allegro/akubra/storages/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	validator "gopkg.in/validator.v1"
+	"gopkg.in/validator.v1"
 )
 
 // import (
@@ -366,3 +369,99 @@ func TestValidatorShouldPassWithProperDomainsDefined(t *testing.T) {
 		t,
 		validationErrors["DomainsEntryLogicalValidator"])
 }
+
+func TestValidatorShouldFailWhenPathStyleBackendHasNoSecretKeyOrAccessKeyProvidedOrIsOfWrongType(t *testing.T) {
+	backendProperties := make(map[string]string, 1)
+	backendProperties["AccessKey"] = "123a"
+	backendWithoutSecret := config.Backend{
+		Properties: backendProperties,
+		ForcePathStyle: true,
+		Type: auth.S3FixedKey,
+	}
+	backendProperties2 := make(map[string]string, 1)
+	backendProperties2["Secret"] = "32"
+	backendWithoutAccessKey := config.Backend{
+		Properties: backendProperties2,
+		ForcePathStyle: true,
+		Type: auth.S3FixedKey,
+	}
+	backendProperties3 := make(map[string]string, 2)
+	backendWithWrongType := config.Backend{
+		Properties: backendProperties3,
+		ForcePathStyle: true,
+		Type: auth.Passthrough,
+	}
+	backendProperties4 := make(map[string]string, 0)
+	backendWithoutAuthEndpoint := config.Backend{
+		Properties: backendProperties4,
+		ForcePathStyle: true,
+		Type: auth.S3AuthService,
+	}
+
+	invalidBackendsMap := make(map[string]config.Backend, 4)
+	invalidBackendsMap["backend1"] = backendWithoutSecret
+	invalidBackendsMap["backend2"] = backendWithoutAccessKey
+	invalidBackendsMap["backend3"] = backendWithWrongType
+	invalidBackendsMap["backend4"] = backendWithoutAuthEndpoint
+	yamlConfig := YamlConfig{
+		Backends: invalidBackendsMap,
+	}
+
+	valid, validationErrors := yamlConfig.BackendsLogicalValidator()
+
+	assert.Len(t, validationErrors["BackendsLogicalValidator"], 4)
+	assert.False(t, valid)
+	assert.Contains(
+		t,
+		validationErrors["BackendsLogicalValidator"],
+		fmt.Errorf("Backend backend1 has ForcePathStyle turned on, but it's missing Secret"))
+	assert.Contains(
+		t,
+		validationErrors["BackendsLogicalValidator"],
+		fmt.Errorf("Backend backend2 has ForcePathStyle turned on, but it's missing AccessKey"))
+	assert.Contains(
+		t,
+		validationErrors["BackendsLogicalValidator"],
+		fmt.Errorf("Backend backend3 has ForcePathStyle turned on, but it's of wrong type"))
+	assert.Contains(
+		t,
+		validationErrors["BackendsLogicalValidator"],
+		fmt.Errorf("Backend backend4 has ForcePathStyle turned on, but it's missing AuthServiceEndpoint"))
+}
+
+func TestValidatorShouldPassWhenBackendsAreDefinedProperly(t *testing.T) {
+	backendProperties1 := make(map[string]string, 2)
+	backendProperties1["AccessKey"] = "123a"
+	backendProperties1["Secret"] = "123"
+	validBackend1 := config.Backend{
+		Properties: backendProperties1,
+		ForcePathStyle: true,
+		Type: auth.S3FixedKey,
+	}
+	backendProperties2 := make(map[string]string, 1)
+	backendProperties2["AuthServiceEndpoint"] = "http://localhost/auth"
+	validBackend2 := config.Backend{
+		Properties: backendProperties2,
+		ForcePathStyle: true,
+		Type: auth.S3AuthService,
+	}
+	validBackend3 := config.Backend{
+		Properties: make(map[string]string, 0),
+		ForcePathStyle: false,
+		Type: auth.Passthrough,
+	}
+	validBackendsMap := make(map[string]config.Backend, 3)
+	validBackendsMap["backend1"] = validBackend1
+	validBackendsMap["backend2"] = validBackend2
+	validBackendsMap["backend2"] = validBackend3
+
+	yamlConfig := YamlConfig{
+		Backends: validBackendsMap,
+	}
+
+	valid, validationErrors := yamlConfig.BackendsLogicalValidator()
+
+	assert.Len(t, validationErrors["BackendsLogicalValidator"], 0)
+	assert.True(t, valid)
+}
+
