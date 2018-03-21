@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,7 +26,7 @@ func TestShouldFailWhenTheCustomHostHeaderIsMissing(t *testing.T) {
 func TestShouldNotAlterThePathWhenBucketNameIsEmpty(t *testing.T) {
 	reqURL, _ := url.Parse("http://test.qxlint/bucket/object")
 	originalRequest := &http.Request{URL: reqURL, Header: map[string][]string{}}
-	originalRequest.Header.Add(InternalHostHeader, "test.qxlint")
+	originalRequest.Header.Add(utils.InternalHostHeader, "test.qxlint")
 	originalRequest = originalRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, 123))
 
 	interceptedRequest := &http.Request{}
@@ -51,8 +52,8 @@ func TestShouldNotAlterThePathWhenBucketNameIsEmpty(t *testing.T) {
 func TestShouldPrependBucketNameToPathWhenRequestIsDomainStyle(t *testing.T) {
 	domainStyleURL, _ := url.Parse("http://bucket.test.qxlint/object")
 	originalRequest := &http.Request{URL: domainStyleURL, Header: map[string][]string{}}
-	originalRequest.Header.Add(InternalHostHeader, "test.qxlint")
-	originalRequest.Header.Add(InternalBucketHeader, "bucket")
+	originalRequest.Header.Add(utils.InternalHostHeader, "test.qxlint")
+	originalRequest.Header.Add(utils.InternalBucketHeader, "bucket")
 
 	originalRequest = originalRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, 123))
 
@@ -78,8 +79,8 @@ func TestShouldPrependBucketNameToPathWhenRequestIsDomainStyle(t *testing.T) {
 func TestShouldPrependBucketNameToPathWhenRequestIsDomainStyleAndOnlyBucketNameIsProvider(t *testing.T) {
 	domainStyleURL, _ := url.Parse("http://bucket.test.qxlint")
 	originalRequest := &http.Request{URL: domainStyleURL, Header: map[string][]string{}}
-	originalRequest.Header.Add(InternalHostHeader, "test.qxlint")
-	originalRequest.Header.Add(InternalBucketHeader, "bucket")
+	originalRequest.Header.Add(utils.InternalHostHeader, "test.qxlint")
+	originalRequest.Header.Add(utils.InternalBucketHeader, "bucket")
 
 	originalRequest = originalRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, 123))
 
@@ -106,8 +107,8 @@ func TestShouldPrependBucketNameToPathWhenRequestIsDomainStyleAndOnlyBucketNameI
 func TestShouldPrependBucketNameToPathWhenRequestIsDomainStyleAndQueryParamsAreProvider(t *testing.T) {
 	domainStyleURL, _ := url.Parse("http://bucket.test.qxlint?param=321")
 	originalRequest := &http.Request{URL: domainStyleURL, Header: map[string][]string{}}
-	originalRequest.Header.Add(InternalHostHeader, "test.qxlint")
-	originalRequest.Header.Add(InternalBucketHeader, "bucket")
+	originalRequest.Header.Add(utils.InternalHostHeader, "test.qxlint")
+	originalRequest.Header.Add(utils.InternalBucketHeader, "bucket")
 
 	originalRequest = originalRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, 123))
 

@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/allegro/akubra/sharding"
+	"github.com/allegro/akubra/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/allegro/akubra/storages"
 )
 
 type ShardsRingMock struct {
@@ -87,8 +87,8 @@ func TestShouldDetectADomainStyleRequestAndExtractBucketNameFromHost(t *testing.
 
 	originalRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
 	interceptedRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
-	interceptedRequest.Header.Add(storages.InternalHostHeader, "test.qxlint")
-	interceptedRequest.Header.Add(storages.InternalBucketHeader, "bucket")
+	interceptedRequest.Header.Add(utils.InternalHostHeader, "test.qxlint")
+	interceptedRequest.Header.Add(utils.InternalBucketHeader, "bucket")
 
 	expectedResponse := &http.Response{
 		Status:     "200 OK",
@@ -101,8 +101,8 @@ func TestShouldDetectADomainStyleRequestAndExtractBucketNameFromHost(t *testing.
 	response, _ := regions.RoundTrip(originalRequest)
 
 	assert.Equal(t, 200, response.StatusCode)
-	assert.Equal(t, "test.qxlint", originalRequest.Header.Get(storages.InternalHostHeader))
-	assert.Equal(t,"bucket", originalRequest.Header.Get(storages.InternalBucketHeader))
+	assert.Equal(t, "test.qxlint", originalRequest.Header.Get(utils.InternalHostHeader))
+	assert.Equal(t,"bucket", originalRequest.Header.Get(utils.InternalBucketHeader))
 }
 
 func TestShouldDetectADomainStyleRequestAndExtractMultiLabelBucketNameFromHost(t *testing.T) {
@@ -112,8 +112,8 @@ func TestShouldDetectADomainStyleRequestAndExtractMultiLabelBucketNameFromHost(t
 
 	originalRequest := &http.Request{Host: "sub.bucket.test.qxlint", Header: map[string][]string{}}
 	interceptedRequest := &http.Request{Host: "sub.bucket.test.qxlint", Header: map[string][]string{}}
-	interceptedRequest.Header.Add(storages.InternalHostHeader, "test.qxlint")
-	interceptedRequest.Header.Add(storages.InternalBucketHeader, "sub.bucket")
+	interceptedRequest.Header.Add(utils.InternalHostHeader, "test.qxlint")
+	interceptedRequest.Header.Add(utils.InternalBucketHeader, "sub.bucket")
 
 	expectedResponse := &http.Response{
 		Status:     "200 OK",
@@ -127,8 +127,8 @@ func TestShouldDetectADomainStyleRequestAndExtractMultiLabelBucketNameFromHost(t
 	response, _ := regions.RoundTrip(originalRequest)
 
 	assert.Equal(t, 200, response.StatusCode)
-	assert.Equal(t, "test.qxlint", originalRequest.Header.Get(storages.InternalHostHeader))
-	assert.Equal(t,"sub.bucket", originalRequest.Header.Get(storages.InternalBucketHeader))
+	assert.Equal(t, "test.qxlint", originalRequest.Header.Get(utils.InternalHostHeader))
+	assert.Equal(t,"sub.bucket", originalRequest.Header.Get(utils.InternalBucketHeader))
 }
 
 func TestShouldDetectADomainStyleRequestButFailOnMissingRegions(t *testing.T) {
@@ -149,6 +149,6 @@ func TestShouldDetectADomainStyleRequestButFailOnMissingRegions(t *testing.T) {
 	response, _ := regions.RoundTrip(requestWithNotSupportedDomain)
 
 	assert.Equal(t, 404, response.StatusCode)
-	assert.Empty(t, requestWithNotSupportedDomain.Header.Get(storages.InternalHostHeader))
-	assert.Empty(t, requestWithNotSupportedDomain.Header.Get(storages.InternalBucketHeader))
+	assert.Empty(t, requestWithNotSupportedDomain.Header.Get(utils.InternalHostHeader))
+	assert.Empty(t, requestWithNotSupportedDomain.Header.Get(utils.InternalBucketHeader))
 }

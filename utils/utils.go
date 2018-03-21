@@ -1,11 +1,20 @@
 package utils
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
+)
+
+const (
+	// InternalHostHeader is used for rewriting domain style
+	InternalHostHeader   = "X-Akubra-Internal-Host-3yeLjyjQNx"
+	// InternalBucketHeader used for rewriting domain style
+	InternalBucketHeader = "X-Akubra-Internal-Bucket-lejK0EpVZy"
+	// PathStyleFormat is a S3 path style format
 )
 
 // BackendError interface helps logging inconsistencies
@@ -48,4 +57,22 @@ func ExtractAccessKey(req *http.Request) string {
 		return ""
 	}
 	return strings.TrimSpace(sigChunk[0])
+}
+
+// IsBucketPath tests if a path is a bucket access path
+func IsBucketPath(request *http.Request) bool {
+	path := request.URL.Path
+	if isDomainStyleRequest(request) {
+		path = fmt.Sprintf("/%s%s", request.Header.Get(InternalBucketHeader), path)
+	}
+	trimmedPath := strings.Trim(path, "/")
+	if trimmedPath == "" {
+		return false
+	}
+	return len(strings.Split(trimmedPath, "/")) == 1
+}
+
+func isDomainStyleRequest(request *http.Request) bool {
+	return request.Header.Get(InternalHostHeader) != "" &&
+		request.Header.Get(InternalBucketHeader) != ""
 }

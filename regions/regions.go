@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/utils"
 
 	"net"
 
@@ -46,15 +47,15 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	shardsRing, ok := rg.multiCluters[reqHost]
 	if ok {
-		req.Header.Add(storage.InternalHostHeader, reqHost)
-		req.Header.Add(storage.InternalBucketHeader, "")
+		req.Header.Add(utils.InternalHostHeader, reqHost)
+		req.Header.Add(utils.InternalBucketHeader, "")
 		return shardsRing.DoRequest(req)
 	}
 	host, bucketName := rg.findHostInDomainStyle(reqHost)
 	if host != "" && bucketName != "" {
 		shardsRing, _ = rg.multiCluters[host]
-		req.Header.Add(storage.InternalHostHeader, host)
-		req.Header.Add(storage.InternalBucketHeader, bucketName)
+		req.Header.Add(utils.InternalHostHeader, host)
+		req.Header.Add(utils.InternalBucketHeader, bucketName)
 		return shardsRing.DoRequest(req)
 	}
 	if rg.defaultRing != nil {

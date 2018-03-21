@@ -174,7 +174,7 @@ func isAlreadyDefinedInDomains(domain string, definedDomains []string) (isDefine
 	return
 }
 
-// DomainsEntryLogicalValidator checks the correctness of "Domains" part of configuration file
+// BackendsLogicalValidator checks if backends definitions are valid
 func (c *YamlConfig) BackendsLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
 	for backendName, backendConfig := range c.Backends {
