@@ -209,9 +209,7 @@ func (mt *MultiTransport) copyRequest(req *http.Request, cancelFun context.Cance
 		r.Host = req.Host
 		reqs = append(reqs, r)
 		log.Debugf("Replicated request %s", r.Context().Value(log.ContextreqIDKey))
-
 	}
-
 	return reqs, err
 }
 
@@ -278,7 +276,7 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 	for i, backend := range mt.Backends {
 		wg.Add(1)
 		r := reqs[i].WithContext(bctx)
-		log.Debugf("RooundTrip with ctxID %s\n", bctx.Value(log.ContextreqIDKey))
+		log.Debugf("RoundTrip with ctxID %s\n", bctx.Value(log.ContextreqIDKey))
 		go func(backend http.RoundTripper, r *http.Request) {
 			mt.sendRequest(r, c, backend)
 			wg.Done()

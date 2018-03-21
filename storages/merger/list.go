@@ -118,7 +118,6 @@ func extractListResults(resp *http.Response) s3datatypes.ListBucketResult {
 
 func pickResultSet(os objectsContainer, ps objectsContainer, maxKeys int, lbr s3datatypes.ListBucketResult) s3datatypes.ListBucketResult {
 	lbr.CommonPrefixes = lbr.CommonPrefixes.FromStringer(ps.first(maxKeys))
-
 	oLen := maxKeys - len(lbr.CommonPrefixes)
 	lbr.Contents = lbr.Contents.FromStringer(os.first(oLen))
 	isTruncated := os.Len()+ps.Len() > maxKeys
