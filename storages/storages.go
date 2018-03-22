@@ -8,6 +8,7 @@ import (
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
+	"github.com/allegro/akubra/utils"
 
 	"github.com/allegro/akubra/storages/auth"
 	"github.com/allegro/akubra/storages/config"
@@ -71,6 +72,8 @@ type Backend struct {
 func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 	r.URL.Host = b.Endpoint.Host
 	r.URL.Scheme = b.Endpoint.Scheme
+	r.Header.Del(utils.InternalHostHeader)
+	r.Header.Del(utils.InternalBucketHeader)
 	reqID := r.Context().Value(log.ContextreqIDKey)
 	log.Debugf("Request %s req.URL.Host replaced with %s", reqID, r.URL.Host)
 	if b.Maintenance {
@@ -79,6 +82,7 @@ func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 			origErr: fmt.Errorf("backend %v in maintenance mode", b.Name)}
 	}
 	err := error(nil)
+	log.Debugf("%s", r.Header)
 	resp, oerror := b.RoundTripper.RoundTrip(r)
 
 	if oerror != nil {

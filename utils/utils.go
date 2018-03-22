@@ -62,7 +62,7 @@ func ExtractAccessKey(req *http.Request) string {
 // IsBucketPath tests if a path is a bucket access path
 func IsBucketPath(request *http.Request) bool {
 	path := request.URL.Path
-	if isDomainStyleRequest(request) {
+	if IsDomainStyleRequest(request) {
 		path = fmt.Sprintf("/%s%s", request.Header.Get(InternalBucketHeader), path)
 	}
 	trimmedPath := strings.Trim(path, "/")
@@ -72,7 +72,8 @@ func IsBucketPath(request *http.Request) bool {
 	return len(strings.Split(trimmedPath, "/")) == 1
 }
 
-func isDomainStyleRequest(request *http.Request) bool {
+// IsDomainStyleRequest tests if request has a domain style url
+func IsDomainStyleRequest(request *http.Request) bool {
 	return request.Header.Get(InternalHostHeader) != "" &&
 		request.Header.Get(InternalBucketHeader) != ""
 }

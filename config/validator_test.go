@@ -304,7 +304,13 @@ func TestValidatorShouldFailWithWrongDomainDeclarationOrder(t *testing.T) {
 
 func TestValidatorShouldFailWithADomainContainingOtherDomainIsDefinedInDifferentRegions(t *testing.T) {
 	regionConfig := regionsconfig.Region{
-		Domains: []string{"domain.dc"},
+		Domains: []string{
+			"localhost",
+			"s3.lcamel-dev-dc4.qxlint",
+			"s3.lcamel-dev-dc5.qxlint",
+			"s3.lcamel-dev-wide.qxlint",
+			"lcamel-dev-dc5.lcamel-dev-wide.qxlint",
+		},
 	}
 	regionConfig1 := regionsconfig.Region{
 		Domains: []string{"other.domain.dc"},
@@ -313,7 +319,7 @@ func TestValidatorShouldFailWithADomainContainingOtherDomainIsDefinedInDifferent
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	regions := map[string]regionsconfig.Region{
-		"testregion": regionConfig,
+		"testregion":  regionConfig,
 		"testregion1": regionConfig1,
 	}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
@@ -336,7 +342,7 @@ func TestValidatorShouldFailWhenDomainIsUsedMultipleTimes(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	regions := map[string]regionsconfig.Region{
-		"testregion": regionConfig,
+		"testregion":  regionConfig,
 		"testregion1": regionConfig1,
 	}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
@@ -359,7 +365,7 @@ func TestValidatorShouldPassWithProperDomainsDefined(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	regions := map[string]regionsconfig.Region{
-		"testregion": regionConfig,
+		"testregion":  regionConfig,
 		"testregion1": regionConfig1,
 	}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
@@ -374,28 +380,28 @@ func TestValidatorShouldFailWhenPathStyleBackendHasNoSecretKeyOrAccessKeyProvide
 	backendProperties := make(map[string]string, 1)
 	backendProperties["AccessKey"] = "123a"
 	backendWithoutSecret := config.Backend{
-		Properties: backendProperties,
+		Properties:     backendProperties,
 		ForcePathStyle: true,
-		Type: auth.S3FixedKey,
+		Type:           auth.S3FixedKey,
 	}
 	backendProperties2 := make(map[string]string, 1)
 	backendProperties2["Secret"] = "32"
 	backendWithoutAccessKey := config.Backend{
-		Properties: backendProperties2,
+		Properties:     backendProperties2,
 		ForcePathStyle: true,
-		Type: auth.S3FixedKey,
+		Type:           auth.S3FixedKey,
 	}
 	backendProperties3 := make(map[string]string, 2)
 	backendWithWrongType := config.Backend{
-		Properties: backendProperties3,
+		Properties:     backendProperties3,
 		ForcePathStyle: true,
-		Type: auth.Passthrough,
+		Type:           auth.Passthrough,
 	}
 	backendProperties4 := make(map[string]string, 0)
 	backendWithoutAuthEndpoint := config.Backend{
-		Properties: backendProperties4,
+		Properties:     backendProperties4,
 		ForcePathStyle: true,
-		Type: auth.S3AuthService,
+		Type:           auth.S3AuthService,
 	}
 
 	invalidBackendsMap := make(map[string]config.Backend, 4)
@@ -434,21 +440,21 @@ func TestValidatorShouldPassWhenBackendsAreDefinedProperly(t *testing.T) {
 	backendProperties1["AccessKey"] = "123a"
 	backendProperties1["Secret"] = "123"
 	validBackend1 := config.Backend{
-		Properties: backendProperties1,
+		Properties:     backendProperties1,
 		ForcePathStyle: true,
-		Type: auth.S3FixedKey,
+		Type:           auth.S3FixedKey,
 	}
 	backendProperties2 := make(map[string]string, 1)
 	backendProperties2["AuthServiceEndpoint"] = "http://localhost/auth"
 	validBackend2 := config.Backend{
-		Properties: backendProperties2,
+		Properties:     backendProperties2,
 		ForcePathStyle: true,
-		Type: auth.S3AuthService,
+		Type:           auth.S3AuthService,
 	}
 	validBackend3 := config.Backend{
-		Properties: make(map[string]string, 0),
+		Properties:     make(map[string]string, 0),
 		ForcePathStyle: false,
-		Type: auth.Passthrough,
+		Type:           auth.Passthrough,
 	}
 	validBackendsMap := make(map[string]config.Backend, 3)
 	validBackendsMap["backend1"] = validBackend1
@@ -464,4 +470,3 @@ func TestValidatorShouldPassWhenBackendsAreDefinedProperly(t *testing.T) {
 	assert.Len(t, validationErrors["BackendsLogicalValidator"], 0)
 	assert.True(t, valid)
 }
-

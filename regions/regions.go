@@ -48,7 +48,6 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	shardsRing, ok := rg.multiCluters[reqHost]
 	if ok {
 		req.Header.Add(utils.InternalHostHeader, reqHost)
-		req.Header.Add(utils.InternalBucketHeader, "")
 		return shardsRing.DoRequest(req)
 	}
 	host, bucketName := rg.findHostInDomainStyle(reqHost)
