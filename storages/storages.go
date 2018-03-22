@@ -82,7 +82,6 @@ func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 			origErr: fmt.Errorf("backend %v in maintenance mode", b.Name)}
 	}
 	err := error(nil)
-	log.Debugf("%s", r.Header)
 	resp, oerror := b.RoundTripper.RoundTrip(r)
 
 	if oerror != nil {
