@@ -59,8 +59,8 @@ func (t *TransportMatcherDefinition) compileRule(regexpRule string) (compiledRul
 	return
 }
 
-// transportFlags for internal matching func
-type transportFlags struct {
+// ruleFlags for internal matching func
+type ruleFlags struct {
 	declared bool
 	matched  bool
 	empty    bool
@@ -96,8 +96,8 @@ func (t *TransportMatcherDefinition) compileRules() error {
 }
 
 // matchTransportFlags matches method, path and query for TransportMatcherDefinition
-func matchTransportFlags(transport TransportMatcherDefinition, method, path, queryParam string) (transportFlags, transportFlags, transportFlags) {
-	var methodFlag, pathFlag, queryParamFlag transportFlags
+func matchTransportFlags(transport TransportMatcherDefinition, method, path, queryParam string) (ruleFlags, ruleFlags, ruleFlags) {
+	var methodFlag, pathFlag, queryParamFlag ruleFlags
 
 	methodFlag.declared = len(transport.Rules.Method) > 0
 	pathFlag.declared = len(transport.Rules.Path) > 0
