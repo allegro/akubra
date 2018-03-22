@@ -304,7 +304,7 @@ func TestValidatorShouldFailWithWrongDomainDeclarationOrder(t *testing.T) {
 
 func TestValidatorShouldFailWithADomainContainingOtherDomainIsDefinedInDifferentRegions(t *testing.T) {
 	regionConfig := regionsconfig.Region{
-		Domains: []string{"domain.dc"}
+		Domains: []string{"domain.dc"},
 	}
 	regionConfig1 := regionsconfig.Region{
 		Domains: []string{"other.domain.dc"},
