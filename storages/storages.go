@@ -29,8 +29,8 @@ func (be *backendError) Err() error {
 
 func (be *backendError) Error() (errMsg string) {
 	errMsg = fmt.Sprintf("backend %s responded with error %s", be.backend, be.origErr)
-	if transportDefinitionError, ok := be.origErr.(*transport.DefinitionError); ok {
-		errMsg = fmt.Sprintf("backend %s not responded with reason: %s", be.backend, transportDefinitionError.Error())
+	if _, ok := be.origErr.(*transport.DefinitionError); !ok {
+		errMsg = fmt.Sprintf("backend %s responded with error %s", be.backend, be.origErr)
 	}
 	return
 }
