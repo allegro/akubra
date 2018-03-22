@@ -304,13 +304,7 @@ func TestValidatorShouldFailWithWrongDomainDeclarationOrder(t *testing.T) {
 
 func TestValidatorShouldFailWithADomainContainingOtherDomainIsDefinedInDifferentRegions(t *testing.T) {
 	regionConfig := regionsconfig.Region{
-		Domains: []string{
-			"localhost",
-			"s3.lcamel-dev-dc4.qxlint",
-			"s3.lcamel-dev-dc5.qxlint",
-			"s3.lcamel-dev-wide.qxlint",
-			"lcamel-dev-dc5.lcamel-dev-wide.qxlint",
-		},
+		Domains: []string{"domain.dc"}
 	}
 	regionConfig1 := regionsconfig.Region{
 		Domains: []string{"other.domain.dc"},
