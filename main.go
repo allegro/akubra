@@ -60,7 +60,7 @@ func main() {
 	valid, errs := config.ValidateConf(conf.YamlConfig, true)
 	if !valid {
 		fmt.Printf("YAML validation - errors: %q", errs)
-		os.Exit(2)
+		os.Exit(1)
 	}
 	log.Println("Configuration checked - OK.")
 
