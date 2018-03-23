@@ -19,7 +19,6 @@ import (
 // Regions container for multiclusters
 type Regions struct {
 	multiCluters map[string]sharding.ShardsRingAPI
-	defaultRing  sharding.ShardsRingAPI
 }
 
 func (rg Regions) assignShardsRing(domain string, shardRing sharding.ShardsRingAPI) {
@@ -42,11 +41,13 @@ func (rg Regions) getNoSuchDomainResponse(req *http.Request) *http.Response {
 // RoundTrip performs round trip to target
 func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	reqHost, _, err := net.SplitHostPort(req.Host)
+	log.Debugf("Looking for region with domain %s", reqHost)
 	if err != nil {
 		reqHost = req.Host
 	}
 	shardsRing, ok := rg.multiCluters[reqHost]
 	if ok {
+		log.Debugf("Extracted host: %s and bucket %s from request")
 		req.Header.Add(utils.InternalHostHeader, reqHost)
 		return shardsRing.DoRequest(req)
 	}
@@ -55,10 +56,8 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 		shardsRing, _ = rg.multiCluters[host]
 		req.Header.Add(utils.InternalHostHeader, host)
 		req.Header.Add(utils.InternalBucketHeader, bucketName)
+		log.Debugf("Extracted host: %s and bucket %s from domain style request")
 		return shardsRing.DoRequest(req)
-	}
-	if rg.defaultRing != nil {
-		return rg.defaultRing.DoRequest(req)
 	}
 	return rg.getNoSuchDomainResponse(req), nil
 }
@@ -94,9 +93,6 @@ func NewRegions(conf config.Regions, storages storage.Storages, transport http.R
 		}
 		for _, domain := range regionConfig.Domains {
 			regions.assignShardsRing(domain, regionRing)
-		}
-		if regionConfig.Default {
-			regions.defaultRing = regionRing
 		}
 	}
 	return regions, nil

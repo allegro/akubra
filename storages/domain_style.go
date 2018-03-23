@@ -12,8 +12,16 @@ type domainStyleInterceptor struct {
 	roundTripper http.RoundTripper
 }
 
+type domainStyleHeaderCleaner struct {
+	roundTripper http.RoundTripper
+}
+
 var domainStyleDecorator = func(roundTripper http.RoundTripper) http.RoundTripper {
 	return &domainStyleInterceptor{roundTripper}
+}
+
+var domainStyleHeaderCleanerDecorator = func(roundTripper http.RoundTripper) http.RoundTripper {
+	return &domainStyleHeaderCleaner{roundTripper}
 }
 
 func (interceptor *domainStyleInterceptor) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -33,4 +41,10 @@ func (interceptor *domainStyleInterceptor) RoundTrip(req *http.Request) (*http.R
 	req.Header.Del(utils.InternalHostHeader)
 	req.Header.Del(utils.InternalBucketHeader)
 	return interceptor.roundTripper.RoundTrip(req)
+}
+
+func (domainStyleHeaderCleaner *domainStyleHeaderCleaner) RoundTrip(request *http.Request) (*http.Response, error) {
+	request.Header.Del(utils.InternalHostHeader)
+	request.Header.Del(utils.InternalBucketHeader)
+	return domainStyleHeaderCleaner.roundTripper.RoundTrip(request)
 }

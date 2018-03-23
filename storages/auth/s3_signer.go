@@ -138,8 +138,6 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
-
-	req = s3signer.SignV2(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
 	switch authHeader.version {
 	case signV2Algorithm:
 		req = s3signer.SignV2(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)

@@ -7,11 +7,9 @@ import (
 
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
-	"github.com/allegro/akubra/transport"
-	"github.com/allegro/akubra/utils"
-
 	"github.com/allegro/akubra/storages/auth"
 	"github.com/allegro/akubra/storages/config"
+	"github.com/allegro/akubra/transport"
 	set "github.com/deckarep/golang-set"
 )
 
@@ -72,8 +70,6 @@ type Backend struct {
 func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 	r.URL.Host = b.Endpoint.Host
 	r.URL.Scheme = b.Endpoint.Scheme
-	r.Header.Del(utils.InternalHostHeader)
-	r.Header.Del(utils.InternalBucketHeader)
 	reqID := r.Context().Value(log.ContextreqIDKey)
 	log.Debugf("Request %s req.URL.Host replaced with %s", reqID, r.URL.Host)
 	if b.Maintenance {
@@ -227,5 +223,5 @@ func decorateBackend(transport http.RoundTripper, name string, backendConf confi
 	if backendConf.ForcePathStyle {
 		return httphandler.Decorate(backend, authDecorator, domainStyleDecorator), nil
 	}
-	return httphandler.Decorate(backend, authDecorator), nil
+	return httphandler.Decorate(backend, authDecorator, domainStyleHeaderCleanerDecorator), nil
 }
