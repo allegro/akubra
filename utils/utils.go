@@ -59,7 +59,7 @@ func ExtractAccessKey(req *http.Request) string {
 	return strings.TrimSpace(sigChunk[0])
 }
 
-// IsBucketPath tests if a path is a bucket access path
+// IsBucketPath tests if a request is a bucket operation request
 func IsBucketPath(request *http.Request) bool {
 	path := request.URL.Path
 	if IsDomainStyleRequest(request) {
