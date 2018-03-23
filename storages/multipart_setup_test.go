@@ -5,13 +5,14 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/allegro/akubra/transport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 type MockedRoundTripper struct {
 	mock.Mock
-	http.RoundTripper
+	transport.Matcher
 }
 
 func (mockedRoundTripper *MockedRoundTripper) RoundTrip(request *http.Request) (response *http.Response, err error) {
