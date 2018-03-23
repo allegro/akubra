@@ -286,7 +286,7 @@ Response:
 
 ## Transports and Rules with dedicated timeouts
 
-This feature guarantee high availability and better transmission.
+This feature guarantees high availability and better transmission.
 
 For example, when one specific HTTP method has lag we can set timeouts with special 'Rule'.
 Another example, when user adds big chunks by multi upload,
@@ -295,7 +295,7 @@ default timeout needs to be changed with dedicated 'Transport' with 'Rule' for t
 We have 'Rules' for 'Transports' definitions:
  - required minimum one item in 'Transports' section
  - required empty or one property (Method, Path, QueryParam) in 'Rules' section
- - if empty 'Rules' section is defined it will match with any requests
+ - if 'Rules' section is empty, the transport will match any requests
  - when transport cannot be matched, http 500 error code will be sent to client.
 
 
