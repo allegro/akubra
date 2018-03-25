@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -75,7 +76,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 			return nil, errors.New("Can't handle multi upload")
 		}
 
-		multiUploadBackend, backendSelectError := multiPartRoundTripper.pickBackend(request.URL.Path)
+		multiUploadBackend, backendSelectError := multiPartRoundTripper.pickBackend(request)
 
 		if backendSelectError != nil {
 			log.Debugf("Multi upload failed for %s - %s", backendSelectError, request.URL.Path)
@@ -106,7 +107,12 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 	return multiPartRoundTripper.fallBackRoundTripper.RoundTrip(request)
 }
 
-func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath string) (*Backend, error) {
+func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(request *http.Request) (*Backend, error) {
+	objectPath := request.URL.Path
+
+	if utils.IsDomainStyleRequest(request) {
+		objectPath = fmt.Sprintf("/%s%s", request.Header.Get(utils.InternalBucketHeader), objectPath)
+	}
 
 	backendEndpoint, nodeFound := multiPartRoundTripper.backendsRing.GetNode(objectPath)
 
