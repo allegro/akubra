@@ -1,7 +1,7 @@
-VERSION := `cat VERSION`
-LDFLAGS := -X main.version=$(VERSION)
+VERSION := `git log -n 1 | grep commit`
+LDFLAGS := -X main.version="$(VERSION)"
 GO := "$(GOROOT)/bin/go"
-GOOS := `go env GOOS`
+
 
 all:  formatting lint test build
 
