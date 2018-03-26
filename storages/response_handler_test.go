@@ -54,18 +54,18 @@ func responseBuilder(prefixes []s3datatypes.CommonPrefix, contents s3datatypes.O
 }
 
 func responseV2Builder(prefixes []s3datatypes.CommonPrefix, contents []s3datatypes.ObjectInfo, maxKeys int) (transport.ResErrTuple, error) {
-	r, err := http.NewRequest(http.MethodGet, "/bucket", nil)
-	q := r.URL.Query()
-	q.Add("max-keys", fmt.Sprintf("%d", maxKeys))
-	q.Add("list-type", fmt.Sprintf("%d", 2))
+	request, err := http.NewRequest(http.MethodGet, "/bucket", nil)
+	queryParams := request.URL.Query()
+	queryParams.Add("max-keys", fmt.Sprintf("%d", maxKeys))
+	queryParams.Add("list-type", fmt.Sprintf("%d", 2))
 
-	r.URL.RawQuery = q.Encode()
+	request.URL.RawQuery = queryParams.Encode()
 	if err != nil {
 		return transport.ResErrTuple{}, err
 	}
 
 	resp := &http.Response{
-		Request: r,
+		Request: request,
 	}
 
 	lbres := s3datatypes.ListBucketV2Result{
@@ -83,7 +83,7 @@ func responseV2Builder(prefixes []s3datatypes.CommonPrefix, contents []s3datatyp
 
 	buf := bytes.NewBuffer(bodyBytes)
 	resp.Body = ioutil.NopCloser(buf)
-	return transport.ResErrTuple{Req: r, Res: resp, Err: nil, Failed: false}, err
+	return transport.ResErrTuple{Req: request, Res: resp, Err: nil, Failed: false}, err
 }
 
 func prefixes(prefix ...string) s3datatypes.CommonPrefixes {

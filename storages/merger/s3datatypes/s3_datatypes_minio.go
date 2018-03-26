@@ -109,6 +109,12 @@ type UserInfo struct {
 	DisplayName string
 }
 
+// VersionMarker describes version entry interface
+type VersionMarker interface {
+	GetKey() string
+	GetVersionID() string
+}
+
 // VersionInfo version item container
 type VersionInfo struct {
 	Key          string
@@ -122,7 +128,17 @@ type VersionInfo struct {
 }
 
 func (vi VersionInfo) String() string {
+	return vi.Key + vi.LastModified.Format(time.RFC3339)
+}
+
+// GetKey returns key to satisfy Marker interface
+func (vi VersionInfo) GetKey() string {
 	return vi.Key
+}
+
+// GetVersionID returns key to satisfy Marker interface
+func (vi VersionInfo) GetVersionID() string {
+	return vi.VersionID
 }
 
 // DeleteMarkerInfo container
@@ -135,15 +151,27 @@ type DeleteMarkerInfo struct {
 }
 
 func (dmi DeleteMarkerInfo) String() string {
+	return dmi.Key + dmi.LastModified.Format(time.RFC3339)
+}
+
+// GetKey returns key to satisfy Marker interface
+func (dmi DeleteMarkerInfo) GetKey() string {
 	return dmi.Key
+}
+
+// GetVersionID returns key to satisfy Marker interface
+func (dmi DeleteMarkerInfo) GetVersionID() string {
+	return dmi.VersionID
 }
 
 // ListVersionsResult container for Bucket Object versions response
 // see: https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETVersion.html
 type ListVersionsResult struct {
-	Name            string
-	Prefix          string
-	KeyMarker       string
+	Name   string
+	Prefix string
+	// KeyMarker Marks the last Key returned in a truncated response.
+	KeyMarker string
+	// VersionIDMarker Marks the last version of the Key returned in a truncated response.
 	VersionIDMarker string
 	MaxKeys         int64
 	EncodingType    string

@@ -138,7 +138,7 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
-
+	log.Println("sign", authHeader)
 	req = s3signer.SignV2(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
 	switch authHeader.version {
 	case signV2Algorithm:
@@ -171,6 +171,7 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
+	log.Println("sign sas ", authHeader)
 
 	csd, err := srt.crd.Get(authHeader.accessKey, "akubra")
 	if err == crdstore.ErrCredentialsNotFound {

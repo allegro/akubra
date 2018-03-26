@@ -20,11 +20,11 @@ func MergeListResponses(successes []transport.ResErrTuple) (resp *http.Response,
 		err = fmt.Errorf("No successful responses")
 		return
 	}
-	oContainer := objectsContainer{
+	keys := objectsContainer{
 		list: make([]fmt.Stringer, 0),
 		set:  make(map[string]struct{}),
 	}
-	pContainer := objectsContainer{
+	prefixes := objectsContainer{
 		list: make([]fmt.Stringer, 0),
 		set:  make(map[string]struct{}),
 	}
@@ -32,8 +32,8 @@ func MergeListResponses(successes []transport.ResErrTuple) (resp *http.Response,
 	for _, tuple := range successes {
 		resp = tuple.Res
 		listBucketResult = extractListResults(resp)
-		oContainer.append(listBucketResult.Contents.ToStringer()...)
-		pContainer.append(listBucketResult.CommonPrefixes.ToStringer()...)
+		keys.append(listBucketResult.Contents.ToStringer()...)
+		prefixes.append(listBucketResult.CommonPrefixes.ToStringer()...)
 	}
 
 	req := successes[0].Res.Request
@@ -44,7 +44,7 @@ func MergeListResponses(successes []transport.ResErrTuple) (resp *http.Response,
 		maxKeys = 1000
 	}
 
-	listBucketResult = pickResultSet(oContainer, pContainer, maxKeys, listBucketResult)
+	listBucketResult = pickResultSet(keys, prefixes, maxKeys, listBucketResult)
 
 	bodyBytes, err := xml.Marshal(listBucketResult)
 	if err != nil {
@@ -116,15 +116,15 @@ func extractListResults(resp *http.Response) s3datatypes.ListBucketResult {
 	return lbr
 }
 
-func pickResultSet(os objectsContainer, ps objectsContainer, maxKeys int, lbr s3datatypes.ListBucketResult) s3datatypes.ListBucketResult {
-	lbr.CommonPrefixes = lbr.CommonPrefixes.FromStringer(ps.first(maxKeys))
-	oLen := maxKeys - len(lbr.CommonPrefixes)
-	lbr.Contents = lbr.Contents.FromStringer(os.first(oLen))
-	isTruncated := os.Len()+ps.Len() > maxKeys
+func pickResultSet(keys objectsContainer, prefixes objectsContainer, maxKeys int, lbr s3datatypes.ListBucketResult) s3datatypes.ListBucketResult {
+	lbr.CommonPrefixes = lbr.CommonPrefixes.FromStringer(prefixes.first(maxKeys))
+	keysCount := maxKeys - len(lbr.CommonPrefixes)
+	lbr.Contents = lbr.Contents.FromStringer(keys.first(keysCount))
+	isTruncated := keys.Len()+prefixes.Len() > maxKeys
 	if !isTruncated {
 		return lbr
 	}
-	if oLen > 0 {
+	if keysCount > 0 {
 		lbr.NextMarker = lbr.Contents[len(lbr.Contents)-1].Key
 	} else {
 		lbr.NextMarker = lbr.CommonPrefixes[len(lbr.CommonPrefixes)-1].Prefix

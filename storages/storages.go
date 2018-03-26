@@ -69,18 +69,21 @@ type Backend struct {
 }
 
 // RoundTrip satisfies http.RoundTripper interface
-func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
-	r.URL.Host = b.Endpoint.Host
-	r.URL.Scheme = b.Endpoint.Scheme
-	reqID := r.Context().Value(log.ContextreqIDKey)
-	log.Debugf("Request %s req.URL.Host replaced with %s", reqID, r.URL.Host)
+func (b *Backend) RoundTrip(req *http.Request) (*http.Response, error) {
+	req.URL.Host = b.Endpoint.Host
+	req.URL.Scheme = b.Endpoint.Scheme
+	// req.Host = b.Endpoint.Host
+	log.Println("Backend auth header", req.Header.Get("Authorization"))
+	reqID := req.Context().Value(log.ContextreqIDKey)
+	log.Debugf("Request %s req.URL.Host replaced with %s", reqID, req.URL.Host)
 	if b.Maintenance {
-		log.Debugf("Request %s blocked %s is in maintenance mode", reqID, r.URL.Host)
+		log.Debugf("Request %s blocked %s is in maintenance mode", reqID, req.URL.Host)
 		return nil, &backendError{backend: b.Endpoint.Host,
 			origErr: fmt.Errorf("backend %v in maintenance mode", b.Name)}
 	}
 	err := error(nil)
-	resp, oerror := b.RoundTripper.RoundTrip(r)
+	log.Printf("url host %s, header host %s, req host %s", req.URL.Host, req.Header.Get("Host"), req.Host)
+	resp, oerror := b.RoundTripper.RoundTrip(req)
 
 	if oerror != nil {
 		err = &backendError{backend: b.Endpoint.Host, origErr: oerror}

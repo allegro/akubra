@@ -20,11 +20,7 @@ func MergeVersionsResponses(successes []transport.ResErrTuple) (resp *http.Respo
 		err = fmt.Errorf("No successful responses")
 		return
 	}
-	oContainer := objectsContainer{
-		list: make([]fmt.Stringer, 0),
-		set:  make(map[string]struct{}),
-	}
-	pContainer := objectsContainer{
+	keysContainer := &objectsContainer{
 		list: make([]fmt.Stringer, 0),
 		set:  make(map[string]struct{}),
 	}
@@ -32,8 +28,8 @@ func MergeVersionsResponses(successes []transport.ResErrTuple) (resp *http.Respo
 	for _, tuple := range successes {
 		resp = tuple.Res
 		listBucketResult = extractListVersionsResults(resp)
-		oContainer.append(listBucketResult.Version.ToStringer()...)
-		pContainer.append(listBucketResult.DeleteMarker.ToStringer()...)
+		keysContainer.append(listBucketResult.Version.ToStringer()...)
+		keysContainer.append(listBucketResult.DeleteMarker.ToStringer()...)
 	}
 
 	req := successes[0].Res.Request
@@ -44,7 +40,7 @@ func MergeVersionsResponses(successes []transport.ResErrTuple) (resp *http.Respo
 		maxKeys = 1000
 	}
 
-	listBucketResult = pickVersionResultSet(oContainer, pContainer, maxKeys, listBucketResult)
+	listBucketResult = pickVersionResultSet(keysContainer, maxKeys, listBucketResult)
 
 	bodyBytes, err := xml.Marshal(listBucketResult)
 	if err != nil {
@@ -86,15 +82,36 @@ func extractListVersionsResults(resp *http.Response) s3datatypes.ListVersionsRes
 	return lbr
 }
 
-func pickVersionResultSet(ps objectsContainer, os objectsContainer, maxKeys int, lbr s3datatypes.ListVersionsResult) s3datatypes.ListVersionsResult {
-	lbr.Version = lbr.Version.FromStringer(ps.first(maxKeys))
-	oLen := maxKeys - len(lbr.Version)
-	lbr.DeleteMarker = lbr.DeleteMarker.FromStringer(os.first(oLen))
-	isTruncated := os.Len()+ps.Len() > maxKeys
+func pickVersionResultSet(keysContainer *objectsContainer, maxKeys int, lbr s3datatypes.ListVersionsResult) s3datatypes.ListVersionsResult {
+	deleteMarkers := s3datatypes.DeleteMarkerInfos{}
+	versions := s3datatypes.VersionInfos{}
+	keys := keysContainer.first(maxKeys + 1)
+	var lastMarker s3datatypes.VersionMarker
+	for _, key := range keys[0:maxKeys] {
+		switch v := key.(type) {
+		case s3datatypes.DeleteMarkerInfo:
+			deleteMarkers = append(deleteMarkers, v)
+			lastMarker = v
+		case s3datatypes.VersionInfo:
+			versions = append(versions, v)
+			lastMarker = v
+		}
+
+	}
+	lbr.Version = versions
+	lbr.DeleteMarker = deleteMarkers
+
+	lbr.KeyMarker = lastMarker.GetKey()
+	lbr.VersionIDMarker = lastMarker.GetVersionID()
+
+	isTruncated := keysContainer.Len() > maxKeys
 	if !isTruncated {
 		return lbr
 	}
-	// TODO-mj: pack NextContinuatio
+
 	lbr.IsTruncated = isTruncated
+	nextMarker := keys[maxKeys+1].(s3datatypes.VersionMarker)
+	lbr.NextKeyMarker = nextMarker.GetKey()
+	lbr.NextVersionIDMarker = nextMarker.GetVersionID()
 	return lbr
 }
