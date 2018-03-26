@@ -1,9 +1,15 @@
-VERSION := $(git log -n 1 | grep commit)
-LDFLAGS := -X main.version=$(VERSION)
+VERSION := `git log -n 1 | grep commit | sed 's/commit //g'`
+LDFLAGS := -X main.version="$(VERSION)"
 GO := "$(GOROOT)/bin/go"
 
 
-all:  formatting lint test build
+all:  
+	@echo "====== Makefile internal variables:"
+	@echo "VERSION: '$(VERSION)'"
+	@echo "LDFLAGS: '$(LDFLAGS)'"
+	@echo "GO: '$(GO)'"
+	@echo "======\n\n"
+	formatting lint test build
 
 linux: formatting lint test
 	GOOS=linux $(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1'.
