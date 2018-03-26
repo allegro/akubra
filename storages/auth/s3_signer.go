@@ -227,7 +227,7 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	return srt.rt.RoundTrip(req)
 }
 
-// SignDecorator will recompute auth headers for new Key
+// RequestFormatDecorator rewrites url if needed
 func RequestFormatDecorator(backendEndpoint string, forcePathStyle bool) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
 		backendURL, _ := url.Parse(backendEndpoint)
