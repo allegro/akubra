@@ -236,7 +236,7 @@ func RequestFormatDecorator(backendEndpoint string, forcePathStyle bool) httphan
 func parseEndpoint(backendEndpoint string) *url.URL{
 	backendURL, parsingError := url.Parse(backendEndpoint)
 	if parsingError != nil {
-		log.Fatal("malformed backend endpoint %s", backendEndpoint)
+		log.Fatalf("malformed backend endpoint %s fix it", backendEndpoint)
 	}
 	return backendURL
 }
