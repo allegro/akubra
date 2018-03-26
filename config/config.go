@@ -16,8 +16,8 @@ import (
 	"github.com/allegro/akubra/metrics"
 	confregions "github.com/allegro/akubra/regions/config"
 	storages "github.com/allegro/akubra/storages/config"
-	validator "gopkg.in/validator.v1"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/validator.v1"
+	"gopkg.in/yaml.v2"
 )
 
 // TechnicalEndpointBodyMaxSize for /configuration/validate endpoint
@@ -98,9 +98,11 @@ func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[strin
 	if valid && enableLogicalValidator {
 		validListenPorts, portsValidationErrors := conf.ListenPortsLogicalValidator()
 		validRegionsEntries, regionsValidationErrors := conf.RegionsEntryLogicalValidator()
+		validTransportsEntries, transportsValidationErrors := conf.TransportsEntryLogicalValidator()
 		validDomainsEntries, domainsValidationErrors := conf.DomainsEntryLogicalValidator()
-		valid = valid && validRegionsEntries && validListenPorts && validDomainsEntries
-		validationErrors = mergeErrors(validationErrors, portsValidationErrors, regionsValidationErrors, domainsValidationErrors)
+		valid = valid && validListenPorts && validRegionsEntries && validTransportsEntries && validDomainsEntries
+		validationErrors = mergeErrors(validationErrors, portsValidationErrors, regionsValidationErrors,
+			domainsValidationErrors, transportsValidationErrors)
 	}
 
 	for propertyName, validatorMessage := range validationErrors {

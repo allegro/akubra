@@ -296,6 +296,7 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 	activeBackendRoundTripper2 := &MockedRoundTripper{}
 
 	activeBackendURL, _ := url.Parse("http://active:1234")
+
 	activateBackend1 := &Backend{
 		RoundTripper: activeBackendRoundTripper1,
 		Endpoint:     *activeBackendURL,
@@ -304,6 +305,7 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 	}
 
 	activeBackendURL2, _ := url.Parse("http://active2:1234")
+
 	activateBackend2 := &Backend{
 		RoundTripper: activeBackendRoundTripper2,
 		Endpoint:     *activeBackendURL2,

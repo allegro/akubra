@@ -91,14 +91,25 @@ func (c *YamlConfig) RegionsEntryLogicalValidator() (valid bool, validationError
 	for regionName, regionConf := range c.Regions {
 		errList = append(errList, c.validateRegionCluster(regionName, regionConf)...)
 	}
-	if len(errList) > 0 {
-		valid = false
-		errorsList := make(map[string][]error)
-		errorsList["RegionsEntryLogicalValidator"] = errList
-		validationErrors = mergeErrors(validationErrors, errorsList)
+	validationErrors, valid = prepareErrors(errList, "RegionsEntryLogicalValidator")
+	return
+}
+
+// TransportsEntryLogicalValidator checks the correctness of "Transports" part of configuration file
+func (c *YamlConfig) TransportsEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
+	errList := make([]error, 0)
+	if len(c.Service.Client.Transports) == 0 {
+		errList = append(errList, errors.New("Empty transports definition"))
 	} else {
-		valid = true
+		for _, transportConf := range c.Service.Client.Transports {
+			properties := transportConf.Properties
+			if properties.MaxIdleConns < 0 || properties.MaxIdleConnsPerHost < 0 || properties.ResponseHeaderTimeout.Duration <= 0 || properties.IdleConnTimeout.Duration < 0 {
+				errList = append(errList, fmt.Errorf("Wrong or empty transport 'Properties' for 'Name': %s", transportConf.Name))
+				break
+			}
+		}
 	}
+	validationErrors, valid = prepareErrors(errList, "TransportsEntryLogicalValidator")
 	return
 }
 
@@ -131,6 +142,16 @@ func mergeErrors(maps ...map[string][]error) (output map[string][]error) {
 		}
 	}
 	return output
+}
+
+// prepareErrors
+func prepareErrors(errList []error, validatorName string) (validationErrors map[string][]error, valid bool) {
+	if valid = len(errList) < 1; !valid {
+		errorsList := make(map[string][]error)
+		errorsList[validatorName] = errList
+		validationErrors = mergeErrors(validationErrors, errorsList)
+	}
+	return
 }
 
 // RequestHeaderContentTypeValidator for Content-Type header in request

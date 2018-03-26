@@ -78,9 +78,9 @@ func (rg Regions) findHostInDomainStyle(originalHost string) (currentHost, bucke
 }
 
 // NewRegions build new region http.RoundTripper
-func NewRegions(conf config.Regions, storages storage.Storages, transport http.RoundTripper, syncLogger log.Logger) (http.RoundTripper, error) {
+func NewRegions(conf config.Regions, storages storage.Storages, syncLogger log.Logger) (http.RoundTripper, error) {
 
-	ringFactory := sharding.NewRingFactory(conf, storages, transport, syncLogger)
+	ringFactory := sharding.NewRingFactory(conf, storages, syncLogger)
 	regions := &Regions{
 		multiCluters: make(map[string]sharding.ShardsRingAPI),
 	}

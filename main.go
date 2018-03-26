@@ -21,14 +21,12 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/allegro/akubra/crdstore"
-	"gopkg.in/tylerb/graceful.v1"
+	"github.com/allegro/akubra/transport"
+	graceful "gopkg.in/tylerb/graceful.v1"
 )
 
 // TechnicalEndpointGeneralTimeout for /configuration/validate endpoint
-const (
-	TechnicalEndpointGeneralTimeout = 5 * time.Second
-	InvalidConfigError = 2
-)
+const TechnicalEndpointGeneralTimeout = 5 * time.Second
 
 type service struct {
 	config config.Config
@@ -40,14 +38,14 @@ var (
 
 	// CLI flags
 	configFile = kingpin.
-		Flag("config", "Configuration file path e.g.: \"conf/dev.yaml\"").
-		Short('c').
-		Required().
-		ExistingFile()
+			Flag("config", "Configuration file path e.g.: \"conf/dev.yaml\"").
+			Short('c').
+			Required().
+			ExistingFile()
 	testConfig = kingpin.
-		Flag("test-config", "Testing only configuration file from 'config' arg. (app. not starting).").
-		Short('t').
-		Bool()
+			Flag("test-config", "Testing only configuration file from 'config' arg. (app. not starting).").
+			Short('t').
+			Bool()
 )
 
 func main() {
@@ -62,7 +60,7 @@ func main() {
 	valid, errs := config.ValidateConf(conf.YamlConfig, true)
 	if !valid {
 		fmt.Printf("YAML validation - errors: %q", errs)
-		os.Exit(InvalidConfigError)
+		os.Exit(1)
 	}
 	log.Println("Configuration checked - OK.")
 
@@ -106,10 +104,11 @@ func mkServiceLogs(logConf logconfig.LoggingConfig) (syncLog, clusterSyncLog, ac
 	}
 	return
 }
+
 func (s *service) start() error {
-	roundtripper, err := httphandler.ConfigureHTTPTransport(s.config.Service.Client)
+	transportMatcher, err := transport.ConfigureHTTPTransports(s.config.Service.Client)
 	if err != nil {
-		log.Fatalf("Couldn't set up client properties, %q", err)
+		log.Fatalf("Couldn't set up client Transports - err: %q", err)
 	}
 	syncLog, clusterSyncLog, accessLog, err := mkServiceLogs(s.config.Logging)
 	if err != nil {
@@ -123,8 +122,9 @@ func (s *service) start() error {
 	earlyRespHandler := httphandler.EarliestResponseHandler(syncLog, set.NewSetFromSlice(methods))
 
 	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
+
 	storage, err := storages.InitStorages(
-		roundtripper,
+		transportMatcher,
 		s.config.Clusters,
 		s.config.Backends,
 		earlyRespHandler,
@@ -135,7 +135,7 @@ func (s *service) start() error {
 		log.Fatalf("Storages initialization problem: %q", err)
 	}
 
-	regionsRT, err := regions.NewRegions(s.config.Regions, *storage, roundtripper, clusterSyncLog)
+	regionsRT, err := regions.NewRegions(s.config.Regions, *storage, clusterSyncLog)
 	if err != nil {
 		return err
 	}

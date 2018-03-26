@@ -7,15 +7,9 @@ import (
 	"io"
 	"net/http"
 	"sync/atomic"
-	"time"
 
 	"github.com/allegro/akubra/httphandler/config"
 	"github.com/allegro/akubra/log"
-)
-
-const (
-	defaultMaxIdleConnsPerHost   = 100
-	defaultResponseHeaderTimeout = 5 * time.Second
 )
 
 func randomStr(length int) string {
@@ -94,31 +88,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (h *Handler) validateIncomingRequest(req *http.Request) int {
 	return config.RequestHeaderContentLengthValidator(*req, h.bodyMaxSize)
-}
-
-// ConfigureHTTPTransport returns http.Transport with customized dialer,
-// MaxIdleConnsPerHost and DisableKeepAlives
-func ConfigureHTTPTransport(conf config.Client) (*http.Transport, error) {
-	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
-	responseHeaderTimeout := defaultResponseHeaderTimeout
-
-	if conf.MaxIdleConnsPerHost != 0 {
-		maxIdleConnsPerHost = conf.MaxIdleConnsPerHost
-	}
-
-	if conf.ResponseHeaderTimeout.Duration != 0 {
-		responseHeaderTimeout = conf.ResponseHeaderTimeout.Duration
-	}
-
-	httpTransport := &http.Transport{
-		MaxIdleConns:          conf.MaxIdleConns,
-		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
-		IdleConnTimeout:       conf.IdleConnTimeout.Duration,
-		ResponseHeaderTimeout: responseHeaderTimeout,
-		DisableKeepAlives:     conf.DisableKeepAlives,
-	}
-
-	return httpTransport, nil
 }
 
 // DecorateRoundTripper applies common http.RoundTripper decorators

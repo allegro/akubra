@@ -2,8 +2,6 @@ package sharding
 
 import (
 	"fmt"
-	"net/http"
-
 	"math"
 
 	"github.com/allegro/akubra/log"
@@ -14,10 +12,9 @@ import (
 
 // RingFactory produces clients ShardsRing
 type RingFactory struct {
-	conf      config.Regions
-	transport http.RoundTripper
-	storages  storages.Storages
-	syncLog   log.Logger
+	conf     config.Regions
+	storages storages.Storages
+	syncLog  log.Logger
 }
 
 func (rf RingFactory) createRegressionMap(config config.Region) (map[string]storages.NamedCluster, error) {
@@ -90,11 +87,10 @@ func (rf RingFactory) RegionRing(name string, regionCfg config.Region) (ShardsRi
 }
 
 // NewRingFactory creates ring factory
-func NewRingFactory(conf config.Regions, storages storages.Storages, transport http.RoundTripper, syncLog log.Logger) RingFactory {
+func NewRingFactory(conf config.Regions, storages storages.Storages, syncLog log.Logger) RingFactory {
 	return RingFactory{
-		conf:      conf,
-		storages:  storages,
-		transport: transport,
-		syncLog:   syncLog,
+		conf:     conf,
+		storages: storages,
+		syncLog:  syncLog,
 	}
 }

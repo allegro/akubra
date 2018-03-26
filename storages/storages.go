@@ -26,8 +26,12 @@ func (be *backendError) Err() error {
 	return be.origErr
 }
 
-func (be *backendError) Error() string {
-	return fmt.Sprintf("backend %s responded with error %s", be.backend, be.origErr)
+func (be *backendError) Error() (errMsg string) {
+	errMsg = fmt.Sprintf("backend %s responded with error %s", be.backend, be.origErr)
+	if _, ok := be.origErr.(*transport.DefinitionError); !ok {
+		errMsg = fmt.Sprintf("backend %s responded with error %s", be.backend, be.origErr)
+	}
+	return
 }
 
 // NamedCluster interface
@@ -51,7 +55,6 @@ type Cluster struct {
 type Storages struct {
 	clustersConf     config.ClustersMap
 	backendsConf     config.BackendsMap
-	transport        http.RoundTripper
 	Clusters         map[string]NamedCluster
 	Backends         map[string]http.RoundTripper
 	lateRespHandler  transport.MultipleResponsesHandler
@@ -196,7 +199,6 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 	return &Storages{
 		clustersConf:     clustersConf,
 		backendsConf:     backendsConf,
-		transport:        transport,
 		Clusters:         clusters,
 		Backends:         backends,
 		earlyRespHandler: earlyRespHandler,
