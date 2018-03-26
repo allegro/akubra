@@ -1,5 +1,5 @@
-VERSION := `git log -n 1 | grep commit | sed 's/commit //g'`
-LDFLAGS := -X main.version="$(VERSION)"
+VERSION := `git log -n 1 | grep commit | sed 's/commit //g' | head -n 1`
+LDFLAGS := -X main.version=$(VERSION)
 GO := "$(GOROOT)/bin/go"
 
 all: vars formatting lint test build
