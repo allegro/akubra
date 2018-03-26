@@ -14,7 +14,7 @@ all:
 linux: formatting lint test
 	GOOS=linux $(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1'.
 
-formatting :
+formatting:
 	$(GO) get golang.org/x/tools/cmd/goimports
 
 lint: deps-lint
@@ -33,7 +33,6 @@ lint-slow: deps-lint
 	--deadline=600s \
 	--enable=goimports \
 	--vendor 
-
 
 deps:
 	$(GO) get github.com/Masterminds/glide
