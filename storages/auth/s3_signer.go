@@ -230,28 +230,32 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 // RequestFormatDecorator rewrites url if needed
 func RequestFormatDecorator(backendEndpoint string, forcePathStyle bool) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
-		backendURL, _ := url.Parse(backendEndpoint)
-		return requestFormatRoundTripper{rt :rt, backendEndpoint: backendURL, forcePathStyle: forcePathStyle}
+		return requestFormatRoundTripper{rt :rt, backendEndpoint: parseEndpoint(backendEndpoint), forcePathStyle: forcePathStyle}
 	}
+}
+func parseEndpoint(backendEndpoint string) *url.URL{
+	backendURL, parsingError := url.Parse(backendEndpoint)
+	if parsingError != nil {
+		log.Fatal("malformed backend endpoint %s", backendEndpoint)
+	}
+	return backendURL
 }
 
 // SignDecorator will recompute auth headers for new Key
 func SignDecorator(keys Keys, region, host string, forcePathStyle bool) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
-		backendURL, _ := url.Parse(host)
-		return signRoundTripper{rt: rt, region: region, host: backendURL, keys: keys, forcePathStyle: forcePathStyle}
+		return signRoundTripper{rt: rt, region: region, host: parseEndpoint(host), keys: keys, forcePathStyle: forcePathStyle}
 	}
 }
 
 // SignAuthServiceDecorator will compute
 func SignAuthServiceDecorator(backend, region, endpoint, host string, forcePathStyle bool) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
-		backendURL, _ := url.Parse(host)
 		credentialsStore, err := crdstore.GetInstance(endpoint)
 		if err != nil {
 			log.Fatalf("error CredentialsStore `%s` is not defined", endpoint)
 		}
-		return signAuthServiceRoundTripper{rt: rt, backend: backend, region: region, host: backendURL,
+		return signAuthServiceRoundTripper{rt: rt, backend: backend, region: region, host: parseEndpoint(host),
 											crd: credentialsStore, forcePathStyle: forcePathStyle}
 	}
 }
