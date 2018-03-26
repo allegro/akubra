@@ -1,5 +1,5 @@
-VERSION := `git log -n 1 | grep commit`
-LDFLAGS := -X main.version="$(VERSION)"
+VERSION := $(git log -n 1 | grep commit)
+LDFLAGS := -X main.version=$(VERSION)
 GO := "$(GOROOT)/bin/go"
 
 
