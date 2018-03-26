@@ -14,8 +14,8 @@ import (
 	"github.com/allegro/akubra/transport"
 )
 
-// MergeListResponses unifies responses from multiple backends
-func MergeListResponses(successes []transport.ResErrTuple) (resp *http.Response, err error) {
+// MergeBucketListResponses unifies responses from multiple backends
+func MergeBucketListResponses(successes []transport.ResErrTuple) (resp *http.Response, err error) {
 	if len(successes) == 0 {
 		err = fmt.Errorf("No successful responses")
 		return
@@ -116,19 +116,19 @@ func extractListResults(resp *http.Response) s3datatypes.ListBucketResult {
 	return lbr
 }
 
-func pickResultSet(keys objectsContainer, prefixes objectsContainer, maxKeys int, lbr s3datatypes.ListBucketResult) s3datatypes.ListBucketResult {
-	lbr.CommonPrefixes = lbr.CommonPrefixes.FromStringer(prefixes.first(maxKeys))
-	keysCount := maxKeys - len(lbr.CommonPrefixes)
-	lbr.Contents = lbr.Contents.FromStringer(keys.first(keysCount))
+func pickResultSet(keys objectsContainer, prefixes objectsContainer, maxKeys int, listBucketResult s3datatypes.ListBucketResult) s3datatypes.ListBucketResult {
+	listBucketResult.CommonPrefixes = listBucketResult.CommonPrefixes.FromStringer(prefixes.first(maxKeys))
+	keysCount := maxKeys - len(listBucketResult.CommonPrefixes)
+	listBucketResult.Contents = listBucketResult.Contents.FromStringer(keys.first(keysCount))
 	isTruncated := keys.Len()+prefixes.Len() > maxKeys
 	if !isTruncated {
-		return lbr
+		return listBucketResult
 	}
 	if keysCount > 0 {
-		lbr.NextMarker = lbr.Contents[len(lbr.Contents)-1].Key
+		listBucketResult.NextMarker = listBucketResult.Contents[len(listBucketResult.Contents)-1].Key
 	} else {
-		lbr.NextMarker = lbr.CommonPrefixes[len(lbr.CommonPrefixes)-1].Prefix
+		listBucketResult.NextMarker = listBucketResult.CommonPrefixes[len(listBucketResult.CommonPrefixes)-1].Prefix
 	}
-	lbr.IsTruncated = isTruncated
-	return lbr
+	listBucketResult.IsTruncated = isTruncated
+	return listBucketResult
 }

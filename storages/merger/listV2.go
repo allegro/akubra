@@ -13,26 +13,26 @@ import (
 	"github.com/allegro/akubra/transport"
 )
 
-// MergeListV2Responses unifies responses from multiple backends
-func MergeListV2Responses(successes []transport.ResErrTuple) (resp *http.Response, err error) {
+// MergeBucketListV2Responses unifies responses from multiple backends
+func MergeBucketListV2Responses(successes []transport.ResErrTuple) (resp *http.Response, err error) {
 	if len(successes) == 0 {
 		err = fmt.Errorf("No successful responses")
 		return
 	}
-	oContainer := objectsContainer{
+	keys := objectsContainer{
 		list: make([]fmt.Stringer, 0),
 		set:  make(map[string]struct{}),
 	}
-	pContainer := objectsContainer{
+	prefixes := objectsContainer{
 		list: make([]fmt.Stringer, 0),
 		set:  make(map[string]struct{}),
 	}
-	var listBucketResult s3datatypes.ListBucketV2Result
+	var listBucketV2Result s3datatypes.ListBucketV2Result
 	for _, tuple := range successes {
 		resp = tuple.Res
-		listBucketResult = extractListv2Results(resp)
-		oContainer.append(listBucketResult.Contents.ToStringer()...)
-		pContainer.append(listBucketResult.CommonPrefixes.ToStringer()...)
+		listBucketV2Result = extractListv2Results(resp)
+		keys.append(listBucketV2Result.Contents.ToStringer()...)
+		prefixes.append(listBucketV2Result.CommonPrefixes.ToStringer()...)
 	}
 
 	req := successes[0].Res.Request
@@ -43,9 +43,9 @@ func MergeListV2Responses(successes []transport.ResErrTuple) (resp *http.Respons
 		maxKeys = 1000
 	}
 
-	listBucketResult = pickListV2ResultSet(oContainer, pContainer, maxKeys, listBucketResult)
+	listBucketV2Result = pickListV2ResultSet(keys, prefixes, maxKeys, listBucketV2Result)
 
-	bodyBytes, err := xml.Marshal(listBucketResult)
+	bodyBytes, err := xml.Marshal(listBucketV2Result)
 	if err != nil {
 		log.Debug("Problem marshalling ObjectStore response body, %s", err)
 		return nil, err
@@ -85,22 +85,22 @@ func extractListv2Results(resp *http.Response) s3datatypes.ListBucketV2Result {
 	return lbr
 }
 
-func pickListV2ResultSet(os objectsContainer, ps objectsContainer, maxKeys int, lbr s3datatypes.ListBucketV2Result) s3datatypes.ListBucketV2Result {
-	lbr.CommonPrefixes = lbr.CommonPrefixes.FromStringer(ps.first(maxKeys))
-	oLen := maxKeys - len(lbr.CommonPrefixes)
-	lbr.Contents = lbr.Contents.FromStringer(os.first(oLen))
-	isTruncated := os.Len()+ps.Len() > maxKeys
+func pickListV2ResultSet(keys objectsContainer, prefixes objectsContainer, maxKeys int, bucketListV2Result s3datatypes.ListBucketV2Result) s3datatypes.ListBucketV2Result {
+	bucketListV2Result.CommonPrefixes = bucketListV2Result.CommonPrefixes.FromStringer(prefixes.first(maxKeys))
+	keysCount := maxKeys - len(bucketListV2Result.CommonPrefixes)
+	bucketListV2Result.Contents = bucketListV2Result.Contents.FromStringer(keys.first(keysCount))
+	isTruncated := keys.Len()+prefixes.Len() > maxKeys
 	if !isTruncated {
-		return lbr
+		return bucketListV2Result
 	}
 	// TODO-mj: pack NextContinuatio
-	if oLen > 0 {
-		lbr.ContinuationToken = lbr.Contents[len(lbr.Contents)-1].Key
+	if keysCount > 0 {
+		bucketListV2Result.ContinuationToken = bucketListV2Result.Contents[len(bucketListV2Result.Contents)-1].Key
 	} else {
-		lbr.ContinuationToken = lbr.CommonPrefixes[len(lbr.CommonPrefixes)-1].Prefix
+		bucketListV2Result.ContinuationToken = bucketListV2Result.CommonPrefixes[len(bucketListV2Result.CommonPrefixes)-1].Prefix
 	}
-	lbr.IsTruncated = isTruncated
-	return lbr
+	bucketListV2Result.IsTruncated = isTruncated
+	return bucketListV2Result
 }
 
 type interceptor struct {

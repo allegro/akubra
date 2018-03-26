@@ -28,14 +28,14 @@ func (rm *responseMerger) createResponse(firstTuple transport.ResErrTuple, succe
 	if reqQuery.Get("list-type") == listTypeV2 {
 		log.Println("Create response v2", len(successes))
 
-		return merger.MergeListV2Responses(successes)
+		return merger.MergeBucketListV2Responses(successes)
 	}
 
 	if reqQuery["versions"] != nil {
 		return merger.MergeVersionsResponses(successes)
 	}
 
-	return merger.MergeListResponses(successes)
+	return merger.MergeBucketListResponses(successes)
 }
 
 func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-chan transport.ResErrTuple) transport.ResErrTuple {
