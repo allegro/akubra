@@ -342,12 +342,10 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsADomainStyleRequest(testSuite
 	initiateRequestURL, _ := url.Parse("http://someBucket.localhost:3212/someObject?uploads")
 	initiateMultiPartUploadRequest := &http.Request{URL: initiateRequestURL, Header: make(map[string][]string, 1)}
 	initiateMultiPartUploadRequest.Header.Set(utils.InternalBucketHeader, "someBucket")
-	initiateMultiPartUploadRequest.Header.Set(utils.InternalHostHeader, "localhost")
 
 	uploadPartRequestURL, _ := url.Parse("http://someBucket.localhost:3212/someObject?partNumber=1&uploadId=123")
 	uploadPartRequest := &http.Request{URL: uploadPartRequestURL, Header: make(map[string][]string, 1)}
 	uploadPartRequest.Header.Set(utils.InternalBucketHeader, "someBucket")
-	uploadPartRequest.Header.Set(utils.InternalHostHeader, "localhost")
 
 	responseForInitiate := &http.Response{Request: initiateMultiPartUploadRequest}
 	responseForPartUpload := &http.Response{Request: uploadPartRequest}

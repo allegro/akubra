@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/allegro/akubra/log"
@@ -10,11 +11,19 @@ import (
 )
 
 const (
-	// InternalHostHeader is used for rewriting domain style
-	InternalHostHeader   = "X-Akubra-Internal-Host-3yeLjyjQNx"
 	// InternalBucketHeader used for rewriting domain style
 	InternalBucketHeader = "X-Akubra-Internal-Bucket-lejK0EpVZy"
-	// PathStyleFormat is a S3 path style format
+	// InternalPathStyleFlag indicates if an request is path style
+	InternalPathStyleFlag = "X-Akubra-Internal-Path-Style-lSd29csa"
+	// EmptyString empty string
+	EmptyString = ""
+)
+
+const (
+	missingHost = "missing host header on forcePathStyle backend, request id %d"
+	missingBucket = "missing bucket header, can't rewrite to path style, request id %d"
+	styleRewritten = "rewritten domain style url (%s) to path style url (%s) for request %s"
+	pathStyleFormat = "/%s%s"
 )
 
 // BackendError interface helps logging inconsistencies
@@ -74,6 +83,34 @@ func IsBucketPath(request *http.Request) bool {
 
 // IsDomainStyleRequest tests if request has a domain style url
 func IsDomainStyleRequest(request *http.Request) bool {
-	return request.Header.Get(InternalHostHeader) != "" &&
-		request.Header.Get(InternalBucketHeader) != ""
+	return request.Header.Get(InternalBucketHeader) != EmptyString
+}
+
+func RewriteHostAndBucketIfNeeded(req *http.Request, backendEndpoint *url.URL, forcePathStyle bool) error {
+	bucket := req.Header.Get(InternalBucketHeader)
+	requestIsNotPathStyle := req.Header.Get(InternalPathStyleFlag) == EmptyString
+
+	if forcePathStyle && requestIsNotPathStyle {
+		if bucket == EmptyString {
+			return fmt.Errorf(missingBucket, req.Context().Value(log.ContextreqIDKey))
+		}
+		pathStyleURL := fmt.Sprintf(pathStyleFormat, bucket, req.URL.Path)
+		log.Debugf(styleRewritten, req.URL.Path, pathStyleURL, req.Context().Value(log.ContextreqIDKey))
+		req.URL.Path = pathStyleURL
+	}
+
+	req.URL.Scheme = backendEndpoint.Scheme
+	if IsDomainStyleRequest(req) && !forcePathStyle{
+		if bucket == EmptyString {
+			return fmt.Errorf(missingBucket, req.Context().Value(log.ContextreqIDKey))
+		}
+		hostWithBucketName := fmt.Sprintf("%s.%s", bucket, backendEndpoint.Host)
+		req.Host = hostWithBucketName
+		req.URL.Host = hostWithBucketName
+	} else {
+		req.Host = backendEndpoint.Host
+		req.URL.Host = backendEndpoint.Host
+	}
+
+	return nil
 }

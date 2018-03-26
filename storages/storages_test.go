@@ -6,10 +6,9 @@ import (
 
 	"net/url"
 
-	config "github.com/allegro/akubra/storages/config"
+	"github.com/allegro/akubra/storages/config"
 	"github.com/allegro/akubra/transport"
 	"github.com/allegro/akubra/types"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -92,41 +91,4 @@ func TestShouldNotInitStoragesWithWrongBackendType(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(),
 		"initialization of backend 'backend1' resulted with error: no decorator defined for type 'unknown'")
-}
-
-func TestShouldDecorateBackendWithDomainStyleDecoratorOnlyWhenItHasForcePathStyleTurnedOn(t *testing.T) {
-	pathStyleBackendRoundTripper := &MockedRoundTripper{}
-	domainStyleBackendRoundTripper := &MockedRoundTripper{}
-
-	pathStyleBackendName := "pathStyleBackend"
-	domainStyleBackendName := "domainStyleBackend"
-
-	pathStyleBackendURL, _ := url.Parse("http://pahtStyle.com:8080")
-	domainStyleBackendURL, _ := url.Parse("http://domainStyle.com:8080")
-
-	pathStyleBackendConfig := config.Backend{
-		Endpoint: types.YAMLUrl{URL: pathStyleBackendURL},
-		Maintenance: false,
-		ForcePathStyle: false,
-		Properties: make(map[string]string),
-		Region: "region1",
-		Type: "passthrough",
-	}
-	domainStyleBackendConfig := config.Backend{
-		Endpoint: types.YAMLUrl{URL: domainStyleBackendURL},
-		Maintenance: false,
-		ForcePathStyle: true,
-		Properties: make(map[string]string),
-		Region: "region1",
-		Type: "passthrough",
-	}
-
-	decoratedPathStyleBackend, _ := decorateBackend(pathStyleBackendRoundTripper, pathStyleBackendName, pathStyleBackendConfig)
-	decoratedDomainStyleBackend, _ := decorateBackend(domainStyleBackendRoundTripper, domainStyleBackendName, domainStyleBackendConfig)
-
-	_, shouldNotBeDecorated  := decoratedPathStyleBackend.(*domainStyleInterceptor)
-	_, shouldBeDecorated  := decoratedDomainStyleBackend.(*domainStyleInterceptor)
-
-	assert.False(t, shouldNotBeDecorated)
-	assert.True(t, shouldBeDecorated)
 }

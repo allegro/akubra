@@ -3,12 +3,14 @@ package auth
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"regexp"
 
 	"github.com/allegro/akubra/crdstore"
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/utils"
 	"github.com/bnogas/minio-go/pkg/s3signer"
 )
 
@@ -117,19 +119,36 @@ func S3Decorator(keys Keys) httphandler.Decorator {
 	}
 }
 
+type requestFormatRoundTripper struct {
+	rt             	http.RoundTripper
+	forcePathStyle 	bool
+	backendEndpoint *url.URL
+}
+
 type signRoundTripper struct {
-	rt     http.RoundTripper
-	keys   Keys
-	region string
-	host   string
+	rt             http.RoundTripper
+	keys           Keys
+	region         string
+	host           *url.URL
+	forcePathStyle bool
 }
 
 type signAuthServiceRoundTripper struct {
-	rt      http.RoundTripper
-	crd     *crdstore.CredentialsStore
-	backend string
-	region  string
-	host    string
+	rt             http.RoundTripper
+	crd            *crdstore.CredentialsStore
+	backend        string
+	region         string
+	host           *url.URL
+	forcePathStyle bool
+}
+
+// RoundTrip implements http.RoundTripper interface
+func (passthroughRoundTripper requestFormatRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	err := utils.RewriteHostAndBucketIfNeeded(req, passthroughRoundTripper.backendEndpoint, passthroughRoundTripper.forcePathStyle)
+	if err != nil {
+		return nil, err
+	}
+	return passthroughRoundTripper.rt.RoundTrip(req)
 }
 
 // RoundTrip implements http.RoundTripper interface
@@ -138,11 +157,16 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
+
+	rewritingError := utils.RewriteHostAndBucketIfNeeded(req, srt.host, srt.forcePathStyle)
+	if rewritingError != nil {
+		return nil, err
+	}
+
 	switch authHeader.version {
 	case signV2Algorithm:
 		req = s3signer.SignV2(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
 	case signV4Algorithm:
-		req.URL.Host = srt.host
 		req = s3signer.SignV4(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey, "", srt.region)
 	}
 	return srt.rt.RoundTrip(req)
@@ -189,8 +213,11 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
 	}
 
-	req.Host = srt.host
-	req.URL.Host = srt.host
+	rewritingError := utils.RewriteHostAndBucketIfNeeded(req, srt.host, srt.forcePathStyle)
+	if rewritingError != nil {
+		return nil, err
+	}
+
 	switch authHeader.version {
 	case signV2Algorithm:
 		req = s3signer.SignV2(*req, csd.AccessKey, csd.SecretKey)
@@ -201,19 +228,30 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 }
 
 // SignDecorator will recompute auth headers for new Key
-func SignDecorator(keys Keys, region, host string) httphandler.Decorator {
+func RequestFormatDecorator(backendEndpoint string, forcePathStyle bool) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
-		return signRoundTripper{rt: rt, region: region, host: host, keys: keys}
+		backendURL, _ := url.Parse(backendEndpoint)
+		return requestFormatRoundTripper{rt :rt, backendEndpoint: backendURL, forcePathStyle: forcePathStyle}
+	}
+}
+
+// SignDecorator will recompute auth headers for new Key
+func SignDecorator(keys Keys, region, host string, forcePathStyle bool) httphandler.Decorator {
+	return func(rt http.RoundTripper) http.RoundTripper {
+		backendURL, _ := url.Parse(host)
+		return signRoundTripper{rt: rt, region: region, host: backendURL, keys: keys, forcePathStyle: forcePathStyle}
 	}
 }
 
 // SignAuthServiceDecorator will compute
-func SignAuthServiceDecorator(backend, region, endpoint, host string) httphandler.Decorator {
+func SignAuthServiceDecorator(backend, region, endpoint, host string, forcePathStyle bool) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
+		backendURL, _ := url.Parse(host)
 		credentialsStore, err := crdstore.GetInstance(endpoint)
 		if err != nil {
 			log.Fatalf("error CredentialsStore `%s` is not defined", endpoint)
 		}
-		return signAuthServiceRoundTripper{rt: rt, backend: backend, region: region, host: host, crd: credentialsStore}
+		return signAuthServiceRoundTripper{rt: rt, backend: backend, region: region, host: backendURL,
+											crd: credentialsStore, forcePathStyle: forcePathStyle}
 	}
 }
