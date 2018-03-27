@@ -16,6 +16,7 @@ import (
 	"github.com/allegro/akubra/storages/auth"
 	"github.com/allegro/akubra/storages/config"
 	"time"
+	"fmt"
 )
 
 type CustomItemsTestUnique struct {
@@ -468,7 +469,8 @@ func TestValidatorShouldFailWhenADomainContainingOtherDomainAsSubDomainIsDefined
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	regions := map[string]regionsconfig.Region{"testregion": regionConfig}
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
 	valid, validationErrors := yamlConfig.DomainsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -484,7 +486,8 @@ func TestValidatorShouldFailWithWrongDomainDeclarationOrder(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	regions := map[string]regionsconfig.Region{"testregion": regionConfig}
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
 	valid, validationErrors := yamlConfig.DomainsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -507,7 +510,8 @@ func TestValidatorShouldFailWithADomainContainingOtherDomainIsDefinedInDifferent
 		"testregion":  regionConfig,
 		"testregion1": regionConfig1,
 	}
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
 	valid, validationErrors := yamlConfig.DomainsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -530,7 +534,8 @@ func TestValidatorShouldFailWhenDomainIsUsedMultipleTimes(t *testing.T) {
 		"testregion":  regionConfig,
 		"testregion1": regionConfig1,
 	}
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
 	valid, validationErrors := yamlConfig.DomainsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -553,7 +558,8 @@ func TestValidatorShouldPassWithProperDomainsDefined(t *testing.T) {
 		"testregion":  regionConfig,
 		"testregion1": regionConfig1,
 	}
-	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions)
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
 	valid, validationErrors := yamlConfig.DomainsEntryLogicalValidator()
 	assert.True(t, valid)
 	assert.Empty(
