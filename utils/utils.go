@@ -86,8 +86,8 @@ func IsDomainStyleRequest(request *http.Request) bool {
 	return request.Header.Get(InternalBucketHeader) != EmptyString
 }
 
-// RewriteHostAndBucketIfNeeded rewrites url if needed
-func RewriteHostAndBucketIfNeeded(req *http.Request, backendEndpoint *url.URL, forcePathStyle bool) error {
+// RewriteHostAndBucket rewrites url if needed
+func RewriteHostAndBucket(req *http.Request, backendEndpoint *url.URL, forcePathStyle bool) error {
 	bucket := req.Header.Get(InternalBucketHeader)
 	requestIsNotPathStyle := req.Header.Get(InternalPathStyleFlag) == EmptyString
 

@@ -144,7 +144,7 @@ type signAuthServiceRoundTripper struct {
 
 // RoundTrip implements http.RoundTripper interface
 func (passthroughRoundTripper requestFormatRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	err := utils.RewriteHostAndBucketIfNeeded(req, passthroughRoundTripper.backendEndpoint, passthroughRoundTripper.forcePathStyle)
+	err := utils.RewriteHostAndBucket(req, passthroughRoundTripper.backendEndpoint, passthroughRoundTripper.forcePathStyle)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
 
-	rewritingError := utils.RewriteHostAndBucketIfNeeded(req, srt.host, srt.forcePathStyle)
+	rewritingError := utils.RewriteHostAndBucket(req, srt.host, srt.forcePathStyle)
 	if rewritingError != nil {
 		return nil, err
 	}
@@ -213,7 +213,7 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
 	}
 
-	rewritingError := utils.RewriteHostAndBucketIfNeeded(req, srt.host, srt.forcePathStyle)
+	rewritingError := utils.RewriteHostAndBucket(req, srt.host, srt.forcePathStyle)
 	if rewritingError != nil {
 		return nil, err
 	}
@@ -228,9 +228,9 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 }
 
 // RequestFormatDecorator rewrites url if needed
-func RequestFormatDecorator(backendEndpoint string, forcePathStyle bool) httphandler.Decorator {
+func RequestFormatDecorator(backendEndpoint *url.URL, forcePathStyle bool) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
-		return requestFormatRoundTripper{rt :rt, backendEndpoint: parseEndpoint(backendEndpoint), forcePathStyle: forcePathStyle}
+		return requestFormatRoundTripper{rt :rt, backendEndpoint: backendEndpoint, forcePathStyle: forcePathStyle}
 	}
 }
 func parseEndpoint(backendEndpoint string) *url.URL{
@@ -242,20 +242,20 @@ func parseEndpoint(backendEndpoint string) *url.URL{
 }
 
 // SignDecorator will recompute auth headers for new Key
-func SignDecorator(keys Keys, region, host string, forcePathStyle bool) httphandler.Decorator {
+func SignDecorator(keys Keys, region string, host *url.URL, forcePathStyle bool) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
-		return signRoundTripper{rt: rt, region: region, host: parseEndpoint(host), keys: keys, forcePathStyle: forcePathStyle}
+		return signRoundTripper{rt: rt, region: region, host: host, keys: keys, forcePathStyle: forcePathStyle}
 	}
 }
 
 // SignAuthServiceDecorator will compute
-func SignAuthServiceDecorator(backend, region, endpoint, host string, forcePathStyle bool) httphandler.Decorator {
+func SignAuthServiceDecorator(backend, region, endpoint string, host *url.URL, forcePathStyle bool) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
 		credentialsStore, err := crdstore.GetInstance(endpoint)
 		if err != nil {
 			log.Fatalf("error CredentialsStore `%s` is not defined", endpoint)
 		}
-		return signAuthServiceRoundTripper{rt: rt, backend: backend, region: region, host: parseEndpoint(host),
+		return signAuthServiceRoundTripper{rt: rt, backend: backend, region: region, host: host,
 											crd: credentialsStore, forcePathStyle: forcePathStyle}
 	}
 }

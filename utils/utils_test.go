@@ -17,7 +17,7 @@ func TestShouldFailWhenRequestShouldBeRewrittenToPathStyleButBucketHeaderIsMissi
 	domainStyleRequest := &http.Request{URL: domainStyleReqURL, Header: map[string][]string{}}
 	domainStyleRequest = domainStyleRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, 123))
 
-	err  := RewriteHostAndBucketIfNeeded(domainStyleRequest, backendEndpoint, true)
+	err  := RewriteHostAndBucket(domainStyleRequest, backendEndpoint, true)
 
 	assert.Equal(t, err.Error(), "missing bucket header, can't rewrite to path style, request id 123")
 }
@@ -30,7 +30,7 @@ func TestShouldRewriteDomainStyleToPathStyleWhenBucketHeaderIsPresent(t *testing
 	domainStyleRequest.Header.Add(InternalBucketHeader, "my.bucket")
 	domainStyleRequest = domainStyleRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, 123))
 
-	err  := RewriteHostAndBucketIfNeeded(domainStyleRequest, backendEndpoint, true)
+	err  := RewriteHostAndBucket(domainStyleRequest, backendEndpoint, true)
 
 	assert.Nil(t, err)
 	assert.Equal(t, domainStyleRequest.Host, "localhost:8080")
@@ -46,7 +46,7 @@ func TestShouldNotRewriteDomainStyleToPathStyleWhenRequestIsAlreadyPathStyle(t *
 	pathStyleRequest.Header.Add(InternalPathStyleFlag, "y")
 	pathStyleRequest = pathStyleRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, 123))
 
-	err  := RewriteHostAndBucketIfNeeded(pathStyleRequest, backendEndpoint, true)
+	err  := RewriteHostAndBucket(pathStyleRequest, backendEndpoint, true)
 
 	assert.Nil(t, err)
 	assert.Equal(t, pathStyleRequest.Host, "localhost:8080")
@@ -66,8 +66,8 @@ func TestShouldNotRewriteToPathStyleWhenBackendDoesNotForceIt(t *testing.T) {
 	domainStyleRequest = domainStyleRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, 124))
 	domainStyleRequest.Header.Set(InternalBucketHeader, "bucket")
 
-	pathStyleErr := RewriteHostAndBucketIfNeeded(pathStyleRequest, backendEndpoint, false)
-	domainStyleErr  := RewriteHostAndBucketIfNeeded(domainStyleRequest, backendEndpoint, false)
+	pathStyleErr := RewriteHostAndBucket(pathStyleRequest, backendEndpoint, false)
+	domainStyleErr  := RewriteHostAndBucket(domainStyleRequest, backendEndpoint, false)
 
 	assert.Nil(t, pathStyleErr, domainStyleErr)
 	assert.Equal(t, pathStyleRequest.Host, "localhost:8080")

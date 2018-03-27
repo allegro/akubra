@@ -47,7 +47,7 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	shardsRing, ok := rg.multiCluters[reqHost]
 	if ok {
-		log.Debugf("Extracted host: %s and bucket %s from request")
+		log.Debugf("Path style request with domain '%s'", reqHost)
 		req.Header.Add(utils.InternalPathStyleFlag, "y")
 		return shardsRing.DoRequest(req)
 	}
@@ -55,7 +55,7 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	if host != "" && bucketName != "" {
 		shardsRing, _ = rg.multiCluters[host]
 		req.Header.Add(utils.InternalBucketHeader, bucketName)
-		log.Debugf("Extracted host: %s and bucket %s from domain style request")
+		log.Debugf("Domain style request with domain '%s' and bucket '%s'", host, bucketName)
 		return shardsRing.DoRequest(req)
 	}
 	return rg.getNoSuchDomainResponse(req), nil

@@ -205,7 +205,7 @@ func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorWhenStatusCodeI
 
 func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSuite *testing.T) {
 
-	activeBackendURL1, _ := url.Parse("http://active:1234")
+	activeBackendURL1, _ := url.Parse("http://localhost:3212")
 	completeUploadRequestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=123")
 	completeUploadRequest := &http.Request{URL: completeUploadRequestURL, Host: activeBackendURL1.Host}
 	completeUploadRequest = completeUploadRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, "1"))
@@ -215,7 +215,7 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 	validXMLResponse := "<CompleteMultipartUploadResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
 		"<Location>http://locahost:9092/someBucket/someBucket</Location>" +
 		"<Bucket>someBucket</Bucket>" +
-		"<Key>someBucket</Key>" +
+		"<Key>someKey</Key>" +
 		"<ETag>\"3858f62230ac3c915f300c664312c11f-9\"</ETag>" +
 		"</CompleteMultipartUploadResult>"
 

@@ -19,7 +19,7 @@ const (
 // Decorators maps Backend type with httphadler decorators factory
 var Decorators = map[string]func(string, config.Backend) (httphandler.Decorator, error){
 	Passthrough: func(backend string, backendConfig config.Backend) (httphandler.Decorator, error) {
-		return RequestFormatDecorator(backendConfig.Endpoint.Host, backendConfig.ForcePathStyle), nil
+		return RequestFormatDecorator(backendConfig.Endpoint.URL, backendConfig.ForcePathStyle), nil
 	},
 	S3FixedKey: func(backend string, backendConf config.Backend) (httphandler.Decorator, error) {
 		accessKey, ok := backendConf.Properties["AccessKey"]
@@ -36,7 +36,7 @@ var Decorators = map[string]func(string, config.Backend) (httphandler.Decorator,
 			AccessKeyID:     accessKey,
 			SecretAccessKey: secret,
 		}
-		return SignDecorator(keys, backendConf.Region, backendConf.Endpoint.Host, backendConf.ForcePathStyle), nil
+		return SignDecorator(keys, backendConf.Region, backendConf.Endpoint.URL, backendConf.ForcePathStyle), nil
 	},
 	S3AuthService: func(backend string, backendConf config.Backend) (httphandler.Decorator, error) {
 		endpoint, ok := backendConf.Properties["AuthServiceEndpoint"]
@@ -44,6 +44,6 @@ var Decorators = map[string]func(string, config.Backend) (httphandler.Decorator,
 			endpoint = "default"
 		}
 
-		return SignAuthServiceDecorator(backend, backendConf.Region, endpoint, backendConf.Endpoint.Host, backendConf.ForcePathStyle), nil
+		return SignAuthServiceDecorator(backend, backendConf.Region, endpoint, backendConf.Endpoint.URL, backendConf.ForcePathStyle), nil
 	},
 }
