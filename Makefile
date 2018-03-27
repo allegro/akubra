@@ -1,14 +1,20 @@
-VERSION := `cat VERSION`
+VERSION := `git log -n 1 | grep commit | sed 's/commit //g' | head -n 1`
 LDFLAGS := -X main.version=$(VERSION)
 GO := "$(GOROOT)/bin/go"
-GOOS := `go env GOOS`
 
-all:  formatting lint test build
+all: vars formatting lint test build
 
-linux: formatting lint test
+vars:
+	@echo "====== Makefile internal variables:"
+	@echo "VERSION: '$(VERSION)'"
+	@echo "LDFLAGS: '$(LDFLAGS)'"
+	@echo "GO: '$(GO)'"
+	@echo "======\n\n"
+
+linux: vars formatting lint test
 	GOOS=linux $(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1'.
 
-formatting :
+formatting:
 	$(GO) get golang.org/x/tools/cmd/goimports
 
 lint: deps-lint
@@ -28,7 +34,6 @@ lint-slow: deps-lint
 	--enable=goimports \
 	--vendor 
 
-
 deps:
 	$(GO) get github.com/Masterminds/glide
 	glide install
@@ -37,7 +42,7 @@ deps-lint: deps
 	$(GO) get github.com/alecthomas/gometalinter
 	gometalinter --install
 
-build: deps lint
+build: vars deps lint
         # Enable netcgo, then name resolution will use systems dns caches
 	$(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1'.
 
