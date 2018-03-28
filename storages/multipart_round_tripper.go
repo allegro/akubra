@@ -24,7 +24,7 @@ import (
 type MultiPartRoundTripper struct {
 	fallBackRoundTripper  http.RoundTripper
 	syncLog               log.Logger
-	backendsRoundTrippers map[string]*Backend
+	backendsRoundTrippers map[string]*DecoratedBackend
 	backendsRing          *hashring.HashRing
 	backendsEndpoints     []string
 }
@@ -46,11 +46,11 @@ func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends [
 	var backendsEndpoints []string
 	var activeBackendsEndpoints []string
 
-	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*Backend)
+	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*DecoratedBackend)
 
 	for _, roundTripper := range backends {
 
-		if backend, isBackendType := roundTripper.(*Backend); isBackendType {
+		if backend, isBackendType := roundTripper.(*DecoratedBackend); isBackendType {
 
 			if !backend.Maintenance {
 				multiPartRoundTripper.backendsRoundTrippers[backend.Endpoint.Host] = backend
@@ -106,7 +106,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 	return multiPartRoundTripper.fallBackRoundTripper.RoundTrip(request)
 }
 
-func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath string) (*Backend, error) {
+func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath string) (*DecoratedBackend, error) {
 
 	backendEndpoint, nodeFound := multiPartRoundTripper.backendsRing.GetNode(objectPath)
 

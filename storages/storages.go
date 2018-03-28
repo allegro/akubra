@@ -70,6 +70,13 @@ type Backend struct {
 	Maintenance bool
 }
 
+// DecoratedBackend holds the necessary backend info after decorating the backend
+type DecoratedBackend struct {
+	RoundTripper http.RoundTripper
+	Endpoint     *url.URL
+	Maintenance  bool
+}
+
 // RoundTrip satisfies http.RoundTripper interface
 func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 	r.URL.Host = b.Endpoint.Host
@@ -208,21 +215,36 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 }
 
 func decorateBackend(transport http.RoundTripper, name string, backendConf config.Backend) (http.RoundTripper, error) {
-
 	errPrefix := fmt.Sprintf("initialization of backend '%s' resulted with error", name)
 	decoratorFactory, ok := auth.Decorators[backendConf.Type]
 	if !ok {
 		return nil, fmt.Errorf("%s: no decorator defined for type '%s'", errPrefix, backendConf.Type)
 	}
-	decorator, err := decoratorFactory(name, backendConf)
+	authDecorator, err := decoratorFactory(name, backendConf)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %q", errPrefix, err)
 	}
 	backend := &Backend{
-		httphandler.Decorate(transport, decorator),
+		transport,
 		*backendConf.Endpoint.URL,
 		name,
 		backendConf.Maintenance,
 	}
-	return backend, nil
+
+	backendDecorator, _ := backendDecorator(backend)
+	return httphandler.Decorate(backend, authDecorator, backendDecorator), nil
+}
+
+// RoundTrip simply delegates to the provided http.RoundTripper
+func (backendRoundTripper *DecoratedBackend) RoundTrip(request *http.Request) (*http.Response, error) {
+	return backendRoundTripper.RoundTripper.RoundTrip(request)
+}
+
+func backendDecorator(backend *Backend) (httphandler.Decorator, error) {
+	return func(rt http.RoundTripper) http.RoundTripper {
+		return &DecoratedBackend{
+			RoundTripper: rt,
+			Endpoint:     &backend.Endpoint,
+			Maintenance:  backend.Maintenance,}
+	}, nil
 }
