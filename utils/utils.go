@@ -20,7 +20,7 @@ const (
 )
 
 const (
-	missingHost = "missing host header on forcePathStyle backend, request id %d"
+	hostRewritten = "rewritten host for request %d to %s"
 	missingBucket = "missing bucket header, can't rewrite to path style, request id %d"
 	styleRewritten = "rewritten domain style url (%s) to path style url (%s) for request %s"
 	pathStyleFormat = "/%s%s"
@@ -101,7 +101,7 @@ func RewriteHostAndBucket(req *http.Request, backendEndpoint *url.URL, forcePath
 	}
 
 	req.URL.Scheme = backendEndpoint.Scheme
-	if IsDomainStyleRequest(req) && !forcePathStyle{
+	if IsDomainStyleRequest(req) && !forcePathStyle {
 		if bucket == EmptyString {
 			return fmt.Errorf(missingBucket, req.Context().Value(log.ContextreqIDKey))
 		}
@@ -113,5 +113,6 @@ func RewriteHostAndBucket(req *http.Request, backendEndpoint *url.URL, forcePath
 		req.URL.Host = backendEndpoint.Host
 	}
 
+	log.Debugf(hostRewritten, req.Context().Value(log.ContextreqIDKey), req.Host)
 	return nil
 }

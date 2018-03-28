@@ -157,6 +157,9 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
+	if DoesSignMatch(req, srt.keys) != ErrNone {
+		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
+	}
 
 	rewritingError := utils.RewriteHostAndBucket(req, srt.host, srt.forcePathStyle)
 	if rewritingError != nil {
@@ -201,6 +204,7 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
 	}
+
 	if DoesSignMatch(req, Keys{AccessKeyID: csd.AccessKey, SecretAccessKey: csd.SecretKey}) != ErrNone {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
 	}

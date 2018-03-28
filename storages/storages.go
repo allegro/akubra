@@ -220,8 +220,5 @@ func decorateBackend(transport http.RoundTripper, name string, backendConf confi
 		name,
 		backendConf.Maintenance,
 	}
-	if backendConf.ForcePathStyle {
-		return httphandler.Decorate(backend, internalHeadersCleanerDecorator, authDecorator), nil
-	}
 	return httphandler.Decorate(backend, internalHeadersCleanerDecorator, authDecorator), nil
 }

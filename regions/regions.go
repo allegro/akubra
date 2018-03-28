@@ -8,6 +8,7 @@ import (
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/utils"
+	"github.com/bnogas/minio-go/pkg/s3signer"
 
 	"net"
 
@@ -49,11 +50,13 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	if ok {
 		log.Debugf("Path style request with domain '%s'", reqHost)
 		req.Header.Add(utils.InternalPathStyleFlag, "y")
+		req.Header.Add(s3signer.CustomStorageHost, reqHost)
 		return shardsRing.DoRequest(req)
 	}
 	host, bucketName := rg.findHostInDomainStyle(reqHost)
 	if host != "" && bucketName != "" {
 		shardsRing, _ = rg.multiCluters[host]
+		req.Header.Add(s3signer.CustomStorageHost, host)
 		req.Header.Add(utils.InternalBucketHeader, bucketName)
 		log.Debugf("Domain style request with domain '%s' and bucket '%s'", host, bucketName)
 		return shardsRing.DoRequest(req)
