@@ -237,13 +237,6 @@ func RequestFormatDecorator(backendEndpoint *url.URL, forcePathStyle bool) httph
 		return requestFormatRoundTripper{rt :rt, backendEndpoint: backendEndpoint, forcePathStyle: forcePathStyle}
 	}
 }
-func parseEndpoint(backendEndpoint string) *url.URL{
-	backendURL, parsingError := url.Parse(backendEndpoint)
-	if parsingError != nil {
-		log.Fatalf("malformed backend endpoint %s fix it", backendEndpoint)
-	}
-	return backendURL
-}
 
 // SignDecorator will recompute auth headers for new Key
 func SignDecorator(keys Keys, region string, host *url.URL, forcePathStyle bool) httphandler.Decorator {

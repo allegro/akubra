@@ -69,6 +69,14 @@ type Backend struct {
 	Maintenance bool
 }
 
+
+// DecoratedBackend holds the necessary backend info after decorating the backend
+type DecoratedBackend struct {
+	roundTripper http.RoundTripper
+	Endpoint *url.URL
+	Maintenance bool
+}
+
 // RoundTrip satisfies http.RoundTripper interface
 func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
 	reqID := r.Context().Value(log.ContextreqIDKey)
@@ -220,5 +228,20 @@ func decorateBackend(transport http.RoundTripper, name string, backendConf confi
 		name,
 		backendConf.Maintenance,
 	}
-	return httphandler.Decorate(backend, internalHeadersCleanerDecorator, authDecorator), nil
+
+	backendDecorator, _ :=backendDecorator(backend)
+	return httphandler.Decorate(backend, internalHeadersCleanerDecorator, authDecorator, backendDecorator), nil
+}
+
+func (backendRoundTripper *DecoratedBackend) RoundTrip(request *http.Request) (*http.Response, error) {
+	return backendRoundTripper.roundTripper.RoundTrip(request)
+}
+
+func backendDecorator(backend *Backend) (httphandler.Decorator, error) {
+	return func(rt http.RoundTripper) http.RoundTripper {
+		return &DecoratedBackend{
+			roundTripper: rt,
+			Endpoint:     &backend.Endpoint,
+			Maintenance:  backend.Maintenance,}
+	}, nil
 }

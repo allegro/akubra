@@ -25,14 +25,13 @@ import (
 type MultiPartRoundTripper struct {
 	fallBackRoundTripper  http.RoundTripper
 	syncLog               log.Logger
-	backendsRoundTrippers map[string]*Backend
+	backendsRoundTrippers map[string]*DecoratedBackend
 	backendsRing          *hashring.HashRing
 	backendsEndpoints     []string
 }
 
 // NewMultiPartRoundTripper constructs a new MultiPartRoundTripper and returns a pointer to it
 func NewMultiPartRoundTripper(cluster *Cluster, syncLog log.Logger) *MultiPartRoundTripper {
-
 	multiPartRoundTripper := &MultiPartRoundTripper{
 		fallBackRoundTripper: cluster.transport,
 		syncLog:              syncLog,
@@ -47,11 +46,12 @@ func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends [
 	var backendsEndpoints []string
 	var activeBackendsEndpoints []string
 
-	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*Backend)
+	fmt.Println(backends)
+	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*DecoratedBackend)
 
 	for _, roundTripper := range backends {
 
-		if backend, isBackendType := roundTripper.(*Backend); isBackendType {
+		if backend, isBackendType := roundTripper.(*DecoratedBackend); isBackendType {
 
 			if !backend.Maintenance {
 				multiPartRoundTripper.backendsRoundTrippers[backend.Endpoint.Host] = backend
@@ -107,7 +107,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 	return multiPartRoundTripper.fallBackRoundTripper.RoundTrip(request)
 }
 
-func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(request *http.Request) (*Backend, error) {
+func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(request *http.Request) (*DecoratedBackend, error) {
 	objectPath := request.URL.Path
 
 	if utils.IsDomainStyleRequest(request) {
