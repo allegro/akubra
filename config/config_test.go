@@ -18,9 +18,10 @@ import (
 	regionsConfig "github.com/allegro/akubra/regions/config"
 	shardingconfig "github.com/allegro/akubra/sharding/config"
 	storageconfig "github.com/allegro/akubra/storages/config"
+	transportConfig "github.com/allegro/akubra/transport/config"
 	"github.com/stretchr/testify/assert"
 
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -41,7 +42,15 @@ const (
       Cache-Control: public, s-maxage=600, max-age=600
     AdditionalResponseHeaders:
       Access-Control-Allow-Methods: GET, POST, OPTIONS
-  
+    Transports:
+      - Name: TransportForMethods:GET|PUT|POST
+        Rules:
+          Method: GET|PUT|POST
+        Properties:
+          MaxIdleConns: 500
+          MaxIdleConnsPerHost: 500
+          IdleConnTimeout: 2s
+          ResponseHeaderTimeout: 2s
 Backends:
   dummy:
     Endpoint: "http://127.0.0.1:8080"
@@ -70,7 +79,7 @@ func (t *YamlConfigTest) NewYamlConfigTest() *YamlConfig {
 	size.SizeInBytes = 2048
 	region := regionsConfig.Region{}
 	t.YamlConfig = PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", ":81",
-		map[string]regionsConfig.Region{"region": region})
+		map[string]regionsConfig.Region{"region": region}, nil)
 	return &t.YamlConfig
 }
 
@@ -150,7 +159,7 @@ func TestShouldValidateConfMaintainedBackendWhenNotEmpty(t *testing.T) {
 	size.SizeInBytes = 2048
 	region := regionsConfig.Region{}
 	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", ":81",
-		map[string]regionsConfig.Region{"region": region})
+		map[string]regionsConfig.Region{"region": region}, nil)
 
 	result, _ := ValidateConf(testConfData, false)
 
@@ -164,7 +173,7 @@ func TestShouldValidateConfMaintainedBackendWhenEmpty(t *testing.T) {
 	region := regionsConfig.Region{}
 	testConfData := PrepareYamlConfig(size, 22, 33, maintainedBackendHost,
 		":80", ":81",
-		map[string]regionsConfig.Region{"region": region})
+		map[string]regionsConfig.Region{"region": region}, nil)
 
 	result, _ := ValidateConf(testConfData, false)
 
@@ -337,7 +346,8 @@ func TestShouldNotPassWhenNoRegionIsDefined(t *testing.T) {
 	maintainedBackendHost := "127.0.0.1:85"
 	var size httpHandlerConfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", ":81", regionsConfig.Regions{})
+	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost,
+		":80", ":81", regionsConfig.Regions{}, nil)
 
 	result, _ := ValidateConf(testConfData, true)
 
@@ -351,7 +361,8 @@ func PrepareYamlConfig(
 	maintainedBackendHost string,
 	listen string,
 	technicalEndpointListen string,
-	regions regionsConfig.Regions) YamlConfig {
+	regions regionsConfig.Regions,
+	transports transportConfig.Transports) YamlConfig {
 
 	url1 := url.URL{Scheme: "http", Host: "127.0.0.1:8080"}
 	yamlURL := shardingconfig.YAMLUrl{URL: &url1}
@@ -383,6 +394,30 @@ func PrepareYamlConfig(
 		"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 	}
 
+	clientTransportRules := transportConfig.ClientTransportRules{
+		Method:     "GET",
+		Path:       "/path",
+		QueryParam: "?acl",
+	}
+
+	clientTransportDetail := transportConfig.ClientTransportProperties{
+		MaxIdleConns:          maxIdleConns,
+		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
+		IdleConnTimeout:       metrics.Interval{Duration: idleConnTimeoutInp},
+		ResponseHeaderTimeout: metrics.Interval{Duration: responseHeaderTimeoutInp},
+		DisableKeepAlives:     false,
+	}
+
+	if transports == nil {
+		transports = transportConfig.Transports{
+			transportConfig.TransportMatcherDefinition{
+				Name:       "TestTransport",
+				Rules:      clientTransportRules,
+				Properties: clientTransportDetail,
+			},
+		}
+	}
+
 	return YamlConfig{
 		Service: httpHandlerConfig.Service{
 			Server: httpHandlerConfig.Server{
@@ -393,13 +428,11 @@ func PrepareYamlConfig(
 				BodyMaxSize:             bodyMaxSize,
 			},
 			Client: httpHandlerConfig.Client{
-				MaxIdleConns:              maxIdleConns,
-				MaxIdleConnsPerHost:       maxIdleConnsPerHost,
-				IdleConnTimeout:           metrics.Interval{Duration: idleConnTimeoutInp},
-				ResponseHeaderTimeout:     metrics.Interval{Duration: responseHeaderTimeoutInp},
-				AdditionalRequestHeaders:  additionalRequestHeaders,
-				AdditionalResponseHeaders: additionalResponseHeaders,
-				DisableKeepAlives:         false,
+				Transports: transports,
+				ClientAdditionalHeader: httpHandlerConfig.ClientAdditionalHeader{
+					AdditionalRequestHeaders:  additionalRequestHeaders,
+					AdditionalResponseHeaders: additionalResponseHeaders,
+				},
 			},
 		},
 

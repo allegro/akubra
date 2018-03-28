@@ -15,12 +15,12 @@ type BackendError interface {
 	Error() string
 }
 
-//RequestID extracts the request id from context
+// RequestID extracts the request id from context
 func RequestID(req *http.Request) string {
 	return req.Context().Value(log.ContextreqIDKey).(string)
 }
 
-//ExtractDestinationHostName extract destination hostname fromrequest
+// ExtractDestinationHostName extract destination hostname fromrequest
 func ExtractDestinationHostName(r transport.ResErrTuple) string {
 	if r.Res != nil {
 		return r.Res.Request.URL.Host
@@ -33,7 +33,7 @@ func ExtractDestinationHostName(r transport.ResErrTuple) string {
 	return ""
 }
 
-//ExtractAccessKey extracts s3 auth key from header
+// ExtractAccessKey extracts s3 auth key from header
 func ExtractAccessKey(req *http.Request) string {
 	auth := req.Header.Get("Authorization")
 	if auth == "" {

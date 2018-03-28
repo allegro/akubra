@@ -6,7 +6,7 @@ import (
 
 	"net/url"
 
-	config "github.com/allegro/akubra/storages/config"
+	"github.com/allegro/akubra/storages/config"
 	"github.com/allegro/akubra/transport"
 	"github.com/allegro/akubra/types"
 	"github.com/stretchr/testify/require"
@@ -70,7 +70,6 @@ func TestStorageTestSuite(t *testing.T) {
 func TestShouldNotInitStoragesWithWrongBackendType(t *testing.T) {
 	backendName := "backend1"
 	backendType := "unknown"
-	var transportRoundTripper http.RoundTripper
 	clustersConf := config.ClustersMap{}
 	clusterConfig := config.Cluster{
 		Backends: []string{"http://localhost"},
@@ -86,7 +85,7 @@ func TestShouldNotInitStoragesWithWrongBackendType(t *testing.T) {
 	}}
 	var respHandler transport.MultipleResponsesHandler
 
-	_, err := InitStorages(transportRoundTripper, clustersConf, backendsConf, respHandler, respHandler, nil)
+	_, err := InitStorages(http.DefaultTransport, clustersConf, backendsConf, respHandler, respHandler, nil)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(),

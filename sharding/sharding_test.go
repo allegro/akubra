@@ -8,8 +8,6 @@ import (
 	"fmt"
 
 	"github.com/allegro/akubra/config"
-	"github.com/allegro/akubra/httphandler"
-	httphandlerconfig "github.com/allegro/akubra/httphandler/config"
 	"github.com/allegro/akubra/log"
 	regionsconfig "github.com/allegro/akubra/regions/config"
 
@@ -109,15 +107,10 @@ func makeRegionRing(clusterWeights []float64, t *testing.T, request *http.Reques
 	}
 	config.Clusters = clusterMap
 
-	httptransp, err := httphandler.ConfigureHTTPTransport(httphandlerconfig.Client{})
-	if err != nil {
-		t.Error(err)
-	}
-
 	regions := regionsconfig.Regions{}
 	syncLogger := log.DefaultLogger
 
-	ringFactory := NewRingFactory(regions, *ringStorages, httptransp, syncLogger)
+	ringFactory := NewRingFactory(regions, *ringStorages, syncLogger)
 	regionRing, err := ringFactory.RegionRing("regionName", *regionConfig)
 	if err != nil {
 		t.Error(err)

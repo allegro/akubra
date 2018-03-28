@@ -21,6 +21,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/allegro/akubra/crdstore"
+	"github.com/allegro/akubra/transport"
 	graceful "gopkg.in/tylerb/graceful.v1"
 )
 
@@ -55,6 +56,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("Improperly configured %s", err)
 	}
+
+	valid, errs := config.ValidateConf(conf.YamlConfig, true)
+	if !valid {
+		fmt.Printf("YAML validation - errors: %q", errs)
+		os.Exit(1)
+	}
+	log.Println("Configuration checked - OK.")
 
 	if *testConfig {
 		os.Exit(0)
@@ -96,10 +104,11 @@ func mkServiceLogs(logConf logconfig.LoggingConfig) (syncLog, clusterSyncLog, ac
 	}
 	return
 }
+
 func (s *service) start() error {
-	roundtripper, err := httphandler.ConfigureHTTPTransport(s.config.Service.Client)
+	transportMatcher, err := transport.ConfigureHTTPTransports(s.config.Service.Client)
 	if err != nil {
-		log.Fatalf("Couldn't set up client properties, %q", err)
+		log.Fatalf("Couldn't set up client Transports - err: %q", err)
 	}
 	syncLog, clusterSyncLog, accessLog, err := mkServiceLogs(s.config.Logging)
 	if err != nil {
@@ -113,8 +122,9 @@ func (s *service) start() error {
 	earlyRespHandler := httphandler.EarliestResponseHandler(syncLog, set.NewSetFromSlice(methods))
 
 	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
+
 	storage, err := storages.InitStorages(
-		roundtripper,
+		transportMatcher,
 		s.config.Clusters,
 		s.config.Backends,
 		earlyRespHandler,
@@ -125,7 +135,7 @@ func (s *service) start() error {
 		log.Fatalf("Storages initialization problem: %q", err)
 	}
 
-	regionsRT, err := regions.NewRegions(s.config.Regions, *storage, roundtripper, clusterSyncLog)
+	regionsRT, err := regions.NewRegions(s.config.Regions, *storage, clusterSyncLog)
 	if err != nil {
 		return err
 	}

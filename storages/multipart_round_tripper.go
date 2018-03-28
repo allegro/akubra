@@ -36,7 +36,7 @@ func NewMultiPartRoundTripper(cluster *Cluster, syncLog log.Logger) *MultiPartRo
 		fallBackRoundTripper: cluster.transport,
 		syncLog:              syncLog,
 	}
-
+	log.Debug("NewMultipart ", cluster.Name(), " ", cluster.name, " ", len(cluster.Backends()))
 	multiPartRoundTripper.setupRoundTripper(cluster.Backends())
 	return multiPartRoundTripper
 }
@@ -163,7 +163,10 @@ func responseContainsCompleteUploadString(response *http.Response) bool {
 
 		return false
 	}
-
+	err := response.Body.Close()
+	if err != nil {
+		log.Println("Could not close response.Body")
+	}
 	response.Body = ioutil.NopCloser(bytes.NewBuffer(responseBodyBytes))
 
 	var completeMultipartUploadResult types.CompleteMultipartUploadResult
