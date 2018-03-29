@@ -11,7 +11,7 @@ import (
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/utils"
-	"github.com/bnogas/minio-go/pkg/s3signer"
+	"github.com/wookie41/minio-go/pkg/s3signer"
 )
 
 // APIErrorCode type of error status.
@@ -168,8 +168,10 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 
 	switch authHeader.version {
 	case signV2Algorithm:
+
 		req = s3signer.SignV2(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
 	case signV4Algorithm:
+		req.Header.Del(s3signer.CustomStorageHost)
 		req = s3signer.SignV4(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey, "", srt.region)
 	}
 	return srt.rt.RoundTrip(req)
@@ -226,6 +228,7 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	case signV2Algorithm:
 		req = s3signer.SignV2(*req, csd.AccessKey, csd.SecretKey)
 	case signV4Algorithm:
+		req.Header.Del(s3signer.CustomStorageHost)
 		req = s3signer.SignV4(*req, csd.AccessKey, csd.SecretKey, "", srt.region)
 	}
 	return srt.rt.RoundTrip(req)

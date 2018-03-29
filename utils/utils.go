@@ -114,5 +114,7 @@ func RewriteHostAndBucket(req *http.Request, backendEndpoint *url.URL, forcePath
 	}
 
 	log.Debugf(hostRewritten, req.Context().Value(log.ContextreqIDKey), req.Host)
+	req.Header.Del(InternalBucketHeader)
+	req.Header.Del(InternalPathStyleFlag)
 	return nil
 }
