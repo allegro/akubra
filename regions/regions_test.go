@@ -9,6 +9,7 @@ import (
 	"github.com/allegro/akubra/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/bnogas/minio-go/pkg/s3signer"
 )
 
 type ShardsRingMock struct {
@@ -62,6 +63,7 @@ func TestShouldDetectADomainStyleRequestAndExtractBucketNameFromHost(t *testing.
 	originalRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
 	interceptedRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
 	interceptedRequest.Header.Add(utils.InternalBucketHeader, "bucket")
+	interceptedRequest.Header.Add(s3signer.CustomStorageHost, "test.qxlint")
 
 	expectedResponse := &http.Response{
 		Status:     "200 OK",
@@ -86,7 +88,9 @@ func TestShouldDetectADomainStyleRequestAndExtractMultiLabelBucketNameFromHost(t
 	originalRequest := &http.Request{Host: "sub.bucket.test.qxlint", Header: map[string][]string{}}
 	interceptedRequest := &http.Request{Host: "sub.bucket.test.qxlint", Header: map[string][]string{}}
 	assert.Equal(t, "", originalRequest.Header.Get(utils.InternalPathStyleFlag))
+
 	interceptedRequest.Header.Add(utils.InternalBucketHeader, "sub.bucket")
+	interceptedRequest.Header.Add(s3signer.CustomStorageHost, "test.qxlint")
 
 	expectedResponse := &http.Response{
 		Status:     "200 OK",
