@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -25,7 +24,7 @@ import (
 type MultiPartRoundTripper struct {
 	fallBackRoundTripper  http.RoundTripper
 	syncLog               log.Logger
-	backendsRoundTrippers map[string]*DecoratedBackend
+	backendsRoundTrippers map[string]*BackendAdapter
 	backendsRing          *hashring.HashRing
 	backendsEndpoints     []string
 }
@@ -47,11 +46,11 @@ func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends [
 	var backendsEndpoints []string
 	var activeBackendsEndpoints []string
 
-	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*DecoratedBackend)
+	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*BackendAdapter)
 
 	for _, roundTripper := range backends {
 
-		if backend, isBackendType := roundTripper.(*DecoratedBackend); isBackendType {
+		if backend, isBackendType := roundTripper.(*BackendAdapter); isBackendType {
 
 			if !backend.Maintenance {
 				multiPartRoundTripper.backendsRoundTrippers[backend.Endpoint.Host] = backend
@@ -76,7 +75,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 			return nil, errors.New("Can't handle multi upload")
 		}
 
-		multiUploadBackend, backendSelectError := multiPartRoundTripper.pickBackend(request)
+		multiUploadBackend, backendSelectError := multiPartRoundTripper.pickBackend(request.URL.Path)
 
 		if backendSelectError != nil {
 			log.Debugf("Multi upload failed for %s - %s", backendSelectError, request.URL.Path)
@@ -107,12 +106,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 	return multiPartRoundTripper.fallBackRoundTripper.RoundTrip(request)
 }
 
-func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(request *http.Request) (*DecoratedBackend, error) {
-	objectPath := request.URL.Path
-
-	if utils.IsDomainStyleRequest(request) && !utils.IsBucketPath(request){
-		objectPath = fmt.Sprintf("/%s%s", request.Header.Get(utils.InternalBucketHeader), objectPath)
-	}
+func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath string) (*BackendAdapter, error) {
 
 	backendEndpoint, nodeFound := multiPartRoundTripper.backendsRing.GetNode(objectPath)
 
