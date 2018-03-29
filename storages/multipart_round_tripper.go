@@ -148,7 +148,6 @@ func isCompleteUploadResponseSuccessful(response *http.Response) bool {
 func responseContainsCompleteUploadString(response *http.Response) bool {
 
 	if isInitiateRequest(response.Request) {
-		response.Body.Close()
 		return false
 	}
 
