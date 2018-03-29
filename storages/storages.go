@@ -230,8 +230,8 @@ func decorateBackend(transport http.RoundTripper, name string, backendConf confi
 		name,
 		backendConf.Maintenance,
 	}
-
-	return backendAdapter(backend, httphandler.Decorate(backend, authDecorator)), nil
+	adapterDecorator := backendAdapter(backend)
+	return httphandler.Decorate(backend, authDecorator, adapterDecorator), nil
 }
 
 // RoundTrip simply delegates to the provided http.RoundTripper
@@ -239,9 +239,11 @@ func (backendRoundTripper *BackendAdapter) RoundTrip(request *http.Request) (*ht
 	return backendRoundTripper.RoundTripper.RoundTrip(request)
 }
 
-func backendAdapter(backend *Backend, roundTripper http.RoundTripper) http.RoundTripper {
+func backendAdapter(backend *Backend) httphandler.Decorator {
+	return func (roundTripper http.RoundTripper) http.RoundTripper{
 		return &BackendAdapter{
 			RoundTripper: roundTripper,
 			Endpoint:     &backend.Endpoint,
 			Maintenance:  backend.Maintenance,}
+	}
 }
