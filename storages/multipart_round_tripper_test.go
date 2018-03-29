@@ -40,14 +40,14 @@ func TestShouldNotDetectMultiPartUploadRequestWhenItIsARegularUpload(testSuite *
 
 	activeBackendURL, _ := url.Parse("http://active:1234")
 
-	activateBackend := &DecoratedBackend{
+	activateBackend := &BackendAdapter{
 		RoundTripper: activeBackendRoundTripper,
 		Endpoint:     activeBackendURL,
 		Maintenance:  false,
 	}
 
 	multiPartUploadHashRing := hashring.New([]string{activeBackendURL.String()})
-	activeBackendRoundTrippers := make(map[string]*DecoratedBackend)
+	activeBackendRoundTrippers := make(map[string]*BackendAdapter)
 	activeBackendRoundTrippers[activateBackend.Endpoint.String()] = activateBackend
 
 	multiPartRoundTripper := MultiPartRoundTripper{
@@ -80,7 +80,7 @@ func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenBackendRingIsEmpty(t
 	fallbackRoundTripper := &MockedRoundTripper{}
 
 	emptyMultiPartUploadHashRing := hashring.New([]string{})
-	activeBackendRoundTrippers := make(map[string]*DecoratedBackend)
+	activeBackendRoundTrippers := make(map[string]*BackendAdapter)
 
 	multiPartRoundTripper := MultiPartRoundTripper{
 		fallbackRoundTripper,
@@ -114,7 +114,7 @@ func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenAllBackendsAreInMain
 	multiPartRoundTripper := MultiPartRoundTripper{
 		fallbackRoundTripper,
 		nil,
-		make(map[string]*DecoratedBackend),
+		make(map[string]*BackendAdapter),
 		hashRingOnlyWithMaitenanceBackend,
 		nil,
 	}
@@ -147,13 +147,13 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 	activeBackendURL, _ := url.Parse("http://active:1234")
 	activeBackendURL2, _ := url.Parse("http://active2:1234")
 
-	activateBackend1 := &DecoratedBackend{
+	activateBackend1 := &BackendAdapter{
 		RoundTripper: activeBackendRoundTripper1,
 		Endpoint:     activeBackendURL,
 		Maintenance:  false,
 	}
 
-	activateBackend2 := &DecoratedBackend{
+	activateBackend2 := &BackendAdapter{
 		RoundTripper: activeBackendRoundTripper2,
 		Endpoint:     activeBackendURL2,
 		Maintenance:  false,
@@ -161,7 +161,7 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 
 	multiPartUploadHashRing := hashring.New([]string{activateBackend1.Endpoint.String(), activateBackend2.Endpoint.String()})
 
-	activeBackendRoundTrippers := make(map[string]*DecoratedBackend)
+	activeBackendRoundTrippers := make(map[string]*BackendAdapter)
 	activeBackendRoundTrippers[activateBackend1.Endpoint.String()] = activateBackend1
 	activeBackendRoundTrippers[activateBackend2.Endpoint.String()] = activateBackend2
 
@@ -222,7 +222,7 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 	fallbackRoundTripper := &MockedRoundTripper{}
 	activeBackendRoundTripper1 := &MockedRoundTripper{}
 
-	activateBackend1 := &DecoratedBackend{
+	activateBackend1 := &BackendAdapter{
 		RoundTripper: activeBackendRoundTripper1,
 		Endpoint:     activeBackendURL1,
 		Maintenance:  false,
@@ -230,7 +230,7 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 
 	multiPartUploadHashRing := hashring.New([]string{activateBackend1.Endpoint.String()})
 
-	activeBackendRoundTrippers := make(map[string]*DecoratedBackend)
+	activeBackendRoundTrippers := make(map[string]*BackendAdapter)
 	activeBackendRoundTrippers[activateBackend1.Endpoint.String()] = activateBackend1
 
 	hostToSync := "hostToSync"
@@ -292,7 +292,7 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 
 	activeBackendURL, _ := url.Parse("http://active:1234")
 
-	activateBackend1 := &DecoratedBackend{
+	activateBackend1 := &BackendAdapter{
 		RoundTripper: activeBackendRoundTripper1,
 		Endpoint:     activeBackendURL,
 		Maintenance:  false,
@@ -300,7 +300,7 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 
 	activeBackendURL2, _ := url.Parse("http://active2:1234")
 
-	activateBackend2 := &DecoratedBackend{
+	activateBackend2 := &BackendAdapter{
 		RoundTripper: activeBackendRoundTripper2,
 		Endpoint:     activeBackendURL2,
 		Maintenance:  false,
@@ -308,7 +308,7 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 
 	multiPartUploadHashRing := hashring.New([]string{activateBackend1.Endpoint.String(), activateBackend2.Endpoint.String()})
 
-	activeBackendRoundTrippers := make(map[string]*DecoratedBackend)
+	activeBackendRoundTrippers := make(map[string]*BackendAdapter)
 	activeBackendRoundTrippers[activateBackend1.Endpoint.String()] = activateBackend1
 	activeBackendRoundTrippers[activateBackend2.Endpoint.String()] = activateBackend2
 
