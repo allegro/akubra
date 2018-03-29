@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -32,6 +31,7 @@ type MultiPartRoundTripper struct {
 
 // NewMultiPartRoundTripper constructs a new MultiPartRoundTripper and returns a pointer to it
 func NewMultiPartRoundTripper(cluster *Cluster, syncLog log.Logger) *MultiPartRoundTripper {
+
 	multiPartRoundTripper := &MultiPartRoundTripper{
 		fallBackRoundTripper: cluster.transport,
 		syncLog:              syncLog,
@@ -46,7 +46,6 @@ func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends [
 	var backendsEndpoints []string
 	var activeBackendsEndpoints []string
 
-	fmt.Println(backends)
 	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*DecoratedBackend)
 
 	for _, roundTripper := range backends {
@@ -76,7 +75,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 			return nil, errors.New("Can't handle multi upload")
 		}
 
-		multiUploadBackend, backendSelectError := multiPartRoundTripper.pickBackend(request)
+		multiUploadBackend, backendSelectError := multiPartRoundTripper.pickBackend(request.URL.Path)
 
 		if backendSelectError != nil {
 			log.Debugf("Multi upload failed for %s - %s", backendSelectError, request.URL.Path)
@@ -95,7 +94,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 			return
 		}
 
-		if !isInitiateRequest(request) && isCompleteUploadResponseSuccessful(response) {
+		if isCompleteUploadResponseSuccessful(response) {
 			go multiPartRoundTripper.reportCompletionToMigrator(response)
 		}
 
@@ -107,12 +106,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 	return multiPartRoundTripper.fallBackRoundTripper.RoundTrip(request)
 }
 
-func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(request *http.Request) (*DecoratedBackend, error) {
-	objectPath := request.URL.Path
-
-	if utils.IsDomainStyleRequest(request) {
-		objectPath = fmt.Sprintf("/%s%s", request.Header.Get(utils.InternalBucketHeader), objectPath)
-	}
+func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath string) (*DecoratedBackend, error) {
 
 	backendEndpoint, nodeFound := multiPartRoundTripper.backendsRing.GetNode(objectPath)
 
@@ -153,7 +147,12 @@ func isCompleteUploadResponseSuccessful(response *http.Response) bool {
 
 func responseContainsCompleteUploadString(response *http.Response) bool {
 
+	if isInitiateRequest(response.Request) {
+		return false
+	}
+
 	responseBodyBytes, bodyReadError := ioutil.ReadAll(response.Body)
+	response.Body.Close()
 
 	if bodyReadError != nil {
 
