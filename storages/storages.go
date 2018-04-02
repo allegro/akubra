@@ -72,9 +72,7 @@ type Backend struct {
 
 // BackendAdapter holds the necessary backend info after decorating the backend
 type BackendAdapter struct {
-	RoundTripper http.RoundTripper
-	Endpoint     *url.URL
-	Maintenance  bool
+	*Backend
 }
 
 // RoundTrip satisfies http.RoundTripper interface
@@ -241,9 +239,6 @@ func (backendRoundTripper *BackendAdapter) RoundTrip(request *http.Request) (*ht
 
 func backendAdapter(backend *Backend) httphandler.Decorator {
 	return func (roundTripper http.RoundTripper) http.RoundTripper{
-		return &BackendAdapter{
-			RoundTripper: roundTripper,
-			Endpoint:     &backend.Endpoint,
-			Maintenance:  backend.Maintenance,}
+		return &BackendAdapter{Backend: backend}
 	}
 }
