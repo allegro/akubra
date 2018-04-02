@@ -41,9 +41,9 @@ func TestShouldNotDetectMultiPartUploadRequestWhenItIsARegularUpload(testSuite *
 	activeBackendURL, _ := url.Parse("http://active:1234")
 
 	activateBackend := &BackendAdapter{
-		RoundTripper: activeBackendRoundTripper,
-		Endpoint:     activeBackendURL,
-		Maintenance:  false,
+		Backend: &Backend{RoundTripper: activeBackendRoundTripper,
+		Endpoint:     *activeBackendURL,
+		Maintenance:  false,},
 	}
 
 	multiPartUploadHashRing := hashring.New([]string{activeBackendURL.String()})
@@ -148,15 +148,15 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 	activeBackendURL2, _ := url.Parse("http://active2:1234")
 
 	activateBackend1 := &BackendAdapter{
-		RoundTripper: activeBackendRoundTripper1,
-		Endpoint:     activeBackendURL,
-		Maintenance:  false,
+		Backend :&Backend{RoundTripper: activeBackendRoundTripper1,
+		Endpoint:     *activeBackendURL,
+		Maintenance:  false,},
 	}
 
 	activateBackend2 := &BackendAdapter{
-		RoundTripper: activeBackendRoundTripper2,
-		Endpoint:     activeBackendURL2,
-		Maintenance:  false,
+		Backend: &Backend{RoundTripper: activeBackendRoundTripper2,
+		Endpoint:     *activeBackendURL2,
+		Maintenance:  false},
 	}
 
 	multiPartUploadHashRing := hashring.New([]string{activateBackend1.Endpoint.String(), activateBackend2.Endpoint.String()})
@@ -223,9 +223,9 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 	activeBackendRoundTripper1 := &MockedRoundTripper{}
 
 	activateBackend1 := &BackendAdapter{
-		RoundTripper: activeBackendRoundTripper1,
-		Endpoint:     activeBackendURL1,
-		Maintenance:  false,
+		Backend: &Backend{RoundTripper: activeBackendRoundTripper1,
+		Endpoint:     *activeBackendURL1,
+		Maintenance:  false,},
 	}
 
 	multiPartUploadHashRing := hashring.New([]string{activateBackend1.Endpoint.String()})
@@ -293,17 +293,17 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 	activeBackendURL, _ := url.Parse("http://active:1234")
 
 	activateBackend1 := &BackendAdapter{
-		RoundTripper: activeBackendRoundTripper1,
-		Endpoint:     activeBackendURL,
-		Maintenance:  false,
+		Backend: &Backend{RoundTripper: activeBackendRoundTripper1,
+		Endpoint:     *activeBackendURL,
+		Maintenance:  false,},
 	}
 
 	activeBackendURL2, _ := url.Parse("http://active2:1234")
 
 	activateBackend2 := &BackendAdapter{
-		RoundTripper: activeBackendRoundTripper2,
-		Endpoint:     activeBackendURL2,
-		Maintenance:  false,
+		Backend: &Backend{RoundTripper: activeBackendRoundTripper2,
+		Endpoint:     *activeBackendURL2,
+		Maintenance:  false,},
 	}
 
 	multiPartUploadHashRing := hashring.New([]string{activateBackend1.Endpoint.String(), activateBackend2.Endpoint.String()})
