@@ -36,6 +36,7 @@ lint-slow: deps-lint
 
 deps:
 	$(GO) get github.com/Masterminds/glide
+	glide update
 	glide install
 
 deps-lint: deps
