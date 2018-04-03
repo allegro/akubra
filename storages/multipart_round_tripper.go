@@ -25,7 +25,7 @@ import (
 type MultiPartRoundTripper struct {
 	fallBackRoundTripper  http.RoundTripper
 	syncLog               log.Logger
-	backendsRoundTrippers map[string]*BackendAdapter
+	backendsRoundTrippers map[string]*Backend
 	backendsRing          *hashring.HashRing
 	backendsEndpoints     []string
 }
@@ -47,11 +47,11 @@ func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends [
 	var backendsEndpoints []string
 	var activeBackendsEndpoints []string
 
-	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*BackendAdapter)
+	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*Backend)
 
 	for _, roundTripper := range backends {
 
-		if backend, isBackendType := roundTripper.(*BackendAdapter); isBackendType {
+		if backend, isBackendType := roundTripper.(*Backend); isBackendType {
 
 			if !backend.Maintenance {
 				multiPartRoundTripper.backendsRoundTrippers[backend.Endpoint.Host] = backend
@@ -107,7 +107,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 	return multiPartRoundTripper.fallBackRoundTripper.RoundTrip(request)
 }
 
-func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(request *http.Request) (*BackendAdapter, error) {
+func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(request *http.Request) (*Backend, error) {
 	objectPath := request.URL.Path
 	if utils.IsDomainStyleRequest(request) && !utils.IsBucketPath(request){
 		objectPath = fmt.Sprintf("/%s%s", request.Header.Get(utils.InternalBucketHeader), objectPath)

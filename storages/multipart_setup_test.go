@@ -51,25 +51,21 @@ func TestShouldSetupMultiUploadRingAndMigrationEndpoints(testSuite *testing.T) {
 	activeBackendURL, _ := url.Parse("http://backend:1234")
 	activeBackendURL2, _ := url.Parse("http://backend2:1234")
 
-	activateBackend := &BackendAdapter{
-		Backend: &Backend{RoundTripper: activeBackendRoundTripper,
+	activateBackend := &Backend{RoundTripper: activeBackendRoundTripper,
 		Endpoint:     *activeBackendURL,
-		Maintenance:  false,},
-	}
+		Maintenance:  false,
+		}
 
-	activateBackend2 := &BackendAdapter{
-		Backend: &Backend{RoundTripper: activeBackendRoundTripper2,
+	activateBackend2 := &Backend{RoundTripper: activeBackendRoundTripper2,
 		Endpoint:     *activeBackendURL2,
-		Maintenance:  false,},
+		Maintenance:  false,
 	}
 
 	maintenanceBackendURL, _ := url.Parse("http://maintenance:8421")
 
-	maintenanceBackend := &BackendAdapter{
-		Backend: &Backend{RoundTripper: nil,
+	maintenanceBackend := &Backend{RoundTripper: nil,
 		Endpoint:     *maintenanceBackendURL,
-		Maintenance:  true,},
-	}
+		Maintenance:  true,}
 
 	clusterToSetup := &Cluster{
 		transport:   fallbackRoundTripper,

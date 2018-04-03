@@ -11,7 +11,7 @@ import (
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/utils"
-	"github.com/wookie41/minio-go/pkg/s3signer"
+	"github.com/bnogas/minio-go/pkg/s3signer"
 )
 
 // APIErrorCode type of error status.
