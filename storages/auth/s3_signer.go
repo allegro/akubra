@@ -256,6 +256,6 @@ func SignAuthServiceDecorator(backend, region, endpoint string, host *url.URL, f
 			log.Fatalf("error CredentialsStore `%s` is not defined", endpoint)
 		}
 		return signAuthServiceRoundTripper{rt: rt, backend: backend, region: region, host: host,
-											crd: credentialsStore, forcePathStyle: forcePathStyle}
+						   crd: credentialsStore, forcePathStyle: forcePathStyle}
 	}
 }
