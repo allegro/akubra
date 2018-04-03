@@ -24,7 +24,7 @@ import (
 type MultiPartRoundTripper struct {
 	fallBackRoundTripper  http.RoundTripper
 	syncLog               log.Logger
-	backendsRoundTrippers map[string]*Backend
+	backendsRoundTrippers map[string]*BackendAdapter
 	backendsRing          *hashring.HashRing
 	backendsEndpoints     []string
 }
@@ -46,11 +46,11 @@ func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends [
 	var backendsEndpoints []string
 	var activeBackendsEndpoints []string
 
-	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*Backend)
+	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*BackendAdapter)
 
 	for _, roundTripper := range backends {
 
-		if backend, isBackendType := roundTripper.(*Backend); isBackendType {
+		if backend, isBackendType := roundTripper.(*BackendAdapter); isBackendType {
 
 			if !backend.Maintenance {
 				multiPartRoundTripper.backendsRoundTrippers[backend.Endpoint.Host] = backend
@@ -94,7 +94,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 			return
 		}
 
-		if !isInitiateRequest(request) && isCompleteUploadResponseSuccessful(response) {
+		if isCompleteUploadResponseSuccessful(response) {
 			go multiPartRoundTripper.reportCompletionToMigrator(response)
 		}
 
@@ -106,7 +106,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 	return multiPartRoundTripper.fallBackRoundTripper.RoundTrip(request)
 }
 
-func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath string) (*Backend, error) {
+func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath string) (*BackendAdapter, error) {
 
 	backendEndpoint, nodeFound := multiPartRoundTripper.backendsRing.GetNode(objectPath)
 
@@ -147,7 +147,12 @@ func isCompleteUploadResponseSuccessful(response *http.Response) bool {
 
 func responseContainsCompleteUploadString(response *http.Response) bool {
 
+	if isInitiateRequest(response.Request) {
+		return false
+	}
+
 	responseBodyBytes, bodyReadError := ioutil.ReadAll(response.Body)
+	response.Body.Close()
 
 	if bodyReadError != nil {
 
