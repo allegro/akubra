@@ -7,9 +7,10 @@ import (
 
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/transport"
+
 	"github.com/allegro/akubra/storages/auth"
 	"github.com/allegro/akubra/storages/config"
-	"github.com/allegro/akubra/transport"
 	set "github.com/deckarep/golang-set"
 )
 
@@ -71,14 +72,15 @@ type Backend struct {
 
 // BackendAdapter holds the necessary backend info after decorating the backend
 type BackendAdapter struct {
-	RoundTripper http.RoundTripper
-	Endpoint     *url.URL
-	Maintenance  bool
+	*Backend
 }
 
 // RoundTrip satisfies http.RoundTripper interface
 func (b *Backend) RoundTrip(r *http.Request) (*http.Response, error) {
+	r.URL.Host = b.Endpoint.Host
+	r.URL.Scheme = b.Endpoint.Scheme
 	reqID := r.Context().Value(log.ContextreqIDKey)
+	log.Debugf("Request %s req.URL.Host replaced with %s", reqID, r.URL.Host)
 	if b.Maintenance {
 		log.Debugf("Request %s blocked %s is in maintenance mode", reqID, r.URL.Host)
 		return nil, &backendError{backend: b.Endpoint.Host,
@@ -226,7 +228,6 @@ func decorateBackend(transport http.RoundTripper, name string, backendConf confi
 		name,
 		backendConf.Maintenance,
 	}
-
 	adapterDecorator := backendAdapter(backend)
 	return httphandler.Decorate(backend, authDecorator, adapterDecorator), nil
 }
@@ -238,9 +239,6 @@ func (backendRoundTripper *BackendAdapter) RoundTrip(request *http.Request) (*ht
 
 func backendAdapter(backend *Backend) httphandler.Decorator {
 	return func (roundTripper http.RoundTripper) http.RoundTripper{
-		return &BackendAdapter{
-			RoundTripper: roundTripper,
-			Endpoint:     &backend.Endpoint,
-			Maintenance:  backend.Maintenance,}
+		return &BackendAdapter{Backend: backend}
 	}
 }
