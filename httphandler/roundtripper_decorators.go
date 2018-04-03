@@ -166,7 +166,6 @@ func HealthCheckHandler(healthCheckEndpoint string) Decorator {
 
 // Decorate returns http.Roundtripper wraped with all passed decorators
 func Decorate(roundTripper http.RoundTripper, decorators ...Decorator) http.RoundTripper {
-
 	for _, dec := range decorators {
 		roundTripper = dec(roundTripper)
 	}

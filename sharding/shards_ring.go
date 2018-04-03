@@ -8,12 +8,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/storages"
+	"github.com/allegro/akubra/utils"
 	"github.com/serialx/hashring"
 )
 
@@ -30,11 +30,6 @@ type ShardsRing struct {
 	allClustersRoundTripper http.RoundTripper
 	clusterRegressionMap    map[string]storages.NamedCluster
 	inconsistencyLog        log.Logger
-}
-
-func (sr ShardsRing) isBucketPath(path string) bool {
-	trimmedPath := strings.Trim(path, "/")
-	return len(strings.Split(trimmedPath, "/")) == 1
 }
 
 // Pick finds cluster for given relative uri
@@ -166,9 +161,9 @@ func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr err
 	if err != nil {
 		return nil, err
 	}
-	isBucketReq := sr.isBucketPath(reqCopy.URL.Path)
 
-	if reqCopy.Method == http.MethodDelete || isBucketReq {
+	isBucketOperation := utils.IsBucketPath(reqCopy)
+	if reqCopy.Method == http.MethodDelete || isBucketOperation {
 		return sr.allClustersRoundTripper.RoundTrip(reqCopy)
 	}
 

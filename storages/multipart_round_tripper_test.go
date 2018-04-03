@@ -40,12 +40,9 @@ func TestShouldNotDetectMultiPartUploadRequestWhenItIsARegularUpload(testSuite *
 
 	activeBackendURL, _ := url.Parse("http://active:1234")
 
-	activateBackend := &Backend{
-		RoundTripper: activeBackendRoundTripper,
+	activateBackend := &Backend{RoundTripper: activeBackendRoundTripper,
 		Endpoint:     *activeBackendURL,
-		Maintenance:  false,
-		Name:         "activateBackend",
-	}
+		Maintenance:  false,}
 
 	multiPartUploadHashRing := hashring.New([]string{activeBackendURL.String()})
 	activeBackendRoundTrippers := make(map[string]*Backend)
@@ -148,19 +145,14 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 	activeBackendURL, _ := url.Parse("http://active:1234")
 	activeBackendURL2, _ := url.Parse("http://active2:1234")
 
-	activateBackend1 := &Backend{
-		RoundTripper: activeBackendRoundTripper1,
+	activateBackend1 := &Backend{RoundTripper: activeBackendRoundTripper1,
 		Endpoint:     *activeBackendURL,
-		Maintenance:  false,
-		Name:         "activateBackend",
-	}
+		Maintenance:  false,}
 
-	activateBackend2 := &Backend{
-		RoundTripper: activeBackendRoundTripper2,
+	activateBackend2 :=
+		&Backend{RoundTripper: activeBackendRoundTripper2,
 		Endpoint:     *activeBackendURL2,
-		Maintenance:  false,
-		Name:         "activateBackend2",
-	}
+		Maintenance:  false}
 
 	multiPartUploadHashRing := hashring.New([]string{activateBackend1.Endpoint.String(), activateBackend2.Endpoint.String()})
 
@@ -205,7 +197,7 @@ func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorWhenStatusCodeI
 func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSuite *testing.T) {
 
 	activeBackendURL1, _ := url.Parse("http://active:1234")
-	completeUploadRequestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=123")
+	completeUploadRequestURL, _ := url.Parse("http://active:1234/someBucket/someObject?uploadId=123")
 	completeUploadRequest := &http.Request{URL: completeUploadRequestURL, Host: activeBackendURL1.Host}
 	completeUploadRequest = completeUploadRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, "1"))
 
@@ -225,12 +217,9 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 	fallbackRoundTripper := &MockedRoundTripper{}
 	activeBackendRoundTripper1 := &MockedRoundTripper{}
 
-	activateBackend1 := &Backend{
-		RoundTripper: activeBackendRoundTripper1,
+	activateBackend1 := &Backend{RoundTripper: activeBackendRoundTripper1,
 		Endpoint:     *activeBackendURL1,
-		Maintenance:  false,
-		Name:         "activateBackend1",
-	}
+		Maintenance:  false,}
 
 	multiPartUploadHashRing := hashring.New([]string{activateBackend1.Endpoint.String()})
 
@@ -296,21 +285,16 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 
 	activeBackendURL, _ := url.Parse("http://active:1234")
 
-	activateBackend1 := &Backend{
-		RoundTripper: activeBackendRoundTripper1,
+	activateBackend1 := &Backend{RoundTripper: activeBackendRoundTripper1,
 		Endpoint:     *activeBackendURL,
 		Maintenance:  false,
-		Name:         "activateBackend1",
-	}
+		}
 
 	activeBackendURL2, _ := url.Parse("http://active2:1234")
 
-	activateBackend2 := &Backend{
-		RoundTripper: activeBackendRoundTripper2,
+	activateBackend2 := &Backend{RoundTripper: activeBackendRoundTripper2,
 		Endpoint:     *activeBackendURL2,
-		Maintenance:  false,
-		Name:         "activateBackend2",
-	}
+		Maintenance:  false,}
 
 	multiPartUploadHashRing := hashring.New([]string{activateBackend1.Endpoint.String(), activateBackend2.Endpoint.String()})
 

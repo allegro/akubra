@@ -13,7 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/validator.v1"
+	"github.com/allegro/akubra/storages/auth"
+	"github.com/allegro/akubra/storages/config"
 	"time"
+	"fmt"
 )
 
 type CustomItemsTestUnique struct {
@@ -457,4 +460,204 @@ func prepareTransportsForEntryLogicalValidatorTest(maxIdleConns, maxIdleConnsPer
 			Properties: testTransportProps,
 		},
 	}
+}
+
+func TestValidatorShouldFailWhenADomainContainingOtherDomainAsSubDomainIsDefined(t *testing.T) {
+	regionConfig := regionsconfig.Region{
+		Domains: []string{"domain.dc", "other.domain.dc"},
+	}
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	regions := map[string]regionsconfig.Region{"testregion": regionConfig}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
+	valid, validationErrors := yamlConfig.DomainsEntryLogicalValidator()
+	assert.False(t, valid)
+	assert.Equal(
+		t,
+		errors.New("Invalid domain 'other.domain.dc', it conflicts with 'domain.dc'"),
+		validationErrors["DomainsEntryLogicalValidator"][0])
+}
+
+func TestValidatorShouldFailWithWrongDomainDeclarationOrder(t *testing.T) {
+	regionConfig := regionsconfig.Region{
+		Domains: []string{"other.domain.dc", "domain.dc"},
+	}
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	regions := map[string]regionsconfig.Region{"testregion": regionConfig}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
+	valid, validationErrors := yamlConfig.DomainsEntryLogicalValidator()
+	assert.False(t, valid)
+	assert.Equal(
+		t,
+		errors.New("Invalid domain 'domain.dc', it conflicts with 'other.domain.dc'"),
+		validationErrors["DomainsEntryLogicalValidator"][0])
+}
+
+func TestValidatorShouldFailWithADomainContainingOtherDomainIsDefinedInDifferentRegions(t *testing.T) {
+	regionConfig := regionsconfig.Region{
+		Domains: []string{"domain.dc"},
+	}
+	regionConfig1 := regionsconfig.Region{
+		Domains: []string{"other.domain.dc"},
+	}
+
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	regions := map[string]regionsconfig.Region{
+		"testregion":  regionConfig,
+		"testregion1": regionConfig1,
+	}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
+	valid, validationErrors := yamlConfig.DomainsEntryLogicalValidator()
+	assert.False(t, valid)
+	assert.Equal(
+		t,
+		errors.New("Invalid domain 'other.domain.dc', it conflicts with 'domain.dc'"),
+		validationErrors["DomainsEntryLogicalValidator"][0])
+}
+
+func TestValidatorShouldFailWhenDomainIsUsedMultipleTimes(t *testing.T) {
+	regionConfig := regionsconfig.Region{
+		Domains: []string{"domain.dc"},
+	}
+	regionConfig1 := regionsconfig.Region{
+		Domains: []string{"domain.dc"},
+	}
+
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	regions := map[string]regionsconfig.Region{
+		"testregion":  regionConfig,
+		"testregion1": regionConfig1,
+	}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
+	valid, validationErrors := yamlConfig.DomainsEntryLogicalValidator()
+	assert.False(t, valid)
+	assert.Equal(
+		t,
+		errors.New("Invalid domain 'domain.dc', it conflicts with 'domain.dc'"),
+		validationErrors["DomainsEntryLogicalValidator"][0])
+}
+
+func TestValidatorShouldPassWithProperDomainsDefined(t *testing.T) {
+	regionConfig := regionsconfig.Region{
+		Domains: []string{"domain.dc", "sub.domain.dc2"},
+	}
+	regionConfig1 := regionsconfig.Region{
+		Domains: []string{"other-domain.dc"},
+	}
+
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	regions := map[string]regionsconfig.Region{
+		"testregion":  regionConfig,
+		"testregion1": regionConfig1,
+	}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
+	valid, validationErrors := yamlConfig.DomainsEntryLogicalValidator()
+	assert.True(t, valid)
+	assert.Empty(
+		t,
+		validationErrors["DomainsEntryLogicalValidator"])
+}
+
+func TestValidatorShouldFailWhenPathStyleBackendHasNoSecretKeyOrAccessKeyProvidedOrIsOfWrongType(t *testing.T) {
+	backendProperties := make(map[string]string, 1)
+	backendProperties["AccessKey"] = "123a"
+	backendWithoutSecret := config.Backend{
+		Properties:     backendProperties,
+		ForcePathStyle: true,
+		Type:           auth.S3FixedKey,
+	}
+	backendProperties2 := make(map[string]string, 1)
+	backendProperties2["Secret"] = "32"
+	backendWithoutAccessKey := config.Backend{
+		Properties:     backendProperties2,
+		ForcePathStyle: true,
+		Type:           auth.S3FixedKey,
+	}
+	backendProperties3 := make(map[string]string, 2)
+	backendWithWrongType := config.Backend{
+		Properties:     backendProperties3,
+		ForcePathStyle: true,
+		Type:           auth.Passthrough,
+	}
+	backendProperties4 := make(map[string]string, 0)
+	backendWithoutAuthEndpoint := config.Backend{
+		Properties:     backendProperties4,
+		ForcePathStyle: true,
+		Type:           auth.S3AuthService,
+	}
+
+	invalidBackendsMap := make(map[string]config.Backend, 4)
+	invalidBackendsMap["backend1"] = backendWithoutSecret
+	invalidBackendsMap["backend2"] = backendWithoutAccessKey
+	invalidBackendsMap["backend3"] = backendWithWrongType
+	invalidBackendsMap["backend4"] = backendWithoutAuthEndpoint
+	yamlConfig := YamlConfig{
+		Backends: invalidBackendsMap,
+	}
+
+	valid, validationErrors := yamlConfig.BackendsLogicalValidator()
+
+	assert.Len(t, validationErrors["BackendsLogicalValidator"], 4)
+	assert.False(t, valid)
+	assert.Contains(
+		t,
+		validationErrors["BackendsLogicalValidator"],
+		fmt.Errorf("Backend backend1 has ForcePathStyle turned on, but it's missing Secret"))
+	assert.Contains(
+		t,
+		validationErrors["BackendsLogicalValidator"],
+		fmt.Errorf("Backend backend2 has ForcePathStyle turned on, but it's missing AccessKey"))
+	assert.Contains(
+		t,
+		validationErrors["BackendsLogicalValidator"],
+		fmt.Errorf("Backend backend3 has ForcePathStyle turned on, but it's of wrong type"))
+	assert.Contains(
+		t,
+		validationErrors["BackendsLogicalValidator"],
+		fmt.Errorf("Backend backend4 has ForcePathStyle turned on, but it's missing AuthServiceEndpoint"))
+}
+
+func TestValidatorShouldPassWhenBackendsAreDefinedProperly(t *testing.T) {
+	backendProperties1 := make(map[string]string, 2)
+	backendProperties1["AccessKey"] = "123a"
+	backendProperties1["Secret"] = "123"
+	validBackend1 := config.Backend{
+		Properties:     backendProperties1,
+		ForcePathStyle: true,
+		Type:           auth.S3FixedKey,
+	}
+	backendProperties2 := make(map[string]string, 1)
+	backendProperties2["AuthServiceEndpoint"] = "http://localhost/auth"
+	validBackend2 := config.Backend{
+		Properties:     backendProperties2,
+		ForcePathStyle: true,
+		Type:           auth.S3AuthService,
+	}
+	validBackend3 := config.Backend{
+		Properties:     make(map[string]string, 0),
+		ForcePathStyle: false,
+		Type:           auth.Passthrough,
+	}
+	validBackendsMap := make(map[string]config.Backend, 3)
+	validBackendsMap["backend1"] = validBackend1
+	validBackendsMap["backend2"] = validBackend2
+	validBackendsMap["backend2"] = validBackend3
+
+	yamlConfig := YamlConfig{
+		Backends: validBackendsMap,
+	}
+
+	valid, validationErrors := yamlConfig.BackendsLogicalValidator()
+
+	assert.Len(t, validationErrors["BackendsLogicalValidator"], 0)
+	assert.True(t, valid)
 }

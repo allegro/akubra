@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
+	"github.com/allegro/akubra/utils"
 )
 
 const listTypeV2 = "2"
@@ -72,13 +72,6 @@ func (pc *prefixContainer) first(limit int) []CommonPrefix {
 		return pc.list
 	}
 	return pc.list[0:limit]
-}
-func isBucketPath(path string) bool {
-	trimmedPath := strings.Trim(path, "/")
-	if trimmedPath == "" {
-		return false
-	}
-	return len(strings.Split(trimmedPath, "/")) == 1
 }
 
 type responseMerger struct {
@@ -233,7 +226,6 @@ var unsupportedQueryParamNames = []string{
 }
 
 func (rm *responseMerger) isMergable(req *http.Request) bool {
-	path := req.URL.Path
 	method := req.Method
 	reqQuery := req.URL.Query()
 	unsupportedQuery := false
@@ -245,7 +237,7 @@ func (rm *responseMerger) isMergable(req *http.Request) bool {
 			}
 		}
 	}
-	return !unsupportedQuery && (method == http.MethodGet) && isBucketPath(path)
+	return !unsupportedQuery && (method == http.MethodGet) && utils.IsBucketPath(req)
 }
 
 func (rm *responseMerger) responseHandler(in <-chan transport.ResErrTuple) transport.ResErrTuple {
