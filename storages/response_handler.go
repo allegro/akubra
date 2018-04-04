@@ -24,7 +24,7 @@ func isSuccess(tup transport.ResErrTuple) bool {
 
 func (rm *responseMerger) createResponse(firstTuple transport.ResErrTuple, successes []transport.ResErrTuple) (resp *http.Response, err error) {
 	reqQuery := firstTuple.Req.URL.Query()
-	log.Println("Create response")
+
 	if reqQuery.Get("list-type") == listTypeV2 {
 		log.Println("Create response v2", len(successes))
 

@@ -43,7 +43,7 @@ func MergeBucketListV2Responses(successes []transport.ResErrTuple) (resp *http.R
 		maxKeys = 1000
 	}
 
-	listBucketV2Result = pickListV2ResultSet(keys, prefixes, maxKeys, listBucketV2Result)
+	listBucketV2Result = createListV2ResultSet(keys, prefixes, maxKeys, listBucketV2Result)
 
 	bodyBytes, err := xml.Marshal(listBucketV2Result)
 	if err != nil {
@@ -85,21 +85,18 @@ func extractListv2Results(resp *http.Response) s3datatypes.ListBucketV2Result {
 	return lbr
 }
 
-func pickListV2ResultSet(keys objectsContainer, prefixes objectsContainer, maxKeys int, bucketListV2Result s3datatypes.ListBucketV2Result) s3datatypes.ListBucketV2Result {
+func createListV2ResultSet(keys objectsContainer, prefixes objectsContainer, maxKeys int, bucketListV2Result s3datatypes.ListBucketV2Result) s3datatypes.ListBucketV2Result {
 	bucketListV2Result.CommonPrefixes = bucketListV2Result.CommonPrefixes.FromStringer(prefixes.first(maxKeys))
 	keysCount := maxKeys - len(bucketListV2Result.CommonPrefixes)
 	bucketListV2Result.Contents = bucketListV2Result.Contents.FromStringer(keys.first(keysCount))
-	isTruncated := keys.Len()+prefixes.Len() > maxKeys
-	if !isTruncated {
-		return bucketListV2Result
+	bucketListV2Result.IsTruncated = keys.Len()+prefixes.Len() > maxKeys
+	if bucketListV2Result.IsTruncated {
+		if keysCount > 0 {
+			bucketListV2Result.ContinuationToken = bucketListV2Result.Contents[len(bucketListV2Result.Contents)-1].Key
+		} else {
+			bucketListV2Result.ContinuationToken = bucketListV2Result.CommonPrefixes[len(bucketListV2Result.CommonPrefixes)-1].Prefix
+		}
 	}
-	// TODO-mj: pack NextContinuatio
-	if keysCount > 0 {
-		bucketListV2Result.ContinuationToken = bucketListV2Result.Contents[len(bucketListV2Result.Contents)-1].Key
-	} else {
-		bucketListV2Result.ContinuationToken = bucketListV2Result.CommonPrefixes[len(bucketListV2Result.CommonPrefixes)-1].Prefix
-	}
-	bucketListV2Result.IsTruncated = isTruncated
 	return bucketListV2Result
 }
 

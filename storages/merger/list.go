@@ -44,7 +44,7 @@ func MergeBucketListResponses(successes []transport.ResErrTuple) (resp *http.Res
 		maxKeys = 1000
 	}
 
-	listBucketResult = pickResultSet(keys, prefixes, maxKeys, listBucketResult)
+	listBucketResult = createResultSet(keys, prefixes, maxKeys, listBucketResult)
 
 	bodyBytes, err := xml.Marshal(listBucketResult)
 	if err != nil {
@@ -116,19 +116,17 @@ func extractListResults(resp *http.Response) s3datatypes.ListBucketResult {
 	return lbr
 }
 
-func pickResultSet(keys objectsContainer, prefixes objectsContainer, maxKeys int, listBucketResult s3datatypes.ListBucketResult) s3datatypes.ListBucketResult {
+func createResultSet(keys objectsContainer, prefixes objectsContainer, maxKeys int, listBucketResult s3datatypes.ListBucketResult) s3datatypes.ListBucketResult {
 	listBucketResult.CommonPrefixes = listBucketResult.CommonPrefixes.FromStringer(prefixes.first(maxKeys))
 	keysCount := maxKeys - len(listBucketResult.CommonPrefixes)
 	listBucketResult.Contents = listBucketResult.Contents.FromStringer(keys.first(keysCount))
-	isTruncated := keys.Len()+prefixes.Len() > maxKeys
-	if !isTruncated {
-		return listBucketResult
+	listBucketResult.IsTruncated = keys.Len()+prefixes.Len() > maxKeys
+	if listBucketResult.IsTruncated {
+		if keysCount > 0 {
+			listBucketResult.NextMarker = listBucketResult.Contents[len(listBucketResult.Contents)-1].Key
+		} else {
+			listBucketResult.NextMarker = listBucketResult.CommonPrefixes[len(listBucketResult.CommonPrefixes)-1].Prefix
+		}
 	}
-	if keysCount > 0 {
-		listBucketResult.NextMarker = listBucketResult.Contents[len(listBucketResult.Contents)-1].Key
-	} else {
-		listBucketResult.NextMarker = listBucketResult.CommonPrefixes[len(listBucketResult.CommonPrefixes)-1].Prefix
-	}
-	listBucketResult.IsTruncated = isTruncated
 	return listBucketResult
 }

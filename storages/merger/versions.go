@@ -40,7 +40,7 @@ func MergeVersionsResponses(successes []transport.ResErrTuple) (resp *http.Respo
 		maxKeys = 1000
 	}
 
-	listBucketResult = pickVersionResultSet(keysContainer, maxKeys, listBucketResult)
+	listBucketResult = createVersionResultSet(keysContainer, maxKeys, listBucketResult)
 
 	bodyBytes, err := xml.Marshal(listBucketResult)
 	if err != nil {
@@ -82,7 +82,7 @@ func extractListVersionsResults(resp *http.Response) s3datatypes.ListVersionsRes
 	return lbr
 }
 
-func pickVersionResultSet(keysContainer *objectsContainer, maxKeys int, lbr s3datatypes.ListVersionsResult) s3datatypes.ListVersionsResult {
+func createVersionResultSet(keysContainer *objectsContainer, maxKeys int, versionsResult s3datatypes.ListVersionsResult) s3datatypes.ListVersionsResult {
 	deleteMarkers := s3datatypes.DeleteMarkerInfos{}
 	versions := s3datatypes.VersionInfos{}
 	keys := keysContainer.first(maxKeys + 1)
@@ -98,20 +98,18 @@ func pickVersionResultSet(keysContainer *objectsContainer, maxKeys int, lbr s3da
 		}
 
 	}
-	lbr.Version = versions
-	lbr.DeleteMarker = deleteMarkers
+	versionsResult.Version = versions
+	versionsResult.DeleteMarker = deleteMarkers
 
-	lbr.KeyMarker = lastMarker.GetKey()
-	lbr.VersionIDMarker = lastMarker.GetVersionID()
+	versionsResult.KeyMarker = lastMarker.GetKey()
+	versionsResult.VersionIDMarker = lastMarker.GetVersionID()
 
-	isTruncated := keysContainer.Len() > maxKeys
-	if !isTruncated {
-		return lbr
+	versionsResult.IsTruncated = keysContainer.Len() > maxKeys
+	if versionsResult.IsTruncated {
+		nextMarker := keys[maxKeys+1].(s3datatypes.VersionMarker)
+		versionsResult.NextKeyMarker = nextMarker.GetKey()
+		versionsResult.NextVersionIDMarker = nextMarker.GetVersionID()
 	}
 
-	lbr.IsTruncated = isTruncated
-	nextMarker := keys[maxKeys+1].(s3datatypes.VersionMarker)
-	lbr.NextKeyMarker = nextMarker.GetKey()
-	lbr.NextVersionIDMarker = nextMarker.GetVersionID()
-	return lbr
+	return versionsResult
 }
