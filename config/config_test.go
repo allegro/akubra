@@ -429,10 +429,9 @@ func PrepareYamlConfig(
 			},
 			Client: httpHandlerConfig.Client{
 				Transports: transports,
-				ClientAdditionalHeader: httpHandlerConfig.ClientAdditionalHeader{
-					AdditionalRequestHeaders:  additionalRequestHeaders,
-					AdditionalResponseHeaders: additionalResponseHeaders,
-				},
+
+				AdditionalRequestHeaders:  additionalRequestHeaders,
+				AdditionalResponseHeaders: additionalResponseHeaders,
 			},
 		},
 

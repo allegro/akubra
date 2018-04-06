@@ -53,17 +53,13 @@ func (ah *AdditionalHeaders) UnmarshalYAML(unmarshal func(interface{}) error) er
 
 }
 
-// ClientAdditionalHeader configuration
-type ClientAdditionalHeader struct {
+// Client keeps backend client configuration
+type Client struct {
 	// Additional not AWS S3 specific headers proxy will add to original request
 	AdditionalRequestHeaders AdditionalHeaders `yaml:"AdditionalRequestHeaders,omitempty"`
 	// Additional headers inseted to client response
 	AdditionalResponseHeaders AdditionalHeaders `yaml:"AdditionalResponseHeaders,omitempty"`
-}
-
-// Client keeps backend client configuration
-type Client struct {
-	ClientAdditionalHeader
+	// Transports configuration
 	Transports transport.Transports `yaml:"Transports,omitempty"`
 }
 
