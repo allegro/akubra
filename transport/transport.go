@@ -31,6 +31,7 @@ type ResErrTuple struct {
 	Err    error
 	Req    *http.Request
 	Failed bool
+	Time   time.Time
 }
 
 // DefinitionError properties for Transports
@@ -41,25 +42,37 @@ type DefinitionError struct {
 func discardReadCloser(rc io.ReadCloser) error {
 	_, err := io.Copy(ioutil.Discard, rc)
 	if err != nil {
+		log.Printf("Discard body error %s", err)
 		return err
 	}
 	err = rc.Close()
+	if err != nil {
+		log.Printf("Close body error %s", err)
+	}
 	return err
 }
 
 // DiscardBody clears request and response body
-func (r *ResErrTuple) DiscardBody() {
+func (r *ResErrTuple) DiscardBody() error {
+	ctx := r.Req.Context()
+	requestID := ctx.Value(log.ContextreqIDKey)
+	defer log.Printf("Linger duration %f %s", float64(time.Since(r.Time).Nanoseconds())/float64(1000000), requestID)
+	defer metrics.UpdateSince("reqs.backend."+metrics.Clean(r.Req.URL.Host)+".linger", r.Time)
 	if r.Req != nil && r.Req.Body != nil {
 		if err := discardReadCloser(r.Req.Body); err != nil {
 			log.Printf("Cannot discard request body: %s", err)
+			return err
 		}
 	}
 
 	if r.Res != nil && r.Res.Body != nil {
+		log.Debugf("discard %s response body %s", r.Res.Request.URL.Host, requestID)
 		if err := discardReadCloser(r.Res.Body); err != nil {
 			log.Printf("Cannot discard request body: %s", err)
+			return err
 		}
 	}
+	return nil
 }
 
 // MultipleResponsesHandler should handle chan of incomming ReqResErrTuple
@@ -114,11 +127,8 @@ func defaultHandleResponses(in <-chan ResErrTuple, out chan<- ResErrTuple) {
 
 func clearResponsesBody(respTups []ResErrTuple) {
 	for _, rtup := range respTups {
-		if rtup.Res != nil {
-			_, err := io.Copy(ioutil.Discard, rtup.Res.Body)
-			if err != nil {
-				rtup.Err = err
-			}
+		if err := rtup.DiscardBody(); err != nil {
+			log.Printf("ReqRespTup discard body error %s", err)
 		}
 	}
 }
@@ -247,17 +257,19 @@ func collectMetrics(req *http.Request, reqresperr ResErrTuple, since time.Time) 
 func (mt *MultiTransport) sendRequest(
 	req *http.Request,
 	out chan ResErrTuple, backend http.RoundTripper) {
-	since := time.Now()
 	ctx := req.Context()
-	o := make(chan ResErrTuple)
 	requestID := ctx.Value(log.ContextreqIDKey)
+
+	since := time.Now()
+	o := make(chan ResErrTuple)
 	go func() {
 		resp, err := backend.RoundTrip(req.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, requestID)))
 		if err != nil {
 			log.Debugf("Send request error %s, %s", err.Error(), requestID)
 		}
+		log.Debugf("Sent request %s to %s", requestID, req.URL.Host)
 		failed := err != nil || resp != nil && (resp.StatusCode < 200 || resp.StatusCode > 399)
-		r := ResErrTuple{Res: resp, Err: err, Failed: failed}
+		r := ResErrTuple{Res: resp, Err: err, Failed: failed, Time: time.Now()}
 		o <- r
 	}()
 	var reqresperr ResErrTuple
@@ -266,7 +278,7 @@ func (mt *MultiTransport) sendRequest(
 	select {
 	case <-ctx.Done():
 		log.Debugf("Ctx Done reqID %s ", requestID)
-		reqresperr = ResErrTuple{Res: nil, Err: ErrBodyContentLengthMismatch, Failed: true}
+		reqresperr = ResErrTuple{Res: nil, Err: ErrBodyContentLengthMismatch, Failed: true, Time: time.Now()}
 	case reqresperr = <-o:
 		break
 	}

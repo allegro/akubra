@@ -68,7 +68,6 @@ type backend struct {
 // RoundTrip satisfies http.RoundTripper interface
 func (b *backend) RoundTrip(r *http.Request) (*http.Response, error) {
 	r.URL.Host = b.Endpoint.Host
-	println("Roundtripp", b)
 	return b.RoundTripper.RoundTrip(r)
 }
 
