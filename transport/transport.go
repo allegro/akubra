@@ -240,28 +240,14 @@ func (mt *MultiTransport) copyRequest(req *http.Request, cancelFun context.Cance
 	return reqs, err
 }
 
-func collectMetrics(req *http.Request, reqresperr ResErrTuple, since time.Time) {
-	host := metrics.Clean(req.URL.Host)
-	metrics.UpdateSince("reqs.backend."+host+".all", since)
-	if reqresperr.Err != nil {
-		metrics.UpdateSince("reqs.backend."+host+".err", since)
-	}
-	if reqresperr.Res != nil {
-		statusName := fmt.Sprintf("reqs.backend."+host+".status_%d", reqresperr.Res.StatusCode)
-		metrics.UpdateSince(statusName, since)
-		methodName := fmt.Sprintf("reqs.backend."+host+".method_%s", reqresperr.Res.Request.Method)
-		metrics.UpdateSince(methodName, since)
-	}
-}
-
 func (mt *MultiTransport) sendRequest(
 	req *http.Request,
 	out chan ResErrTuple, backend http.RoundTripper) {
 	ctx := req.Context()
 	requestID := ctx.Value(log.ContextreqIDKey)
 
-	since := time.Now()
 	o := make(chan ResErrTuple)
+
 	go func() {
 		resp, err := backend.RoundTrip(req.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, requestID)))
 		if err != nil {
@@ -273,7 +259,6 @@ func (mt *MultiTransport) sendRequest(
 		o <- r
 	}()
 	var reqresperr ResErrTuple
-	defer collectMetrics(req, reqresperr, since)
 
 	select {
 	case <-ctx.Done():
