@@ -139,7 +139,6 @@ type statusHandler struct {
 }
 
 func (sh statusHandler) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-
 	if strings.ToLower(req.URL.Path) == sh.healthCheckEndpoint {
 		resp := &http.Response{}
 		bodyContent := "OK"

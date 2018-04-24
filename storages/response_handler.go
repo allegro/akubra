@@ -48,13 +48,19 @@ func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-cha
 		if isSuccess(tuple) {
 			successes = append(successes, tuple)
 		} else {
-			tuple.DiscardBody()
+			err := tuple.DiscardBody()
+			if err != nil {
+				log.Printf("DiscardBody on ignored response tuple error: %s", err)
+			}
 		}
 	}
 
 	if len(successes) > 0 {
 		if !isSuccess(firstTuple) {
-			firstTuple.DiscardBody()
+			err := firstTuple.DiscardBody()
+			if err != nil {
+				log.Printf("DiscardBody on ignored response tuple error: %s", err)
+			}
 		}
 
 		res, err := rm.createResponse(firstTuple, successes)

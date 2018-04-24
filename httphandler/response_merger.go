@@ -3,11 +3,13 @@ package httphandler
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/transport"
+	"github.com/allegro/akubra/types"
 	"github.com/allegro/akubra/utils"
 	set "github.com/deckarep/golang-set"
 )
@@ -27,15 +29,15 @@ func (rd *responseMerger) synclog(r, successfulTup transport.ResErrTuple) {
 	if !r.Failed {
 		return
 	}
+	if shouldBeFilteredInMaintenanceMode(r) {
+		return
+	}
 	// do not log if there was no successful response
 	if (successfulTup == transport.ResErrTuple{}) {
 		return
 	}
 	// log error entry
-	errorMsg := "No error"
-	if r.Err != nil {
-		errorMsg = r.Err.Error()
-	}
+	errorMsg := emptyStrOrErrorMsg(r.Err)
 	contentLength := successfulTup.Res.ContentLength
 	reqID := utils.RequestID(successfulTup.Req)
 
@@ -59,6 +61,13 @@ func (rd *responseMerger) synclog(r, successfulTup transport.ResErrTuple) {
 		return
 	}
 	rd.syncerrlog.Println(string(logMsg))
+}
+
+func emptyStrOrErrorMsg(err error) string {
+	if err != nil {
+		return fmt.Sprintf("non nil error:%s", err)
+	}
+	return ""
 }
 
 func (rd *responseMerger) handleFailedResponces(
@@ -85,6 +94,16 @@ func (rd *responseMerger) handleFailedResponces(
 	return alreadysent
 }
 
+func shouldBeFilteredInMaintenanceMode(failedTup transport.ResErrTuple) bool {
+	if failedTup.Req.Method == http.MethodPut || failedTup.Req.Method == http.MethodDelete {
+		return false
+	}
+	if backendErr, ok := failedTup.Err.(*types.BackendError); ok && backendErr.OrigErr == types.ErrorBackendMaintenance {
+		return true
+	}
+	return false
+}
+
 func logDebug(r transport.ResErrTuple) {
 	reqID := utils.RequestID(r.Req)
 	backend := utils.ExtractDestinationHostName(r)
@@ -93,14 +112,14 @@ func logDebug(r transport.ResErrTuple) {
 	if r.Res != nil {
 		statusCode = r.Res.StatusCode
 	}
-
-	log.Debugf("Got response %s from backend %s, status: %d, method: %s, path %s, error: %q",
+	errMsg := emptyStrOrErrorMsg(r.Err)
+	log.Debugf("Got response %s from backend %s, status: %d, method: %s, path %s, %s",
 		reqID,
 		backend,
 		statusCode,
 		r.Req.Method,
 		r.Req.URL.Path,
-		r.Err)
+		errMsg)
 }
 
 func (rd *responseMerger) _handle(in <-chan transport.ResErrTuple, out chan<- transport.ResErrTuple) {
@@ -139,7 +158,7 @@ func (rd *responseMerger) _handle(in <-chan transport.ResErrTuple, out chan<- tr
 }
 
 func (rd *responseMerger) handleResponses(in <-chan transport.ResErrTuple) transport.ResErrTuple {
-	out := make(chan transport.ResErrTuple, 1)
+	out := make(chan transport.ResErrTuple)
 	go func() {
 		rd._handle(in, out)
 		close(out)

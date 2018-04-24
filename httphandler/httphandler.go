@@ -62,16 +62,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		log.Printf("%s", err)
 		return
 	}
-	defer func() {
-		if resp.Body == nil {
-			return
-		}
-		closeErr := resp.Body.Close()
-		if closeErr != nil {
-			log.Printf("Cannot send response body reason: %q",
-				closeErr.Error())
-		}
-	}()
+	defer respBodyCloserFactory(resp, randomIDStr)()
 
 	wh := w.Header()
 	for k, v := range resp.Header {
@@ -85,6 +76,22 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if _, copyErr := io.Copy(w, resp.Body); copyErr != nil {
 		log.Printf("Cannot send response body reason: %q",
 			copyErr.Error())
+	}
+}
+
+func respBodyCloserFactory(resp *http.Response, randomIDStr string) func() {
+	return func() {
+		if resp.Body == nil {
+			return
+		}
+		closeErr := resp.Body.Close()
+		if resp.Request != nil {
+			log.Debugf("discard %s response body %s ", resp.Request.URL.Host, randomIDStr)
+		}
+		if closeErr != nil {
+			log.Printf("Cannot send response body reason: %q",
+				closeErr.Error())
+		}
 	}
 }
 

@@ -8,33 +8,13 @@ import (
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/transport"
+	"github.com/allegro/akubra/types"
 
 	"github.com/allegro/akubra/storages/auth"
 	"github.com/allegro/akubra/storages/config"
 	"github.com/allegro/akubra/storages/merger"
 	set "github.com/deckarep/golang-set"
 )
-
-type backendError struct {
-	backend string
-	origErr error
-}
-
-func (be *backendError) Backend() string {
-	return be.backend
-}
-
-func (be *backendError) Err() error {
-	return be.origErr
-}
-
-func (be *backendError) Error() (errMsg string) {
-	errMsg = fmt.Sprintf("backend %s responded with error %s", be.backend, be.origErr)
-	if _, ok := be.origErr.(*transport.DefinitionError); !ok {
-		errMsg = fmt.Sprintf("backend %s responded with error %s", be.backend, be.origErr)
-	}
-	return
-}
 
 // NamedCluster interface
 type NamedCluster interface {
@@ -81,15 +61,15 @@ func (b *Backend) RoundTrip(req *http.Request) (*http.Response, error) {
 	log.Debugf("Request %s req.URL.Host replaced with %s", reqID, req.URL.Host)
 	if b.Maintenance {
 		log.Debugf("Request %s blocked %s is in maintenance mode", reqID, req.URL.Host)
-		return nil, &backendError{backend: b.Endpoint.Host,
-			origErr: fmt.Errorf("backend %v in maintenance mode", b.Name)}
+		return nil, &types.BackendError{HostName: b.Endpoint.Host,
+			OrigErr: types.ErrorBackendMaintenance}
 	}
 	err := error(nil)
 	log.Printf("url host %s, header host %s, req host %s", req.URL.Host, req.Header.Get("Host"), req.Host)
 	resp, oerror := b.RoundTripper.RoundTrip(req)
 
 	if oerror != nil {
-		err = &backendError{backend: b.Endpoint.Host, origErr: oerror}
+		err = &types.BackendError{HostName: b.Endpoint.Host, OrigErr: oerror}
 	}
 	return resp, err
 }
