@@ -85,9 +85,11 @@ func extractListVersionsResults(resp *http.Response) s3datatypes.ListVersionsRes
 func createVersionResultSet(keysContainer *objectsContainer, maxKeys int, versionsResult s3datatypes.ListVersionsResult) s3datatypes.ListVersionsResult {
 	deleteMarkers := s3datatypes.DeleteMarkerInfos{}
 	versions := s3datatypes.VersionInfos{}
+
 	keys := keysContainer.first(maxKeys + 1)
+	numOfKeys := len(keys)
 	var lastMarker s3datatypes.VersionMarker
-	for _, key := range keys[0:maxKeys] {
+	for _, key := range keys[0:numOfKeys] {
 		switch v := key.(type) {
 		case s3datatypes.DeleteMarkerInfo:
 			deleteMarkers = append(deleteMarkers, v)
@@ -100,16 +102,19 @@ func createVersionResultSet(keysContainer *objectsContainer, maxKeys int, versio
 	}
 	versionsResult.Version = versions
 	versionsResult.DeleteMarker = deleteMarkers
-
-	versionsResult.KeyMarker = lastMarker.GetKey()
-	versionsResult.VersionIDMarker = lastMarker.GetVersionID()
-
-	versionsResult.IsTruncated = keysContainer.Len() > maxKeys
-	if versionsResult.IsTruncated {
-		nextMarker := keys[maxKeys+1].(s3datatypes.VersionMarker)
-		versionsResult.NextKeyMarker = nextMarker.GetKey()
-		versionsResult.NextVersionIDMarker = nextMarker.GetVersionID()
+	if lastMarker != nil {
+		versionsResult.KeyMarker = lastMarker.GetKey()
+		versionsResult.VersionIDMarker = lastMarker.GetVersionID()
 	}
 
+	versionsResult.IsTruncated = versionsResult.IsTruncated || keysContainer.Len() > maxKeys
+	if versionsResult.IsTruncated {
+		if keysContainer.Len() > maxKeys {
+			nextMarker := keysContainer.Get(maxKeys + 1).(s3datatypes.VersionMarker)
+			versionsResult.NextKeyMarker = nextMarker.GetKey()
+			versionsResult.NextVersionIDMarker = nextMarker.GetVersionID()
+		}
+
+	}
 	return versionsResult
 }
