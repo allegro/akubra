@@ -22,7 +22,7 @@ import (
 
 	"github.com/allegro/akubra/crdstore"
 	"github.com/allegro/akubra/transport"
-	graceful "gopkg.in/tylerb/graceful.v1"
+	"gopkg.in/tylerb/graceful.v1"
 )
 
 // TechnicalEndpointGeneralTimeout for /configuration/validate endpoint
