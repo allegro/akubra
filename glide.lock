@@ -79,7 +79,7 @@ testImports:
   - mock
   - require
   - suite
-- name: github.com/hashicorp/consul/api
+- name: github.com/hashicorp/consul
   version: 44b2b1726b8de96e50eb5d49cd8491577f652d03
-- name: github.com/pmylund/go-cache
+- name: github.com/pmylund
   version: a3647f8e31d79543b2d0f0ae2fe5c379d72cedc0
