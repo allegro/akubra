@@ -298,28 +298,6 @@ We have 'Rules' for 'Transports' definitions:
  - if 'Rules' section is empty, the transport will match any requests
  - when transport cannot be matched, http 500 error code will be sent to client.
 
-## Objects synchronization settings
-
-In config file section "Logging -> SyncLog" we have "file" property.
-It's solution for simple synchronization objects by writing synv. events line by line.
-
-We have two other solutions, by using protocols "http" and "service" in "host" property.
-It's possible setup "SyncLog" configuration like below, when your using [Consul](https://github.com/hashicorp/consul):
-```yaml
-  Synclog:
-    file: /var/log/akubra/sync.log
-    plaintext: true
-    level: Info
-    brim:
-      creds:
-        user: "BASIC_AUTH_USER"
-        pass: "BASIC_AUTH_PWD"
-      host: "service://myobj-sync-serivce"
-```
-
-When "SyncLog" is setup with dedicated "host" Logrus "Fire" event send to external service JSON payload.
-You can use this JSON payload for synchronization objects.
-
 ## Limitations
 
  * User's credentials have to be identical on every backend
