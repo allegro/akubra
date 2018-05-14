@@ -2,72 +2,82 @@ package service
 
 import (
 	"fmt"
-	"math/rand"
 	"net/url"
 	"time"
 
 	"github.com/hashicorp/consul/api"
-	"github.com/pmylund/go-cache"
 )
 
 const (
-	defaultExpirationDuration = time.Second * 5
-	cleanupIntervalDuration   = time.Second * 30
+	updateInstancesCheckSeconds = 3
 )
 
-// Resolver for discovery service
-type Resolver struct {
-	cache     *cache.Cache
-	client    *api.Client
-	generator *rand.Rand
+// Services for discovery service
+type Services struct {
+	ConsulClient *api.Client
+	Logger       func(format string, args ...interface{})
+	Instances    map[string]*Resolver
+	// TODO: Instances    *syncmap.Map
 }
 
-// GetNodes get service nodes form service discovery
-func (resolver *Resolver) GetNodes(service string) (entries []*api.ServiceEntry) {
-	if value, exists := resolver.cache.Get(service); exists {
-		return value.([]*api.ServiceEntry)
+// GetEndpoint by service name
+func (s *Services) GetEndpoint(serviceName string) (*url.URL, error) {
+	s.GetInstances(serviceName, s.Instances == nil)
+	_, exists := s.Instances[serviceName]
+	if !exists || len(s.Instances[serviceName].endpoints) == 0 {
+		// TODO: quasi-backoff ???
+		//time.Sleep(1 * time.Second)
+		return nil, fmt.Errorf("no registered or healtly instances for service: %s", serviceName)
 	}
 
-	nodes, _, error := resolver.client.Health().Service(service, "", true, &api.QueryOptions{
-		AllowStale:        true,
-		RequireConsistent: false,
-	})
-
-	if error == nil {
-		entries = nodes
-	} else {
-		entries = make([]*api.ServiceEntry, 0)
-	}
-
-	defer resolver.cache.Set(service, entries, cache.DefaultExpiration)
-
-	return
+	return s.Instances[serviceName].prepareCurrentEndpoint(), nil
 }
 
-// GetRandomNode from service nodes list
-func (resolver *Resolver) GetRandomNode(service string) (*url.URL, error) {
-	nodes := resolver.GetNodes(service)
-	if len(nodes) == 0 {
-		return nil, fmt.Errorf("there are no healthy nodes for service: %s", service)
+// GetInstances get service instances form service discovery
+func (s *Services) GetInstances(serviceName string, blocking bool) (instances []*url.URL) {
+	if s.Instances == nil {
+		s.Logger("GetInstances(): init instances")
+		s.Instances = make(map[string]*Resolver, 0)
+	}
+	//s.Logger("try to get instances for serviceName: %s", serviceName)
+	resolver, exists := s.Instances[serviceName]
+	if !exists {
+		s.Logger("GetInstances(): try to get instances - !exists")
+		resolver = NewResolver(s.ConsulClient)
+		resolver.updateLastTimestamp()
+	}
+	if blocking || time.Now().Unix()-resolver.TTL >= updateInstancesCheckSeconds {
+		s.Logger("LOCK:")
+		if !blocking {
+			s.Logger(" - !blocking")
+			if !resolver.tryLock() {
+				s.Logger(" - !resolver.tryLock()")
+				return resolver.endpoints
+			}
+		} else {
+			s.Logger(" - blocking - resolver.lock.Lock()")
+			resolver.lock.Lock()
+		}
+		entries := resolver.GetNodesFromConsul(serviceName)
+		s.Logger("GetInstances(): resolver.GetNodesFromConsul - serviceName: %q - entries: %q", serviceName, entries)
+
+		resolver.endpoints = make([]*url.URL, 0)
+		for _, entry := range entries {
+			resolver.endpoints = append(resolver.endpoints, serviceEntryToURL(entry))
+		}
+		resolver.updateLastTimestamp()
+		s.Instances[serviceName] = resolver
+		resolver.lock.Unlock()
+		s.Logger("UNLOCK.\n\n")
 	}
 
-	return serviceEntryToURL(nodes[resolver.generator.Intn(len(nodes))]), nil
+	return resolver.endpoints
 }
 
-func serviceEntryToURL(entry *api.ServiceEntry) *url.URL {
-	url := &url.URL{
-		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%d", entry.Service.Address, entry.Service.Port),
-	}
-
-	return url
-}
-
-// New resolver for discovery client
-func New(client *api.Client) *Resolver {
-	return &Resolver{
-		client:    client,
-		cache:     cache.New(defaultExpirationDuration, cleanupIntervalDuration),
-		generator: rand.New(rand.NewSource(time.Now().UnixNano())),
+func New(consulClient *api.Client, logger func(format string, args ...interface{})) *Services {
+	return &Services{
+		consulClient,
+		logger,
+		nil,
 	}
 }

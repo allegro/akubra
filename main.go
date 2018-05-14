@@ -21,8 +21,10 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/allegro/akubra/crdstore"
+	"github.com/allegro/akubra/log/brimapi"
 	"github.com/allegro/akubra/transport"
 	"gopkg.in/tylerb/graceful.v1"
+	"math/rand"
 )
 
 // TechnicalEndpointGeneralTimeout for /configuration/validate endpoint
@@ -48,6 +50,41 @@ var (
 			Bool()
 )
 
+func GetInstanceTest() {
+	//fmt.Printf("\n\n------------- Fire - BRIM API call\n\n")
+	msg := fmt.Sprintf(" |-- msg -|- %d --| ", rand.Int())
+
+	lh := &brimapi.LogHook{
+		Creds: brimapi.Credentials{
+			User: "cred_user",
+			Pass: "cred_pass",
+		},
+		//Host: "service://brim",
+		Host: "http://lrgw1.fivecamel-dev.pl-poz.dc5.alledc.net:8082",
+	}
+
+	/*
+		le := &logrus.Entry{
+			Message: msg,
+		}
+		err := lh.Fire(le)
+		if err != nil {
+			fmt.Printf("%s     : ___\n", err)
+		}
+	*/
+
+	url, err := brimapi.DiscoveryServices.GetEndpoint("brim")
+	fmt.Printf("%s     : %s\n", err, url)
+	if err != nil {
+		fmt.Println("ADD PAYLOLAD TO WARMUP: ", msg)
+		warmup := brimapi.WarmUp{
+			Payload: msg,
+			LogHook: lh,
+		}
+		brimapi.WarmUpCache <- warmup
+	}
+}
+
 func main() {
 	versionString := fmt.Sprintf("Akubra (%s version)", version)
 	kingpin.Version(versionString)
@@ -69,6 +106,15 @@ func main() {
 	}
 
 	log.Printf("Health check endpoint: %s", conf.Service.Server.HealthCheckEndpoint)
+
+	for {
+
+		for i := 0; i <= 20; i++ {
+			go GetInstanceTest()
+		}
+
+		time.Sleep(time.Millisecond * 200)
+	}
 
 	mainlog, err := log.NewDefaultLogger(conf.Logging.Mainlog, "LOG_LOCAL2", false)
 	if err != nil {
