@@ -36,10 +36,7 @@ func (r *Resolver) GetNodesFromConsul(service string) (entries []*api.ServiceEnt
 	return
 }
 
-func (r *Resolver) prepareCurrentEndpoint() (currentEndpoint *url.URL) {
-	if len(r.endpoints) == 0 {
-		fmt.Printf("empty endpoints list")
-	}
+func (r *Resolver) getHealthyInstanceEndpoint() (currentEndpoint *url.URL) {
 	currentEndpoint = r.endpoints[r.generator.Intn(len(r.endpoints))]
 	r.currentEndpoint = currentEndpoint
 	return

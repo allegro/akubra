@@ -28,7 +28,9 @@ import:
   version: verify_signature
   subpackages:
   - s3signer
-- package: github.com/hashicorp/consul/api
+- package: github.com/hashicorp/consul
+  subpackages:
+  - api
 testImport:
 - package: github.com/DATA-DOG/go-sqlmock
   version: ^1.2.0
@@ -38,3 +40,9 @@ testImport:
   - mock
   - require
   - suite
+- package: github.com/allegro/mesos-executor
+  subpackages:
+  - xnet
+- package: github.com/hashicorp/consul
+  subpackages:
+  - testutil

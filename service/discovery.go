@@ -9,41 +9,42 @@ import (
 	"golang.org/x/sync/syncmap"
 )
 
+// DefaultCacheInvalidationTimeout for updating instances
 const (
-	updateInstancesCheckSeconds = 30
+	DefaultCacheInvalidationTimeout = 30
 )
 
 // Services for discovery service
 type Services struct {
-	ConsulClient *api.Client
-	Instances    *syncmap.Map
+	ConsulClient             *api.Client
+	Instances                *syncmap.Map
+	CacheInvalidationTimeout int64
 }
 
 // GetEndpoint by service name
 func (s *Services) GetEndpoint(serviceName string) (url *url.URL, err error) {
 	resolver := s.UpdateInstences(serviceName)
-	if resolver != nil {
-		url = resolver.prepareCurrentEndpoint()
+	if resolver != nil && len(resolver.endpoints) > 0 {
+		url = resolver.getHealthyInstanceEndpoint()
 	} else {
 		err = fmt.Errorf("no registered or healtly instances for service: %s", serviceName)
 	}
 	return
 }
 
-// UpdateInstences get service instances form service discovery
+// UpdateInstences get service instances from service discovery
 func (s *Services) UpdateInstences(serviceName string) (resolver *Resolver) {
-	value, exists := s.Instances.Load(serviceName)
-	if exists {
+	value, instancesExists := s.Instances.Load(serviceName)
+	if instancesExists {
 		resolver = value.(*Resolver)
-	}
-	if s.Instances == nil || resolver == nil || !exists {
+	} else {
 		s.Instances = new(syncmap.Map)
 		resolver = NewResolver(s.ConsulClient)
 		resolver.updateLastTimestamp()
 	}
 
-	if !exists || time.Now().Unix()-resolver.TTL >= updateInstancesCheckSeconds {
-		if exists {
+	if !instancesExists || time.Now().Unix()-resolver.TTL >= s.CacheInvalidationTimeout {
+		if instancesExists {
 			if !resolver.tryLock() {
 				return resolver
 			}
@@ -65,9 +66,10 @@ func (s *Services) UpdateInstences(serviceName string) (resolver *Resolver) {
 }
 
 // New Services constructor
-func New(consulClient *api.Client) *Services {
+func New(consulClient *api.Client, cacheInvalidationTimeout int64) *Services {
 	return &Services{
 		consulClient,
 		new(syncmap.Map),
+		cacheInvalidationTimeout,
 	}
 }

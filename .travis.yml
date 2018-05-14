@@ -2,6 +2,14 @@ language: go
 
 go:
   - 1.9
+  - 1.10
+
+before_install:
+  - export CONSUL_VERSION=1.0.7
+  - wget https://releases.hashicorp.com/consul/${CONSUL_VERSION}/consul_${CONSUL_VERSION}_linux_amd64.zip
+  - unzip consul_${CONSUL_VERSION}_linux_amd64.zip
+  - sudo mv consul /bin/
+  - sudo chmod a+x /bin/consul
 
 install:
   - go get github.com/Masterminds/glide

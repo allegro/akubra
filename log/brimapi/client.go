@@ -45,7 +45,7 @@ func init() {
 		fmt.Printf("unable to create Consul client: %s", err)
 	}
 
-	discoveryServices = service.New(consulClient)
+	discoveryServices = service.New(consulClient, service.DefaultCacheInvalidationTimeout)
 }
 
 func doRequest(lh *LogHook, httpClient *http.Client, payload string) (endpoint string, err error) {

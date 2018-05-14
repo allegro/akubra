@@ -81,3 +81,5 @@ testImports:
   - suite
 - name: github.com/hashicorp/consul
   version: 44b2b1726b8de96e50eb5d49cd8491577f652d03
+- name: github.com/allegro/mesos-executor
+  version: 93a26d21312e15b14035462d3b9008c985317908
