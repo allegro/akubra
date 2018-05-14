@@ -21,7 +21,7 @@ type Services struct {
 
 // GetEndpoint by service name
 func (s *Services) GetEndpoint(serviceName string) (url *url.URL, err error) {
-	resolver := s.PrepareInstancesByServiceName(serviceName)
+	resolver := s.UpdateInstences(serviceName)
 	if resolver != nil {
 		url = resolver.prepareCurrentEndpoint()
 	} else {
@@ -30,8 +30,8 @@ func (s *Services) GetEndpoint(serviceName string) (url *url.URL, err error) {
 	return
 }
 
-// PrepareInstancesByServiceName get service instances form service discovery
-func (s *Services) PrepareInstancesByServiceName(serviceName string) (resolver *Resolver) {
+// UpdateInstences get service instances form service discovery
+func (s *Services) UpdateInstences(serviceName string) (resolver *Resolver) {
 	value, exists := s.Instances.Load(serviceName)
 	if exists {
 		resolver = value.(*Resolver)

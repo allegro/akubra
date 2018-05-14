@@ -29,7 +29,6 @@ import:
   subpackages:
   - s3signer
 - package: github.com/hashicorp/consul/api
-- package: github.com/pmylund/go-cache
 testImport:
 - package: github.com/DATA-DOG/go-sqlmock
   version: ^1.2.0

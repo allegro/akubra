@@ -48,7 +48,7 @@ func doRequest(lh *LogHook, httpClient *http.Client, payload string) (endpoint s
 func doRequestWithDiscoveryService(lh *LogHook, httpClient *http.Client, payload string) (resp *http.Response, endpoint string, err error) {
 	uri, discoveryServiceErr := lh.discoveryServiceURI(lh.Host)
 	if discoveryServiceErr != nil {
-		return nil, endpoint, discoveryServiceErr
+		return nil, "", discoveryServiceErr
 	}
 	uri.Path = uploadSynctasksURI
 	endpoint = uri.String()
