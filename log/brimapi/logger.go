@@ -1,8 +1,9 @@
 package brimapi
 
 import (
-	"github.com/sirupsen/logrus"
 	"fmt"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Credentials stores brim api credentials
