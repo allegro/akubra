@@ -38,7 +38,7 @@ func (r *Resolver) GetNodesFromConsul(service string) (entries []*api.ServiceEnt
 
 func (r *Resolver) prepareCurrentEndpoint() (currentEndpoint *url.URL) {
 	if len(r.endpoints) == 0 {
-		fmt.Errorf("empty endpoints list")
+		fmt.Printf("empty endpoints list")
 	}
 	currentEndpoint = r.endpoints[r.generator.Intn(len(r.endpoints))]
 	r.currentEndpoint = currentEndpoint

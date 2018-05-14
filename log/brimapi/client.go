@@ -18,118 +18,48 @@ const (
 	uploadSynctasksURI         = "/v1/processes/uploadsynctasks"
 	serviceDiscoverySchemeName = "service"
 	httpRequestTimeout         = time.Second * 5
-	warmUpTasksLimit           = 1000
 )
 
-type WarmUp struct {
-	Payload string
-	*LogHook
-}
-
-// TODO: DiscoveryServices -> discoveryServices
 var (
-	DiscoveryServices  *service.Services
-	httpClient         *http.Client
-	warmUpTasksCounter uint16
+	discoveryServices *service.Services
+	httpClient        *http.Client
 )
-
-// TODO: WarmUpCache -> warmCache
-var WarmUpCache = make(chan WarmUp, warmUpTasksLimit)
-
-var countTTT = 0
 
 func init() {
-	var httpClient = &http.Client{
+	httpClient = &http.Client{
 		Timeout: httpRequestTimeout,
 	}
-
-	consulClient, err := api.NewClient(&api.Config{
-		Address: "consul-dev.qxlint:80",
-		Scheme:  "http",
-	})
-	// TODO: rignt client below
-	// consulClient, err := api.NewClient(api.DefaultConfig())
+	consulClient, err := api.NewClient(api.DefaultConfig())
 	if err != nil {
-		fmt.Errorf("unable to create Consul client: %s", err)
+		fmt.Printf("unable to create Consul client: %s", err)
 	}
 
-	//TODO: warmCache - why NOT ?????
-	logrus.Infof("Starting warmup goroutine")
-	go sendWarmUpSyncData(httpClient, WarmUpCache)
-
-	DiscoveryServices = service.New(consulClient, logrus.Infof)
+	discoveryServices = service.New(consulClient)
 }
 
-func sendWarmUpSyncData(httpClient *http.Client, warmup <-chan WarmUp) {
-	for {
-		select {
-		case w := <-warmup:
-			logrus.Infof("GOT FROM WARMUP CACHE msg: %s", w.Payload)
-			resp, err := doRequestWithDiscoveryService(w.LogHook, httpClient, w.Payload)
-			if err == nil {
-				err = discardBody(resp)
-				if err != nil {
-					logrus.Infof("ADD WARMUP CACHE AGAIN - discardBody error")
-					WarmUpCache <- w
-					time.Sleep(1 * time.Second)
-				}
-			} else {
-				logrus.Infof("ADD WARMUP CACHE AGAIN - request error")
-				WarmUpCache <- w
-				time.Sleep(2 * time.Second)
-			}
-		}
-	}
-}
-
-/*
-
-func PrepareWarmUpPayload(warmup <-chan WarmUp) {
-	for {
-		select {
-		case w := <-warmup:
-			logrus.Infof("GOT FROM WARMUP CACHE msg: %s", w.Payload)
-			if countTTT > 5 {
-				logrus.Infof("PUT AGAIN TO WARMUP CACHE msg: %s", w.Payload)
-				WarmUpCache <- w
-				time.Sleep(3 * time.Second)
-			}
-			time.Sleep(1 * time.Second)
-			countTTT++
-		}
-	}
-}
-*/
-
-func doRequest(lh *LogHook, httpClient *http.Client, payload string) error {
-	resp, err := doRequestWithDiscoveryService(lh, httpClient, payload)
+func doRequest(lh *LogHook, httpClient *http.Client, payload string) (endpoint string, err error) {
+	resp, endpoint, err := doRequestWithDiscoveryService(lh, httpClient, payload)
 	if err != nil {
-		return fmt.Errorf("problem with sync task with payload: %s - err: %s", payload, err)
+		return
 	}
-	return discardBody(resp)
+	return endpoint, discardBody(resp)
 }
 
-func doRequestWithDiscoveryService(lh *LogHook, httpClient *http.Client, payload string) (resp *http.Response, err error) {
+func doRequestWithDiscoveryService(lh *LogHook, httpClient *http.Client, payload string) (resp *http.Response, endpoint string, err error) {
 	uri, discoveryServiceErr := lh.discoveryServiceURI(lh.Host)
-	logrus.Infof("    - uri: %s", uri)
-
 	if discoveryServiceErr != nil {
-		//TODO: revert below after warmup tests
-		warmup := WarmUp{
-			Payload: payload,
-			LogHook: lh,
-		}
-		logrus.Infof("ADD PAYLOLAD TO WARMUP CACHE: %s", warmup.Payload)
-		WarmUpCache <- warmup
-		return nil, discoveryServiceErr
+		return nil, endpoint, discoveryServiceErr
 	}
 	uri.Path = uploadSynctasksURI
-	req, reqRrr := http.NewRequest(
+	endpoint = uri.String()
+	logrus.Debugf("sync task endpoint: %s", endpoint)
+
+	req, requestErr := http.NewRequest(
 		http.MethodPut,
-		uri.String(),
+		endpoint,
 		bytes.NewBuffer([]byte(payload)))
-	if reqRrr != nil {
-		return nil, reqRrr
+	if requestErr != nil {
+		return nil, endpoint, requestErr
 	}
 	req.SetBasicAuth(lh.Creds.User, lh.Creds.Pass)
 	resp, err = httpClient.Do(req)
@@ -145,7 +75,7 @@ func (lh *LogHook) discoveryServiceURI(URI string) (*url.URL, error) {
 	if !strings.HasPrefix(parsedURI.Scheme, serviceDiscoverySchemeName) {
 		return parsedURI, nil
 	}
-	return DiscoveryServices.GetEndpoint(parsedURI.Host)
+	return discoveryServices.GetEndpoint(parsedURI.Host)
 }
 
 func discardBody(resp *http.Response) error {

@@ -2,6 +2,7 @@ package brimapi
 
 import (
 	"github.com/sirupsen/logrus"
+	"fmt"
 )
 
 // Credentials stores brim api credentials
@@ -22,6 +23,11 @@ func (lh *LogHook) Levels() []logrus.Level {
 }
 
 // Fire for logrus.Hook interface compliance
-func (lh *LogHook) Fire(entry *logrus.Entry) error {
-	return doRequest(lh, httpClient, entry.Message)
+func (lh *LogHook) Fire(entry *logrus.Entry) (err error) {
+	endpoint, err := doRequest(lh, httpClient, entry.Message)
+	if err != nil {
+		return fmt.Errorf("problem with sync task by endpoint: '%s' with payload: '%s' - err: '%s'",
+			endpoint, entry.Message, err)
+	}
+	return
 }
