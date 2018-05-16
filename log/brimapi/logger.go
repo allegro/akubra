@@ -38,7 +38,7 @@ func (lh *LogHook) Fire(entry *logrus.Entry) (err error) {
 
 func (lh *LogHook) doRequest(payload string) (endpoint string, err error) {
 	resp, endpoint, err := discovery.DoRequestWithDiscoveryService(
-		discovery.GetHttpClient(), lh.Host, lh.Path, lh.Creds.User, lh.Creds.Pass, payload)
+		discovery.GetHTTPClient(), lh.Host, lh.Path, lh.Creds.User, lh.Creds.Pass, payload)
 	if err != nil {
 		return
 	}

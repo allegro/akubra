@@ -38,11 +38,7 @@ func init() {
 		}).DialContext,
 	}
 
-	consulClient, err := api.NewClient(&api.Config{
-		Address: "consul-dev.qxlint:80",
-		Scheme:  "http",
-	})
-	//consulClient, err := api.NewClient(consulConfig)
+	consulClient, err := api.NewClient(consulConfig)
 	if err != nil {
 		panic(fmt.Errorf("unable to create Consul client: %s", err))
 	}
@@ -50,8 +46,8 @@ func init() {
 	discoveryServices = New(consulClient, DefaultCacheInvalidationTimeout)
 }
 
-// GetHttpClient for service discovery
-func GetHttpClient() *http.Client {
+// GetHTTPClient for service discovery
+func GetHTTPClient() *http.Client {
 	return httpClient
 }
 
