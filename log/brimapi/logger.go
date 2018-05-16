@@ -3,6 +3,7 @@ package brimapi
 import (
 	"fmt"
 
+	"github.com/allegro/akubra/discovery"
 	"github.com/sirupsen/logrus"
 )
 
@@ -16,6 +17,7 @@ type Credentials struct {
 type LogHook struct {
 	Creds Credentials `json:"Credentials"`
 	Host  string      `json:"Host"`
+	Path  string      `json:"Path"`
 }
 
 // Levels for logrus.Hook interface complience
@@ -25,10 +27,20 @@ func (lh *LogHook) Levels() []logrus.Level {
 
 // Fire for logrus.Hook interface compliance
 func (lh *LogHook) Fire(entry *logrus.Entry) (err error) {
-	endpoint, err := doRequest(lh, httpClient, entry.Message)
+	endpoint, err := lh.doRequest(entry.Message)
 	if err != nil {
 		return fmt.Errorf("problem with sync task by endpoint: '%s' with payload: '%s' - err: '%s'",
 			endpoint, entry.Message, err)
 	}
+	fmt.Printf("put sync task by endpoint: '%s' with payload: '%s'\n", endpoint, entry.Message)
 	return
+}
+
+func (lh *LogHook) doRequest(payload string) (endpoint string, err error) {
+	resp, endpoint, err := discovery.DoRequestWithDiscoveryService(
+		discovery.GetHttpClient(), lh.Host, lh.Path, lh.Creds.User, lh.Creds.Pass, payload)
+	if err != nil {
+		return
+	}
+	return endpoint, discovery.DiscardBody(resp)
 }

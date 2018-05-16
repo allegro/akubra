@@ -1,4 +1,4 @@
-package service
+package discovery
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 
 // DefaultCacheInvalidationTimeout for updating instances
 const (
-	DefaultCacheInvalidationTimeout = 30
+	DefaultCacheInvalidationTimeout = 10
 )
 
 // Services for discovery service
@@ -43,7 +43,7 @@ func (s *Services) UpdateInstences(serviceName string) (resolver *Resolver) {
 		resolver.updateLastTimestamp()
 	}
 
-	if !instancesExists || time.Now().Unix()-resolver.TTL >= s.CacheInvalidationTimeout {
+	if !instancesExists || time.Now().Unix()-resolver.CacheTTL >= s.CacheInvalidationTimeout {
 		if instancesExists {
 			if !resolver.tryLock() {
 				return resolver

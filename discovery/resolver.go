@@ -1,4 +1,4 @@
-package service
+package discovery
 
 import (
 	"fmt"
@@ -19,7 +19,7 @@ type Resolver struct {
 	endpoints       []*url.URL
 	currentEndpoint *url.URL
 	generator       *rand.Rand
-	TTL             int64
+	CacheTTL        int64
 	lock            sync.Mutex
 }
 
@@ -43,7 +43,7 @@ func (r *Resolver) getHealthyInstanceEndpoint() (currentEndpoint *url.URL) {
 }
 
 func (r *Resolver) updateLastTimestamp() {
-	r.TTL = time.Now().Unix()
+	r.CacheTTL = time.Now().Unix()
 }
 
 func (r *Resolver) tryLock() bool {
