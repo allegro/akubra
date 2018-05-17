@@ -3,37 +3,15 @@ package storages
 import (
 	"fmt"
 	"net/http"
-	"net/url"
-	"time"
 
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
-	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/transport"
-	"github.com/allegro/akubra/types"
 
 	"github.com/allegro/akubra/storages/auth"
 	"github.com/allegro/akubra/storages/config"
 	"github.com/allegro/akubra/storages/merger"
-	set "github.com/deckarep/golang-set"
 )
-
-// NamedCluster interface
-type NamedCluster interface {
-	http.RoundTripper
-	Name() string
-	Backends() []http.RoundTripper
-}
-
-// Cluster stores information about cluster backends
-type Cluster struct {
-	backends    []http.RoundTripper
-	name        string
-	Logger      log.Logger
-	MethodSet   set.Set
-	respHandler transport.MultipleResponsesHandler
-	transport   http.RoundTripper
-}
 
 // Storages config
 type Storages struct {
@@ -43,104 +21,6 @@ type Storages struct {
 	Backends         map[string]http.RoundTripper
 	lateRespHandler  transport.MultipleResponsesHandler
 	earlyRespHandler transport.MultipleResponsesHandler
-}
-
-// Backend represents any storage in akubra cluster
-type Backend struct {
-	http.RoundTripper
-	Endpoint    url.URL
-	Name        string
-	Maintenance bool
-}
-
-// RoundTrip satisfies http.RoundTripper interface
-func (b *Backend) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-	defer b.collectMetrics(resp, err, time.Now())
-	req.URL.Host = b.Endpoint.Host
-	req.URL.Scheme = b.Endpoint.Scheme
-	// req.Host = b.Endpoint.Host
-	log.Println("Backend auth header", req.Header.Get("Authorization"))
-	reqID := req.Context().Value(log.ContextreqIDKey)
-	log.Debugf("Request %s req.URL.Host replaced with %s", reqID, req.URL.Host)
-	if b.Maintenance {
-		log.Debugf("Request %s blocked %s is in maintenance mode", reqID, req.URL.Host)
-		return nil, &types.BackendError{HostName: b.Endpoint.Host,
-			OrigErr: types.ErrorBackendMaintenance}
-	}
-
-	log.Printf("url host %s, header host %s, req host %s", req.URL.Host, req.Header.Get("Host"), req.Host)
-	resp, oerror := b.RoundTripper.RoundTrip(req)
-
-	if oerror != nil {
-		err = &types.BackendError{HostName: b.Endpoint.Host, OrigErr: oerror}
-	}
-	return resp, err
-}
-
-func (b *Backend) collectMetrics(resp *http.Response, err error, since time.Time) {
-	metrics.UpdateSince("reqs.backend."+b.Name+".all", since)
-	if err != nil {
-		metrics.UpdateSince("reqs.backend."+b.Name+".err", since)
-	}
-	if resp != nil {
-		statusName := fmt.Sprintf("reqs.backend."+b.Name+".status_%d", resp.StatusCode)
-		metrics.UpdateSince(statusName, since)
-		methodName := fmt.Sprintf("reqs.backend."+b.Name+".method_%s", resp.Request.Method)
-		metrics.UpdateSince(methodName, since)
-	}
-}
-
-func (c *Cluster) setupRoundTripper(syncLog log.Logger, enableMultipart bool) {
-	log.Debugf("Cluster %s enabled mp %t", c.Name(), enableMultipart)
-	multiTransport := transport.NewMultiTransport(
-		c.Backends(),
-		c.respHandler)
-
-	c.transport = multiTransport
-	if enableMultipart {
-		clusterRoundTripper := NewMultiPartRoundTripper(c, syncLog)
-
-		c.transport = clusterRoundTripper
-		log.Debugf("Cluster %s has multipart setup successfully", c.name)
-	}
-}
-
-// RoundTrip implements http.RoundTripper interface
-func (c *Cluster) RoundTrip(req *http.Request) (*http.Response, error) {
-	log.Debugf("RT cluster %s, %T", c.Name(), c.transport)
-	return c.transport.RoundTrip(req)
-}
-
-// Name get Cluster name
-func (c *Cluster) Name() string {
-	return c.name
-}
-
-// Backends get http.RoundTripper slice
-func (c *Cluster) Backends() []http.RoundTripper {
-	return c.backends
-}
-
-func newCluster(name string, backendNames []string, backends map[string]http.RoundTripper, respHandler transport.MultipleResponsesHandler, synclog log.Logger) (*Cluster, error) {
-	clusterBackends := make([]http.RoundTripper, 0)
-	if len(backendNames) == 0 {
-		return nil, fmt.Errorf("empty 'backendNames' map in 'storages::newCluster'")
-	}
-	if len(backends) == 0 {
-		return nil, fmt.Errorf("empty 'backends' map in 'storages::newCluster'")
-	}
-	for _, backendName := range backendNames {
-		backendRT, ok := backends[backendName]
-
-		if !ok {
-			return nil, fmt.Errorf("no such backend %q in 'storages::newCluster'", backendName)
-		}
-		clusterBackends = append(clusterBackends, backendRT)
-	}
-
-	cluster := &Cluster{backends: clusterBackends, name: name, respHandler: respHandler}
-	cluster.setupRoundTripper(synclog, true)
-	return cluster, nil
 }
 
 // GetCluster gets cluster by name or nil if cluster with given name was not found

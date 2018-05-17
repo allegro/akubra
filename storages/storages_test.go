@@ -9,6 +9,7 @@ import (
 	"github.com/allegro/akubra/storages/config"
 	"github.com/allegro/akubra/transport"
 	"github.com/allegro/akubra/types"
+
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
