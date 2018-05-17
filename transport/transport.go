@@ -240,28 +240,14 @@ func (mt *MultiTransport) copyRequest(req *http.Request, cancelFun context.Cance
 	return reqs, err
 }
 
-func collectMetrics(req *http.Request, reqresperr ResErrTuple, since time.Time) {
-	host := metrics.Clean(req.URL.Host)
-	metrics.UpdateSince("reqs.backend."+host+".all", since)
-	if reqresperr.Err != nil {
-		metrics.UpdateSince("reqs.backend."+host+".err", since)
-	}
-	if reqresperr.Res != nil {
-		statusName := fmt.Sprintf("reqs.backend."+host+".status_%d", reqresperr.Res.StatusCode)
-		metrics.UpdateSince(statusName, since)
-		methodName := fmt.Sprintf("reqs.backend."+host+".method_%s", reqresperr.Res.Request.Method)
-		metrics.UpdateSince(methodName, since)
-	}
-}
-
 func (mt *MultiTransport) sendRequest(
 	req *http.Request,
 	out chan ResErrTuple, backend http.RoundTripper) {
 	ctx := req.Context()
 	requestID := ctx.Value(log.ContextreqIDKey)
 
-	since := time.Now()
-	o := make(chan ResErrTuple)
+	output := make(chan ResErrTuple)
+
 	go func() {
 		resp, err := backend.RoundTrip(req.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, requestID)))
 		if err != nil {
@@ -270,16 +256,15 @@ func (mt *MultiTransport) sendRequest(
 		log.Debugf("Sent request %s to %s", requestID, req.URL.Host)
 		failed := err != nil || resp != nil && (resp.StatusCode < 200 || resp.StatusCode > 399)
 		r := ResErrTuple{Res: resp, Err: err, Failed: failed, Time: time.Now()}
-		o <- r
+		output <- r
 	}()
 	var reqresperr ResErrTuple
-	defer collectMetrics(req, reqresperr, since)
 
 	select {
 	case <-ctx.Done():
 		log.Debugf("Ctx Done reqID %s ", requestID)
 		reqresperr = ResErrTuple{Res: nil, Err: ErrBodyContentLengthMismatch, Failed: true, Time: time.Now()}
-	case reqresperr = <-o:
+	case reqresperr = <-output:
 		break
 	}
 	reqresperr.Req = req
@@ -296,7 +281,7 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 		return nil, err
 	}
 
-	c := make(chan ResErrTuple, len(reqs))
+	responseTuplesChan := make(chan ResErrTuple, len(reqs))
 	if len(reqs) == 0 {
 		return nil, errors.New("No requests provided")
 	}
@@ -306,8 +291,8 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 		wg.Add(1)
 		r := reqs[i].WithContext(bctx)
 		log.Debugf("RoundTrip with ctxID %s\n", bctx.Value(log.ContextreqIDKey))
-		go func(backend http.RoundTripper, r *http.Request) {
-			mt.sendRequest(r, c, backend)
+		go func(backend http.RoundTripper, request *http.Request) {
+			mt.sendRequest(request, responseTuplesChan, backend)
 			wg.Done()
 		}(backend, r)
 	}
@@ -315,9 +300,9 @@ func (mt *MultiTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 	// close c chanel once all requests comes in
 	go func() {
 		wg.Wait()
-		close(c)
+		close(responseTuplesChan)
 	}()
-	resTup := mt.HandleResponses(c)
+	resTup := mt.HandleResponses(responseTuplesChan)
 	return resTup.Res, resTup.Err
 }
 
