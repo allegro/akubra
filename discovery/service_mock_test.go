@@ -2,11 +2,12 @@ package discovery
 
 import (
 	"fmt"
-	"github.com/golib/assert"
-	"github.com/hashicorp/consul/api"
-	"github.com/stretchr/testify/mock"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/consul/api"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type ConsulClientWrapperMock struct {
@@ -42,8 +43,8 @@ func TestShouldGetEndpointWhenOneInstanceExists(t *testing.T) {
 
 	instance, err := services.GetEndpoint("my-service")
 
-	assert.NoError(t, err)
-	assert.Equal(t, instance.Host, expectedHost)
+	require.NoError(t, err)
+	require.Equal(t, instance.Host, expectedHost)
 }
 
 func TestShouldGetEndpointWhenTwoInstancesExists(t *testing.T) {
@@ -57,9 +58,8 @@ func TestShouldGetEndpointWhenTwoInstancesExists(t *testing.T) {
 
 	instance, err := services.GetEndpoint("my-service")
 
-	assert.NoError(t, err)
-
-	assert.True(t, instance.Host == expectedHost1 || instance.Host == expectedHost2)
+	require.NoError(t, err)
+	require.True(t, instance.Host == expectedHost1 || instance.Host == expectedHost2)
 }
 
 func TestShouldGetEndpointReturnEndpointAfterTwiceCalling(t *testing.T) {
@@ -73,15 +73,15 @@ func TestShouldGetEndpointReturnEndpointAfterTwiceCalling(t *testing.T) {
 
 	instance, err := services.GetEndpoint("my-service")
 
-	assert.NoError(t, err)
-	assert.True(t, instance.Host == expectedHost1 || instance.Host == expectedHost2)
+	require.NoError(t, err)
+	require.True(t, instance.Host == expectedHost1 || instance.Host == expectedHost2)
 
 	time.Sleep(2 * time.Second)
 
 	instance, err = services.GetEndpoint("my-service")
 
-	assert.NoError(t, err)
-	assert.True(t, instance.Host == expectedHost1 || instance.Host == expectedHost2)
+	require.NoError(t, err)
+	require.True(t, instance.Host == expectedHost1 || instance.Host == expectedHost2)
 }
 
 func TestShouldNotGetEndpoint(t *testing.T) {
@@ -90,7 +90,7 @@ func TestShouldNotGetEndpoint(t *testing.T) {
 
 	_, err := services.GetEndpoint("my-service")
 
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func prepareConsulClientMock(address string, port int, entitiesCount int) IClient {
