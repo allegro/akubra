@@ -43,6 +43,3 @@ testImport:
 - package: github.com/allegro/mesos-executor
   subpackages:
   - xnet
-- package: github.com/hashicorp/consul
-  subpackages:
-  - testutil

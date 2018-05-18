@@ -15,18 +15,19 @@ import (
 
 // Resolver for discovery service
 type Resolver struct {
-	consulClient    *api.Client
-	endpoints       []*url.URL
-	currentEndpoint *url.URL
-	generator       *rand.Rand
-	CacheTTL        int64
-	lock            sync.Mutex
+	consulClient        IClient
+	endpoints           []*url.URL
+	currentEndpoint     *url.URL
+	generator           *rand.Rand
+	LastUpdateTimestamp int64
+	lock                sync.Mutex
 }
 
 // GetNodesFromConsul get service nodes form service discovery
 func (r *Resolver) GetNodesFromConsul(service string) (entries []*api.ServiceEntry) {
 	entries = make([]*api.ServiceEntry, 0)
-	nodes, _, error := r.consulClient.Health().Service(service, "", true, &api.QueryOptions{
+	health := r.consulClient.Health()
+	nodes, _, error := health.Service(service, "", true, &api.QueryOptions{
 		AllowStale:        true,
 		RequireConsistent: false,
 	})
@@ -43,7 +44,14 @@ func (r *Resolver) getHealthyInstanceEndpoint() (currentEndpoint *url.URL) {
 }
 
 func (r *Resolver) updateLastTimestamp() {
-	r.CacheTTL = time.Now().Unix()
+	r.LastUpdateTimestamp = time.Now().Unix()
+}
+
+func (r *Resolver) prepareInstancesEndpoints(entries []*api.ServiceEntry) {
+	r.endpoints = make([]*url.URL, 0)
+	for _, entry := range entries {
+		r.endpoints = append(r.endpoints, serviceEntryToURL(entry))
+	}
 }
 
 func (r *Resolver) tryLock() bool {
@@ -62,7 +70,7 @@ func serviceEntryToURL(entry *api.ServiceEntry) *url.URL {
 }
 
 // NewResolver for discovery client
-func NewResolver(consulClient *api.Client) *Resolver {
+func NewResolver(consulClient IClient) *Resolver {
 	return &Resolver{
 		consulClient: consulClient,
 		generator:    rand.New(rand.NewSource(time.Now().UnixNano())),

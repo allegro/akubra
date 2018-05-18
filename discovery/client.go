@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"net"
 
 	"github.com/hashicorp/consul/api"
 )
@@ -37,13 +38,24 @@ func init() {
 			DualStack: true,
 		}).DialContext,
 	}
-
-	consulClient, err := api.NewClient(consulConfig)
+	consulClient, err := NewClientWrapper(consulConfig, httpClient)
 	if err != nil {
-		panic(fmt.Errorf("unable to create Consul client: %s", err))
+		panic(err)
 	}
 
-	discoveryServices = New(consulClient, DefaultCacheInvalidationTimeout)
+	discoveryServices = NewServices(consulClient, DefaultCacheInvalidationTimeout)
+}
+
+// NewClientWrapper returns a new Consul client wrapper
+func NewClientWrapper(config *api.Config, httpClient *http.Client) (IClient, error) {
+	var err error
+	config.HttpClient = httpClient
+	cfg := &ClientWrapper{}
+	cfg.Client, err = api.NewClient(config)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create new Consul client: %s", err)
+	}
+	return cfg, nil
 }
 
 // GetHTTPClient for service discovery

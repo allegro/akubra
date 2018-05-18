@@ -14,16 +14,46 @@ const (
 	DefaultCacheInvalidationTimeout = 10
 )
 
+// IHealth interface
+type IHealth interface {
+	Service(service, tag string, passingOnly bool, q *api.QueryOptions) ([]*api.ServiceEntry, *api.QueryMeta, error)
+}
+
+// HealthWrapper for consul api.Health
+type HealthWrapper struct {
+	c *api.Health
+}
+
+// Service function wrapper
+func (hw *HealthWrapper) Service(service, tag string, passingOnly bool, q *api.QueryOptions) ([]*api.ServiceEntry, *api.QueryMeta, error) {
+	return hw.c.Service(service, tag, passingOnly, q)
+}
+
+// IClient interface
+type IClient interface {
+	Health() IHealth
+}
+
+// ClientWrapper for consul api.Client
+type ClientWrapper struct {
+	Client *api.Client
+}
+
+// Health function wrapper
+func (c *ClientWrapper) Health() IHealth {
+	return c.Client.Health()
+}
+
 // Services for discovery service
 type Services struct {
-	ConsulClient             *api.Client
-	Instances                *syncmap.Map
-	CacheInvalidationTimeout int64
+	ConsulClient IClient
+	Instances    *syncmap.Map
+	CacheTTL     int64
 }
 
 // GetEndpoint by service name
 func (s *Services) GetEndpoint(serviceName string) (url *url.URL, err error) {
-	resolver := s.UpdateInstences(serviceName)
+	resolver := s.UpdateInstances(serviceName)
 	if resolver != nil && len(resolver.endpoints) > 0 {
 		url = resolver.getHealthyInstanceEndpoint()
 	} else {
@@ -32,18 +62,17 @@ func (s *Services) GetEndpoint(serviceName string) (url *url.URL, err error) {
 	return
 }
 
-// UpdateInstences get service instances from service discovery
-func (s *Services) UpdateInstences(serviceName string) (resolver *Resolver) {
+// UpdateInstances get service instances from service discovery
+func (s *Services) UpdateInstances(serviceName string) (resolver *Resolver) {
 	value, instancesExists := s.Instances.Load(serviceName)
 	if instancesExists {
 		resolver = value.(*Resolver)
 	} else {
 		s.Instances = new(syncmap.Map)
 		resolver = NewResolver(s.ConsulClient)
-		resolver.updateLastTimestamp()
 	}
 
-	if !instancesExists || time.Now().Unix()-resolver.CacheTTL >= s.CacheInvalidationTimeout {
+	if !instancesExists || time.Now().Unix()-resolver.LastUpdateTimestamp >= s.CacheTTL {
 		if instancesExists {
 			if !resolver.tryLock() {
 				return resolver
@@ -52,21 +81,19 @@ func (s *Services) UpdateInstences(serviceName string) (resolver *Resolver) {
 			resolver.lock.Lock()
 		}
 		entries := resolver.GetNodesFromConsul(serviceName)
-
-		resolver.endpoints = make([]*url.URL, 0)
-		for _, entry := range entries {
-			resolver.endpoints = append(resolver.endpoints, serviceEntryToURL(entry))
+		if len(entries) > 0 {
+			resolver.prepareInstancesEndpoints(entries)
+			s.Instances.Store(serviceName, resolver)
 		}
 		resolver.updateLastTimestamp()
-		s.Instances.Store(serviceName, resolver)
 		resolver.lock.Unlock()
 	}
 
 	return resolver
 }
 
-// New Services constructor
-func New(consulClient *api.Client, cacheInvalidationTimeout int64) *Services {
+// NewServices constructor
+func NewServices(consulClient IClient, cacheInvalidationTimeout int64) *Services {
 	return &Services{
 		consulClient,
 		new(syncmap.Map),
