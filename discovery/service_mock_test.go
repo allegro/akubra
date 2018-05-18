@@ -3,12 +3,15 @@ package discovery
 import (
 	"fmt"
 	"testing"
-	"time"
+
+	"net/url"
 
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+const testServiceName = "my-service"
 
 type ConsulClientWrapperMock struct {
 	mock.Mock
@@ -41,7 +44,7 @@ func TestShouldGetEndpointWhenOneInstanceExists(t *testing.T) {
 	consulClientMock := prepareConsulClientMock(host, port, 1)
 	services := NewServices(consulClientMock, 1)
 
-	instance, err := services.GetEndpoint("my-service")
+	instance, err := services.GetEndpoint(testServiceName)
 
 	require.NoError(t, err)
 	require.Equal(t, instance.Host, expectedHost)
@@ -56,39 +59,37 @@ func TestShouldGetEndpointWhenTwoInstancesExists(t *testing.T) {
 	consulClientMock := prepareConsulClientMock(host, port, 2)
 	services := NewServices(consulClientMock, 5)
 
-	instance, err := services.GetEndpoint("my-service")
+	instance, err := services.GetEndpoint(testServiceName)
 
 	require.NoError(t, err)
-	require.True(t, instance.Host == expectedHost1 || instance.Host == expectedHost2)
+	require.True(t, existAnyHostInInstance(instance, expectedHost1, expectedHost2))
 }
 
-func TestShouldGetEndpointReturnEndpointAfterTwiceCalling(t *testing.T) {
+func TestShouldReturnEndpointAfterDoubleCallingWithCacheRevalidation(t *testing.T) {
 	host := "localhost"
 	port := 12345
 	expectedHost1 := fmt.Sprintf("%s:%d", host, port)
 	expectedHost2 := fmt.Sprintf("%s:%d", host, port+1)
 
 	consulClientMock := prepareConsulClientMock(host, port, 2)
-	services := NewServices(consulClientMock, 1)
+	services := NewServices(consulClientMock, 0)
 
-	instance, err := services.GetEndpoint("my-service")
-
-	require.NoError(t, err)
-	require.True(t, instance.Host == expectedHost1 || instance.Host == expectedHost2)
-
-	time.Sleep(2 * time.Second)
-
-	instance, err = services.GetEndpoint("my-service")
+	instance, err := services.GetEndpoint(testServiceName)
 
 	require.NoError(t, err)
-	require.True(t, instance.Host == expectedHost1 || instance.Host == expectedHost2)
+	require.True(t, existAnyHostInInstance(instance, expectedHost1, expectedHost2))
+
+	instance, err = services.GetEndpoint(testServiceName)
+
+	require.NoError(t, err)
+	require.True(t, existAnyHostInInstance(instance, expectedHost1, expectedHost2))
 }
 
 func TestShouldNotGetEndpoint(t *testing.T) {
 	consulClientMock := prepareConsulClientMock("", 0, 0)
 	services := NewServices(consulClientMock, 10)
 
-	_, err := services.GetEndpoint("my-service")
+	_, err := services.GetEndpoint(testServiceName)
 
 	require.Error(t, err)
 }
@@ -114,4 +115,8 @@ func prepareConsulClientMock(address string, port int, entitiesCount int) IClien
 	consulClientMock.On("Health").Return(consulHealthMock)
 
 	return consulClientMock
+}
+
+func existAnyHostInInstance(instance *url.URL, expectedHost1, expectedHost2 string) bool {
+	return instance.Host == expectedHost1 || instance.Host == expectedHost2
 }
