@@ -50,7 +50,7 @@ func TestShouldGetEndpointWhenOneInstanceExists(t *testing.T) {
 	require.Equal(t, instance.Host, expectedHost)
 }
 
-func TestShouldGetEndpointWhenTwoInstancesExists(t *testing.T) {
+func TestShouldGetEndpointWhenTwoInstancesExist(t *testing.T) {
 	host := "localhost"
 	port := 12345
 	expectedHost1 := fmt.Sprintf("%s:%d", host, port)
