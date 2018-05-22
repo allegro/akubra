@@ -11,7 +11,7 @@ import (
 func TestObjectResponsePickerAllGood(t *testing.T) {
 	responsesChan := createChanOfResponses(true, true, true)
 
-	objResponsePicker := &ObjectResponsePicker{responsesChan: responsesChan}
+	objResponsePicker := &ObjectResponsePicker{BasePicker{responsesChan: responsesChan}}
 	resp, err := objResponsePicker.Pick()
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -20,6 +20,7 @@ func TestObjectResponsePickerAllGood(t *testing.T) {
 
 func TestObjectResponsePickerSomeGood(t *testing.T) {
 	responsesSeries := [][]bool{
+		{true, true, true},
 		{true, true, false},
 		{true, false, true},
 		{true, false, false},
@@ -30,7 +31,7 @@ func TestObjectResponsePickerSomeGood(t *testing.T) {
 
 	for _, serie := range responsesSeries {
 		responsesChan := createChanOfResponses(serie...)
-		objResponsePicker := &ObjectResponsePicker{responsesChan: responsesChan}
+		objResponsePicker := &ObjectResponsePicker{BasePicker{responsesChan: responsesChan}}
 		resp, err := objResponsePicker.Pick()
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -41,10 +42,42 @@ func TestObjectResponsePickerSomeGood(t *testing.T) {
 func TestObjectResponsePickerAllBad(t *testing.T) {
 	responsesChan := createChanOfResponses(false, false, false)
 
-	objResponsePicker := &ObjectResponsePicker{responsesChan: responsesChan}
+	objResponsePicker := &ObjectResponsePicker{BasePicker{responsesChan: responsesChan}}
 	resp, err := objResponsePicker.Pick()
 	require.Error(t, err)
 	require.Nil(t, resp)
+}
+
+func TestDeleteResponsePickerSomeBad(t *testing.T) {
+	responsesSeries := [][]bool{
+		{true, true, false},
+		{true, false, true},
+		{true, false, false},
+
+		{false, true, true},
+		{false, false, true},
+		{false, true, false},
+		{false, false, false},
+	}
+
+	for _, serie := range responsesSeries {
+		responsesChan := createChanOfResponses(serie...)
+		delResponsePicker := &deleteResponsePicker{BasePicker{responsesChan: responsesChan}}
+		resp, err := delResponsePicker.Pick()
+		require.Error(t, err)
+		require.Nil(t, resp)
+	}
+}
+
+func TestDeleteResponsePickerAllGood(t *testing.T) {
+	responsesChan := createChanOfResponses(true, true, true)
+
+	delResponsePicker := &deleteResponsePicker{BasePicker{responsesChan: responsesChan}}
+	resp, err := delResponsePicker.Pick()
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.True(t, resp.StatusCode < 400)
+
 }
 
 func createChanOfResponses(successful ...bool) chan BackendResponse {

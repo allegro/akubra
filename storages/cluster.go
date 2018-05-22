@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/allegro/akubra/log"
-	"github.com/allegro/akubra/transport"
 	set "github.com/deckarep/golang-set"
 )
 
@@ -13,38 +12,21 @@ import (
 type NamedCluster interface {
 	http.RoundTripper
 	Name() string
-	Backends() []http.RoundTripper
+	Backends() []*Backend
 }
 
 // Cluster stores information about cluster backends
 type Cluster struct {
-	backends    []http.RoundTripper
-	name        string
-	Logger      log.Logger
-	MethodSet   set.Set
-	respHandler transport.MultipleResponsesHandler
-	transport   http.RoundTripper
-}
-
-func (c *Cluster) setupRoundTripper(syncLog log.Logger, enableMultipart bool) {
-	log.Debugf("Cluster %s enabled mp %t", c.Name(), enableMultipart)
-	multiTransport := transport.NewMultiTransport(
-		c.Backends(),
-		c.respHandler)
-
-	c.transport = multiTransport
-	if enableMultipart {
-		clusterRoundTripper := NewMultiPartRoundTripper(c, syncLog)
-
-		c.transport = clusterRoundTripper
-		log.Debugf("Cluster %s has multipart setup successfully", c.name)
-	}
+	backends   []*Backend
+	name       string
+	Logger     log.Logger
+	MethodSet  set.Set
+	dispatcher dispatcher
 }
 
 // RoundTrip implements http.RoundTripper interface
 func (c *Cluster) RoundTrip(req *http.Request) (*http.Response, error) {
-	log.Debugf("RT cluster %s, %T", c.Name(), c.transport)
-	return c.transport.RoundTrip(req)
+	return c.dispatcher.Dispatch(req)
 }
 
 // Name get Cluster name
@@ -53,28 +35,20 @@ func (c *Cluster) Name() string {
 }
 
 // Backends get http.RoundTripper slice
-func (c *Cluster) Backends() []http.RoundTripper {
+func (c *Cluster) Backends() []*Backend {
 	return c.backends
 }
 
-func newCluster(name string, backendNames []string, backends map[string]http.RoundTripper, respHandler transport.MultipleResponsesHandler, synclog log.Logger) (*Cluster, error) {
-	clusterBackends := make([]http.RoundTripper, 0)
-	if len(backendNames) == 0 {
-		return nil, fmt.Errorf("empty 'backendNames' map in 'storages::newCluster'")
-	}
-	if len(backends) == 0 {
-		return nil, fmt.Errorf("empty 'backends' map in 'storages::newCluster'")
-	}
+func newCluster(name string, backendNames []string, backends map[string]*Backend, synclog log.Logger) (*Cluster, error) {
+	clusterBackends := make([]*Backend, 0)
 	for _, backendName := range backendNames {
 		backendRT, ok := backends[backendName]
-
 		if !ok {
 			return nil, fmt.Errorf("no such backend %q in 'storages::newCluster'", backendName)
 		}
 		clusterBackends = append(clusterBackends, backendRT)
 	}
 
-	cluster := &Cluster{backends: clusterBackends, name: name, respHandler: respHandler}
-	cluster.setupRoundTripper(synclog, true)
+	cluster := &Cluster{backends: clusterBackends, name: name, dispatcher: NewRequestDispatcher(clusterBackends)}
 	return cluster, nil
 }

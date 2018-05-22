@@ -9,12 +9,12 @@ import (
 	"strconv"
 
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/storages/merger/s3datatypes"
-	"github.com/allegro/akubra/transport"
 )
 
 // MergeVersionsResponses unifies responses from multiple backends
-func MergeVersionsResponses(successes []transport.ResErrTuple) (resp *http.Response, err error) {
+func MergeVersionsResponses(successes []backend.Response) (resp *http.Response, err error) {
 	if len(successes) == 0 {
 		log.Printf("No successful response")
 		err = fmt.Errorf("No successful responses")
@@ -26,13 +26,13 @@ func MergeVersionsResponses(successes []transport.ResErrTuple) (resp *http.Respo
 	}
 	var listBucketResult s3datatypes.ListVersionsResult
 	for _, tuple := range successes {
-		resp = tuple.Res
+		resp = tuple.Response
 		listBucketResult = extractListVersionsResults(resp)
 		keysContainer.append(listBucketResult.Version.ToStringer()...)
 		keysContainer.append(listBucketResult.DeleteMarker.ToStringer()...)
 	}
 
-	req := successes[0].Res.Request
+	req := successes[0].Response.Request
 	reqQuery := req.URL.Query()
 	maxKeysQuery := reqQuery.Get("max-keys")
 	maxKeys, err := strconv.Atoi(maxKeysQuery)

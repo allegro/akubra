@@ -14,8 +14,8 @@ import (
 
 func TestReplicationClientCreation(t *testing.T) {
 	backends := []*Backend{}
-	client := NewReplicationClient(backends)
-	require.NotNil(t, client)
+	cli := newReplicationClient(backends)
+	require.NotNil(t, cli)
 }
 
 func TestReplicationClientRequestPassing(t *testing.T) {
@@ -26,11 +26,11 @@ func TestReplicationClientRequestPassing(t *testing.T) {
 	}
 
 	backends := []*Backend{createDummyBackend(callClountHandler)}
-	client := NewReplicationClient(backends)
-	require.NotNil(t, client)
+	cli := newReplicationClient(backends)
+	require.NotNil(t, cli)
 
 	request := dummyRequest()
-	responses := client.Do(request)
+	responses := cli.Do(request)
 
 	responsesCount := 0
 	for _ = range responses {
@@ -58,7 +58,7 @@ func TestHttpCancelContext(t *testing.T) {
 	errChan := make(chan error)
 	start := time.Now()
 	go func() {
-		_, err := cli.Do(requestWithCtx)
+		_, err = cli.Do(requestWithCtx)
 		errChan <- err
 	}()
 
@@ -73,14 +73,14 @@ func TestHttpCancelContext(t *testing.T) {
 func TestReplicationClientCancelRequest(t *testing.T) {
 	backends := []*Backend{createDummyBackend(slowRoundTripper), createDummyBackend(successRoundTripper)}
 
-	client := NewReplicationClient(backends)
+	cli := newReplicationClient(backends)
 	request := dummyRequest()
 
-	responses := client.Do(request)
+	responses := cli.Do(request)
 
 	cancelCount := 0
 	for resp := range responses {
-		err := client.Cancel()
+		err := cli.Cancel()
 		require.NoError(t, err, "Cancel should not return error once Do method is called")
 		if resp.Error == ErrRequestCanceled {
 			cancelCount++
@@ -113,4 +113,12 @@ var successRoundTripper = func(req *http.Request) (*http.Response, error) {
 func createDummyBackend(handler RequestHandler) *Backend {
 	url, _ := url.Parse("http://some.url")
 	return &Backend{Endpoint: *url, RoundTripper: &testRt{rt: handler}}
+}
+
+type testRt struct {
+	rt func(*http.Request) (*http.Response, error)
+}
+
+func (trt *testRt) RoundTrip(req *http.Request) (*http.Response, error) {
+	return trt.rt(req)
 }

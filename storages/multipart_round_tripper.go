@@ -13,6 +13,7 @@ import (
 
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/types"
 	"github.com/allegro/akubra/utils"
 	"github.com/serialx/hashring"
@@ -22,91 +23,89 @@ import (
 // to the backend selected using the active backends hash ring, otherwise the cluster round tripper is used
 // to handle the operation in standard fashion
 type MultiPartRoundTripper struct {
-	fallBackRoundTripper  http.RoundTripper
 	syncLog               log.Logger
-	backendsRoundTrippers map[string]*Backend
+	backendsRoundTrippers map[string]*backend.Backend
 	backendsRing          *hashring.HashRing
 	backendsEndpoints     []string
 }
 
-// NewMultiPartRoundTripper constructs a new MultiPartRoundTripper and returns a pointer to it
-func NewMultiPartRoundTripper(cluster *Cluster, syncLog log.Logger) *MultiPartRoundTripper {
+// Cancel Client interface
+func (multiPartRoundTripper MultiPartRoundTripper) Cancel() error { return nil }
 
-	multiPartRoundTripper := &MultiPartRoundTripper{
-		fallBackRoundTripper: cluster.transport,
-		syncLog:              syncLog,
-	}
-	log.Debug("NewMultipart ", cluster.Name(), " ", cluster.name, " ", len(cluster.Backends()))
-	multiPartRoundTripper.setupRoundTripper(cluster.Backends())
-	return multiPartRoundTripper
-}
-
-func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends []http.RoundTripper) {
-
+// newMultiPartRoundTripper initializes multipart client
+func newMultiPartRoundTripper(backends []*Backend) client {
+	multiPartRoundTripper := &MultiPartRoundTripper{}
 	var backendsEndpoints []string
 	var activeBackendsEndpoints []string
 
 	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*Backend)
 
-	for _, roundTripper := range backends {
-
-		if backend, isBackendType := roundTripper.(*Backend); isBackendType {
-
-			if !backend.Maintenance {
-				multiPartRoundTripper.backendsRoundTrippers[backend.Endpoint.Host] = backend
-				activeBackendsEndpoints = append(activeBackendsEndpoints, backend.Endpoint.Host)
-			}
-
-			backendsEndpoints = append(backendsEndpoints, backend.Endpoint.Host)
+	for _, backend := range backends {
+		if !backend.Maintenance {
+			multiPartRoundTripper.backendsRoundTrippers[backend.Endpoint.Host] = backend
+			activeBackendsEndpoints = append(activeBackendsEndpoints, backend.Endpoint.Host)
 		}
+
+		backendsEndpoints = append(backendsEndpoints, backend.Endpoint.Host)
 	}
 
 	multiPartRoundTripper.backendsEndpoints = backendsEndpoints
 	multiPartRoundTripper.backendsRing = hashring.New(activeBackendsEndpoints)
+	return multiPartRoundTripper
 }
 
-// RoundTrip performs a RoundTrip using the strategy described in MultiPartRoundTripper
-func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Request) (response *http.Response, requestError error) {
-
-	if isMultiPartUploadRequest(request) {
-
-		if !multiPartRoundTripper.canHandleMultiUpload() {
-			log.Debugf("Multi upload for %s failed - no backends available.", request.URL.Path)
-			return nil, errors.New("Can't handle multi upload")
-		}
-
-		multiUploadBackend, backendSelectError := multiPartRoundTripper.pickBackend(request.URL.Path)
-
-		if backendSelectError != nil {
-			log.Debugf("Multi upload failed for %s - %s", backendSelectError, request.URL.Path)
-			return nil, errors.New("Can't handle multi upload")
-		}
-
-		log.Debugf("Handling multipart upload, sending %s to %s, RequestID id %s",
-			request.URL.Path,
-			multiUploadBackend.Endpoint,
-			request.Context().Value(log.ContextreqIDKey))
-
-		response, requestError = multiUploadBackend.RoundTrip(request)
-
-		if requestError != nil {
-			log.Debugf("Error during multipart upload: %s", requestError)
-			return
-		}
-
-		if !isInitiateRequest(request) && isCompleteUploadResponseSuccessful(response) {
-			go multiPartRoundTripper.reportCompletionToMigrator(response)
-		}
-
-		log.Debugf("Served multipart request, response code %d, status %s", response.StatusCode, response.Status)
-
-		return
+// Do performs backend request
+func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *http.Request) <-chan BackendResponse {
+	out := make(chan BackendResponse)
+	if !multiPartRoundTripper.canHandleMultiUpload() {
+		log.Debugf("Multi upload for %s failed - no backends available.", request.URL.Path)
+		go func() {
+			out <- BackendResponse{Response: nil, Error: errors.New("Can't handle multi upload")}
+			close(out)
+		}()
+		return out
 	}
 
-	return multiPartRoundTripper.fallBackRoundTripper.RoundTrip(request)
+	multiUploadBackend, backendSelectError := multiPartRoundTripper.pickBackend(request.URL.Path)
+
+	if backendSelectError != nil {
+		log.Debugf("Multi upload failed for %s - %s", backendSelectError, request.URL.Path)
+		go func() {
+			out <- BackendResponse{Response: nil, Error: errors.New("Can't handle multi upload")}
+			close(out)
+		}()
+		return out
+	}
+
+	log.Debugf("Handling multipart upload, sending %s to %s, RequestID id %s",
+		request.URL.Path,
+		multiUploadBackend.Endpoint,
+		request.Context().Value(log.ContextreqIDKey))
+
+	httpresponse, requestError := multiUploadBackend.RoundTrip(request)
+
+	if requestError != nil {
+		log.Debugf("Error during multipart upload: %s", requestError)
+
+	}
+	go func() {
+		out <- BackendResponse{Response: httpresponse, Error: requestError, Backend: multiUploadBackend}
+		log.Printf("!isInitiateRequest(request) == %t && isCompleteUploadResponseSuccessful(httpresponse)== %t\n", !isInitiateRequest(request), isCompleteUploadResponseSuccessful(httpresponse))
+		if !isInitiateRequest(request) && isCompleteUploadResponseSuccessful(httpresponse) {
+			for _, backend := range multiPartRoundTripper.backendsRoundTrippers {
+				log.Printf("got some backend to report %s", backend.Name)
+				if backend != multiUploadBackend {
+					out <- BackendResponse{Response: nil, Error: errors.New("Can't handle multi upload"), Backend: backend}
+				}
+			}
+		}
+		close(out)
+	}()
+
+	return out
 }
 
-func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath string) (*Backend, error) {
+func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath string) (*backend.Backend, error) {
 
 	backendEndpoint, nodeFound := multiPartRoundTripper.backendsRing.GetNode(objectPath)
 

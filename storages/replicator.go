@@ -3,12 +3,11 @@ package storages
 import (
 	"context"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"sync"
 
-	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/storages/backend"
+	"github.com/allegro/akubra/types"
 )
 
 // ErrRequestCanceled is returned if request was canceled
@@ -16,12 +15,12 @@ var ErrRequestCanceled = fmt.Errorf("Request canceled")
 
 // ReplicationClient is multiple endpoints client
 type ReplicationClient struct {
-	Backends   []*Backend
+	Backends   []*backend.Backend
 	cancelFunc context.CancelFunc
 }
 
-// NewReplicationClient returns ReplicarionClient
-func NewReplicationClient(backends []*Backend) *ReplicationClient {
+// newReplicationClient returns ReplicationClient
+func newReplicationClient(backends []*backend.Backend) client {
 	return &ReplicationClient{Backends: backends}
 }
 
@@ -35,6 +34,9 @@ func (rc *ReplicationClient) Do(request *http.Request) <-chan BackendResponse {
 		wg.Add(1)
 		go func(backend *Backend) {
 			requestWithContext := request.WithContext(ctx)
+			if resetter, ok := request.Body.(types.Resetter); ok {
+				requestWithContext.Body = resetter.Reset()
+			}
 			callBackend(requestWithContext, backend, responsesChan)
 			wg.Done()
 		}(backend)
@@ -55,26 +57,13 @@ func (rc *ReplicationClient) Cancel() error {
 	return nil
 }
 
-// BackendResponse helps handle responses
-type BackendResponse struct {
-	Response *http.Response
-	Error    error
-	Backend  *Backend
-}
+// BackendResponse is alias of storage.types.BackendResponse
+type BackendResponse = backend.Response
 
-// DiscardBody drain and close response Body, so connections are properly closed
-func (br *BackendResponse) DiscardBody() {
-	if br.Response == nil || br.Response.Body == nil {
-		return
-	}
-	_, err := io.Copy(ioutil.Discard, br.Response.Body)
-	if err != nil {
-		log.Printf("Discard body error %s", err)
-	}
-	err = br.Response.Body.Close()
-}
+// Backend is alias of storage.types.Backend
+type Backend = backend.Backend
 
-func callBackend(request *http.Request, backend *Backend, backendResponseChan chan BackendResponse) {
+func callBackend(request *http.Request, backend *backend.Backend, backendResponseChan chan BackendResponse) {
 	resp, err := backend.RoundTrip(request)
 	contextErr := request.Context().Err()
 	if contextErr != nil {

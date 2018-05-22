@@ -3,130 +3,118 @@ package storages
 import (
 	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
-	"sync"
+	"net/url"
 	"testing"
 
-	"net/url"
-
-	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
 	"github.com/serialx/hashring"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-type MockedSyncLog struct {
-	mock.Mock
-	log.Logger
-}
+// import (
+// 	"bytes"
+// 	"context"
+// 	"encoding/json"
+// 	"fmt"
+// 	"io/ioutil"
+// 	"net/http"
+// 	"sync"
+// 	"testing"
 
-func (syncLog *MockedSyncLog) Println(v ...interface{}) {
-	syncLog.Called(v)
-}
+// 	"net/url"
 
-func TestShouldNotDetectMultiPartUploadRequestWhenItIsARegularUpload(testSuite *testing.T) {
+// 	"github.com/allegro/akubra/httphandler"
+// 	"github.com/allegro/akubra/log"
+// 	"github.com/serialx/hashring"
+// 	"github.com/stretchr/testify/assert"
+// 	"github.com/stretchr/testify/mock"
+// )
 
-	requestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject")
-	notAMultiPartUploadRequest := &http.Request{URL: requestURL}
-	responseFromFallBackRoundTripper := &http.Response{Request: notAMultiPartUploadRequest}
+//MOVED RESPONSIBILITY TO DISPATCHER
+// func TestShouldNotDetectMultiPartUploadRequestWhenItIsARegularUpload(testSuite *testing.T) {
 
-	syncLog := &MockedSyncLog{}
-	fallbackRoundTripper := &MockedRoundTripper{}
-	activeBackendRoundTripper := &MockedRoundTripper{}
+// 	requestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject")
+// 	notAMultiPartUploadRequest := &http.Request{URL: requestURL}
+// 	responseFromFallBackRoundTripper := &http.Response{Request: notAMultiPartUploadRequest}
 
-	activeBackendURL, _ := url.Parse("http://active:1234")
+// 	syncLog := &MockedSyncLog{}
+// 	fallbackRoundTripper := &MockedRoundTripper{}
+// 	activeBackendRoundTripper := &MockedRoundTripper{}
 
-	activateBackend := &Backend{
-		RoundTripper: activeBackendRoundTripper,
-		Endpoint:     *activeBackendURL,
-		Maintenance:  false,
-		Name:         "activateBackend",
-	}
+// 	activeBackendURL, _ := url.Parse("http://active:1234")
 
-	multiPartUploadHashRing := hashring.New([]string{activeBackendURL.String()})
-	activeBackendRoundTrippers := make(map[string]*Backend)
-	activeBackendRoundTrippers[activateBackend.Endpoint.String()] = activateBackend
+// 	activateBackend := &Backend{
+// 		RoundTripper: activeBackendRoundTripper,
+// 		Endpoint:     *activeBackendURL,
+// 		Maintenance:  false,
+// 		Name:         "activateBackend",
+// 	}
 
-	multiPartRoundTripper := MultiPartRoundTripper{
-		fallbackRoundTripper,
-		nil,
-		activeBackendRoundTrippers,
-		multiPartUploadHashRing,
-		nil,
-	}
+// 	multiPartUploadHashRing := hashring.New([]string{activeBackendURL.String()})
+// 	activeBackendRoundTrippers := make(map[string]*Backend)
+// 	activeBackendRoundTrippers[activateBackend.Endpoint.String()] = activateBackend
 
-	fallbackRoundTripper.On("RoundTrip", notAMultiPartUploadRequest).Return(responseFromFallBackRoundTripper, nil)
+// 	multiPartRoundTripper := MultiPartRoundTripper{
+// 		nil,
+// 		activeBackendRoundTrippers,
+// 		multiPartUploadHashRing,
+// 		nil,
+// 	}
 
-	response, err := multiPartRoundTripper.RoundTrip(notAMultiPartUploadRequest)
+// 	fallbackRoundTripper.On("RoundTrip", notAMultiPartUploadRequest).Return(responseFromFallBackRoundTripper, nil)
 
-	assert.Equal(testSuite, response, responseFromFallBackRoundTripper)
-	assert.Nil(testSuite, err)
+// 	response, err := multiPartRoundTripper.RoundTrip(notAMultiPartUploadRequest)
 
-	fallbackRoundTripper.AssertNumberOfCalls(testSuite, "RoundTrip", 1)
-	activeBackendRoundTripper.AssertNumberOfCalls(testSuite, "RoundTrip", 0)
-	syncLog.AssertNumberOfCalls(testSuite, "Println", 0)
-}
+// 	assert.Equal(testSuite, response, responseFromFallBackRoundTripper)
+// 	assert.Nil(testSuite, err)
+
+// 	fallbackRoundTripper.AssertNumberOfCalls(testSuite, "RoundTrip", 1)
+// 	activeBackendRoundTripper.AssertNumberOfCalls(testSuite, "RoundTrip", 0)
+// 	syncLog.AssertNumberOfCalls(testSuite, "Println", 0)
+// }
 
 func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenBackendRingIsEmpty(testSuite *testing.T) {
 
 	requestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploads")
 	multiPartUploadRequest := &http.Request{URL: requestURL}
-	responseFromFallBackRoundTripper := &http.Response{Request: multiPartUploadRequest}
-
-	syncLog := &MockedSyncLog{}
-	fallbackRoundTripper := &MockedRoundTripper{}
-
 	emptyMultiPartUploadHashRing := hashring.New([]string{})
 	activeBackendRoundTrippers := make(map[string]*Backend)
 
 	multiPartRoundTripper := MultiPartRoundTripper{
-		fallbackRoundTripper,
 		nil,
 		activeBackendRoundTrippers,
 		emptyMultiPartUploadHashRing,
 		nil,
 	}
 
-	fallbackRoundTripper.On("RoundTrip", multiPartUploadRequest).Return(responseFromFallBackRoundTripper, nil)
-
-	_, err := multiPartRoundTripper.RoundTrip(multiPartUploadRequest)
-
-	assert.Error(testSuite, err, "can't handle multi upload")
-	fallbackRoundTripper.AssertNumberOfCalls(testSuite, "RoundTrip", 0)
-	syncLog.AssertNumberOfCalls(testSuite, "Println", 0)
+	respChan := multiPartRoundTripper.Do(multiPartUploadRequest)
+	for resp := range respChan {
+		assert.Error(testSuite, resp.Error, "can't handle multi upload")
+	}
 }
 
 func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenAllBackendsAreInMaintenance(testSuite *testing.T) {
 
 	requestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploads")
 	multiPartUploadRequest := &http.Request{URL: requestURL}
-	responseFromFallBackRoundTripper := &http.Response{Request: multiPartUploadRequest}
-
-	syncLog := &MockedSyncLog{}
-	fallbackRoundTripper := &MockedRoundTripper{}
 
 	maintenanceBackendURL, _ := url.Parse("http://maintenance:8421")
 	hashRingOnlyWithMaitenanceBackend := hashring.New([]string{maintenanceBackendURL.String()})
 
 	multiPartRoundTripper := MultiPartRoundTripper{
-		fallbackRoundTripper,
 		nil,
 		make(map[string]*Backend),
 		hashRingOnlyWithMaitenanceBackend,
 		nil,
 	}
 
-	fallbackRoundTripper.On("RoundTrip", multiPartUploadRequest).Return(responseFromFallBackRoundTripper, nil)
-
-	_, err := multiPartRoundTripper.RoundTrip(multiPartUploadRequest)
-
-	assert.Error(testSuite, err, "can't handle multi upload")
-	fallbackRoundTripper.AssertNumberOfCalls(testSuite, "RoundTrip", 0)
-	syncLog.AssertNumberOfCalls(testSuite, "Println", 0)
+	respChan := multiPartRoundTripper.Do(multiPartUploadRequest)
+	for resp := range respChan {
+		assert.Error(testSuite, resp.Error, "can't handle multi upload")
+	}
 }
 
 func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartRequest(testSuite *testing.T) {
@@ -140,8 +128,6 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 	responseForInitiate := &http.Response{Request: initiateMultiPartUploadRequest}
 	responseForPartUpload := &http.Response{Request: uploadPartRequest}
 
-	syncLog := &MockedSyncLog{}
-	fallbackRoundTripper := &MockedRoundTripper{}
 	activeBackendRoundTripper1 := &MockedRoundTripper{}
 	activeBackendRoundTripper2 := &MockedRoundTripper{}
 
@@ -169,7 +155,6 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 	activeBackendRoundTrippers[activateBackend2.Endpoint.String()] = activateBackend2
 
 	multiPartRoundTripper := MultiPartRoundTripper{
-		fallbackRoundTripper,
 		nil,
 		activeBackendRoundTrippers,
 		multiPartUploadHashRing,
@@ -179,19 +164,19 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 	activeBackendRoundTripper1.On("RoundTrip", initiateMultiPartUploadRequest).Return(responseForInitiate, nil)
 	activeBackendRoundTripper1.On("RoundTrip", uploadPartRequest).Return(responseForPartUpload, nil)
 
-	akubraResponseForInitiateRequest, err1 := multiPartRoundTripper.RoundTrip(initiateMultiPartUploadRequest)
-	akubraResponseForPartUploadRequest, err2 := multiPartRoundTripper.RoundTrip(uploadPartRequest)
+	rChan1 := multiPartRoundTripper.Do(initiateMultiPartUploadRequest)
+	for bresp := range rChan1 {
+		assert.Equal(testSuite, bresp.Response, responseForInitiate)
+		assert.NoError(testSuite, bresp.Error)
+	}
+	rChan2 := multiPartRoundTripper.Do(uploadPartRequest)
+	for bresp := range rChan2 {
+		assert.Equal(testSuite, bresp.Response, responseForPartUpload)
+		assert.NoError(testSuite, bresp.Error)
+	}
 
-	assert.Equal(testSuite, akubraResponseForInitiateRequest, responseForInitiate)
-	assert.Equal(testSuite, akubraResponseForPartUploadRequest, responseForPartUpload)
-
-	assert.Nil(testSuite, err1)
-	assert.Nil(testSuite, err2)
-
-	fallbackRoundTripper.AssertNumberOfCalls(testSuite, "RoundTrip", 0)
 	activeBackendRoundTripper1.AssertNumberOfCalls(testSuite, "RoundTrip", 2)
 	activeBackendRoundTripper2.AssertNumberOfCalls(testSuite, "RoundTrip", 0)
-	syncLog.AssertNumberOfCalls(testSuite, "Println", 0)
 }
 
 func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorButFailOnParsingTheResponse(testSuite *testing.T) {
@@ -205,6 +190,8 @@ func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorWhenStatusCodeI
 func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSuite *testing.T) {
 
 	activeBackendURL1, _ := url.Parse("http://active:1234")
+	inactiveBackendURL1, _ := url.Parse("http://active:1235")
+
 	completeUploadRequestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=123")
 	completeUploadRequest := &http.Request{URL: completeUploadRequestURL, Host: activeBackendURL1.Host}
 	completeUploadRequest = completeUploadRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, "1"))
@@ -221,8 +208,6 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 	responseForComplete.StatusCode = 200
 	responseForComplete.Body = ioutil.NopCloser(bytes.NewBufferString(validXMLResponse))
 
-	syncLog := &MockedSyncLog{}
-	fallbackRoundTripper := &MockedRoundTripper{}
 	activeBackendRoundTripper1 := &MockedRoundTripper{}
 
 	activateBackend1 := &Backend{
@@ -232,52 +217,39 @@ func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSui
 		Name:         "activateBackend1",
 	}
 
+	inactivateBackend1 := &Backend{
+		RoundTripper: activeBackendRoundTripper1,
+		Endpoint:     *inactiveBackendURL1,
+		Maintenance:  true,
+		Name:         "activateBackend2",
+	}
+
 	multiPartUploadHashRing := hashring.New([]string{activateBackend1.Endpoint.String()})
 
-	activeBackendRoundTrippers := make(map[string]*Backend)
-	activeBackendRoundTrippers[activateBackend1.Endpoint.String()] = activateBackend1
+	backendRoundTrippers := map[string]*Backend{
+		inactivateBackend1.Endpoint.String(): inactivateBackend1,
+		activateBackend1.Endpoint.String():   activateBackend1,
+	}
 
 	hostToSync := "hostToSync"
 	hostToSync2 := "hostToSync2"
 
-	var notificationWaitGroup sync.WaitGroup
-	notificationWaitGroup.Add(2)
-
-	syncLog.On("Println", mock.AnythingOfType("[]interface {}")).Run(func(args mock.Arguments) {
-
-		syncRequestJSON, _ := args.Get(0).([]interface{})[0].(string)
-
-		var syncRequest httphandler.SyncLogMessageData
-		err := json.Unmarshal([]byte(syncRequestJSON), &syncRequest)
-
-		if err != nil {
-			panic(fmt.Sprintf("Failed to unmarshall the response - %s", err))
-		}
-
-		if syncRequest.Path == "/someBucket/someObject" && (syncRequest.FailedHost == hostToSync || syncRequest.FailedHost == hostToSync2) {
-			notificationWaitGroup.Done()
-		} else {
-			panic("Wrong host name in syncRequest")
-		}
-	})
-
 	multiPartRoundTripper := MultiPartRoundTripper{
-		fallbackRoundTripper,
-		syncLog,
-		activeBackendRoundTrippers,
+		nil,
+		backendRoundTrippers,
 		multiPartUploadHashRing,
 		[]string{activeBackendURL1.Host, hostToSync, hostToSync2},
 	}
 
 	activeBackendRoundTripper1.On("RoundTrip", completeUploadRequest).Return(responseForComplete, nil)
 
-	akubraResponseForCompleteRequest, _ := multiPartRoundTripper.RoundTrip(completeUploadRequest)
-
-	notificationWaitGroup.Wait()
-	assert.Equal(testSuite, akubraResponseForCompleteRequest, responseForComplete)
-	fallbackRoundTripper.AssertNumberOfCalls(testSuite, "RoundTrip", 0)
+	rChan := multiPartRoundTripper.Do(completeUploadRequest)
+	bresp := <-rChan
+	assert.Equal(testSuite, bresp.Response, responseForComplete)
 	activeBackendRoundTripper1.AssertNumberOfCalls(testSuite, "RoundTrip", 1)
-	syncLog.AssertNumberOfCalls(testSuite, "Println", 2)
+	bresp = <-rChan
+	require.Nil(testSuite, bresp.Response)
+	require.Equal(testSuite, inactivateBackend1, bresp.Backend)
 }
 
 func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
@@ -290,7 +262,6 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 	responseForComplete.Body = ioutil.NopCloser(bytes.NewBufferString(invalidXMLResponse))
 	responseForComplete.StatusCode = 500
 
-	fallbackRoundTripper := &MockedRoundTripper{}
 	activeBackendRoundTripper1 := &MockedRoundTripper{}
 	activeBackendRoundTripper2 := &MockedRoundTripper{}
 
@@ -318,11 +289,8 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 	activeBackendRoundTrippers[activateBackend1.Endpoint.String()] = activateBackend1
 	activeBackendRoundTrippers[activateBackend2.Endpoint.String()] = activateBackend2
 
-	syncLog := &MockedSyncLog{}
-
 	multiPartRoundTripper := MultiPartRoundTripper{
-		fallbackRoundTripper,
-		syncLog,
+		nil,
 		activeBackendRoundTrippers,
 		multiPartUploadHashRing,
 		[]string{activeBackendURL.String(), activeBackendURL2.String()},
@@ -330,10 +298,9 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 
 	activeBackendRoundTripper1.On("RoundTrip", completeUploadRequest).Return(responseForComplete, nil)
 
-	akubraResponseForCompleteRequest, _ := multiPartRoundTripper.RoundTrip(completeUploadRequest)
-
-	assert.Equal(testSuite, akubraResponseForCompleteRequest, responseForComplete)
-	fallbackRoundTripper.AssertNumberOfCalls(testSuite, "RoundTrip", 0)
+	rChan := multiPartRoundTripper.Do(completeUploadRequest)
+	for bresp := range rChan {
+		assert.Equal(testSuite, bresp.Response, responseForComplete)
+	}
 	activeBackendRoundTripper1.AssertNumberOfCalls(testSuite, "RoundTrip", 1)
-	syncLog.AssertNumberOfCalls(testSuite, "Println", 0)
 }

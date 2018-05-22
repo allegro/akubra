@@ -5,10 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
 
-	set "github.com/deckarep/golang-set"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
@@ -16,9 +14,8 @@ import (
 // ClusterTestSuite setups cluster test suite
 type ClusterTestSuite struct {
 	suite.Suite
-	cluster  Cluster
-	backend1 *testRoundTripper
-	backend2 *testRoundTripper
+	cluster    Cluster
+	dispatcher dispatcher
 }
 
 // TestClusterTestSuite is cluster unit test
@@ -29,30 +26,20 @@ func TestClusterTestSuite(t *testing.T) {
 // SetupTest conforms suite interface
 func (suite *ClusterTestSuite) SetupTest() {
 	clusterName := "testCluster"
-	backendsNames := []string{"testbackend1", "testbackend2"}
-
-	backendsMap := map[string]http.RoundTripper{}
-	for _, name := range backendsNames {
-		backendsMap[name] = &testRoundTripper{}
-	}
-	suite.backend1 = backendsMap["testbackend1"].(*testRoundTripper)
-	suite.backend2 = backendsMap["testbackend2"].(*testRoundTripper)
-
 	synclog := log.DefaultLogger
-
-	respHandler := httphandler.LateResponseHandler(synclog, set.NewSet())
-
 	cluster, err := newCluster(
 		clusterName,
-		backendsNames,
-		backendsMap,
-		respHandler,
+		nil,
+		nil,
 		synclog,
 	)
-
 	require := suite.Require()
-
 	require.NoError(err)
+
+	cluster.dispatcher = newDispatcherMock()
+
+	suite.dispatcher = cluster.dispatcher
+
 	suite.cluster = *cluster
 }
 
@@ -65,9 +52,8 @@ func (suite *ClusterTestSuite) TestSuccessObjectRequest() {
 	require.NoError(err)
 
 	okResponse := makeSuccessfulResponse(request, http.StatusOK)
-
-	suite.backend1.On("RoundTrip", request).Return(okResponse, nil)
-	suite.backend2.On("RoundTrip", request).Return(okResponse, nil)
+	dispatchMock := suite.dispatcher.(*dispatcherMock)
+	dispatchMock.On("Dispatch", request).Return(okResponse, nil)
 
 	resp, err := cluster.RoundTrip(request)
 	require.NoError(err)
@@ -76,7 +62,7 @@ func (suite *ClusterTestSuite) TestSuccessObjectRequest() {
 }
 
 func makeGetObjectRequest() (*http.Request, error) {
-	request, err := http.NewRequest("GET", "http://not-exist.local/testbucket/testkey", nil)
+	request, err := http.NewRequest("GET", "/testbucket/testkey", nil)
 	if err != nil {
 		return request, err
 	}
@@ -90,12 +76,15 @@ func makeSuccessfulResponse(request *http.Request, status int) *http.Response {
 	return resp
 }
 
-type testRoundTripper struct {
+type dispatcherMock struct {
 	mock.Mock
 }
 
-func (trt *testRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+func (trt *dispatcherMock) Dispatch(request *http.Request) (*http.Response, error) {
 	args := trt.Called(request)
 	resp := args.Get(0).(*http.Response)
 	return resp, args.Error(1)
+}
+func newDispatcherMock() dispatcher {
+	return &dispatcherMock{mock.Mock{}}
 }

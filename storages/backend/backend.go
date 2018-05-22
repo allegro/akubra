@@ -1,7 +1,9 @@
-package storages
+package backend
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -53,4 +55,30 @@ func (b *Backend) collectMetrics(resp *http.Response, err error, since time.Time
 		methodName := fmt.Sprintf("reqs.backend."+b.Name+".method_%s", resp.Request.Method)
 		metrics.UpdateSince(methodName, since)
 	}
+}
+
+// Response helps handle responses
+type Response struct {
+	Response *http.Response
+	Error    error
+	Backend  *Backend
+}
+
+// DiscardBody drain and close response Body, so connections are properly closed
+func (br *Response) DiscardBody() error {
+	if br.Response == nil || br.Response.Body == nil {
+		return nil
+	}
+	_, err := io.Copy(ioutil.Discard, br.Response.Body)
+	if err != nil {
+		log.Printf("Discard body error %s", err)
+		return err
+	}
+	err = br.Response.Body.Close()
+	return err
+}
+
+//IsSuccessful returns true if no networ error occured and status code < 400
+func (br *Response) IsSuccessful() bool {
+	return br.Error == nil && br.Response != nil && br.Response.StatusCode < 400
 }
