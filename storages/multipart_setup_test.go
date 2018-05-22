@@ -5,10 +5,21 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/transport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+// import (
+// 	"net/http"
+// 	"net/url"
+// 	"testing"
+
+// 	"github.com/allegro/akubra/transport"
+// 	"github.com/stretchr/testify/assert"
+// 	"github.com/stretchr/testify/mock"
+// )
 
 type MockedRoundTripper struct {
 	mock.Mock
@@ -23,27 +34,15 @@ func (mockedRoundTripper *MockedRoundTripper) RoundTrip(request *http.Request) (
 }
 
 func TestShouldReturnEmptyRingWhenProvidedBackendListIsEmpty(testSuite *testing.T) {
-
-	fallbackRoundTripper := &MockedRoundTripper{}
-
-	clusterToSetup := &Cluster{
-		transport:   fallbackRoundTripper,
-		backends:    []http.RoundTripper{},
-		name:        "some-cluster",
-		Logger:      nil,
-		MethodSet:   nil,
-		respHandler: nil,
-	}
-
-	multiPartRoundTripper := NewMultiPartRoundTripper(clusterToSetup, nil)
-
-	assert.Equal(testSuite, multiPartRoundTripper.backendsRing.Size(), 0)
-	assert.Empty(testSuite, multiPartRoundTripper.backendsEndpoints, 0)
+	emptyBackendsList := []*backend.Backend{}
+	multiPartRoundTripper := newMultiPartRoundTripper(emptyBackendsList)
+	mprt, ok := multiPartRoundTripper.(*MultiPartRoundTripper)
+	assert.True(testSuite, ok)
+	assert.Equal(testSuite, mprt.backendsRing.Size(), 0)
+	assert.Empty(testSuite, mprt.backendsEndpoints, 0)
 }
 
 func TestShouldSetupMultiUploadRingAndMigrationEndpoints(testSuite *testing.T) {
-
-	fallbackRoundTripper := &MockedRoundTripper{}
 
 	activeBackendRoundTripper := &MockedRoundTripper{}
 	activeBackendRoundTripper2 := &MockedRoundTripper{}
@@ -74,18 +73,11 @@ func TestShouldSetupMultiUploadRingAndMigrationEndpoints(testSuite *testing.T) {
 		Name:         "maintenanceBackend",
 	}
 
-	clusterToSetup := &Cluster{
-		transport:   fallbackRoundTripper,
-		backends:    []http.RoundTripper{activateBackend, activateBackend2, maintenanceBackend},
-		name:        "some-cluster",
-		Logger:      nil,
-		MethodSet:   nil,
-		respHandler: nil,
-	}
-
-	multiPartRoundTripper := NewMultiPartRoundTripper(clusterToSetup, nil)
-
-	assert.Len(testSuite, multiPartRoundTripper.backendsRoundTrippers, 2)
-	assert.Equal(testSuite, multiPartRoundTripper.backendsRing.Size(), 2)
-	assert.Len(testSuite, multiPartRoundTripper.backendsEndpoints, 3)
+	backends := []*Backend{activateBackend, activateBackend2, maintenanceBackend}
+	multiPartRoundTripper := newMultiPartRoundTripper(backends)
+	mprt, ok := multiPartRoundTripper.(*MultiPartRoundTripper)
+	assert.True(testSuite, ok)
+	assert.Len(testSuite, mprt.backendsRoundTrippers, 2)
+	assert.Equal(testSuite, mprt.backendsRing.Size(), 2)
+	assert.Len(testSuite, mprt.backendsEndpoints, 3)
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/storages"
+	"github.com/allegro/akubra/types"
 	"github.com/serialx/hashring"
 )
 
@@ -54,15 +55,18 @@ func (sr ShardsRing) Pick(key string) (storages.NamedCluster, error) {
 }
 
 type reqBody struct {
-	r *bytes.Reader
+	bytes []byte
+	r     io.Reader
 }
 
-func (rb *reqBody) rewind() error {
-	_, err := rb.r.Seek(0, io.SeekStart)
-	return err
+func (rb *reqBody) Reset() io.ReadCloser {
+	return &reqBody{bytes: rb.bytes}
 }
 
 func (rb *reqBody) Read(b []byte) (int, error) {
+	if rb.r == nil {
+		rb.r = bytes.NewBuffer(rb.bytes)
+	}
 	return rb.r.Read(b)
 }
 
@@ -82,24 +86,22 @@ func copyRequest(origReq *http.Request) (*http.Request, error) {
 		}
 	}
 	if origReq.Body != nil {
-		buf := new(bytes.Buffer)
+		buf := &bytes.Buffer{}
 		_, err := io.Copy(buf, origReq.Body)
 		if err != nil {
 			return nil, err
 		}
-		newReq.Body = &reqBody{bytes.NewReader(buf.Bytes())}
+		newReq.Body = &reqBody{bytes: buf.Bytes()}
 	}
 	return newReq, nil
 }
 
 func (sr ShardsRing) send(roundTripper http.RoundTripper, req *http.Request) (*http.Response, error) {
 	// Rewind request body
-	bodySeeker, ok := req.Body.(*reqBody)
+	bodyResetter, ok := req.Body.(types.Resetter)
+
 	if ok {
-		err := bodySeeker.rewind()
-		if err != nil {
-			return nil, err
-		}
+		req.Body = bodyResetter.Reset()
 	}
 	return roundTripper.RoundTrip(req)
 }

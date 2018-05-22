@@ -6,24 +6,27 @@ import (
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/merger"
-	"github.com/allegro/akubra/transport"
 )
 
 const listTypeV2 = "2"
 
 type responseMerger struct {
-	merger transport.MultipleResponsesHandler
+	in <-chan BackendResponse
 }
 
-func isSuccess(tup transport.ResErrTuple) bool {
-	if tup.Err != nil || tup.Failed {
+func newResponseHandler(ch <-chan BackendResponse) picker {
+	return &responseMerger{in: ch}
+}
+
+func isSuccess(tup BackendResponse) bool {
+	if tup.Error != nil || !tup.IsSuccessful() {
 		return false
 	}
 	return true
 }
 
-func (rm *responseMerger) createResponse(firstTuple transport.ResErrTuple, successes []transport.ResErrTuple) (resp *http.Response, err error) {
-	reqQuery := firstTuple.Req.URL.Query()
+func (rm *responseMerger) createResponse(firstTuple BackendResponse, successes []BackendResponse) (resp *http.Response, err error) {
+	reqQuery := firstTuple.Response.Request.URL.Query()
 
 	if reqQuery.Get("list-type") == listTypeV2 {
 		log.Println("Create response v2", len(successes))
@@ -38,8 +41,8 @@ func (rm *responseMerger) createResponse(firstTuple transport.ResErrTuple, succe
 	return merger.MergeBucketListResponses(successes)
 }
 
-func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-chan transport.ResErrTuple) transport.ResErrTuple {
-	successes := []transport.ResErrTuple{}
+func (rm *responseMerger) merge(firstTuple BackendResponse, rtupleCh <-chan BackendResponse) BackendResponse {
+	successes := []BackendResponse{}
 	if isSuccess(firstTuple) {
 		successes = append(successes, firstTuple)
 	}
@@ -48,10 +51,7 @@ func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-cha
 		if isSuccess(tuple) {
 			successes = append(successes, tuple)
 		} else {
-			err := tuple.DiscardBody()
-			if err != nil {
-				log.Printf("DiscardBody on ignored response tuple error: %s", err)
-			}
+			tuple.DiscardBody()
 		}
 	}
 
@@ -64,9 +64,9 @@ func (rm *responseMerger) merge(firstTuple transport.ResErrTuple, rtupleCh <-cha
 		}
 
 		res, err := rm.createResponse(firstTuple, successes)
-		return transport.ResErrTuple{
-			Res: res,
-			Err: err,
+		return BackendResponse{
+			Response: res,
+			Error:    err,
 		}
 	}
 	return firstTuple
@@ -115,21 +115,14 @@ func isBucketPath(path string) bool {
 	return len(strings.Split(trimmedPath, "/")) == 1
 }
 
-func (rm *responseMerger) responseHandler(in <-chan transport.ResErrTuple) transport.ResErrTuple {
-	firstTuple := <-in
-	req := firstTuple.Req
-	if rm.isMergable(req) {
-		return rm.merge(firstTuple, in)
+func (rm *responseMerger) Pick() (*http.Response, error) {
+	firstTuple := <-rm.in
+	if !rm.isMergable(firstTuple.Response.Request) {
+		return &http.Response{
+			Request:    firstTuple.Response.Request,
+			StatusCode: http.StatusNotImplemented,
+		}, nil
 	}
-
-	inCopy := make(chan transport.ResErrTuple)
-	go func() {
-		inCopy <- firstTuple
-
-		for tuple := range in {
-			inCopy <- tuple
-		}
-		close(inCopy)
-	}()
-	return rm.merger(inCopy)
+	result := rm.merge(firstTuple, rm.in)
+	return result.Response, result.Error
 }
