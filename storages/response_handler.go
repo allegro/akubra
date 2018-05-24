@@ -115,6 +115,7 @@ func isBucketPath(path string) bool {
 	return len(strings.Split(trimmedPath, "/")) == 1
 }
 
+// Pick implements picker interface
 func (rm *responseMerger) Pick() (*http.Response, error) {
 	firstTuple := <-rm.in
 	if !rm.isMergable(firstTuple.Response.Request) {
@@ -126,3 +127,6 @@ func (rm *responseMerger) Pick() (*http.Response, error) {
 	result := rm.merge(firstTuple, rm.in)
 	return result.Response, result.Error
 }
+
+// SendSyncLog implements picker interface
+func (rm *responseMerger) SendSyncLog(*SyncSender) {}

@@ -3,7 +3,6 @@ package storages
 import (
 	"net/http"
 
-	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/backend"
 )
 
@@ -14,14 +13,17 @@ type dispatcher interface {
 // RequestDispatcher passes requests and responses to matching replicators and response pickers
 type RequestDispatcher struct {
 	Backends                  []*backend.Backend
+	syncLog                   *SyncSender
 	pickClientFactory         func(*http.Request) func([]*backend.Backend) client
 	pickResponsePickerFactory func(*http.Request) func(<-chan BackendResponse) picker
 }
 
 // NewRequestDispatcher creates RequestDispatcher instance
-func NewRequestDispatcher(backends []*backend.Backend) *RequestDispatcher {
+func NewRequestDispatcher(backends []*backend.Backend, syncLog *SyncSender) *RequestDispatcher {
+
 	return &RequestDispatcher{
 		Backends:                  backends,
+		syncLog:                   syncLog,
 		pickResponsePickerFactory: defaultPickResponsePickerFactory,
 		pickClientFactory:         defaultReplicationClientFactory,
 	}
@@ -34,11 +36,13 @@ func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, er
 	respChan := cli.Do(request)
 	pickerFactory := rd.pickResponsePickerFactory(request)
 	pickr := pickerFactory(respChan)
+	go pickr.SendSyncLog(rd.syncLog)
 	return pickr.Pick()
 }
 
 type picker interface {
 	Pick() (*http.Response, error)
+	SendSyncLog(*SyncSender)
 }
 
 type client interface {
@@ -58,11 +62,7 @@ var defaultPickResponsePickerFactory = func(request *http.Request) func(<-chan B
 		return newResponseHandler
 	}
 	if request.Method == http.MethodDelete {
-		log.Printf("Is delete path %s", request.URL.Path)
 		return newDeleteResponsePicker
 	}
-
-	log.Printf("Is not bucket or delete path %s", request.URL.Path)
-
 	return newObjectResponsePicker
 }

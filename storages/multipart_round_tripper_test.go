@@ -14,68 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// import (
-// 	"bytes"
-// 	"context"
-// 	"encoding/json"
-// 	"fmt"
-// 	"io/ioutil"
-// 	"net/http"
-// 	"sync"
-// 	"testing"
-
-// 	"net/url"
-
-// 	"github.com/allegro/akubra/httphandler"
-// 	"github.com/allegro/akubra/log"
-// 	"github.com/serialx/hashring"
-// 	"github.com/stretchr/testify/assert"
-// 	"github.com/stretchr/testify/mock"
-// )
-
-//MOVED RESPONSIBILITY TO DISPATCHER
-// func TestShouldNotDetectMultiPartUploadRequestWhenItIsARegularUpload(testSuite *testing.T) {
-
-// 	requestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject")
-// 	notAMultiPartUploadRequest := &http.Request{URL: requestURL}
-// 	responseFromFallBackRoundTripper := &http.Response{Request: notAMultiPartUploadRequest}
-
-// 	syncLog := &MockedSyncLog{}
-// 	fallbackRoundTripper := &MockedRoundTripper{}
-// 	activeBackendRoundTripper := &MockedRoundTripper{}
-
-// 	activeBackendURL, _ := url.Parse("http://active:1234")
-
-// 	activateBackend := &Backend{
-// 		RoundTripper: activeBackendRoundTripper,
-// 		Endpoint:     *activeBackendURL,
-// 		Maintenance:  false,
-// 		Name:         "activateBackend",
-// 	}
-
-// 	multiPartUploadHashRing := hashring.New([]string{activeBackendURL.String()})
-// 	activeBackendRoundTrippers := make(map[string]*Backend)
-// 	activeBackendRoundTrippers[activateBackend.Endpoint.String()] = activateBackend
-
-// 	multiPartRoundTripper := MultiPartRoundTripper{
-// 		nil,
-// 		activeBackendRoundTrippers,
-// 		multiPartUploadHashRing,
-// 		nil,
-// 	}
-
-// 	fallbackRoundTripper.On("RoundTrip", notAMultiPartUploadRequest).Return(responseFromFallBackRoundTripper, nil)
-
-// 	response, err := multiPartRoundTripper.RoundTrip(notAMultiPartUploadRequest)
-
-// 	assert.Equal(testSuite, response, responseFromFallBackRoundTripper)
-// 	assert.Nil(testSuite, err)
-
-// 	fallbackRoundTripper.AssertNumberOfCalls(testSuite, "RoundTrip", 1)
-// 	activeBackendRoundTripper.AssertNumberOfCalls(testSuite, "RoundTrip", 0)
-// 	syncLog.AssertNumberOfCalls(testSuite, "Println", 0)
-// }
-
 func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenBackendRingIsEmpty(testSuite *testing.T) {
 
 	requestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploads")

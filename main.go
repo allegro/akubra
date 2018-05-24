@@ -113,18 +113,18 @@ func (s *service) start() error {
 	if err != nil {
 		return err
 	}
-	methods := make([]interface{}, 0, len(s.config.Logging.SyncLogMethods))
-	for _, v := range s.config.Logging.SyncLogMethods {
-		methods = append(methods, v)
+	methods := make(map[string]struct{})
+	for _, method := range s.config.Logging.SyncLogMethods {
+		methods[method] = struct{}{}
 	}
 
 	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
-
+	syncSender := &storages.SyncSender{SyncLog: syncLog, AllowedMethods: methods}
 	storage, err := storages.InitStorages(
 		transportMatcher,
 		s.config.Clusters,
 		s.config.Backends,
-		syncLog)
+		syncSender)
 
 	if err != nil {
 		log.Fatalf("Storages initialization problem: %q", err)

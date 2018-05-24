@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/allegro/akubra/log"
-	"github.com/allegro/akubra/transport"
 )
 
 // BackendError interface helps logging inconsistencies
@@ -17,24 +16,21 @@ type BackendError interface {
 
 // RequestID extracts the request id from context
 func RequestID(req *http.Request) string {
-	return req.Context().Value(log.ContextreqIDKey).(string)
-}
-
-// ExtractDestinationHostName extract destination hostname fromrequest
-func ExtractDestinationHostName(r transport.ResErrTuple) string {
-	if r.Res != nil {
-		return r.Res.Request.URL.Host
+	if req == nil {
+		return ""
 	}
-	berr, ok := r.Err.(BackendError)
-	if ok {
-		return berr.Backend()
+	reqIDContextValue := req.Context().Value(log.ContextreqIDKey)
+	if reqIDContextValue == nil {
+		return ""
 	}
-	log.Printf("Requested backend is not retrievable from tuple %#v", r)
-	return ""
+	return reqIDContextValue.(string)
 }
 
 // ExtractAccessKey extracts s3 auth key from header
 func ExtractAccessKey(req *http.Request) string {
+	if req.Header == nil {
+		return ""
+	}
 	auth := req.Header.Get("Authorization")
 	if auth == "" {
 		return ""

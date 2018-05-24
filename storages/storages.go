@@ -22,7 +22,7 @@ type ClusterStorage interface {
 type Storages struct {
 	clustersConf config.ClustersMap
 	backendsConf config.BackendsMap
-	syncLog      log.Logger
+	syncLog      *SyncSender
 	Clusters     map[string]NamedCluster
 	Backends     map[string]*Backend
 }
@@ -58,7 +58,7 @@ func (st *Storages) ClusterShards(name string, clusters ...NamedCluster) NamedCl
 }
 
 // InitStorages setups storages
-func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap, syncLog log.Logger) (*Storages, error) {
+func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap, syncLog *SyncSender) (*Storages, error) {
 	clusters := make(map[string]NamedCluster)
 	backends := make(map[string]*Backend)
 	if len(backendsConf) == 0 {

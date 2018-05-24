@@ -11,7 +11,7 @@ import (
 func TestObjectResponsePickerAllGood(t *testing.T) {
 	responsesChan := createChanOfResponses(true, true, true)
 
-	objResponsePicker := &ObjectResponsePicker{BasePicker{responsesChan: responsesChan}}
+	objResponsePicker := &ObjectResponsePicker{BasePicker{responsesChan: responsesChan}, nil}
 	resp, err := objResponsePicker.Pick()
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -31,7 +31,7 @@ func TestObjectResponsePickerSomeGood(t *testing.T) {
 
 	for _, serie := range responsesSeries {
 		responsesChan := createChanOfResponses(serie...)
-		objResponsePicker := &ObjectResponsePicker{BasePicker{responsesChan: responsesChan}}
+		objResponsePicker := &ObjectResponsePicker{BasePicker{responsesChan: responsesChan}, nil}
 		resp, err := objResponsePicker.Pick()
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -42,7 +42,7 @@ func TestObjectResponsePickerSomeGood(t *testing.T) {
 func TestObjectResponsePickerAllBad(t *testing.T) {
 	responsesChan := createChanOfResponses(false, false, false)
 
-	objResponsePicker := &ObjectResponsePicker{BasePicker{responsesChan: responsesChan}}
+	objResponsePicker := &ObjectResponsePicker{BasePicker{responsesChan: responsesChan}, nil}
 	resp, err := objResponsePicker.Pick()
 	require.Error(t, err)
 	require.Nil(t, resp)
@@ -82,15 +82,22 @@ func TestDeleteResponsePickerAllGood(t *testing.T) {
 
 func createChanOfResponses(successful ...bool) chan BackendResponse {
 	backendResponses := []BackendResponse{}
+	request, _ := http.NewRequest("GET", "http://some.domain/bucket/object", nil)
+	backend := &Backend{
+		Endpoint: *request.URL,
+		Name:     "somebackend",
+	}
 	for _, good := range successful {
 		resp := BackendResponse{
 			Error:    fmt.Errorf("someerror"),
 			Response: nil,
+			Backend:  backend,
 		}
 		if good {
 			resp = BackendResponse{
 				Error:    nil,
-				Response: &http.Response{StatusCode: 200},
+				Response: &http.Response{Request: request, ContentLength: 200, StatusCode: 200},
+				Backend:  backend,
 			}
 		}
 		backendResponses = append(backendResponses, resp)
@@ -105,3 +112,61 @@ func createChanOfResponses(successful ...bool) chan BackendResponse {
 	}()
 	return brespChan
 }
+
+func BenchmarkInterfaceAssertion(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		doInterf(n)
+	}
+}
+
+func BenchmarkEmptyMethods(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		doEmpty(n)
+	}
+}
+
+func doEmpty(i int) {
+	a := &doerA{}
+	b := &doerB{}
+	var c doer
+	if i%2 == 0 {
+		c = a
+	} else {
+		c = b
+	}
+	c.do()
+}
+
+func doInterf(i int) {
+	a := &doerA{}
+	b := &doerC{}
+	var c interface{}
+	if i%2 == 0 {
+		c = a
+	} else {
+		c = b
+	}
+	if cdoer, ok := c.(doer); ok {
+		cdoer.do()
+	}
+}
+
+type doer interface {
+	do() int
+}
+
+type doerA struct{}
+
+func (*doerA) do() int {
+	i := 1
+	i++
+	return i
+}
+
+type doerB struct{}
+
+func (*doerB) do() int {
+	return -1
+}
+
+type doerC struct{}

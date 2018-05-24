@@ -44,7 +44,7 @@ func TestRequestDispatcherPicks(t *testing.T) {
 		{"POST", "http://some.storage/bucket/object?uploadId=ssssss", multipartReplicator, matchPicker},
 	}
 
-	dispatcher := NewRequestDispatcher(nil)
+	dispatcher := NewRequestDispatcher(nil, nil)
 	require.NotNil(t, dispatcher)
 	for _, tc := range testCases {
 		request, _ := http.NewRequest(tc.method, tc.url, nil)
@@ -126,3 +126,4 @@ func (rpm *responsePickerMock) Pick() (*http.Response, error) {
 	err := args.Error(1)
 	return httpResponse, err
 }
+func (*responsePickerMock) SendSyncLog(*SyncSender) {}

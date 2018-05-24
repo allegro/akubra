@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/allegro/akubra/log"
 	set "github.com/deckarep/golang-set"
 )
 
@@ -19,7 +18,7 @@ type NamedCluster interface {
 type Cluster struct {
 	backends   []*Backend
 	name       string
-	Logger     log.Logger
+	synclog    *SyncSender
 	MethodSet  set.Set
 	dispatcher dispatcher
 }
@@ -39,7 +38,7 @@ func (c *Cluster) Backends() []*Backend {
 	return c.backends
 }
 
-func newCluster(name string, backendNames []string, backends map[string]*Backend, synclog log.Logger) (*Cluster, error) {
+func newCluster(name string, backendNames []string, backends map[string]*Backend, synclog *SyncSender) (*Cluster, error) {
 	clusterBackends := make([]*Backend, 0)
 	for _, backendName := range backendNames {
 		backendRT, ok := backends[backendName]
@@ -49,6 +48,6 @@ func newCluster(name string, backendNames []string, backends map[string]*Backend
 		clusterBackends = append(clusterBackends, backendRT)
 	}
 
-	cluster := &Cluster{backends: clusterBackends, name: name, dispatcher: NewRequestDispatcher(clusterBackends)}
+	cluster := &Cluster{backends: clusterBackends, name: name, dispatcher: NewRequestDispatcher(clusterBackends, synclog), synclog: synclog}
 	return cluster, nil
 }

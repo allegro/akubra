@@ -26,12 +26,11 @@ func TestClusterTestSuite(t *testing.T) {
 // SetupTest conforms suite interface
 func (suite *ClusterTestSuite) SetupTest() {
 	clusterName := "testCluster"
-	synclog := log.DefaultLogger
 	cluster, err := newCluster(
 		clusterName,
 		nil,
 		nil,
-		synclog,
+		nil,
 	)
 	require := suite.Require()
 	require.NoError(err)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"errors"
+
 	httphandlerConfig "github.com/allegro/akubra/httphandler/config"
 	"github.com/allegro/akubra/log"
 	transportConfig "github.com/allegro/akubra/transport/config"
