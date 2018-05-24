@@ -11,16 +11,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// import (
-// 	"net/http"
-// 	"net/url"
-// 	"testing"
-
-// 	"github.com/allegro/akubra/transport"
-// 	"github.com/stretchr/testify/assert"
-// 	"github.com/stretchr/testify/mock"
-// )
-
 type MockedRoundTripper struct {
 	mock.Mock
 	transport.Matcher
