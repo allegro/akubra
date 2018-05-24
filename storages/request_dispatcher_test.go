@@ -42,6 +42,7 @@ func TestRequestDispatcherPicks(t *testing.T) {
 		{"DELETE", "http://some.storage/bucket/object", matchReplicator, matchDeletePicker},
 		{"POST", "http://some.storage/bucket/object?uploads", multipartReplicator, matchPicker},
 		{"POST", "http://some.storage/bucket/object?uploadId=ssssss", multipartReplicator, matchPicker},
+		{"PUT", "http://some.storage/bucket/", matchReplicator, matchDeletePicker},
 	}
 
 	dispatcher := NewRequestDispatcher(nil, nil)
