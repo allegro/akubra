@@ -31,7 +31,7 @@ func (slf SyncSender) shouldResponseBeLogged(bresp BackendResponse) bool {
 }
 
 func (slf SyncSender) send(success, failure BackendResponse) {
-	if shouldBeFilteredInMaintenanceMode(failure) {
+	if shouldBeFilteredInMaintenanceMode(success, failure) {
 		return
 	}
 
@@ -78,14 +78,12 @@ func emptyStrOrErrorMsg(err error) string {
 	return ""
 }
 
-func shouldBeFilteredInMaintenanceMode(bresp BackendResponse) bool {
-	if bresp.Response != nil && (bresp.Response.Request.Method == http.MethodPut || bresp.Response.Request.Method == http.MethodDelete) {
+func shouldBeFilteredInMaintenanceMode(success, failure BackendResponse) bool {
+	if !failure.Backend.Maintenance {
 		return false
 	}
-	if backendErr, ok := bresp.Error.(*types.BackendError); ok && backendErr.OrigErr == types.ErrorBackendMaintenance {
-		return true
-	}
-	return false
+	isPutOrDelMethod := (success.Response.Request.Method == http.MethodPut) || (success.Response.Request.Method == http.MethodDelete)
+	return !isPutOrDelMethod
 }
 
 // extractDestinationHostName extract destination hostname fromrequest

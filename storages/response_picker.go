@@ -70,7 +70,6 @@ func (orp *ObjectResponsePicker) Pick() (*http.Response, error) {
 func (orp *ObjectResponsePicker) SendSyncLog(syncLog *SyncSender) {
 	<-orp.syncLogReady
 	sendSynclogs(syncLog, orp.success, orp.errors)
-
 }
 
 func (orp *ObjectResponsePicker) pullResponses(out chan<- BackendResponse) {
@@ -97,6 +96,8 @@ func (orp *ObjectResponsePicker) pullResponses(out chan<- BackendResponse) {
 
 type deleteResponsePicker struct {
 	BasePicker
+	softErrors   []BackendResponse
+	syncLogReady chan struct{}
 }
 
 // Pick returns first successful response, discard others
@@ -108,7 +109,14 @@ func (orp *deleteResponsePicker) Pick() (*http.Response, error) {
 }
 
 func newDeleteResponsePicker(rch <-chan BackendResponse) picker {
-	return &deleteResponsePicker{BasePicker{responsesChan: rch}}
+	return &deleteResponsePicker{BasePicker{responsesChan: rch}, []BackendResponse{}, make(chan struct{})}
+}
+func (orp *deleteResponsePicker) collectFailureResponse(bresp BackendResponse) {
+	if bresp.Backend.Maintenance {
+		orp.softErrors = append(orp.softErrors, bresp)
+		return
+	}
+	orp.BasePicker.collectFailureResponse(bresp)
 }
 
 func (orp *deleteResponsePicker) pullResponses(out chan<- BackendResponse) {
@@ -118,7 +126,7 @@ func (orp *deleteResponsePicker) pullResponses(out chan<- BackendResponse) {
 		if success {
 			orp.collectSuccessResponse(bresp)
 		} else {
-			shouldSend = !orp.hasFailureResponse()
+			shouldSend = !orp.hasFailureResponse() && bresp.Backend.Maintenance == false
 			orp.collectFailureResponse(bresp)
 		}
 		if shouldSend {
@@ -130,4 +138,11 @@ func (orp *deleteResponsePicker) pullResponses(out chan<- BackendResponse) {
 		out <- orp.success
 	}
 	close(out)
+	orp.syncLogReady <- struct{}{}
+}
+
+// SendSyncLog implements picker interface
+func (orp *deleteResponsePicker) SendSyncLog(syncLog *SyncSender) {
+	<-orp.syncLogReady
+	sendSynclogs(syncLog, orp.success, orp.softErrors)
 }

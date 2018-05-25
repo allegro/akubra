@@ -62,7 +62,7 @@ func TestDeleteResponsePickerSomeBad(t *testing.T) {
 
 	for _, serie := range responsesSeries {
 		responsesChan := createChanOfResponses(serie...)
-		delResponsePicker := &deleteResponsePicker{BasePicker{responsesChan: responsesChan}}
+		delResponsePicker := &deleteResponsePicker{BasePicker{responsesChan: responsesChan}, nil, nil}
 		resp, err := delResponsePicker.Pick()
 		require.Error(t, err)
 		require.Nil(t, resp)
@@ -72,7 +72,7 @@ func TestDeleteResponsePickerSomeBad(t *testing.T) {
 func TestDeleteResponsePickerAllGood(t *testing.T) {
 	responsesChan := createChanOfResponses(true, true, true)
 
-	delResponsePicker := &deleteResponsePicker{BasePicker{responsesChan: responsesChan}}
+	delResponsePicker := &deleteResponsePicker{BasePicker{responsesChan: responsesChan}, nil, nil}
 	resp, err := delResponsePicker.Pick()
 	require.NoError(t, err)
 	require.NotNil(t, resp)
