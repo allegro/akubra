@@ -3,7 +3,6 @@ package storages
 import (
 	"net/http"
 
-	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/backend"
 )
 
@@ -59,19 +58,14 @@ var defaultReplicationClientFactory = func(request *http.Request) func([]*backen
 }
 
 var defaultPickResponsePickerFactory = func(request *http.Request) func(<-chan BackendResponse) picker {
-	log.Println("is bucket, is put", request.URL.Path, request.Method)
-	if isBucketPath(request.URL.Path) && (request.Method != http.MethodPut) {
-		log.Println("delete")
+	if isBucketPath(request.URL.Path) && (request.Method == http.MethodGet) {
 		return newResponseHandler
 	}
-	if isBucketPath(request.URL.Path) && (request.Method == http.MethodPut) {
-		log.Println("delete")
+	if isBucketPath(request.URL.Path) && (request.Method != http.MethodGet) {
 		return newDeleteResponsePicker
 	}
 	if request.Method == http.MethodDelete {
-		log.Println("delete delete")
 		return newDeleteResponsePicker
 	}
-	log.Println("std")
 	return newObjectResponsePicker
 }

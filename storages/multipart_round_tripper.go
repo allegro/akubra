@@ -2,20 +2,16 @@ package storages
 
 import (
 	"bytes"
-	"encoding/json"
 	"encoding/xml"
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"time"
 
 	"errors"
 
-	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/types"
-	"github.com/allegro/akubra/utils"
 	"github.com/serialx/hashring"
 )
 
@@ -90,10 +86,8 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *http.Request) <-
 	}
 	go func() {
 		out <- BackendResponse{Response: httpresponse, Error: requestError, Backend: multiUploadBackend}
-		log.Printf("!isInitiateRequest(request) == %t && isCompleteUploadResponseSuccessful(httpresponse)== %t\n", !isInitiateRequest(request), isCompleteUploadResponseSuccessful(httpresponse))
 		if !isInitiateRequest(request) && isCompleteUploadResponseSuccessful(httpresponse) {
 			for _, backend := range multiPartRoundTripper.backendsRoundTrippers {
-				log.Printf("got some backend to report %s", backend.Name)
 				if backend != multiUploadBackend {
 					out <- BackendResponse{Response: nil, Error: errors.New("Can't handle multi upload"), Backend: backend}
 				}
@@ -178,38 +172,4 @@ func responseContainsCompleteUploadString(response *http.Response) bool {
 	log.Debugf("Successfully performed multipart upload to %s", completeMultipartUploadResult.Location)
 
 	return true
-}
-
-func (multiPartRoundTripper *MultiPartRoundTripper) reportCompletionToMigrator(response *http.Response) {
-
-	for _, destBackendEndpoint := range multiPartRoundTripper.backendsEndpoints {
-
-		if destBackendEndpoint == response.Request.URL.Host {
-			continue
-		}
-
-		syncLogMsg := &httphandler.SyncLogMessageData{
-			Method:        "PUT",
-			FailedHost:    destBackendEndpoint,
-			SuccessHost:   response.Request.URL.Host,
-			Path:          response.Request.URL.Path,
-			AccessKey:     utils.ExtractAccessKey(response.Request),
-			UserAgent:     response.Request.Header.Get("User-Agent"),
-			ContentLength: response.ContentLength,
-			ErrorMsg:      "Migrate MultiUpload",
-			ReqID:         utils.RequestID(response.Request),
-			Time:          time.Now().Format(time.RFC3339Nano),
-		}
-
-		logMsg, err := json.Marshal(syncLogMsg)
-
-		if err != nil {
-			log.Debugf("Marshall synclog error %s", err)
-			return
-		}
-
-		multiPartRoundTripper.syncLog.Println(string(logMsg))
-
-		log.Debugf("Sent a multipart upload migration request of object %s to backend %s", response.Request.URL.Path, destBackendEndpoint)
-	}
 }
