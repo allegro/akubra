@@ -122,7 +122,7 @@ func closeBody(resp *http.Response, reqID string) {
 func (sr ShardsRing) regressionCall(cl storages.NamedCluster, origClusterName string, req *http.Request) (string, *http.Response, error) {
 	resp, err := sr.send(cl, req)
 	// Do regression call if response status is > 400
-	if (err != nil || resp.StatusCode > 400) && req.Method != http.MethodPut {
+	if err != nil || resp.StatusCode > 400 {
 		rcl, ok := sr.clusterRegressionMap[cl.Name()]
 		if ok && rcl.Name() != origClusterName {
 			if resp != nil && resp.Body != nil {
@@ -180,7 +180,7 @@ func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr err
 	}
 
 	clusterName, resp, err := sr.regressionCall(cl, cl.Name(), reqCopy)
-	if clusterName != cl.Name() {
+	if (clusterName != cl.Name()) && (reqCopy.Method == http.MethodPut) {
 		sr.logInconsistency(reqCopy.URL.Path, cl.Name(), clusterName)
 	}
 

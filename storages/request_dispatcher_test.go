@@ -9,15 +9,15 @@ import (
 )
 
 func TestRequestDispatcherPicks(t *testing.T) {
-	matchReplicator := func(rep interface{}) bool {
+	matchReplicationClient := func(rep interface{}) bool {
 		_, ok := rep.(*ReplicationClient)
 		return ok
 	}
-	matchPicker := func(pic interface{}) bool {
+	matchObjectResponsePicker := func(pic interface{}) bool {
 		_, ok := pic.(*ObjectResponsePicker)
 		return ok
 	}
-	matchBucketPicker := func(pic interface{}) bool {
+	matchResponseMerger := func(pic interface{}) bool {
 		_, ok := pic.(*responseMerger)
 		return ok
 	}
@@ -25,7 +25,7 @@ func TestRequestDispatcherPicks(t *testing.T) {
 		_, ok := pic.(*deleteResponsePicker)
 		return ok
 	}
-	multipartReplicator := func(rep interface{}) bool {
+	multipartMultipartReplicator := func(rep interface{}) bool {
 		_, ok := rep.(*MultiPartRoundTripper)
 		return ok
 	}
@@ -35,15 +35,15 @@ func TestRequestDispatcherPicks(t *testing.T) {
 		expectedReplicator func(interface{}) bool
 		expectedPicker     func(interface{}) bool
 	}{
-		{"GET", "http://some.storage/bucket/object", matchReplicator, matchPicker},
-		{"PUT", "http://some.storage/bucket/object", matchReplicator, matchPicker},
-		{"HEAD", "http://some.storage/bucket/object", matchReplicator, matchPicker},
-		{"GET", "http://some.storage/bucket", matchReplicator, matchBucketPicker},
-		{"HEAD", "http://some.storage/bucket/", matchReplicator, matchDeletePicker},
-		{"DELETE", "http://some.storage/bucket/object", matchReplicator, matchDeletePicker},
-		{"POST", "http://some.storage/bucket/object?uploads", multipartReplicator, matchPicker},
-		{"POST", "http://some.storage/bucket/object?uploadId=ssssss", multipartReplicator, matchPicker},
-		{"PUT", "http://some.storage/bucket/", matchReplicator, matchDeletePicker},
+		{"GET", "http://some.storage/bucket/object", matchReplicationClient, matchObjectResponsePicker},
+		{"PUT", "http://some.storage/bucket/object", matchReplicationClient, matchObjectResponsePicker},
+		{"HEAD", "http://some.storage/bucket/object", matchReplicationClient, matchObjectResponsePicker},
+		{"DELETE", "http://some.storage/bucket/object", matchReplicationClient, matchDeletePicker},
+		{"POST", "http://some.storage/bucket/object?uploads", multipartMultipartReplicator, matchObjectResponsePicker},
+		{"POST", "http://some.storage/bucket/object?uploadId=ssssss", multipartMultipartReplicator, matchObjectResponsePicker},
+		{"GET", "http://some.storage/bucket", matchReplicationClient, matchResponseMerger},
+		{"HEAD", "http://some.storage/bucket", matchReplicationClient, matchObjectResponsePicker},
+		{"PUT", "http://some.storage/bucket", matchReplicationClient, matchDeletePicker},
 	}
 
 	dispatcher := NewRequestDispatcher(nil, nil)
