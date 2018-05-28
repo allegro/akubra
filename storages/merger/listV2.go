@@ -89,12 +89,12 @@ func createListV2ResultSet(keys objectsContainer, prefixes objectsContainer, max
 	bucketListV2Result.CommonPrefixes = bucketListV2Result.CommonPrefixes.FromStringer(prefixes.first(maxKeys))
 	keysCount := maxKeys - len(bucketListV2Result.CommonPrefixes)
 	bucketListV2Result.Contents = bucketListV2Result.Contents.FromStringer(keys.first(keysCount))
-	bucketListV2Result.IsTruncated = keys.Len()+prefixes.Len() > maxKeys
-	if bucketListV2Result.IsTruncated {
+
+	if bucketListV2Result.IsTruncated && (keys.Len()+prefixes.Len() > maxKeys) {
 		if keysCount > 0 {
-			bucketListV2Result.ContinuationToken = bucketListV2Result.Contents[len(bucketListV2Result.Contents)-1].Key
+			bucketListV2Result.NextContinuationToken = keys.Get(len(bucketListV2Result.Contents)).(s3datatypes.ObjectInfo).Key
 		} else {
-			bucketListV2Result.ContinuationToken = bucketListV2Result.CommonPrefixes[len(bucketListV2Result.CommonPrefixes)-1].Prefix
+			bucketListV2Result.NextContinuationToken = bucketListV2Result.CommonPrefixes[len(bucketListV2Result.CommonPrefixes)-1].Prefix
 		}
 	}
 	return bucketListV2Result

@@ -79,7 +79,8 @@ func (oc *objectsContainer) Less(i, j int) bool { return oc.list[i].String() < o
 
 func (oc *objectsContainer) Len() int { return len(oc.list) }
 
-func (oc *objectsContainer) Swap(i, j int) { oc.list[i], oc.list[j] = oc.list[j], oc.list[i] }
+func (oc *objectsContainer) Swap(i, j int)          { oc.list[i], oc.list[j] = oc.list[j], oc.list[i] }
+func (oc *objectsContainer) Get(i int) fmt.Stringer { return oc.list[i] }
 
 func (oc *objectsContainer) first(limit int) []fmt.Stringer {
 	sort.Sort(oc)
@@ -120,7 +121,7 @@ func createResultSet(keys objectsContainer, prefixes objectsContainer, maxKeys i
 	listBucketResult.CommonPrefixes = listBucketResult.CommonPrefixes.FromStringer(prefixes.first(maxKeys))
 	keysCount := maxKeys - len(listBucketResult.CommonPrefixes)
 	listBucketResult.Contents = listBucketResult.Contents.FromStringer(keys.first(keysCount))
-	listBucketResult.IsTruncated = keys.Len()+prefixes.Len() > maxKeys
+	listBucketResult.IsTruncated = listBucketResult.IsTruncated || keys.Len()+prefixes.Len() > maxKeys
 	if listBucketResult.IsTruncated {
 		if keysCount > 0 {
 			listBucketResult.NextMarker = listBucketResult.Contents[len(listBucketResult.Contents)-1].Key

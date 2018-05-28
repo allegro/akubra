@@ -298,7 +298,6 @@ We have 'Rules' for 'Transports' definitions:
  - if 'Rules' section is empty, the transport will match any requests
  - when transport cannot be matched, http 500 error code will be sent to client.
 
-
 ## Limitations
 
  * User's credentials have to be identical on every backend
