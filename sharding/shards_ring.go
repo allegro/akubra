@@ -87,12 +87,15 @@ func copyRequest(origReq *http.Request) (*http.Request, error) {
 	}
 	if origReq.Body != nil {
 		buf := &bytes.Buffer{}
-		_, err := io.Copy(buf, origReq.Body)
+		n, err := io.Copy(buf, origReq.Body)
 		if err != nil {
 			return nil, err
 		}
-		newReq.Body = &reqBody{bytes: buf.Bytes()}
+		if n > 0 {
+			newReq.Body = &reqBody{bytes: buf.Bytes()}
+		}
 	}
+	newReq.ContentLength = origReq.ContentLength
 	return newReq, nil
 }
 
@@ -168,6 +171,7 @@ func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr err
 	if err != nil {
 		return nil, err
 	}
+
 	isBucketReq := sr.isBucketPath(reqCopy.URL.Path)
 
 	if reqCopy.Method == http.MethodDelete || isBucketReq {

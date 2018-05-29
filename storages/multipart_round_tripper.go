@@ -85,7 +85,6 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *http.Request) <-
 
 	}
 	go func() {
-		out <- BackendResponse{Response: httpresponse, Error: requestError, Backend: multiUploadBackend}
 		if !isInitiateRequest(request) && isCompleteUploadResponseSuccessful(httpresponse) {
 			for _, backend := range multiPartRoundTripper.backendsRoundTrippers {
 				if backend != multiUploadBackend {
@@ -93,6 +92,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *http.Request) <-
 				}
 			}
 		}
+		out <- BackendResponse{Response: httpresponse, Error: requestError, Backend: multiUploadBackend}
 		close(out)
 	}()
 
@@ -125,11 +125,15 @@ func isMultiPartUploadRequest(request *http.Request) bool {
 }
 
 func isInitiateRequest(request *http.Request) bool {
-	return strings.HasSuffix(request.URL.String(), "?uploads")
+	reqQuery := request.URL.Query()
+	_, has := reqQuery["uploads"]
+	return has
 }
 
 func containsUploadID(request *http.Request) bool {
-	return strings.Contains(request.URL.RawQuery, "uploadId=")
+	reqQuery := request.URL.Query()
+	_, has := reqQuery["uploadId"]
+	return has
 }
 
 func isCompleteUploadResponseSuccessful(response *http.Response) bool {

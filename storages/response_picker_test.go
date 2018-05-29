@@ -48,6 +48,16 @@ func TestObjectResponsePickerAllBad(t *testing.T) {
 	require.Nil(t, resp)
 }
 
+func TestObjectResponsePickerSingleBad(t *testing.T) {
+
+	responsesChan := createChanOfResponses(false)
+
+	objResponsePicker := &ObjectResponsePicker{BasePicker{responsesChan: responsesChan}, nil}
+	resp, err := objResponsePicker.Pick()
+	require.Error(t, err)
+	require.Nil(t, resp)
+}
+
 func TestDeleteResponsePickerSomeBad(t *testing.T) {
 	responsesSeries := [][]bool{
 		{true, true, false},
