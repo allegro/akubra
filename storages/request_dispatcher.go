@@ -24,7 +24,7 @@ func NewRequestDispatcher(backends []*backend.Backend, syncLog *SyncSender) *Req
 	return &RequestDispatcher{
 		Backends:                  backends,
 		syncLog:                   syncLog,
-		pickResponsePickerFactory: defaultPickResponsePickerFactory,
+		pickResponsePickerFactory: defaultResponsePickerFactory,
 		pickClientFactory:         defaultReplicationClientFactory,
 	}
 }
@@ -57,7 +57,7 @@ var defaultReplicationClientFactory = func(request *http.Request) func([]*backen
 	return newReplicationClient
 }
 
-var defaultPickResponsePickerFactory = func(request *http.Request) func(<-chan BackendResponse) picker {
+var defaultResponsePickerFactory = func(request *http.Request) func(<-chan BackendResponse) picker {
 	if isBucketPath(request.URL.Path) && (request.Method == http.MethodGet) {
 		return newResponseHandler
 	}

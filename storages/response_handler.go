@@ -11,22 +11,22 @@ import (
 const listTypeV2 = "2"
 
 type responseMerger struct {
-	in <-chan BackendResponse
+	responsesChannel <-chan BackendResponse
 }
 
 func newResponseHandler(ch <-chan BackendResponse) picker {
-	return &responseMerger{in: ch}
+	return &responseMerger{responsesChannel: ch}
 }
 
-func isSuccess(tup BackendResponse) bool {
-	if tup.Error != nil || !tup.IsSuccessful() {
+func isSuccess(response BackendResponse) bool {
+	if response.Error != nil || !response.IsSuccessful() {
 		return false
 	}
 	return true
 }
 
-func (rm *responseMerger) createResponse(firstTuple BackendResponse, successes []BackendResponse) (resp *http.Response, err error) {
-	reqQuery := firstTuple.Response.Request.URL.Query()
+func (rm *responseMerger) createResponse(firstResponse BackendResponse, successes []BackendResponse) (resp *http.Response, err error) {
+	reqQuery := firstResponse.Response.Request.URL.Query()
 
 	if reqQuery.Get("list-type") == listTypeV2 {
 		log.Println("Create response v2", len(successes))
@@ -117,14 +117,14 @@ func isBucketPath(path string) bool {
 
 // Pick implements picker interface
 func (rm *responseMerger) Pick() (*http.Response, error) {
-	firstTuple := <-rm.in
+	firstTuple := <-rm.responsesChannel
 	if !rm.isMergable(firstTuple.Response.Request) {
 		return &http.Response{
 			Request:    firstTuple.Response.Request,
 			StatusCode: http.StatusNotImplemented,
 		}, nil
 	}
-	result := rm.merge(firstTuple, rm.in)
+	result := rm.merge(firstTuple, rm.responsesChannel)
 	return result.Response, result.Error
 }
 

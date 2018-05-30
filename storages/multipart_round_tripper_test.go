@@ -2,16 +2,13 @@ package storages
 
 import (
 	"bytes"
-	"context"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"testing"
 
-	"github.com/allegro/akubra/log"
 	"github.com/serialx/hashring"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenBackendRingIsEmpty(testSuite *testing.T) {
@@ -123,71 +120,6 @@ func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorButFailOnParsin
 
 func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorWhenStatusCodeIsWrong(testSuite *testing.T) {
 	testBadResponse(500, "<Error>Nope</Error>", testSuite)
-}
-
-func TestShouldDetectMultiPartCompletionAndSuccessfullyNotifyTheMigrator(testSuite *testing.T) {
-
-	activeBackendURL1, _ := url.Parse("http://active:1234")
-	inactiveBackendURL1, _ := url.Parse("http://active:1235")
-
-	completeUploadRequestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=123")
-	completeUploadRequest := &http.Request{URL: completeUploadRequestURL, Host: activeBackendURL1.Host}
-	completeUploadRequest = completeUploadRequest.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, "1"))
-
-	responseForComplete := &http.Response{Request: completeUploadRequest}
-
-	validXMLResponse := "<CompleteMultipartUploadResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
-		"<Location>http://locahost:9092/someBucket/someBucket</Location>" +
-		"<Bucket>someBucket</Bucket>" +
-		"<Key>someBucket</Key>" +
-		"<ETag>\"3858f62230ac3c915f300c664312c11f-9\"</ETag>" +
-		"</CompleteMultipartUploadResult>"
-
-	responseForComplete.StatusCode = 200
-	responseForComplete.Body = ioutil.NopCloser(bytes.NewBufferString(validXMLResponse))
-
-	activeBackendRoundTripper1 := &MockedRoundTripper{}
-
-	activateBackend1 := &Backend{
-		RoundTripper: activeBackendRoundTripper1,
-		Endpoint:     *activeBackendURL1,
-		Maintenance:  false,
-		Name:         "activateBackend1",
-	}
-
-	inactivateBackend1 := &Backend{
-		RoundTripper: activeBackendRoundTripper1,
-		Endpoint:     *inactiveBackendURL1,
-		Maintenance:  true,
-		Name:         "activateBackend2",
-	}
-
-	multiPartUploadHashRing := hashring.New([]string{activateBackend1.Endpoint.String()})
-
-	backendRoundTrippers := map[string]*Backend{
-		inactivateBackend1.Endpoint.String(): inactivateBackend1,
-		activateBackend1.Endpoint.String():   activateBackend1,
-	}
-
-	hostToSync := "hostToSync"
-	hostToSync2 := "hostToSync2"
-
-	multiPartRoundTripper := MultiPartRoundTripper{
-		nil,
-		backendRoundTrippers,
-		multiPartUploadHashRing,
-		[]string{activeBackendURL1.Host, hostToSync, hostToSync2},
-	}
-
-	activeBackendRoundTripper1.On("RoundTrip", completeUploadRequest).Return(responseForComplete, nil)
-
-	rChan := multiPartRoundTripper.Do(completeUploadRequest)
-	bresp := <-rChan
-	assert.Equal(testSuite, bresp.Response, responseForComplete)
-	activeBackendRoundTripper1.AssertNumberOfCalls(testSuite, "RoundTrip", 1)
-	bresp = <-rChan
-	require.Nil(testSuite, bresp.Response)
-	require.Equal(testSuite, inactivateBackend1, bresp.Backend)
 }
 
 func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {

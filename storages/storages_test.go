@@ -46,23 +46,6 @@ func (suite *StorageTestSuite) TestGetClusterShouldReturnErrorIfClusterIsNotDefi
 	require.Error(suite.T(), err)
 }
 
-// func (suite *StorageTestSuite) TestClusterShardsShouldReturnClusterOfGivenNameIfItsAlreadyDefined() {
-// 	rCluster := suite.storage.ClusterShards("test1", nil, suite.cluster2)
-
-// 	require.Equal(suite.T(), suite.cluster1, rCluster)
-// }
-
-// func (suite *StorageTestSuite) TestClusterShardsShouldReturnJoinedCluster() {
-// 	rCluster := suite.storage.ClusterShards("test", nil, suite.cluster1, suite.cluster2)
-
-// 	require.Equal(suite.T(), "test", rCluster.Name())
-// 	require.Contains(suite.T(), rCluster.Backends(), suite.cluster1.Backends()[0])
-// 	require.Contains(suite.T(), rCluster.Backends(), suite.cluster2.Backends()[0])
-
-// 	require.Len(suite.T(), rCluster.Backends(), 2)
-// 	require.Equal(suite.T(), suite.storage.Clusters["test"], rCluster)
-// }
-
 func TestStorageTestSuite(t *testing.T) {
 	suite.Run(t, new(StorageTestSuite))
 }

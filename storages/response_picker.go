@@ -4,6 +4,8 @@ import (
 	"net/http"
 )
 
+var emptyBackendResponse = BackendResponse{}
+
 // BasePicker contains common methods of pickers
 type BasePicker struct {
 	responsesChan <-chan BackendResponse
@@ -13,38 +15,38 @@ type BasePicker struct {
 	sent          bool
 }
 
-func (orp *BasePicker) collectSuccessResponse(bresp BackendResponse) {
-	if orp.hasSuccessfulResponse() {
+func (bp *BasePicker) collectSuccessResponse(bresp BackendResponse) {
+	if bp.hasSuccessfulResponse() {
 		bresp.DiscardBody()
 	} else {
-		orp.success = bresp
+		bp.success = bresp
 	}
 }
 
-func (orp *BasePicker) collectFailureResponse(bresp BackendResponse) {
-	if orp.hasFailureResponse() {
+func (bp *BasePicker) collectFailureResponse(bresp BackendResponse) {
+	if bp.hasFailureResponse() {
 		bresp.DiscardBody()
 	} else {
-		orp.failure = bresp
+		bp.failure = bresp
 	}
-	orp.errors = append(orp.errors, bresp)
+	bp.errors = append(bp.errors, bresp)
 }
 
-func (orp *BasePicker) hasSuccessfulResponse() bool {
-	return orp.success != BackendResponse{}
+func (bp *BasePicker) hasSuccessfulResponse() bool {
+	return bp.success != emptyBackendResponse
 }
 
-func (orp *BasePicker) hasFailureResponse() bool {
-	return orp.failure != BackendResponse{}
+func (bp *BasePicker) hasFailureResponse() bool {
+	return bp.failure != emptyBackendResponse
 }
 
-func (orp *BasePicker) send(out chan<- BackendResponse, bresp BackendResponse) {
+func (bp *BasePicker) send(out chan<- BackendResponse, bresp BackendResponse) {
 	out <- bresp
-	orp.sent = true
+	bp.sent = true
 }
 
 // SendSyncLog implements picker interface
-func (orp *BasePicker) SendSyncLog(*SyncSender) {}
+func (bp *BasePicker) SendSyncLog(*SyncSender) {}
 
 // ObjectResponsePicker chooses first successful or one of failure response from chan of
 // `BackendResponse`s
@@ -58,7 +60,7 @@ func newObjectResponsePicker(rch <-chan BackendResponse) picker {
 	return &ObjectResponsePicker{BasePicker: BasePicker{responsesChan: rch}, syncLogReady: ch}
 }
 
-// Pick returns first successful response, discard others
+// Pick returns first successful response, discards others
 func (orp *ObjectResponsePicker) Pick() (*http.Response, error) {
 	outChan := make(chan BackendResponse)
 	go orp.pullResponses(outChan)
