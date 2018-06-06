@@ -110,9 +110,9 @@ func (rcm replicationClientMock) Cancel() error {
 	return nil
 }
 
-func responsePickFactoryMockFactory(mock *responsePickerMock) func(request *http.Request) func(<-chan BackendResponse) picker {
-	return func(request *http.Request) func(<-chan BackendResponse) picker {
-		return func(<-chan BackendResponse) picker {
+func responsePickFactoryMockFactory(mock *responsePickerMock) func(request *http.Request) func(<-chan BackendResponse) responsePicker {
+	return func(request *http.Request) func(<-chan BackendResponse) responsePicker {
+		return func(<-chan BackendResponse) responsePicker {
 			return mock
 		}
 	}

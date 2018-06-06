@@ -15,7 +15,7 @@ type RequestDispatcher struct {
 	Backends                  []*backend.Backend
 	syncLog                   *SyncSender
 	pickClientFactory         func(*http.Request) func([]*backend.Backend) client
-	pickResponsePickerFactory func(*http.Request) func(<-chan BackendResponse) picker
+	pickResponsePickerFactory func(*http.Request) func(<-chan BackendResponse) responsePicker
 }
 
 // NewRequestDispatcher creates RequestDispatcher instance
@@ -40,7 +40,7 @@ func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, er
 	return pickr.Pick()
 }
 
-type picker interface {
+type responsePicker interface {
 	Pick() (*http.Response, error)
 	SendSyncLog(*SyncSender)
 }
@@ -57,7 +57,7 @@ var defaultReplicationClientFactory = func(request *http.Request) func([]*backen
 	return newReplicationClient
 }
 
-var defaultResponsePickerFactory = func(request *http.Request) func(<-chan BackendResponse) picker {
+var defaultResponsePickerFactory = func(request *http.Request) func(<-chan BackendResponse) responsePicker {
 	if isBucketPath(request.URL.Path) && (request.Method == http.MethodGet) {
 		return newResponseHandler
 	}

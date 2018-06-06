@@ -119,7 +119,7 @@ func readBucketList(resp *http.Response) s3datatypes.ListBucketResult {
 type BucketListResponseMergerTestSuite struct {
 	suite.Suite
 	storage  Storages
-	rHandler picker
+	rHandler responsePicker
 	ch       chan BackendResponse
 }
 

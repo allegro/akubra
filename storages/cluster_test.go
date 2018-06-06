@@ -35,9 +35,9 @@ func (suite *ClusterTestSuite) SetupTest() {
 	require := suite.Require()
 	require.NoError(err)
 
-	cluster.dispatcher = newDispatcherMock()
+	cluster.requestDispatcher = newDispatcherMock()
 
-	suite.dispatcher = cluster.dispatcher
+	suite.dispatcher = cluster.requestDispatcher
 
 	suite.cluster = *cluster
 }

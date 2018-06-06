@@ -16,16 +16,16 @@ type NamedCluster interface {
 
 // Cluster stores information about cluster backends
 type Cluster struct {
-	backends   []*Backend
-	name       string
-	synclog    *SyncSender
-	MethodSet  set.Set
-	dispatcher dispatcher
+	backends          []*Backend
+	name              string
+	synclog           *SyncSender
+	MethodSet         set.Set
+	requestDispatcher dispatcher
 }
 
 // RoundTrip implements http.RoundTripper interface
 func (c *Cluster) RoundTrip(req *http.Request) (*http.Response, error) {
-	return c.dispatcher.Dispatch(req)
+	return c.requestDispatcher.Dispatch(req)
 }
 
 // Name get Cluster name
@@ -48,6 +48,6 @@ func newCluster(name string, backendNames []string, backends map[string]*Backend
 		clusterBackends = append(clusterBackends, backendRT)
 	}
 
-	cluster := &Cluster{backends: clusterBackends, name: name, dispatcher: NewRequestDispatcher(clusterBackends, synclog), synclog: synclog}
+	cluster := &Cluster{backends: clusterBackends, name: name, requestDispatcher: NewRequestDispatcher(clusterBackends, synclog), synclog: synclog}
 	return cluster, nil
 }

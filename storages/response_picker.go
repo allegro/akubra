@@ -55,7 +55,7 @@ type ObjectResponsePicker struct {
 	syncLogReady chan struct{}
 }
 
-func newObjectResponsePicker(rch <-chan BackendResponse) picker {
+func newObjectResponsePicker(rch <-chan BackendResponse) responsePicker {
 	ch := make(chan struct{})
 	return &ObjectResponsePicker{BasePicker: BasePicker{responsesChan: rch}, syncLogReady: ch}
 }
@@ -110,7 +110,7 @@ func (orp *deleteResponsePicker) Pick() (*http.Response, error) {
 	return bresp.Response, bresp.Error
 }
 
-func newDeleteResponsePicker(rch <-chan BackendResponse) picker {
+func newDeleteResponsePicker(rch <-chan BackendResponse) responsePicker {
 	return &deleteResponsePicker{BasePicker{responsesChan: rch}, []BackendResponse{}, make(chan struct{})}
 }
 func (orp *deleteResponsePicker) collectFailureResponse(bresp BackendResponse) {

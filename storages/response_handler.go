@@ -14,7 +14,7 @@ type responseMerger struct {
 	responsesChannel <-chan BackendResponse
 }
 
-func newResponseHandler(ch <-chan BackendResponse) picker {
+func newResponseHandler(ch <-chan BackendResponse) responsePicker {
 	return &responseMerger{responsesChannel: ch}
 }
 
