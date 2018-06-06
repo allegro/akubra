@@ -14,6 +14,7 @@ import (
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/storages"
+	"github.com/allegro/akubra/types"
 	"github.com/serialx/hashring"
 )
 
@@ -54,15 +55,18 @@ func (sr ShardsRing) Pick(key string) (storages.NamedCluster, error) {
 }
 
 type reqBody struct {
-	r *bytes.Reader
+	bytes []byte
+	r     io.Reader
 }
 
-func (rb *reqBody) rewind() error {
-	_, err := rb.r.Seek(0, io.SeekStart)
-	return err
+func (rb *reqBody) Reset() io.ReadCloser {
+	return &reqBody{bytes: rb.bytes}
 }
 
 func (rb *reqBody) Read(b []byte) (int, error) {
+	if rb.r == nil {
+		rb.r = bytes.NewBuffer(rb.bytes)
+	}
 	return rb.r.Read(b)
 }
 
@@ -82,24 +86,25 @@ func copyRequest(origReq *http.Request) (*http.Request, error) {
 		}
 	}
 	if origReq.Body != nil {
-		buf := new(bytes.Buffer)
-		_, err := io.Copy(buf, origReq.Body)
+		buf := &bytes.Buffer{}
+		n, err := io.Copy(buf, origReq.Body)
 		if err != nil {
 			return nil, err
 		}
-		newReq.Body = &reqBody{bytes.NewReader(buf.Bytes())}
+		if n > 0 {
+			newReq.Body = &reqBody{bytes: buf.Bytes()}
+		}
 	}
+	newReq.ContentLength = origReq.ContentLength
 	return newReq, nil
 }
 
 func (sr ShardsRing) send(roundTripper http.RoundTripper, req *http.Request) (*http.Response, error) {
 	// Rewind request body
-	bodySeeker, ok := req.Body.(*reqBody)
+	bodyResetter, ok := req.Body.(types.Resetter)
+
 	if ok {
-		err := bodySeeker.rewind()
-		if err != nil {
-			return nil, err
-		}
+		req.Body = bodyResetter.Reset()
 	}
 	return roundTripper.RoundTrip(req)
 }
@@ -120,7 +125,7 @@ func closeBody(resp *http.Response, reqID string) {
 func (sr ShardsRing) regressionCall(cl storages.NamedCluster, origClusterName string, req *http.Request) (string, *http.Response, error) {
 	resp, err := sr.send(cl, req)
 	// Do regression call if response status is > 400
-	if (err != nil || resp.StatusCode > 400) && req.Method != http.MethodPut {
+	if err != nil || resp.StatusCode > 400 {
 		rcl, ok := sr.clusterRegressionMap[cl.Name()]
 		if ok && rcl.Name() != origClusterName {
 			if resp != nil && resp.Body != nil {
@@ -166,6 +171,7 @@ func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr err
 	if err != nil {
 		return nil, err
 	}
+
 	isBucketReq := sr.isBucketPath(reqCopy.URL.Path)
 
 	if reqCopy.Method == http.MethodDelete || isBucketReq {
@@ -178,7 +184,7 @@ func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr err
 	}
 
 	clusterName, resp, err := sr.regressionCall(cl, cl.Name(), reqCopy)
-	if clusterName != cl.Name() {
+	if (clusterName != cl.Name()) && (reqCopy.Method == http.MethodPut) {
 		sr.logInconsistency(reqCopy.URL.Path, cl.Name(), clusterName)
 	}
 

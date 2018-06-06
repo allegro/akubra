@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/allegro/akubra/storages/merger/s3datatypes"
-	"github.com/allegro/akubra/transport"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -21,13 +20,13 @@ func xmlDecoder(body io.Reader, v interface{}) error {
 	return d.Decode(v)
 }
 
-func responseBuilder(prefixes []s3datatypes.CommonPrefix, contents s3datatypes.ObjectInfos, maxKeys int) (transport.ResErrTuple, error) {
+func responseBuilder(prefixes []s3datatypes.CommonPrefix, contents s3datatypes.ObjectInfos, maxKeys int) (BackendResponse, error) {
 	r, err := http.NewRequest(http.MethodGet, "/bucket", nil)
 	q := r.URL.Query()
 	q.Add("max-keys", fmt.Sprintf("%d", maxKeys))
 	r.URL.RawQuery = q.Encode()
 	if err != nil {
-		return transport.ResErrTuple{}, err
+		return BackendResponse{}, err
 	}
 
 	resp := &http.Response{
@@ -50,10 +49,10 @@ func responseBuilder(prefixes []s3datatypes.CommonPrefix, contents s3datatypes.O
 
 	buf := bytes.NewBuffer(bodyBytes)
 	resp.Body = ioutil.NopCloser(buf)
-	return transport.ResErrTuple{Req: r, Res: resp, Err: nil, Failed: false}, err
+	return BackendResponse{Response: resp, Error: nil, Backend: nil}, err
 }
 
-func responseV2Builder(prefixes []s3datatypes.CommonPrefix, contents []s3datatypes.ObjectInfo, maxKeys int) (transport.ResErrTuple, error) {
+func responseV2Builder(prefixes []s3datatypes.CommonPrefix, contents []s3datatypes.ObjectInfo, maxKeys int) (BackendResponse, error) {
 	request, err := http.NewRequest(http.MethodGet, "/bucket", nil)
 	queryParams := request.URL.Query()
 	queryParams.Add("max-keys", fmt.Sprintf("%d", maxKeys))
@@ -61,7 +60,7 @@ func responseV2Builder(prefixes []s3datatypes.CommonPrefix, contents []s3datatyp
 
 	request.URL.RawQuery = queryParams.Encode()
 	if err != nil {
-		return transport.ResErrTuple{}, err
+		return BackendResponse{}, err
 	}
 
 	resp := &http.Response{
@@ -83,7 +82,7 @@ func responseV2Builder(prefixes []s3datatypes.CommonPrefix, contents []s3datatyp
 
 	buf := bytes.NewBuffer(bodyBytes)
 	resp.Body = ioutil.NopCloser(buf)
-	return transport.ResErrTuple{Req: request, Res: resp, Err: nil, Failed: false}, err
+	return BackendResponse{Response: resp, Error: nil, Backend: nil}, err
 }
 
 func prefixes(prefix ...string) s3datatypes.CommonPrefixes {
@@ -120,11 +119,11 @@ func readBucketList(resp *http.Response) s3datatypes.ListBucketResult {
 type BucketListResponseMergerTestSuite struct {
 	suite.Suite
 	storage  Storages
-	rHandler transport.MultipleResponsesHandler
-	ch       chan transport.ResErrTuple
+	rHandler responsePicker
+	ch       chan BackendResponse
 }
 
-func (suite *BucketListResponseMergerTestSuite) Send(tup ...transport.ResErrTuple) {
+func (suite *BucketListResponseMergerTestSuite) Send(tup ...BackendResponse) {
 	for _, t := range tup {
 		suite.ch <- t
 	}
@@ -133,9 +132,10 @@ func (suite *BucketListResponseMergerTestSuite) Send(tup ...transport.ResErrTupl
 }
 func (suite *BucketListResponseMergerTestSuite) SetupTest() {
 	suite.storage = Storages{Clusters: make(map[string]NamedCluster)}
-	merger := responseMerger{}
-	suite.rHandler = merger.responseHandler
-	suite.ch = make(chan transport.ResErrTuple)
+	suite.ch = make(chan BackendResponse)
+	merger := &responseMerger{responsesChannel: suite.ch}
+	suite.rHandler = merger
+
 }
 
 func (suite *BucketListResponseMergerTestSuite) TestSingleResponseMerge() {
@@ -146,10 +146,10 @@ func (suite *BucketListResponseMergerTestSuite) TestSingleResponseMerge() {
 	tup1, err := responseBuilder(ps, cs, maxKeys)
 	suite.NoError(err)
 	go suite.Send(tup1)
-	rtup := suite.rHandler(suite.ch)
+	resp, err := suite.rHandler.Pick()
 
-	suite.NoError(rtup.Err)
-	list := readBucketList(rtup.Res)
+	suite.NoError(err)
+	list := readBucketList(resp)
 	suite.Equal(cs, list.Contents)
 	suite.Equal(ps, list.CommonPrefixes)
 }
@@ -169,10 +169,10 @@ func (suite *BucketListResponseMergerTestSuite) TestV2() {
 	suite.NoError(err)
 
 	go suite.Send(tup1, tup2)
-	rtup := suite.rHandler(suite.ch)
+	resp, err := suite.rHandler.Pick()
 
-	suite.NoError(rtup.Err)
-	list := readBucketList(rtup.Res)
+	suite.NoError(err)
+	list := readBucketList(resp)
 	suite.Equal(2, len(list.Contents))
 	suite.Equal(cs1[1], list.Contents[0])
 	suite.Equal(cs2[1], list.Contents[1])
@@ -194,10 +194,10 @@ func (suite *BucketListResponseMergerTestSuite) TestResponseMerge() {
 	suite.NoError(err)
 
 	go suite.Send(tup1, tup2)
-	rtup := suite.rHandler(suite.ch)
+	resp, err := suite.rHandler.Pick()
 
-	suite.NoError(rtup.Err)
-	list := readBucketList(rtup.Res)
+	suite.NoError(err)
+	list := readBucketList(resp)
 	suite.Equal(2, len(list.Contents))
 	suite.Equal(cs1[1], list.Contents[0])
 	suite.Equal(cs2[1], list.Contents[1])

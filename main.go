@@ -17,7 +17,6 @@ import (
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/regions"
 	"github.com/allegro/akubra/storages"
-	set "github.com/deckarep/golang-set"
 	_ "github.com/lib/pq"
 
 	"github.com/allegro/akubra/crdstore"
@@ -114,28 +113,24 @@ func (s *service) start() error {
 	if err != nil {
 		return err
 	}
-	methods := make([]interface{}, 0, len(s.config.Logging.SyncLogMethods))
-	for _, v := range s.config.Logging.SyncLogMethods {
-		methods = append(methods, v)
+	methods := make(map[string]struct{})
+	for _, method := range s.config.Logging.SyncLogMethods {
+		methods[method] = struct{}{}
 	}
-	lateRespHandler := httphandler.LateResponseHandler(syncLog, set.NewSetFromSlice(methods))
-	earlyRespHandler := httphandler.EarliestResponseHandler(syncLog, set.NewSetFromSlice(methods))
 
 	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
-
+	syncSender := &storages.SyncSender{SyncLog: syncLog, AllowedMethods: methods}
 	storage, err := storages.InitStorages(
 		transportMatcher,
 		s.config.Clusters,
 		s.config.Backends,
-		earlyRespHandler,
-		lateRespHandler,
-		syncLog)
+		syncSender)
 
 	if err != nil {
 		log.Fatalf("Storages initialization problem: %q", err)
 	}
 
-	regionsRT, err := regions.NewRegions(s.config.Regions, *storage, clusterSyncLog)
+	regionsRT, err := regions.NewRegions(s.config.Regions, storage, clusterSyncLog)
 	if err != nil {
 		return err
 	}

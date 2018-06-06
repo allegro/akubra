@@ -3,132 +3,32 @@ package storages
 import (
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
-	"github.com/allegro/akubra/transport"
-	"github.com/allegro/akubra/types"
 
 	"github.com/allegro/akubra/storages/auth"
 	"github.com/allegro/akubra/storages/config"
 	"github.com/allegro/akubra/storages/merger"
-	set "github.com/deckarep/golang-set"
 )
 
-// NamedCluster interface
-type NamedCluster interface {
-	http.RoundTripper
-	Name() string
-	Backends() []http.RoundTripper
-}
-
-// Cluster stores information about cluster backends
-type Cluster struct {
-	backends    []http.RoundTripper
-	name        string
-	Logger      log.Logger
-	MethodSet   set.Set
-	respHandler transport.MultipleResponsesHandler
-	transport   http.RoundTripper
+// ClusterStorage is basic cluster storage interface
+type ClusterStorage interface {
+	GetCluster(name string) (NamedCluster, error)
+	ClusterShards(name string, clusters ...NamedCluster) NamedCluster
 }
 
 // Storages config
 type Storages struct {
-	clustersConf     config.ClustersMap
-	backendsConf     config.BackendsMap
-	Clusters         map[string]NamedCluster
-	Backends         map[string]http.RoundTripper
-	lateRespHandler  transport.MultipleResponsesHandler
-	earlyRespHandler transport.MultipleResponsesHandler
-}
-
-// Backend represents any storage in akubra cluster
-type Backend struct {
-	http.RoundTripper
-	Endpoint    url.URL
-	Name        string
-	Maintenance bool
-}
-
-// RoundTrip satisfies http.RoundTripper interface
-func (b *Backend) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.URL.Host = b.Endpoint.Host
-	req.URL.Scheme = b.Endpoint.Scheme
-	// req.Host = b.Endpoint.Host
-	log.Println("Backend auth header", req.Header.Get("Authorization"))
-	reqID := req.Context().Value(log.ContextreqIDKey)
-	log.Debugf("Request %s req.URL.Host replaced with %s", reqID, req.URL.Host)
-	if b.Maintenance {
-		log.Debugf("Request %s blocked %s is in maintenance mode", reqID, req.URL.Host)
-		return nil, &types.BackendError{HostName: b.Endpoint.Host,
-			OrigErr: types.ErrorBackendMaintenance}
-	}
-	err := error(nil)
-	log.Printf("url host %s, header host %s, req host %s", req.URL.Host, req.Header.Get("Host"), req.Host)
-	resp, oerror := b.RoundTripper.RoundTrip(req)
-
-	if oerror != nil {
-		err = &types.BackendError{HostName: b.Endpoint.Host, OrigErr: oerror}
-	}
-	return resp, err
-}
-
-func (c *Cluster) setupRoundTripper(syncLog log.Logger, enableMultipart bool) {
-	log.Debugf("Cluster %s enabled mp %t", c.Name(), enableMultipart)
-	multiTransport := transport.NewMultiTransport(
-		c.Backends(),
-		c.respHandler)
-
-	c.transport = multiTransport
-	if enableMultipart {
-		clusterRoundTripper := NewMultiPartRoundTripper(c, syncLog)
-
-		c.transport = clusterRoundTripper
-		log.Debugf("Cluster %s has multipart setup successfully", c.name)
-	}
-}
-
-// RoundTrip implements http.RoundTripper interface
-func (c *Cluster) RoundTrip(req *http.Request) (*http.Response, error) {
-	log.Debugf("RT cluster %s, %T", c.Name(), c.transport)
-	return c.transport.RoundTrip(req)
-}
-
-// Name get Cluster name
-func (c *Cluster) Name() string {
-	return c.name
-}
-
-// Backends get http.RoundTripper slice
-func (c *Cluster) Backends() []http.RoundTripper {
-	return c.backends
-}
-
-func newCluster(name string, backendNames []string, backends map[string]http.RoundTripper, respHandler transport.MultipleResponsesHandler, synclog log.Logger) (*Cluster, error) {
-	clusterBackends := make([]http.RoundTripper, 0)
-	if len(backendNames) == 0 {
-		return nil, fmt.Errorf("empty 'backendNames' map in 'storages::newCluster'")
-	}
-	if len(backends) == 0 {
-		return nil, fmt.Errorf("empty 'backends' map in 'storages::newCluster'")
-	}
-	for _, backendName := range backendNames {
-		backendRT, ok := backends[backendName]
-
-		if !ok {
-			return nil, fmt.Errorf("no such backend %q in 'storages::newCluster'", backendName)
-		}
-		clusterBackends = append(clusterBackends, backendRT)
-	}
-
-	cluster := &Cluster{backends: clusterBackends, name: name, respHandler: respHandler}
-	cluster.setupRoundTripper(synclog, true)
-	return cluster, nil
+	clustersConf config.ClustersMap
+	backendsConf config.BackendsMap
+	syncLog      *SyncSender
+	Clusters     map[string]NamedCluster
+	Backends     map[string]*Backend
 }
 
 // GetCluster gets cluster by name or nil if cluster with given name was not found
-func (st Storages) GetCluster(name string) (NamedCluster, error) {
+func (st *Storages) GetCluster(name string) (NamedCluster, error) {
 	s3cluster, ok := st.Clusters[name]
 	if ok {
 		return s3cluster, nil
@@ -138,26 +38,29 @@ func (st Storages) GetCluster(name string) (NamedCluster, error) {
 
 // ClusterShards extends Clusters list of Storages by cluster made of joined clusters backends and returns it.
 // If cluster of given name is already defined returns previously defined cluster instead.
-func (st *Storages) ClusterShards(name string, syncLog log.Logger, clusters ...NamedCluster) NamedCluster {
+func (st *Storages) ClusterShards(name string, clusters ...NamedCluster) NamedCluster {
 	cluster, ok := st.Clusters[name]
 	if ok {
 		return cluster
 	}
-	backends := make([]http.RoundTripper, 0)
+	backendsNames := make([]string, 0)
 	for _, cluster := range clusters {
-		backends = append(backends, cluster.Backends()...)
+		for _, backend := range cluster.Backends() {
+			backendsNames = append(backendsNames, backend.Name)
+		}
 	}
-	rh := responseMerger{merger: st.lateRespHandler}
-	newCluster := &Cluster{backends: backends, name: name, respHandler: rh.responseHandler}
-	newCluster.setupRoundTripper(syncLog, false)
-	st.Clusters[name] = newCluster
-	return newCluster
+	sCluster, err := newCluster(name, backendsNames, st.Backends, st.syncLog)
+	if err != nil {
+		log.Fatalf("Initialization of region cluster %s failed reason: %s", name, err)
+	}
+	st.Clusters[name] = sCluster
+	return sCluster
 }
 
 // InitStorages setups storages
-func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap, earlyRespHandler, lateRespHandler transport.MultipleResponsesHandler, syncLog log.Logger) (*Storages, error) {
+func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap, syncLog *SyncSender) (*Storages, error) {
 	clusters := make(map[string]NamedCluster)
-	backends := make(map[string]http.RoundTripper)
+	backends := make(map[string]*Backend)
 	if len(backendsConf) == 0 {
 		return nil, fmt.Errorf("empty map 'backendsConf' in 'InitStorages'")
 	}
@@ -171,27 +74,29 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, 
 		}
 		backends[name] = decoratedBackend
 	}
+
 	if len(clustersConf) == 0 {
 		return nil, fmt.Errorf("empty map 'clustersConf' in 'InitStorages'")
 	}
+
 	for name, clusterConf := range clustersConf {
-		cluster, err := newCluster(name, clusterConf.Backends, backends, earlyRespHandler, syncLog)
+		cluster, err := newCluster(name, clusterConf.Backends, backends, syncLog)
 		if err != nil {
 			return nil, err
 		}
 		clusters[name] = cluster
 	}
+
 	return &Storages{
-		clustersConf:     clustersConf,
-		backendsConf:     backendsConf,
-		Clusters:         clusters,
-		Backends:         backends,
-		earlyRespHandler: earlyRespHandler,
-		lateRespHandler:  lateRespHandler,
+		clustersConf: clustersConf,
+		backendsConf: backendsConf,
+		syncLog:      syncLog,
+		Clusters:     clusters,
+		Backends:     backends,
 	}, nil
 }
 
-func decorateBackend(transport http.RoundTripper, name string, backendConf config.Backend) (http.RoundTripper, error) {
+func decorateBackend(transport http.RoundTripper, name string, backendConf config.Backend) (*Backend, error) {
 
 	errPrefix := fmt.Sprintf("initialization of backend '%s' resulted with error", name)
 	decoratorFactory, ok := auth.Decorators[backendConf.Type]
@@ -203,10 +108,10 @@ func decorateBackend(transport http.RoundTripper, name string, backendConf confi
 		return nil, fmt.Errorf("%s: %q", errPrefix, err)
 	}
 	backend := &Backend{
-		httphandler.Decorate(transport, decorator, merger.ListV2Interceptor),
-		*backendConf.Endpoint.URL,
-		name,
-		backendConf.Maintenance,
+		RoundTripper: httphandler.Decorate(transport, decorator, merger.ListV2Interceptor),
+		Endpoint:     *backendConf.Endpoint.URL,
+		Name:         name,
+		Maintenance:  backendConf.Maintenance,
 	}
 	return backend, nil
 }

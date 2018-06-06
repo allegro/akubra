@@ -7,8 +7,8 @@ import (
 	"net/url"
 
 	"github.com/allegro/akubra/storages/config"
-	"github.com/allegro/akubra/transport"
 	"github.com/allegro/akubra/types"
+
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -24,12 +24,12 @@ func (suite *StorageTestSuite) SetupTest() {
 	suite.storage = Storages{Clusters: make(map[string]NamedCluster)}
 	suite.cluster1 = &Cluster{
 		name:     "test1",
-		backends: []http.RoundTripper{http.DefaultTransport},
+		backends: []*Backend{&Backend{RoundTripper: http.DefaultTransport}},
 	}
 	suite.storage.Clusters["test1"] = suite.cluster1
 	suite.cluster2 = &Cluster{
 		name:     "test2",
-		backends: []http.RoundTripper{http.DefaultTransport},
+		backends: []*Backend{&Backend{RoundTripper: http.DefaultTransport}},
 	}
 }
 
@@ -44,23 +44,6 @@ func (suite *StorageTestSuite) TestGetClusterShouldReturnErrorIfClusterIsNotDefi
 	c, err := suite.storage.GetCluster("notExists")
 	require.Equal(suite.T(), &Cluster{}, c)
 	require.Error(suite.T(), err)
-}
-
-func (suite *StorageTestSuite) TestClusterShardsShouldReturnClusterOfGivenNameIfItsAlreadyDefined() {
-	rCluster := suite.storage.ClusterShards("test1", nil, suite.cluster2)
-
-	require.Equal(suite.T(), suite.cluster1, rCluster)
-}
-
-func (suite *StorageTestSuite) TestClusterShardsShouldReturnJoinedCluster() {
-	rCluster := suite.storage.ClusterShards("test", nil, suite.cluster1, suite.cluster2)
-
-	require.Equal(suite.T(), "test", rCluster.Name())
-	require.Contains(suite.T(), rCluster.Backends(), suite.cluster1.Backends()[0])
-	require.Contains(suite.T(), rCluster.Backends(), suite.cluster2.Backends()[0])
-
-	require.Len(suite.T(), rCluster.Backends(), 2)
-	require.Equal(suite.T(), suite.storage.Clusters["test"], rCluster)
 }
 
 func TestStorageTestSuite(t *testing.T) {
@@ -83,9 +66,8 @@ func TestShouldNotInitStoragesWithWrongBackendType(t *testing.T) {
 		Properties:  nil,
 		Type:        backendType,
 	}}
-	var respHandler transport.MultipleResponsesHandler
 
-	_, err := InitStorages(http.DefaultTransport, clustersConf, backendsConf, respHandler, respHandler, nil)
+	_, err := InitStorages(http.DefaultTransport, clustersConf, backendsConf, nil)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(),

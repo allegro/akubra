@@ -2,19 +2,16 @@ package storages
 
 import (
 	"bytes"
-	"encoding/json"
 	"encoding/xml"
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"time"
 
 	"errors"
 
-	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/types"
-	"github.com/allegro/akubra/utils"
 	"github.com/serialx/hashring"
 )
 
@@ -22,91 +19,89 @@ import (
 // to the backend selected using the active backends hash ring, otherwise the cluster round tripper is used
 // to handle the operation in standard fashion
 type MultiPartRoundTripper struct {
-	fallBackRoundTripper  http.RoundTripper
 	syncLog               log.Logger
-	backendsRoundTrippers map[string]*Backend
+	backendsRoundTrippers map[string]*backend.Backend
 	backendsRing          *hashring.HashRing
 	backendsEndpoints     []string
 }
 
-// NewMultiPartRoundTripper constructs a new MultiPartRoundTripper and returns a pointer to it
-func NewMultiPartRoundTripper(cluster *Cluster, syncLog log.Logger) *MultiPartRoundTripper {
+// Cancel Client interface
+func (multiPartRoundTripper MultiPartRoundTripper) Cancel() error { return nil }
 
-	multiPartRoundTripper := &MultiPartRoundTripper{
-		fallBackRoundTripper: cluster.transport,
-		syncLog:              syncLog,
-	}
-	log.Debug("NewMultipart ", cluster.Name(), " ", cluster.name, " ", len(cluster.Backends()))
-	multiPartRoundTripper.setupRoundTripper(cluster.Backends())
-	return multiPartRoundTripper
-}
-
-func (multiPartRoundTripper *MultiPartRoundTripper) setupRoundTripper(backends []http.RoundTripper) {
-
+// newMultiPartRoundTripper initializes multipart client
+func newMultiPartRoundTripper(backends []*Backend) client {
+	multiPartRoundTripper := &MultiPartRoundTripper{}
 	var backendsEndpoints []string
 	var activeBackendsEndpoints []string
 
 	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*Backend)
 
-	for _, roundTripper := range backends {
-
-		if backend, isBackendType := roundTripper.(*Backend); isBackendType {
-
-			if !backend.Maintenance {
-				multiPartRoundTripper.backendsRoundTrippers[backend.Endpoint.Host] = backend
-				activeBackendsEndpoints = append(activeBackendsEndpoints, backend.Endpoint.Host)
-			}
-
-			backendsEndpoints = append(backendsEndpoints, backend.Endpoint.Host)
+	for _, backend := range backends {
+		if !backend.Maintenance {
+			multiPartRoundTripper.backendsRoundTrippers[backend.Endpoint.Host] = backend
+			activeBackendsEndpoints = append(activeBackendsEndpoints, backend.Endpoint.Host)
 		}
+
+		backendsEndpoints = append(backendsEndpoints, backend.Endpoint.Host)
 	}
 
 	multiPartRoundTripper.backendsEndpoints = backendsEndpoints
 	multiPartRoundTripper.backendsRing = hashring.New(activeBackendsEndpoints)
+	return multiPartRoundTripper
 }
 
-// RoundTrip performs a RoundTrip using the strategy described in MultiPartRoundTripper
-func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Request) (response *http.Response, requestError error) {
+var errPushToSyncLog = errors.New("Sync multipart upload")
 
-	if isMultiPartUploadRequest(request) {
-
-		if !multiPartRoundTripper.canHandleMultiUpload() {
-			log.Debugf("Multi upload for %s failed - no backends available.", request.URL.Path)
-			return nil, errors.New("Can't handle multi upload")
-		}
-
-		multiUploadBackend, backendSelectError := multiPartRoundTripper.pickBackend(request.URL.Path)
-
-		if backendSelectError != nil {
-			log.Debugf("Multi upload failed for %s - %s", backendSelectError, request.URL.Path)
-			return nil, errors.New("Can't handle multi upload")
-		}
-
-		log.Debugf("Handling multipart upload, sending %s to %s, RequestID id %s",
-			request.URL.Path,
-			multiUploadBackend.Endpoint,
-			request.Context().Value(log.ContextreqIDKey))
-
-		response, requestError = multiUploadBackend.RoundTrip(request)
-
-		if requestError != nil {
-			log.Debugf("Error during multipart upload: %s", requestError)
-			return
-		}
-
-		if !isInitiateRequest(request) && isCompleteUploadResponseSuccessful(response) {
-			go multiPartRoundTripper.reportCompletionToMigrator(response)
-		}
-
-		log.Debugf("Served multipart request, response code %d, status %s", response.StatusCode, response.Status)
-
-		return
+// Do performs backend request
+func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *http.Request) <-chan BackendResponse {
+	backendResponseChannel := make(chan BackendResponse)
+	if !multiPartRoundTripper.canHandleMultiUpload() {
+		log.Debugf("Multi upload for %s failed - no backends available.", request.URL.Path)
+		go func() {
+			backendResponseChannel <- BackendResponse{Response: nil, Error: errors.New("Can't handle multi upload")}
+			close(backendResponseChannel)
+		}()
+		return backendResponseChannel
 	}
 
-	return multiPartRoundTripper.fallBackRoundTripper.RoundTrip(request)
+	multiUploadBackend, backendSelectError := multiPartRoundTripper.pickBackend(request.URL.Path)
+
+	if backendSelectError != nil {
+		log.Debugf("Multi upload failed for %s - %s", backendSelectError, request.URL.Path)
+		go func() {
+			backendResponseChannel <- BackendResponse{Response: nil, Error: errors.New("Can't handle multi upload")}
+			close(backendResponseChannel)
+		}()
+		return backendResponseChannel
+	}
+
+	log.Debugf("Handling multipart upload, sending %s to %s, RequestID id %s",
+		request.URL.Path,
+		multiUploadBackend.Endpoint,
+		request.Context().Value(log.ContextreqIDKey))
+
+	httpResponse, requestError := multiUploadBackend.RoundTrip(request)
+
+	if requestError != nil {
+		log.Debugf("Error during multipart upload: %s", requestError)
+
+	}
+	go func() {
+		if !isInitiateRequest(request) && isCompleteUploadResponseSuccessful(httpResponse) {
+			for _, backend := range multiPartRoundTripper.backendsRoundTrippers {
+				if backend != multiUploadBackend {
+					backendResponseChannel <- BackendResponse{Response: nil, Error: errPushToSyncLog, Backend: backend}
+				}
+			}
+		}
+		backendResponseChannel <- BackendResponse{Response: httpResponse, Error: requestError, Backend: multiUploadBackend}
+		close(backendResponseChannel)
+	}()
+
+	return backendResponseChannel
 }
 
-func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath string) (*Backend, error) {
+func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath string) (*backend.Backend, error) {
 
 	backendEndpoint, nodeFound := multiPartRoundTripper.backendsRing.GetNode(objectPath)
 
@@ -132,11 +127,15 @@ func isMultiPartUploadRequest(request *http.Request) bool {
 }
 
 func isInitiateRequest(request *http.Request) bool {
-	return strings.HasSuffix(request.URL.String(), "?uploads")
+	reqQuery := request.URL.Query()
+	_, has := reqQuery["uploads"]
+	return has
 }
 
 func containsUploadID(request *http.Request) bool {
-	return strings.Contains(request.URL.RawQuery, "uploadId=")
+	reqQuery := request.URL.Query()
+	_, has := reqQuery["uploadId"]
+	return has
 }
 
 func isCompleteUploadResponseSuccessful(response *http.Response) bool {
@@ -179,38 +178,4 @@ func responseContainsCompleteUploadString(response *http.Response) bool {
 	log.Debugf("Successfully performed multipart upload to %s", completeMultipartUploadResult.Location)
 
 	return true
-}
-
-func (multiPartRoundTripper *MultiPartRoundTripper) reportCompletionToMigrator(response *http.Response) {
-
-	for _, destBackendEndpoint := range multiPartRoundTripper.backendsEndpoints {
-
-		if destBackendEndpoint == response.Request.URL.Host {
-			continue
-		}
-
-		syncLogMsg := &httphandler.SyncLogMessageData{
-			Method:        "PUT",
-			FailedHost:    destBackendEndpoint,
-			SuccessHost:   response.Request.URL.Host,
-			Path:          response.Request.URL.Path,
-			AccessKey:     utils.ExtractAccessKey(response.Request),
-			UserAgent:     response.Request.Header.Get("User-Agent"),
-			ContentLength: response.ContentLength,
-			ErrorMsg:      "Migrate MultiUpload",
-			ReqID:         utils.RequestID(response.Request),
-			Time:          time.Now().Format(time.RFC3339Nano),
-		}
-
-		logMsg, err := json.Marshal(syncLogMsg)
-
-		if err != nil {
-			log.Debugf("Marshall synclog error %s", err)
-			return
-		}
-
-		multiPartRoundTripper.syncLog.Println(string(logMsg))
-
-		log.Debugf("Sent a multipart upload migration request of object %s to backend %s", response.Request.URL.Path, destBackendEndpoint)
-	}
 }

@@ -13,7 +13,7 @@ import (
 // RingFactory produces clients ShardsRing
 type RingFactory struct {
 	conf     config.Regions
-	storages storages.Storages
+	storages storages.ClusterStorage
 	syncLog  log.Logger
 }
 
@@ -70,7 +70,7 @@ func (rf RingFactory) RegionRing(name string, regionCfg config.Region) (ShardsRi
 
 	cHashMap := hashring.NewWithWeights(clustersWeights)
 
-	allBackendsRoundTripper := rf.storages.ClusterShards(fmt.Sprintf("region-%s", name), rf.syncLog, regionShards...)
+	allBackendsRoundTripper := rf.storages.ClusterShards(fmt.Sprintf("region-%s", name), regionShards...)
 	regressionMap, err := rf.createRegressionMap(regionCfg)
 	if err != nil {
 		return ShardsRing{}, err
@@ -87,7 +87,7 @@ func (rf RingFactory) RegionRing(name string, regionCfg config.Region) (ShardsRi
 }
 
 // NewRingFactory creates ring factory
-func NewRingFactory(conf config.Regions, storages storages.Storages, syncLog log.Logger) RingFactory {
+func NewRingFactory(conf config.Regions, storages storages.ClusterStorage, syncLog log.Logger) RingFactory {
 	return RingFactory{
 		conf:     conf,
 		storages: storages,

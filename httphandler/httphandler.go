@@ -73,24 +73,30 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if resp.Body == nil {
 		return
 	}
+
 	if _, copyErr := io.Copy(w, resp.Body); copyErr != nil {
-		log.Printf("Cannot send response body reason: %q",
+		log.Printf("Handler.ServeHTTP Cannot send response body %s reason: %q",
+			randomIDStr,
 			copyErr.Error())
+	} else {
+		log.Printf("Handler.ServeHTTP Sent response body %s",
+			randomIDStr)
 	}
 }
 
 func respBodyCloserFactory(resp *http.Response, randomIDStr string) func() {
 	return func() {
+		log.Debugf("Close response body %s ", randomIDStr)
 		if resp.Body == nil {
+			log.Debugf("Nil body response %s ", randomIDStr)
 			return
 		}
 		closeErr := resp.Body.Close()
-		if resp.Request != nil {
-			log.Debugf("discard %s response body %s ", resp.Request.URL.Host, randomIDStr)
-		}
 		if closeErr != nil {
-			log.Printf("Cannot send response body reason: %q",
+			log.Printf("Cannot close response body reason: %q",
 				closeErr.Error())
+		} else {
+			log.Printf("Response for request %s close successful", randomIDStr)
 		}
 	}
 }
