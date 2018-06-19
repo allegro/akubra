@@ -60,6 +60,7 @@ func (b *Backend) collectMetrics(resp *http.Response, err error, since time.Time
 // Response helps handle responses
 type Response struct {
 	Response *http.Response
+	Request  *http.Request
 	Error    error
 	Backend  *Backend
 }
@@ -76,6 +77,11 @@ func (br *Response) DiscardBody() error {
 	}
 	err = br.Response.Body.Close()
 	return err
+}
+
+// ReqID returns request id
+func (br *Response) ReqID() string {
+	return br.Request.Context().Value(log.ContextreqIDKey).(string)
 }
 
 //IsSuccessful returns true if no networ error occured and status code < 400

@@ -70,8 +70,9 @@ func (orp *ObjectResponsePicker) Pick() (*http.Response, error) {
 
 // SendSyncLog implements picker interface
 func (orp *ObjectResponsePicker) SendSyncLog(syncLog *SyncSender) {
-	<-orp.syncLogReady
-	sendSynclogs(syncLog, orp.success, orp.errors)
+	for range orp.syncLogReady {
+		sendSynclogs(syncLog, orp.success, orp.errors)
+	}
 }
 
 func (orp *ObjectResponsePicker) pullResponses(out chan<- BackendResponse) {
@@ -84,7 +85,7 @@ func (orp *ObjectResponsePicker) pullResponses(out chan<- BackendResponse) {
 		} else {
 			orp.collectFailureResponse(bresp)
 		}
-		if shouldSend {
+		if shouldSend && bresp.IsSuccessful() {
 			orp.send(out, bresp)
 		}
 	}
@@ -94,6 +95,7 @@ func (orp *ObjectResponsePicker) pullResponses(out chan<- BackendResponse) {
 	}
 	close(out)
 	orp.syncLogReady <- struct{}{}
+	close(orp.syncLogReady)
 }
 
 type deleteResponsePicker struct {
@@ -141,6 +143,7 @@ func (orp *deleteResponsePicker) pullResponses(out chan<- BackendResponse) {
 	}
 	close(out)
 	orp.syncLogReady <- struct{}{}
+	close(orp.syncLogReady)
 }
 
 // SendSyncLog implements picker interface

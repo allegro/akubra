@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/types"
 )
@@ -53,6 +54,7 @@ func (rc *ReplicationClient) Cancel() error {
 	if rc.cancelFunc == nil {
 		return fmt.Errorf("No operation in progress cannot cancel")
 	}
+	log.Debug("Replication client cancel called")
 	rc.cancelFunc()
 	return nil
 }
@@ -66,8 +68,11 @@ type Backend = backend.Backend
 func callBackend(request *http.Request, backend *backend.Backend, backendResponseChan chan BackendResponse) {
 	resp, err := backend.RoundTrip(request)
 	contextErr := request.Context().Err()
+
 	if contextErr != nil {
+		log.Println("Canceled!", contextErr.Error(), request.Context().Value(log.ContextreqIDKey))
+		log.Printf("Canceled? %v %t %s", err, resp != nil, request.Context().Value(log.ContextreqIDKey))
 		err = ErrRequestCanceled
 	}
-	backendResponseChan <- BackendResponse{Response: resp, Error: err, Backend: backend}
+	backendResponseChan <- BackendResponse{Response: resp, Error: err, Backend: backend, Request: request}
 }

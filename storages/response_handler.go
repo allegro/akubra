@@ -26,7 +26,7 @@ func isSuccess(response BackendResponse) bool {
 }
 
 func (rm *responseMerger) createResponse(firstResponse BackendResponse, successes []BackendResponse) (resp *http.Response, err error) {
-	reqQuery := firstResponse.Response.Request.URL.Query()
+	reqQuery := firstResponse.Request.URL.Query()
 
 	if reqQuery.Get("list-type") == listTypeV2 {
 		log.Println("Create response v2", len(successes))
@@ -118,9 +118,9 @@ func isBucketPath(path string) bool {
 // Pick implements picker interface
 func (rm *responseMerger) Pick() (*http.Response, error) {
 	firstTuple := <-rm.responsesChannel
-	if !rm.isMergable(firstTuple.Response.Request) {
+	if !rm.isMergable(firstTuple.Request) {
 		return &http.Response{
-			Request:    firstTuple.Response.Request,
+			Request:    firstTuple.Request,
 			StatusCode: http.StatusNotImplemented,
 		}, nil
 	}

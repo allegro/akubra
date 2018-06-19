@@ -36,7 +36,7 @@ func MergeBucketListResponses(successes []backend.Response) (resp *http.Response
 		prefixes.append(listBucketResult.CommonPrefixes.ToStringer()...)
 	}
 
-	req := successes[0].Response.Request
+	req := successes[0].Request
 	reqQuery := req.URL.Query()
 	maxKeysQuery := reqQuery.Get("max-keys")
 	maxKeys, err := strconv.Atoi(maxKeysQuery)
