@@ -27,7 +27,9 @@ func (slf SyncSender) shouldResponseBeLogged(bresp BackendResponse) bool {
 	if slf.SyncLog == nil || !allowed {
 		return false
 	}
+
 	if bresp.Error == ErrRequestCanceled {
+
 		return false
 	}
 	return true
@@ -65,7 +67,7 @@ func (slf SyncSender) send(success, failure BackendResponse) {
 }
 
 func sendSynclogs(syncLog *SyncSender, success BackendResponse, failures []BackendResponse) {
-	if len(failures) == 0 || (success == BackendResponse{}) || syncLog == nil || !syncLog.shouldResponseBeLogged(success) {
+	if len(failures) == 0 || (success == BackendResponse{}) || syncLog == nil || !syncLog.shouldResponseBeLogged(failures[0]) {
 		return
 	}
 	for _, failure := range failures {

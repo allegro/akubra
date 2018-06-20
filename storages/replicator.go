@@ -29,8 +29,14 @@ func newReplicationClient(backends []*backend.Backend) client {
 func (rc *ReplicationClient) Do(request *http.Request) <-chan BackendResponse {
 	responsesChan := make(chan BackendResponse)
 	wg := sync.WaitGroup{}
-	ctx, cancelFunc := context.WithCancel(request.Context())
+	reqIDValue, ok := request.Context().Value(log.ContextreqIDKey).(string)
+	if !ok {
+		reqIDValue = ""
+	}
+	ctx, cancelFunc := context.WithCancel(context.WithValue(context.Background(),
+		log.ContextreqIDKey, reqIDValue))
 	rc.cancelFunc = cancelFunc
+
 	for _, backend := range rc.Backends {
 		wg.Add(1)
 		go func(backend *Backend) {
@@ -42,6 +48,7 @@ func (rc *ReplicationClient) Do(request *http.Request) <-chan BackendResponse {
 			wg.Done()
 		}(backend)
 	}
+
 	go func() {
 		wg.Wait()
 		close(responsesChan)
@@ -54,7 +61,6 @@ func (rc *ReplicationClient) Cancel() error {
 	if rc.cancelFunc == nil {
 		return fmt.Errorf("No operation in progress cannot cancel")
 	}
-	log.Debug("Replication client cancel called")
 	rc.cancelFunc()
 	return nil
 }
@@ -70,8 +76,6 @@ func callBackend(request *http.Request, backend *backend.Backend, backendRespons
 	contextErr := request.Context().Err()
 
 	if contextErr != nil {
-		log.Println("Canceled!", contextErr.Error(), request.Context().Value(log.ContextreqIDKey))
-		log.Printf("Canceled? %v %t %s", err, resp != nil, request.Context().Value(log.ContextreqIDKey))
 		err = ErrRequestCanceled
 	}
 	backendResponseChan <- BackendResponse{Response: resp, Error: err, Backend: backend, Request: request}
