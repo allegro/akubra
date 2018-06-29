@@ -86,7 +86,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func respBodyCloserFactory(resp *http.Response, randomIDStr string) func() {
 	return func() {
-		log.Debugf("Close response body %s ", randomIDStr)
 		if resp.Body == nil {
 			log.Debugf("Nil body response %s ", randomIDStr)
 			return

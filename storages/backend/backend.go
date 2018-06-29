@@ -68,6 +68,7 @@ type Response struct {
 // DiscardBody drain and close response Body, so connections are properly closed
 func (br *Response) DiscardBody() error {
 	if br.Response == nil || br.Response.Body == nil {
+		log.Debugf("ResponseBody for request %s is nil so cannot be closed", br.ReqID())
 		return nil
 	}
 	_, err := io.Copy(ioutil.Discard, br.Response.Body)
@@ -83,7 +84,14 @@ func (br *Response) DiscardBody() error {
 
 // ReqID returns request id
 func (br *Response) ReqID() string {
-	return br.Request.Context().Value(log.ContextreqIDKey).(string)
+	if br.Request == nil {
+		return ""
+	}
+	reqID := br.Request.Context().Value(log.ContextreqIDKey)
+	if reqID == nil {
+		return ""
+	}
+	return reqID.(string)
 }
 
 //IsSuccessful returns true if no networ error occured and status code < 400

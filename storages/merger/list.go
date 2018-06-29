@@ -34,6 +34,10 @@ func MergeBucketListResponses(successes []backend.Response) (resp *http.Response
 		listBucketResult = extractListResults(resp)
 		keys.append(listBucketResult.Contents.ToStringer()...)
 		prefixes.append(listBucketResult.CommonPrefixes.ToStringer()...)
+		discardErr := tuple.DiscardBody()
+		if discardErr != nil {
+			log.Debug("Response discard error in MergeBucketListResponses %s", discardErr)
+		}
 	}
 
 	req := successes[0].Request
@@ -100,11 +104,6 @@ func extractListResults(resp *http.Response) s3datatypes.ListBucketResult {
 	buf := &bytes.Buffer{}
 	if _, rerr := buf.ReadFrom(resp.Body); rerr != nil {
 		log.Debugf("Problem reading ObjectStore response body, %s", rerr)
-		return lbr
-	}
-
-	if cerr := resp.Body.Close(); cerr != nil {
-		log.Debugf("Problem closing ObjectStore response body, %s", cerr)
 		return lbr
 	}
 

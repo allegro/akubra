@@ -30,6 +30,11 @@ func MergeVersionsResponses(successes []backend.Response) (resp *http.Response, 
 		listBucketResult = extractListVersionsResults(resp)
 		keysContainer.append(listBucketResult.Version.ToStringer()...)
 		keysContainer.append(listBucketResult.DeleteMarker.ToStringer()...)
+
+		discardErr := tuple.DiscardBody()
+		if discardErr != nil {
+			log.Debug("Response discard error in MergeVersionsResponses %s", discardErr)
+		}
 	}
 
 	req := successes[0].Request
@@ -65,11 +70,6 @@ func extractListVersionsResults(resp *http.Response) s3datatypes.ListVersionsRes
 	buf := &bytes.Buffer{}
 	if _, rerr := buf.ReadFrom(resp.Body); rerr != nil {
 		log.Debugf("Problem reading ObjectStore response body, %s", rerr)
-		return lbr
-	}
-
-	if cerr := resp.Body.Close(); cerr != nil {
-		log.Debugf("Problem closing ObjectStore response body, %s", cerr)
 		return lbr
 	}
 
