@@ -75,7 +75,9 @@ func (br *Response) DiscardBody() error {
 		log.Printf("Discard body error %s", err)
 		return err
 	}
+
 	err = br.Response.Body.Close()
+	log.Debugf("ResponseBody for request %s closed with %s error", br.ReqID(), err)
 	return err
 }
 

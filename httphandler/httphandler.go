@@ -92,12 +92,8 @@ func respBodyCloserFactory(resp *http.Response, randomIDStr string) func() {
 			return
 		}
 		closeErr := resp.Body.Close()
-		if closeErr != nil {
-			log.Printf("Cannot close response body reason: %q",
-				closeErr.Error())
-		} else {
-			log.Printf("Response for request %s close successful", randomIDStr)
-		}
+		log.Debugf("ResponseBody for request %s closed with %s error", randomIDStr, closeErr)
+
 	}
 }
 
