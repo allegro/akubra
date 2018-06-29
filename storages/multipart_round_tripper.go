@@ -58,7 +58,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *http.Request) <-
 	if !multiPartRoundTripper.canHandleMultiUpload() {
 		log.Debugf("Multi upload for %s failed - no backends available.", request.URL.Path)
 		go func() {
-			backendResponseChannel <- BackendResponse{Response: nil, Error: errors.New("Can't handle multi upload")}
+			backendResponseChannel <- BackendResponse{Request: request, Response: nil, Error: errors.New("Can't handle multi upload")}
 			close(backendResponseChannel)
 		}()
 		return backendResponseChannel
@@ -69,7 +69,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *http.Request) <-
 	if backendSelectError != nil {
 		log.Debugf("Multi upload failed for %s - %s", backendSelectError, request.URL.Path)
 		go func() {
-			backendResponseChannel <- BackendResponse{Response: nil, Error: errors.New("Can't handle multi upload")}
+			backendResponseChannel <- BackendResponse{Request: request, Response: nil, Error: errors.New("Can't handle multi upload")}
 			close(backendResponseChannel)
 		}()
 		return backendResponseChannel
@@ -90,11 +90,11 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *http.Request) <-
 		if !isInitiateRequest(request) && isCompleteUploadResponseSuccessful(httpResponse) {
 			for _, backend := range multiPartRoundTripper.backendsRoundTrippers {
 				if backend != multiUploadBackend {
-					backendResponseChannel <- BackendResponse{Response: nil, Error: errPushToSyncLog, Backend: backend}
+					backendResponseChannel <- BackendResponse{Request: request, Response: nil, Error: errPushToSyncLog, Backend: backend}
 				}
 			}
 		}
-		backendResponseChannel <- BackendResponse{Response: httpResponse, Error: requestError, Backend: multiUploadBackend}
+		backendResponseChannel <- BackendResponse{Request: request, Response: httpResponse, Error: requestError, Backend: multiUploadBackend}
 		close(backendResponseChannel)
 	}()
 
