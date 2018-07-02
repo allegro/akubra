@@ -93,6 +93,9 @@ func shouldBeFilteredInMaintenanceMode(success, failure BackendResponse) bool {
 
 // extractDestinationHostName extract destination hostname from request
 func extractDestinationHostName(r BackendResponse) string {
+	if r.Backend != nil {
+		return r.Backend.Endpoint.Host
+	}
 	if r.Request != nil {
 		return r.Request.URL.Host
 	}
