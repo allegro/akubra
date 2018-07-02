@@ -219,3 +219,23 @@ func SignAuthServiceDecorator(backend, region, endpoint, host string) httphandle
 		return signAuthServiceRoundTripper{rt: rt, backend: backend, region: region, host: host, crd: credentialsStore}
 	}
 }
+
+type forceSignRoundTripper struct {
+	rt     http.RoundTripper
+	keys   Keys
+	region string
+	host   string
+}
+
+// RoundTrip implements http.RoundTripper interface
+func (srt forceSignRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = s3signer.SignV2(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
+	return srt.rt.RoundTrip(req)
+}
+
+// ForceSignDecorator will recompute auth headers for new Key
+func ForceSignDecorator(keys Keys, region, host string) httphandler.Decorator {
+	return func(rt http.RoundTripper) http.RoundTripper {
+		return forceSignRoundTripper{rt: rt, region: region, host: host, keys: keys}
+	}
+}
