@@ -87,7 +87,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func respBodyCloserFactory(resp *http.Response, randomIDStr string) func() {
 	return func() {
 		if resp.Body == nil {
-			log.Debugf("Nil body response %s ", randomIDStr)
+			log.Debugf("ResponseBody for request %s is nil - nothing to close", randomIDStr)
 			return
 		}
 		closeErr := resp.Body.Close()

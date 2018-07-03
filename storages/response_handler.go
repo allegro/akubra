@@ -27,6 +27,14 @@ func isSuccess(response BackendResponse) bool {
 
 func (rm *responseMerger) createResponse(firstResponse BackendResponse, successes []BackendResponse) (resp *http.Response, err error) {
 	reqQuery := firstResponse.Request.URL.Query()
+	if reqQuery["location"] != nil {
+		if len(successes) > 1 {
+			for _, success := range successes[1:] {
+				success.DiscardBody()
+			}
+		}
+		return firstResponse.Response, firstResponse.Error
+	}
 
 	if reqQuery.Get("list-type") == listTypeV2 {
 		log.Println("Create response v2", len(successes))
@@ -37,7 +45,6 @@ func (rm *responseMerger) createResponse(firstResponse BackendResponse, successe
 	if reqQuery["versions"] != nil {
 		return merger.MergeVersionsResponses(successes)
 	}
-
 	return merger.MergeBucketListResponses(successes)
 }
 
@@ -82,7 +89,6 @@ var unsupportedQueryParamNames = []string{
 	"notification",
 	"metrics",
 	"logging",
-	"location",
 	"lifecycle",
 	"inventory",
 	"encryption",
