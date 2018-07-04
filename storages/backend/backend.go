@@ -30,15 +30,17 @@ func (b *Backend) RoundTrip(req *http.Request) (resp *http.Response, err error) 
 	reqID := req.Context().Value(log.ContextreqIDKey)
 
 	if b.Maintenance {
-		log.Debugf("Request %s blocked %s is in maintenance mode", reqID, req.URL.Host)
+		log.Debugf("Request %s blocked %s/%s is in maintenance mode", reqID, req.URL.Host, req.URL.Path)
 		return nil, &types.BackendError{HostName: b.Endpoint.Host,
 			OrigErr: types.ErrorBackendMaintenance}
 	}
 
 	resp, oerror := b.RoundTripper.RoundTrip(req)
-	log.Debugf("Response for req %s from %s with %s err with not nil body %t", reqID, req.URL.Host, oerror, resp != nil)
+	log.Debugf("Response for req %s from %s/%s with %s err with", reqID, req.URL.Host, req.URL.Path, oerror)
 	if oerror != nil {
 		err = &types.BackendError{HostName: b.Endpoint.Host, OrigErr: oerror}
+	} else if resp != nil {
+		log.Debugf("Body for req %s from %s is nil: %t, status: %d", reqID, req.URL.Host, resp.Body == nil, resp.StatusCode)
 	}
 
 	return resp, err
@@ -67,8 +69,12 @@ type Response struct {
 
 // DiscardBody drain and close response Body, so connections are properly closed
 func (br *Response) DiscardBody() error {
+	backendName := "unknown"
+	if br.Backend != nil {
+		backendName = br.Backend.Name
+	}
 	if br.Response == nil || br.Response.Body == nil {
-		log.Debugf("ResponseBody for request %s is nil so cannot be closed", br.ReqID())
+		log.Debugf("ResponseBody for request %s is nil so cannot be closed - backend: %s", br.ReqID(), backendName)
 		return nil
 	}
 	_, err := io.Copy(ioutil.Discard, br.Response.Body)
@@ -78,7 +84,7 @@ func (br *Response) DiscardBody() error {
 	}
 
 	err = br.Response.Body.Close()
-	log.Debugf("ResponseBody for request %s closed with %s error", br.ReqID(), err)
+	log.Debugf("ResponseBody for request %s closed with %s error - backend: %s", br.ReqID(), err, backendName)
 	return err
 }
 

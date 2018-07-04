@@ -125,6 +125,18 @@ func isBucketPath(path string) bool {
 func (rm *responseMerger) Pick() (*http.Response, error) {
 	firstTuple := <-rm.responsesChannel
 	if !rm.isMergable(firstTuple.Request) {
+		log.Debugf("RequestUnmergable path: %s, method: %s, query:%s, id: %s",
+			firstTuple.Request.URL.Path,
+			firstTuple.Request.Method,
+			firstTuple.Request.URL.RawQuery,
+			firstTuple.ReqID(),
+		)
+		go func(rch <-chan BackendResponse) {
+			for br := range rch {
+				br.DiscardBody()
+			}
+		}(rm.responsesChannel)
+		firstTuple.DiscardBody()
 		return &http.Response{
 			Request:    firstTuple.Request,
 			StatusCode: http.StatusNotImplemented,

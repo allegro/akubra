@@ -33,8 +33,9 @@ func (rc *ReplicationClient) Do(request *http.Request) <-chan BackendResponse {
 	if !ok {
 		reqIDValue = ""
 	}
-	ctx, cancelFunc := context.WithCancel(context.WithValue(context.Background(),
-		log.ContextreqIDKey, reqIDValue))
+	newContext := context.Background()
+	newContextWithValue := context.WithValue(newContext, log.ContextreqIDKey, reqIDValue)
+	ctx, cancelFunc := context.WithCancel(newContextWithValue)
 	rc.cancelFunc = cancelFunc
 
 	for _, backend := range rc.Backends {
@@ -58,6 +59,7 @@ func (rc *ReplicationClient) Do(request *http.Request) <-chan BackendResponse {
 
 // Cancel requests in progress
 func (rc *ReplicationClient) Cancel() error {
+	log.Debugf("ReplicationClient Cancel() called")
 	if rc.cancelFunc == nil {
 		return fmt.Errorf("No operation in progress cannot cancel")
 	}
@@ -74,9 +76,17 @@ type Backend = backend.Backend
 func callBackend(request *http.Request, backend *backend.Backend, backendResponseChan chan BackendResponse) {
 	resp, err := backend.RoundTrip(request)
 	contextErr := request.Context().Err()
+	bresp := BackendResponse{Response: resp, Error: err, Backend: backend, Request: request}
+
+	select {
+	case <-request.Context().Done():
+		log.Printf("RequestContext Done %s", bresp.ReqID())
+	default:
+	}
 
 	if contextErr != nil {
-		err = ErrRequestCanceled
+		bresp.Error = ErrRequestCanceled
 	}
-	backendResponseChan <- BackendResponse{Response: resp, Error: err, Backend: backend, Request: request}
+
+	backendResponseChan <- bresp
 }

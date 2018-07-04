@@ -3,7 +3,9 @@ package transport
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"time"
 
 	httphandlerConfig "github.com/allegro/akubra/httphandler/config"
 	"github.com/allegro/akubra/log"
@@ -12,6 +14,7 @@ import (
 
 const (
 	defaultMaxIdleConnsPerHost = 100
+	defaultDialTimeout         = time.Second
 )
 
 // Matcher mapping initialized Transports with http.RoundTripper by transport name
@@ -60,7 +63,7 @@ func ConfigureHTTPTransports(clientConf httphandlerConfig.Client) (http.RoundTri
 	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
 	if len(clientConf.Transports) > 0 {
 		for _, transport := range clientConf.Transports {
-			roundTrippers[transport.Name] = perepareTransport(transport.Properties, maxIdleConnsPerHost)
+			roundTrippers[transport.Name] = perepareTransport(transport.Properties, clientConf, maxIdleConnsPerHost)
 		}
 		transportMatcher.RoundTrippers = roundTrippers
 	} else {
@@ -76,11 +79,20 @@ type DefinitionError struct {
 }
 
 // perepareTransport with properties
-func perepareTransport(properties config.ClientTransportProperties, maxIdleConnsPerHost int) http.RoundTripper {
+func perepareTransport(properties config.ClientTransportProperties, clientConf httphandlerConfig.Client, maxIdleConnsPerHost int) http.RoundTripper {
 	if properties.MaxIdleConnsPerHost != 0 {
 		maxIdleConnsPerHost = properties.MaxIdleConnsPerHost
 	}
+
+	timeout := defaultDialTimeout
+	if clientConf.DialTimeout.Duration > 0 {
+		timeout = clientConf.DialTimeout.Duration
+	}
+
 	httpTransport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout: timeout,
+		}).DialContext,
 		MaxIdleConns:          properties.MaxIdleConns,
 		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
 		IdleConnTimeout:       properties.IdleConnTimeout.Duration,

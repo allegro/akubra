@@ -61,6 +61,8 @@ type Client struct {
 	AdditionalResponseHeaders AdditionalHeaders `yaml:"AdditionalResponseHeaders,omitempty"`
 	// Transports configuration
 	Transports transport.Transports `yaml:"Transports,omitempty"`
+	// DialTimeout limits wait period for connection dial
+	DialTimeout metrics.Interval `yaml:"DialTimeout"`
 }
 
 // HumanSizeUnits type for max. payload body size in bytes

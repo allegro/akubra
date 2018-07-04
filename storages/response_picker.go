@@ -48,7 +48,7 @@ func (bp *BasePicker) send(out chan<- BackendResponse, bresp BackendResponse) {
 			bp.failure.DiscardBody()
 		}
 	} else if bp.hasSuccessfulResponse() {
-		bp.failure.DiscardBody()
+		bp.success.DiscardBody()
 	}
 }
 

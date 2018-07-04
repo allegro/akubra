@@ -61,9 +61,11 @@ var defaultResponsePickerFactory = func(request *http.Request) func(<-chan Backe
 	if isBucketPath(request.URL.Path) && (request.Method == http.MethodGet) {
 		return newResponseHandler
 	}
+
 	if isBucketPath(request.URL.Path) && ((request.Method == http.MethodPut) || (request.Method == http.MethodDelete)) {
 		return newDeleteResponsePicker
 	}
+
 	if request.Method == http.MethodDelete {
 		return newDeleteResponsePicker
 	}
