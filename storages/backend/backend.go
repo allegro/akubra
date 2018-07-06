@@ -80,7 +80,6 @@ func (br *Response) DiscardBody() error {
 	_, err := io.Copy(ioutil.Discard, br.Response.Body)
 	if err != nil {
 		log.Printf("Discard body error %s", err)
-		return err
 	}
 
 	err = br.Response.Body.Close()

@@ -29,7 +29,6 @@ func (slf SyncSender) shouldResponseBeLogged(bresp BackendResponse) bool {
 	}
 
 	if bresp.Error == ErrRequestCanceled {
-
 		return false
 	}
 	return true
