@@ -2,7 +2,6 @@ package brimapi
 
 import (
 	"fmt"
-	"github.com/allegro/akubra/log"
 
 	"github.com/allegro/akubra/discovery"
 	"github.com/sirupsen/logrus"
@@ -41,7 +40,6 @@ func (lh *LogHook) doRequest(payload string) (endpoint string, err error) {
 	resp, endpoint, err := discovery.DoRequestWithDiscoveryService(
 		discovery.GetHTTPClient(), lh.Host, lh.Path, lh.Creds.User, lh.Creds.Pass, payload)
 	if err != nil {
-		log.Printf("Failed to send migration task: %s", payload)
 		return
 	}
 	return endpoint, discovery.DiscardBody(resp)
