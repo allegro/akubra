@@ -34,6 +34,8 @@ const (
 var reV2 = regexp.MustCompile(regexV2Algorithm)
 var reV4 = regexp.MustCompile(regexV4Algorithm)
 
+
+//ParsedAuthorizationHeader holds the parsed "Authorization" header content
 type ParsedAuthorizationHeader struct {
 	Version       string
 	AccessKey     string
