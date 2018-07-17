@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/allegro/akubra/log/brimapi"
 	"github.com/allegro/akubra/log/sql"
 	"github.com/sirupsen/logrus"
 )
@@ -81,7 +80,7 @@ type LoggerConfig struct {
 	File      string          `yaml:"file"`
 	Syslog    string          `yaml:"syslog"`
 	Database  sql.DBConfig    `yaml:"database"`
-	BrimAPI   brimapi.LogHook `yaml:"brim"`
+	BrimAPI   LogHook `yaml:"brim"`
 	Level     string          `yaml:"level"`
 }
 
@@ -144,7 +143,7 @@ func createHooks(config LoggerConfig) (lh logrus.LevelHooks, err error) {
 			lh[logrus.InfoLevel] = append(hooks, hook)
 		}
 	}
-	emptyBrimAPIHook := brimapi.LogHook{}
+	emptyBrimAPIHook := LogHook{}
 	if config.BrimAPI != emptyBrimAPIHook {
 		for _, level := range config.BrimAPI.Levels() {
 			_, ok := lh[level]

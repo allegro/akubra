@@ -1,10 +1,12 @@
-package brimapi
+package log
 
 import (
-	"fmt"
 
-	"github.com/allegro/akubra/discovery"
-	"github.com/sirupsen/logrus"
+"fmt"
+
+"github.com/allegro/akubra/discovery"
+"github.com/sirupsen/logrus"
+
 )
 
 // Credentials stores brim api credentials
@@ -29,10 +31,12 @@ func (lh *LogHook) Levels() []logrus.Level {
 func (lh *LogHook) Fire(entry *logrus.Entry) (err error) {
 	endpoint, err := lh.doRequest(entry.Message)
 	if err != nil {
-		return fmt.Errorf("problem with sync task by endpoint: '%s' with payload: '%s' - err: '%s'",
+		syncErr := fmt.Errorf("problem with sync task by endpoint: '%s' with payload: '%s' - err: '%s'",
 			endpoint, entry.Message, err)
+		Println(syncErr)
+		return syncErr
 	}
-	fmt.Printf("put sync task by endpoint: '%s' with payload: '%s'\n", endpoint, entry.Message)
+	Printf("put sync task by endpoint: '%s' with payload: '%s'\n", endpoint, entry.Message)
 	return
 }
 
