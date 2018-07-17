@@ -1,10 +1,12 @@
 package utils
 
 import (
-	"net/http"
-	"strings"
 
-	"github.com/allegro/akubra/log"
+"net/http"
+
+"github.com/allegro/akubra/log"
+auth2 "github.com/allegro/akubra/storages/auth"
+
 )
 
 // BackendError interface helps logging inconsistencies
@@ -31,17 +33,13 @@ func ExtractAccessKey(req *http.Request) string {
 	if req.Header == nil {
 		return ""
 	}
-	auth := req.Header.Get("Authorization")
-	if auth == "" {
+	authHeader := req.Header.Get("Authorization")
+	if authHeader == "" {
 		return ""
 	}
-	chunks := strings.Split(auth, " ")
-	if len(chunks) < 2 || strings.TrimSpace(chunks[0]) != "AWS" {
+	parsedAuthHeader, parsingErr := auth2.ParseAuthorizationHeader(authHeader)
+	if parsingErr != nil {
 		return ""
 	}
-	sigChunk := strings.Split(chunks[1], ":")
-	if len(chunks) < 2 {
-		return ""
-	}
-	return strings.TrimSpace(sigChunk[0])
+	return parsedAuthHeader.AccessKey
 }

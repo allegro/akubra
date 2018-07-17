@@ -9,6 +9,7 @@ import (
 
 	"github.com/allegro/akubra/log"
 	logconfig "github.com/allegro/akubra/log/config"
+	"gopkg.in/tylerb/graceful.v1"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/config"
@@ -21,7 +22,6 @@ import (
 
 	"github.com/allegro/akubra/crdstore"
 	"github.com/allegro/akubra/transport"
-	"gopkg.in/tylerb/graceful.v1"
 )
 
 // TechnicalEndpointGeneralTimeout for /configuration/validate endpoint
@@ -48,9 +48,11 @@ var (
 )
 
 func main() {
+
 	versionString := fmt.Sprintf("Akubra (%s version)", version)
 	kingpin.Version(versionString)
 	kingpin.Parse()
+
 	conf, err := config.Configure(*configFile)
 	if err != nil {
 		log.Fatalf("Improperly configured %s", err)
@@ -58,16 +60,11 @@ func main() {
 
 	valid, errs := config.ValidateConf(conf.YamlConfig, true)
 	if !valid {
-		fmt.Printf("YAML validation - errors: %q", errs)
+		log.Printf("YAML validation - errors: %q", errs)
 		os.Exit(1)
 	}
 	log.Println("Configuration checked - OK.")
 
-	if *testConfig {
-		os.Exit(0)
-	}
-
-	log.Printf("Health check endpoint: %s", conf.Service.Server.HealthCheckEndpoint)
 
 	mainlog, err := log.NewDefaultLogger(conf.Logging.Mainlog, "LOG_LOCAL2", false)
 	if err != nil {
@@ -76,6 +73,11 @@ func main() {
 
 	log.DefaultLogger = mainlog
 
+	if *testConfig {
+		os.Exit(0)
+	}
+
+	log.Printf("Health check endpoint: %s", conf.Service.Server.HealthCheckEndpoint)
 	mainlog.Printf("starting on port %s", conf.Service.Server.Listen)
 	mainlog.Printf("backends %#v", conf.Backends)
 
