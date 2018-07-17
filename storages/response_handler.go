@@ -26,7 +26,15 @@ func isSuccess(response BackendResponse) bool {
 }
 
 func (rm *responseMerger) createResponse(firstResponse BackendResponse, successes []BackendResponse) (resp *http.Response, err error) {
-	reqQuery := firstResponse.Response.Request.URL.Query()
+	reqQuery := firstResponse.Request.URL.Query()
+	if reqQuery["location"] != nil {
+		if len(successes) > 1 {
+			for _, success := range successes[1:] {
+				success.DiscardBody()
+			}
+		}
+		return firstResponse.Response, firstResponse.Error
+	}
 
 	if reqQuery.Get("list-type") == listTypeV2 {
 		log.Println("Create response v2", len(successes))
@@ -37,7 +45,6 @@ func (rm *responseMerger) createResponse(firstResponse BackendResponse, successe
 	if reqQuery["versions"] != nil {
 		return merger.MergeVersionsResponses(successes)
 	}
-
 	return merger.MergeBucketListResponses(successes)
 }
 
@@ -82,7 +89,6 @@ var unsupportedQueryParamNames = []string{
 	"notification",
 	"metrics",
 	"logging",
-	"location",
 	"lifecycle",
 	"inventory",
 	"encryption",
@@ -118,9 +124,21 @@ func isBucketPath(path string) bool {
 // Pick implements picker interface
 func (rm *responseMerger) Pick() (*http.Response, error) {
 	firstTuple := <-rm.responsesChannel
-	if !rm.isMergable(firstTuple.Response.Request) {
+	if !rm.isMergable(firstTuple.Request) {
+		log.Debugf("RequestUnmergable path: %s, method: %s, query:%s, id: %s",
+			firstTuple.Request.URL.Path,
+			firstTuple.Request.Method,
+			firstTuple.Request.URL.RawQuery,
+			firstTuple.ReqID(),
+		)
+		go func(rch <-chan BackendResponse) {
+			for br := range rch {
+				br.DiscardBody()
+			}
+		}(rm.responsesChannel)
+		firstTuple.DiscardBody()
 		return &http.Response{
-			Request:    firstTuple.Response.Request,
+			Request:    firstTuple.Request,
 			StatusCode: http.StatusNotImplemented,
 		}, nil
 	}

@@ -26,7 +26,7 @@ func responseBuilder(prefixes []s3datatypes.CommonPrefix, contents s3datatypes.O
 	q.Add("max-keys", fmt.Sprintf("%d", maxKeys))
 	r.URL.RawQuery = q.Encode()
 	if err != nil {
-		return BackendResponse{}, err
+		return BackendResponse{Request: r}, err
 	}
 
 	resp := &http.Response{
@@ -49,7 +49,7 @@ func responseBuilder(prefixes []s3datatypes.CommonPrefix, contents s3datatypes.O
 
 	buf := bytes.NewBuffer(bodyBytes)
 	resp.Body = ioutil.NopCloser(buf)
-	return BackendResponse{Response: resp, Error: nil, Backend: nil}, err
+	return BackendResponse{Response: resp, Error: nil, Backend: nil, Request: r}, err
 }
 
 func responseV2Builder(prefixes []s3datatypes.CommonPrefix, contents []s3datatypes.ObjectInfo, maxKeys int) (BackendResponse, error) {
@@ -82,7 +82,7 @@ func responseV2Builder(prefixes []s3datatypes.CommonPrefix, contents []s3datatyp
 
 	buf := bytes.NewBuffer(bodyBytes)
 	resp.Body = ioutil.NopCloser(buf)
-	return BackendResponse{Response: resp, Error: nil, Backend: nil}, err
+	return BackendResponse{Response: resp, Error: nil, Backend: nil, Request: request}, err
 }
 
 func prefixes(prefix ...string) s3datatypes.CommonPrefixes {

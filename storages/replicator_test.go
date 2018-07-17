@@ -33,7 +33,7 @@ func TestReplicationClientRequestPassing(t *testing.T) {
 	responses := cli.Do(request)
 
 	responsesCount := 0
-	for _ = range responses {
+	for range responses {
 		responsesCount++
 	}
 

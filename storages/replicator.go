@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/types"
 )
@@ -28,8 +29,15 @@ func newReplicationClient(backends []*backend.Backend) client {
 func (rc *ReplicationClient) Do(request *http.Request) <-chan BackendResponse {
 	responsesChan := make(chan BackendResponse)
 	wg := sync.WaitGroup{}
-	ctx, cancelFunc := context.WithCancel(request.Context())
+	reqIDValue, ok := request.Context().Value(log.ContextreqIDKey).(string)
+	if !ok {
+		reqIDValue = ""
+	}
+	newContext := context.Background()
+	newContextWithValue := context.WithValue(newContext, log.ContextreqIDKey, reqIDValue)
+	ctx, cancelFunc := context.WithCancel(newContextWithValue)
 	rc.cancelFunc = cancelFunc
+
 	for _, backend := range rc.Backends {
 		wg.Add(1)
 		go func(backend *Backend) {
@@ -41,6 +49,7 @@ func (rc *ReplicationClient) Do(request *http.Request) <-chan BackendResponse {
 			wg.Done()
 		}(backend)
 	}
+
 	go func() {
 		wg.Wait()
 		close(responsesChan)
@@ -50,6 +59,7 @@ func (rc *ReplicationClient) Do(request *http.Request) <-chan BackendResponse {
 
 // Cancel requests in progress
 func (rc *ReplicationClient) Cancel() error {
+	log.Debugf("ReplicationClient Cancel() called")
 	if rc.cancelFunc == nil {
 		return fmt.Errorf("No operation in progress cannot cancel")
 	}
@@ -66,8 +76,17 @@ type Backend = backend.Backend
 func callBackend(request *http.Request, backend *backend.Backend, backendResponseChan chan BackendResponse) {
 	resp, err := backend.RoundTrip(request)
 	contextErr := request.Context().Err()
-	if contextErr != nil {
-		err = ErrRequestCanceled
+	bresp := BackendResponse{Response: resp, Error: err, Backend: backend, Request: request}
+
+	select {
+	case <-request.Context().Done():
+		log.Printf("RequestContext Done %s", bresp.ReqID())
+	default:
 	}
-	backendResponseChan <- BackendResponse{Response: resp, Error: err, Backend: backend}
+
+	if contextErr != nil {
+		bresp.Error = ErrRequestCanceled
+	}
+
+	backendResponseChan <- bresp
 }

@@ -120,6 +120,7 @@ func closeBody(resp *http.Response, reqID string) {
 		log.Printf("Cannot close response body for req %s, reason: %q",
 			reqID, closeErr.Error())
 	}
+	log.Debugf("ResponseBody for request %s closed with %s error (regression)", reqID, closeErr)
 }
 
 func (sr ShardsRing) regressionCall(cl storages.NamedCluster, origClusterName string, req *http.Request) (string, *http.Response, error) {

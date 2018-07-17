@@ -23,8 +23,12 @@ func (slf SyncSender) shouldResponseBeLogged(bresp BackendResponse) bool {
 	if slf.AllowedMethods == nil {
 		return false
 	}
-	_, allowed := slf.AllowedMethods[bresp.Response.Request.Method]
+	_, allowed := slf.AllowedMethods[bresp.Request.Method]
 	if slf.SyncLog == nil || !allowed {
+		return false
+	}
+
+	if bresp.Error == ErrRequestCanceled {
 		return false
 	}
 	return true
@@ -37,22 +41,22 @@ func (slf SyncSender) send(success, failure BackendResponse) {
 
 	errorMsg := emptyStrOrErrorMsg(failure.Error)
 	contentLength := success.Response.ContentLength
-	reqID := utils.RequestID(success.Response.Request)
+	reqID := utils.RequestID(success.Request)
 
 	syncLogMsg := &httphandler.SyncLogMessageData{
-		Method:        success.Response.Request.Method,
+		Method:        success.Request.Method,
 		FailedHost:    extractDestinationHostName(failure),
 		SuccessHost:   extractDestinationHostName(success),
-		Path:          success.Response.Request.URL.Path,
-		AccessKey:     utils.ExtractAccessKey(success.Response.Request),
-		UserAgent:     success.Response.Request.Header.Get("User-Agent"),
+		Path:          success.Request.URL.Path,
+		AccessKey:     utils.ExtractAccessKey(success.Request),
+		UserAgent:     success.Request.Header.Get("User-Agent"),
 		ContentLength: contentLength,
 		ErrorMsg:      errorMsg,
 		ReqID:         reqID,
 		Time:          time.Now().Format(time.RFC3339Nano),
 	}
 
-	metrics.Mark(fmt.Sprintf("reqs.inconsistencies.%s.method-%s", metrics.Clean(failure.Backend.Endpoint.Host), success.Response.Request.Method))
+	metrics.Mark(fmt.Sprintf("reqs.inconsistencies.%s.method-%s", metrics.Clean(failure.Backend.Endpoint.Host), success.Request.Method))
 	logMsg, err := json.Marshal(syncLogMsg)
 	if err != nil {
 		log.Debugf("Marshall synclog error %s", err)
@@ -62,7 +66,7 @@ func (slf SyncSender) send(success, failure BackendResponse) {
 }
 
 func sendSynclogs(syncLog *SyncSender, success BackendResponse, failures []BackendResponse) {
-	if len(failures) == 0 || (success == BackendResponse{}) || syncLog == nil || !syncLog.shouldResponseBeLogged(success) {
+	if len(failures) == 0 || (success == BackendResponse{}) || syncLog == nil || !syncLog.shouldResponseBeLogged(failures[0]) {
 		return
 	}
 	for _, failure := range failures {
@@ -82,14 +86,17 @@ func shouldBeFilteredInMaintenanceMode(success, failure BackendResponse) bool {
 	if !failure.Backend.Maintenance {
 		return false
 	}
-	isPutOrDelMethod := (success.Response.Request.Method == http.MethodPut) || (success.Response.Request.Method == http.MethodDelete)
+	isPutOrDelMethod := (success.Request.Method == http.MethodPut) || (success.Request.Method == http.MethodDelete)
 	return !isPutOrDelMethod
 }
 
 // extractDestinationHostName extract destination hostname from request
 func extractDestinationHostName(r BackendResponse) string {
-	if r.Response != nil {
-		return r.Response.Request.URL.Host
+	if r.Backend != nil {
+		return r.Backend.Endpoint.Host
+	}
+	if r.Request != nil {
+		return r.Request.URL.Host
 	}
 	berr, ok := r.Error.(*types.BackendError)
 	if ok {
