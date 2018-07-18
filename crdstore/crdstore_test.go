@@ -95,7 +95,7 @@ func TestShouldPrepareInternalKeyBasedOnAccessAndStorageType(t *testing.T) {
 	cs, err := GetInstance("default")
 	require.NoError(t, err)
 	key := cs.prepareKey("access", "storage_type")
-	require.Equal(t, expectedKey, key, "keys must be equals")
+	require.Equal(t, expectedKey, key, "keys must be equal")
 }
 
 func TestShouldSetCredentialsFromExternalServiceEndpoint(t *testing.T) {
