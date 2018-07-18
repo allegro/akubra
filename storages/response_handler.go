@@ -27,13 +27,8 @@ func isSuccess(response BackendResponse) bool {
 
 func (rm *responseMerger) createResponse(firstResponse BackendResponse, successes []BackendResponse) (resp *http.Response, err error) {
 	reqQuery := firstResponse.Request.URL.Query()
-	if reqQuery["location"] != nil {
-		if len(successes) > 1 {
-			for _, success := range successes[1:] {
-				success.DiscardBody()
-			}
-		}
-		return firstResponse.Response, firstResponse.Error
+	if rm.isPartiallyMergable(firstResponse.Request) {
+		return merger.MergePartially(firstResponse, successes)
 	}
 
 	if reqQuery.Get("list-type") == listTypeV2 {
@@ -49,7 +44,9 @@ func (rm *responseMerger) createResponse(firstResponse BackendResponse, successe
 }
 
 func (rm *responseMerger) merge(firstTuple BackendResponse, rtupleCh <-chan BackendResponse) BackendResponse {
+
 	successes := []BackendResponse{}
+
 	if isSuccess(firstTuple) {
 		successes = append(successes, firstTuple)
 	}
@@ -80,8 +77,11 @@ func (rm *responseMerger) merge(firstTuple BackendResponse, rtupleCh <-chan Back
 }
 
 var unsupportedQueryParamNames = []string{
-	"acl",
 	"uploads",
+}
+
+var partialSupportQueryParamNames = []string{"acl",
+	"accelerate",
 	"tags",
 	"requestPayment",
 	"replication",
@@ -94,7 +94,6 @@ var unsupportedQueryParamNames = []string{
 	"encryption",
 	"cors",
 	"analytics",
-	"accelerate",
 	"website",
 }
 
@@ -113,6 +112,23 @@ func (rm *responseMerger) isMergable(req *http.Request) bool {
 	}
 	return !unsupportedQuery && (method == http.MethodGet) && isBucketPath(path)
 }
+
+func (rm *responseMerger) isPartiallyMergable(req *http.Request) bool {
+	path := req.URL.Path
+	method := req.Method
+	reqQuery := req.URL.Query()
+	partiallySupportedQuery := false
+	if reqQuery != nil {
+		for _, key := range partialSupportQueryParamNames {
+			if reqQuery[key] != nil {
+				partiallySupportedQuery = true
+				break
+			}
+		}
+	}
+	return partiallySupportedQuery && (method == http.MethodGet) && isBucketPath(path)
+}
+
 func isBucketPath(path string) bool {
 	trimmedPath := strings.Trim(path, "/")
 	if trimmedPath == "" {
