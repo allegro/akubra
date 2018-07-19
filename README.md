@@ -12,27 +12,27 @@
 
 ### Redundancy
 
-Akubra is a simple solution to keep an independent S3 storages in sync - almost
+Akubra is a simple solution to keep independent S3 storages in sync - almost
 realtime, eventually consistent.
 
-Keeping synchronized storage clusters, which handles great volume of new objects
-(about 300k obj/h), is the most efficient by feeding them with all incoming data
-at once. That's what Akubra does, with a minimum memory and cpu footprint.
+Keeping synchronized storage clusters, which handle great volume of new objects
+(about 300k obj/h), is most efficient by feeding them with all incoming data
+at once. That's what Akubra does, with a minimal memory and cpu footprint.
 
-Synchronizing S3 storages offline is almost impossible with a high volume traffic.
+Synchronizing S3 storages offline is almost impossible with a high volume of traffic.
 It would require keeping track of new objects (or periodical bucket listing),
-downloading and uploading them to other storage. It's slow, expensive and hard
+downloading and uploading them to the other storage. It's slow, expensive and hard
 to implement robustly.
 
 Akubra way is to put files in all storages at once by copying requests to multiple
-backends. I case one of clusters rejects request it logs that event, and syncronizes
+backends. I case one if clusters rejects request it logs that event, and synchronizes
 troublesome object with an independent process.
 
 ### Seamless storage space extension with new storage clusters
-Akubra has sharding capabilities. You may easily configure new backends with
+Akubra has sharding capabilities. You can easily configure new backends with
 weigths and append them to regions cluster pool.
 
-Based on clusters weights akubra splits all operations between clusters in pool.
+Based on cluster weights akubra splits all operations between clusters in pool.
 It also backtracks to older cluster when requested for not existing object on
 target cluster. This kind of events are logged, so it's possible to rebalance
 clusters in background.
@@ -85,7 +85,7 @@ we also return positive response as stated above.
 
 We also handle slow endpoint scenario. If there are more connections than safe
 limit defined in configuration, the backend with most of them is taken out of
-the pool and error is logged.
+the pool and an error is logged.
 
 
 ## Configuration ##
@@ -207,7 +207,7 @@ Metrics:
 
 ## Configuration validation for CI
 
-Akubra has technical http endpoint for configuration validation puroposes.
+Akubra has a technical http endpoint for configuration validation purposes.
 It's configured with TechnicalEndpointListen property.
 
 ### Example usage
@@ -226,7 +226,7 @@ or:
 ## Health check endpoint
 
 Feature required by load balancers, DNS servers and related systems for health checking.
-In configuration YAML we have parameter `HealthCheckEndpoint` - it's URI path for health check HTTP endpoint.
+In configuration YAML we have a `HealthCheckEndpoint` parameter - it's an URI path for health check HTTP endpoint.
 
 ### Example usage
 
@@ -242,5 +242,5 @@ Response:
 
 ## Limitations
 
- * User's credentials have to be identical on every backend
+ * Users credentials have to be identical on every backend
  * We do not support S3 partial uploads
