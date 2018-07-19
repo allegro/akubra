@@ -30,7 +30,7 @@ troublesome object with an independent process.
 
 ### Seamless storage space extension with new storage clusters
 Akubra has sharding capabilities. You can easily configure new backends with
-weigths and append them to regions cluster pool.
+weights and append them to regions cluster pool.
 
 Based on cluster weights akubra splits all operations between clusters in pool.
 It also backtracks to older cluster when requested for not existing object on
