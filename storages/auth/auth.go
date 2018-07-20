@@ -39,7 +39,8 @@ var Decorators = map[string]func(string, config.Backend) (httphandler.Decorator,
 			AccessKeyID:     accessKey,
 			SecretAccessKey: secret,
 		}
-		return ForceSignDecorator(keys, backendConf.Region, backendConf.Endpoint.Host), nil
+		methods := backendConf.Properties["Methods"]
+		return ForceSignDecorator(keys, backendConf.Region, backendConf.Endpoint.Host, methods), nil
 	},
 	S3AuthService: func(backend string, backendConf config.Backend) (httphandler.Decorator, error) {
 		endpoint, ok := backendConf.Properties["AuthServiceEndpoint"]
