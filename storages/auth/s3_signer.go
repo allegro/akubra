@@ -3,6 +3,7 @@ package auth
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"regexp"
 
@@ -33,7 +34,6 @@ const (
 
 var reV2 = regexp.MustCompile(regexV2Algorithm)
 var reV4 = regexp.MustCompile(regexV4Algorithm)
-
 
 //ParsedAuthorizationHeader holds the parsed "Authorization" header content
 type ParsedAuthorizationHeader struct {
@@ -223,21 +223,31 @@ func SignAuthServiceDecorator(backend, region, endpoint, host string) httphandle
 }
 
 type forceSignRoundTripper struct {
-	rt     http.RoundTripper
-	keys   Keys
-	region string
-	host   string
+	rt      http.RoundTripper
+	keys    Keys
+	methods string
+	region  string
+	host    string
 }
 
 // RoundTrip implements http.RoundTripper interface
 func (srt forceSignRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	req = s3signer.SignV2(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
+	if srt.shouldBeSigned(req) {
+		req = s3signer.SignV2(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
+	}
 	return srt.rt.RoundTrip(req)
+}
+func (srt forceSignRoundTripper) shouldBeSigned(request *http.Request) bool {
+	if len(srt.methods) == 0 || strings.Contains(srt.methods, request.Method) {
+		return true
+	}
+
+	return false
 }
 
 // ForceSignDecorator will recompute auth headers for new Key
-func ForceSignDecorator(keys Keys, region, host string) httphandler.Decorator {
+func ForceSignDecorator(keys Keys, region, host, methods string) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
-		return forceSignRoundTripper{rt: rt, region: region, host: host, keys: keys}
+		return forceSignRoundTripper{rt: rt, region: region, host: host, keys: keys, methods: methods}
 	}
 }
