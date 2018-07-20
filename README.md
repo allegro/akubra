@@ -25,8 +25,8 @@ downloading and uploading them to the other storage. It's slow, expensive and ha
 to implement robustly.
 
 Akubra way is to put files in all storages at once by copying requests to multiple
-backends. I case one if clusters rejects request it logs that event, and synchronizes
-troublesome object with an independent process.
+backends. I case if one of the clusters rejects a request it logs that event,
+and synchronizes troublesome object with an independent process.
 
 ### Seamless storage space extension with new storage clusters
 Akubra has sharding capabilities. You can easily configure new backends with
