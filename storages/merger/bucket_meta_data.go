@@ -22,7 +22,10 @@ func MergePartially(firstResponse backend.Response, successes []backend.Response
 	if err != nil {
 		log.Printf("Could not read first response body reqID %s, reason %s", firstResponse.ReqID(), err)
 	}
-	firstResponse.DiscardBody()
+	err = firstResponse.DiscardBody()
+	if err != nil {
+		log.Printf("Cannot close first response body reqId %s, reason: %s", firstResponse.ReqID(), err)
+	}
 
 	resp := firstResponse.Response
 
