@@ -233,6 +233,11 @@ type forceSignRoundTripper struct {
 // RoundTrip implements http.RoundTripper interface
 func (srt forceSignRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if srt.shouldBeSigned(req) {
+		header := make(http.Header, len(req.Header))
+		for k, v := range req.Header {
+			header[k] = v
+		}
+		req.Header = header
 		req = s3signer.SignV2(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
 	}
 	return srt.rt.RoundTrip(req)
