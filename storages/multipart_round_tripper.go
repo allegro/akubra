@@ -19,7 +19,6 @@ import (
 // to the backend selected using the active backends hash ring, otherwise the cluster round tripper is used
 // to handle the operation in standard fashion
 type MultiPartRoundTripper struct {
-	syncLog               log.Logger
 	backendsRoundTrippers map[string]*backend.Backend
 	backendsRing          *hashring.HashRing
 	backendsEndpoints     []string
@@ -90,7 +89,14 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *http.Request) <-
 
 	if requestError != nil {
 		log.Debugf("Error during multipart upload: %s", requestError)
-
+		go func() {
+			backendResponseChannel <- BackendResponse{
+				Request:  request,
+				Response: httpResponse,
+				Error:    requestError,
+				Backend:  multiUploadBackend,
+			}
+		}()
 	}
 	go func() {
 		if !isInitiateRequest(request) && isCompleteUploadResponseSuccessful(httpResponse) {

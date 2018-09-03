@@ -65,7 +65,6 @@ func main() {
 	}
 	log.Println("Configuration checked - OK.")
 
-
 	mainlog, err := log.NewDefaultLogger(conf.Logging.Mainlog, "LOG_LOCAL2", false)
 	if err != nil {
 		log.Fatalf("Could not set up main logger: %q", err)
