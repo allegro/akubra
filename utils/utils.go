@@ -1,12 +1,10 @@
 package utils
 
 import (
+	"net/http"
 
-"net/http"
-
-"github.com/allegro/akubra/log"
-auth2 "github.com/allegro/akubra/storages/auth"
-
+	"github.com/allegro/akubra/log"
+	auth2 "github.com/allegro/akubra/storages/auth"
 )
 
 // BackendError interface helps logging inconsistencies

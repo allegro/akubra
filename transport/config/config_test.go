@@ -62,9 +62,6 @@ type TransportMatcherDefinitionTest struct {
 	TransportMatcherDefinition
 }
 
-// testConfig temporary test properties
-var testConfig TransportMatcherDefinitionTest
-
 // NewTransportConfigTest tests func for updating fields values in tests cases
 func (t *TransportMatcherDefinition) NewTransportConfigTest() *TransportMatcherDefinition {
 	t.Rules = prepareTransportConfig("^GET|POST$", "/path/aa", "")

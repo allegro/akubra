@@ -1,12 +1,10 @@
 package log
 
 import (
+	"fmt"
 
-"fmt"
-
-"github.com/allegro/akubra/discovery"
-"github.com/sirupsen/logrus"
-
+	"github.com/allegro/akubra/discovery"
+	"github.com/sirupsen/logrus"
 )
 
 // Credentials stores brim api credentials

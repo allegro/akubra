@@ -102,10 +102,6 @@ var slowRoundTripper = func(*http.Request) (*http.Response, error) {
 	return nil, fmt.Errorf("Connection timeout")
 }
 
-var failureRoundTripper = func(*http.Request) (*http.Response, error) {
-	return nil, fmt.Errorf("Connection timeout")
-}
-
 var successRoundTripper = func(req *http.Request) (*http.Response, error) {
 	return &http.Response{Request: req}, nil
 }
