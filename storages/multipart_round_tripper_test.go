@@ -19,7 +19,6 @@ func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenBackendRingIsEmpty(t
 	activeBackendRoundTrippers := make(map[string]*Backend)
 
 	multiPartRoundTripper := MultiPartRoundTripper{
-		nil,
 		activeBackendRoundTrippers,
 		emptyMultiPartUploadHashRing,
 		nil,
@@ -40,7 +39,6 @@ func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenAllBackendsAreInMain
 	hashRingOnlyWithMaitenanceBackend := hashring.New([]string{maintenanceBackendURL.String()})
 
 	multiPartRoundTripper := MultiPartRoundTripper{
-		nil,
 		make(map[string]*Backend),
 		hashRingOnlyWithMaitenanceBackend,
 		nil,
@@ -90,7 +88,6 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 	activeBackendRoundTrippers[activateBackend2.Endpoint.String()] = activateBackend2
 
 	multiPartRoundTripper := MultiPartRoundTripper{
-		nil,
 		activeBackendRoundTrippers,
 		multiPartUploadHashRing,
 		[]string{activeBackendURL.String(), activeBackendURL2.String()},
@@ -160,7 +157,6 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 	activeBackendRoundTrippers[activateBackend2.Endpoint.String()] = activateBackend2
 
 	multiPartRoundTripper := MultiPartRoundTripper{
-		nil,
 		activeBackendRoundTrippers,
 		multiPartUploadHashRing,
 		[]string{activeBackendURL.String(), activeBackendURL2.String()},

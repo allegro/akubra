@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"time"
+
 	httphandlerconfig "github.com/allegro/akubra/httphandler/config"
 	"github.com/allegro/akubra/metrics"
 	regionsconfig "github.com/allegro/akubra/regions/config"
@@ -13,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/validator.v1"
-	"time"
 )
 
 type CustomItemsTestUnique struct {

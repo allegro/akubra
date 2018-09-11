@@ -1,7 +1,6 @@
 package httphandler
 
 import (
-	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -59,35 +58,4 @@ func TestShouldReturnStatusOKOnHealthCheckEndpoint(t *testing.T) {
 	bodyStr := string(bodyBytes)
 	assert.Equal(t, expectedStatusCode, writer.Code)
 	assert.Equal(t, expectedBody, bodyStr)
-}
-
-type syncLogWritterStub struct {
-	bytes.Buffer
-	called chan struct{}
-}
-
-func (s *syncLogWritterStub) Write(p []byte) (int, error) {
-	s.called <- struct{}{}
-	return s.Buffer.Write(p)
-}
-
-type testBackendError struct {
-	backend string
-	err     error
-}
-
-func (tbe *testBackendError) Backend() string {
-	return tbe.backend
-}
-
-func (tbe *testBackendError) Err() error {
-	return tbe.err
-}
-
-func (tbe *testBackendError) Error() string {
-	return tbe.err.Error()
-}
-func (tbe *testBackendError) AsError() error {
-	err := error(tbe)
-	return err
 }

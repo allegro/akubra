@@ -2,6 +2,8 @@ package storages
 
 import (
 	"net/http"
+
+	"github.com/allegro/akubra/log"
 )
 
 var emptyBackendResponse = BackendResponse{}
@@ -17,7 +19,9 @@ type BasePicker struct {
 
 func (bp *BasePicker) collectSuccessResponse(bresp BackendResponse) {
 	if bp.hasSuccessfulResponse() || bp.sent {
-		bresp.DiscardBody()
+		if err := bresp.DiscardBody(); err != nil {
+			log.Debugf("Could not close tuple body: %s", err)
+		}
 	} else {
 		bp.success = bresp
 	}
@@ -25,7 +29,9 @@ func (bp *BasePicker) collectSuccessResponse(bresp BackendResponse) {
 
 func (bp *BasePicker) collectFailureResponse(bresp BackendResponse) {
 	if bp.hasFailureResponse() || bp.sent {
-		bresp.DiscardBody()
+		if err := bresp.DiscardBody(); err != nil {
+			log.Debugf("Could not close tuple body: %s", err)
+		}
 	} else {
 		bp.failure = bresp
 	}
@@ -45,10 +51,15 @@ func (bp *BasePicker) send(out chan<- BackendResponse, bresp BackendResponse) {
 	bp.sent = true
 	if bresp.IsSuccessful() {
 		if bp.hasFailureResponse() {
-			bp.failure.DiscardBody()
+			if err := bp.failure.DiscardBody(); err != nil {
+				log.Debugf("Could not close tuple body: %s", err)
+			}
+
 		}
 	} else if bp.hasSuccessfulResponse() {
-		bp.success.DiscardBody()
+		if err := bp.success.DiscardBody(); err != nil {
+			log.Debugf("Could not close tuple body: %s", err)
+		}
 	}
 }
 
@@ -137,7 +148,7 @@ func (drp *deleteResponsePicker) pullResponses(out chan<- BackendResponse) {
 		if success {
 			drp.collectSuccessResponse(bresp)
 		} else {
-			shouldSend = !drp.hasFailureResponse() && bresp.Backend.Maintenance == false
+			shouldSend = !drp.hasFailureResponse() && !bresp.Backend.Maintenance
 			drp.collectFailureResponse(bresp)
 		}
 		if shouldSend {

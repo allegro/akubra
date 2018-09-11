@@ -55,7 +55,9 @@ func (rm *responseMerger) merge(firstTuple BackendResponse, rtupleCh <-chan Back
 		if isSuccess(tuple) {
 			successes = append(successes, tuple)
 		} else {
-			tuple.DiscardBody()
+			if err := tuple.DiscardBody(); err != nil {
+				log.Printf("Could not discard tuple body, %s", err)
+			}
 		}
 	}
 
@@ -149,10 +151,15 @@ func (rm *responseMerger) Pick() (*http.Response, error) {
 		)
 		go func(rch <-chan BackendResponse) {
 			for br := range rch {
-				br.DiscardBody()
+				if err := br.DiscardBody(); err != nil {
+					log.Debugf("Could not close tuple body: %s", err)
+				}
 			}
 		}(rm.responsesChannel)
-		firstTuple.DiscardBody()
+		if err := firstTuple.DiscardBody(); err != nil {
+			log.Debugf("Could not close tuple body: %s", err)
+		}
+
 		return &http.Response{
 			Request:    firstTuple.Request,
 			StatusCode: http.StatusNotImplemented,
