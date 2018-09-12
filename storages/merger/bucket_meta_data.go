@@ -3,8 +3,9 @@ package merger
 import (
 	"bytes"
 	"io/ioutil"
-	"log"
 	"net/http"
+
+	"github.com/allegro/akubra/log"
 
 	backend "github.com/allegro/akubra/storages/backend"
 )
@@ -18,22 +19,19 @@ const (
 // to distinguish identical backend responses from differing ones.
 // Applicable for ?acl ?policy ?cors ?metrics ?logging ?location ?lifecycle
 func MergePartially(firstResponse backend.Response, successes []backend.Response) (*http.Response, error) {
-	firstResponseBodyBytes, err := ioutil.ReadAll(firstResponse.Response.Body)
+	resp := firstResponse.Response
+	firstResponseBodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("Could not read first response body reqID %s, reason %s", firstResponse.ReqID(), err)
 	}
-	err = firstResponse.DiscardBody()
-	if err != nil {
-		log.Printf("Cannot close first response body reqId %s, reason: %s", firstResponse.ReqID(), err)
-	}
-
-	resp := firstResponse.Response
-
 	for _, bresp := range successes {
-		responseBodyBytes, err := ioutil.ReadAll(bresp.Response.Body)
-		if err != nil || !bytes.Equal(firstResponseBodyBytes, responseBodyBytes) {
+		responseBodyBytes, readErr := ioutil.ReadAll(bresp.Response.Body)
+		if readErr != nil || !bytes.Equal(firstResponseBodyBytes, responseBodyBytes) {
 			resp.Header.Set(warningHeader, inconsitentRespInfo)
-			break
+		}
+		err = bresp.DiscardBody()
+		if err != nil {
+			log.Printf("Cannot close success response body reqId %s, reason: %s", firstResponse.ReqID(), err)
 		}
 	}
 
