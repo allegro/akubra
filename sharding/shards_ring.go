@@ -98,9 +98,7 @@ func copyRequest(origReq *http.Request) (*http.Request, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err != nil {
-			return nil, err
-		}
+
 		if n > 0 {
 			newReq.Body = &reqBody{bytes: buf.Bytes()}
 		} else {
