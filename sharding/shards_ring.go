@@ -98,7 +98,6 @@ func copyRequest(origReq *http.Request) (*http.Request, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		if err != nil {
 			return nil, err
 		}
