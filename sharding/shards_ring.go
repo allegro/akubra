@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -155,13 +154,10 @@ func shouldCallRegression(request *http.Request, response *http.Response, err er
 	if err == nil && response != nil {
 		return (response.StatusCode > 400) && (response.StatusCode < 500)
 	}
-
 	if _, hasHeader := request.Header[noTimeoutRegressionHeader]; !hasHeader {
 		return true
 	}
-
-	_, ok := err.(net.Error)
-	return !ok
+	return false
 }
 
 func (sr *ShardsRing) logInconsistency(key, expectedClusterName, actualClusterName string) {
