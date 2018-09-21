@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	noTimeoutRegressionHeader = "X-Akubra-No-Timeout-Regression"
+	noTimeoutRegressionHeader = "X-Akubra-No-Regression-On-Failure"
 )
 
 // ShardsRingAPI interface
