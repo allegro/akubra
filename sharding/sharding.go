@@ -76,8 +76,6 @@ func (rf RingFactory) RegionRing(name string, regionCfg config.Region) (ShardsRi
 		return ShardsRing{}, err
 	}
 
-	// respHandler := httphandler.LateResponseHandler(rf.conf)
-
 	return ShardsRing{
 		ring:                    cHashMap,
 		shardClusterMap:         shardClusterMap,

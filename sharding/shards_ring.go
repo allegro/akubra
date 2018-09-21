@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -16,6 +17,10 @@ import (
 	"github.com/allegro/akubra/storages"
 	"github.com/allegro/akubra/types"
 	"github.com/serialx/hashring"
+)
+
+const (
+	noTimeoutRegressionHeader = "X-Akubra-No-Timeout-Regression"
 )
 
 // ShardsRingAPI interface
@@ -133,7 +138,7 @@ func closeBody(resp *http.Response, reqID string) {
 func (sr ShardsRing) regressionCall(cl storages.NamedCluster, origClusterName string, req *http.Request) (string, *http.Response, error) {
 	resp, err := sr.send(cl, req)
 	// Do regression call if response status is > 400
-	if err != nil || resp.StatusCode > 400 {
+	if shouldCallRegression(req, resp, err) {
 		rcl, ok := sr.clusterRegressionMap[cl.Name()]
 		if ok && rcl.Name() != origClusterName {
 			if resp != nil && resp.Body != nil {
@@ -145,6 +150,20 @@ func (sr ShardsRing) regressionCall(cl storages.NamedCluster, origClusterName st
 	}
 	return cl.Name(), resp, err
 }
+
+func shouldCallRegression(request *http.Request, response *http.Response, err error) bool {
+	if err == nil && response != nil {
+		return (response.StatusCode > 400) && (response.StatusCode < 500)
+	}
+
+	if _, hasHeader := request.Header[noTimeoutRegressionHeader]; !hasHeader {
+		return true
+	}
+
+	_, ok := err.(net.Error)
+	return !ok
+}
+
 func (sr *ShardsRing) logInconsistency(key, expectedClusterName, actualClusterName string) {
 	logJSON, err := json.Marshal(
 		struct {
