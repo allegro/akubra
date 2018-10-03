@@ -92,14 +92,17 @@ func copyRequest(origReq *http.Request) (*http.Request, error) {
 
 	if origReq.Body != nil {
 		buf := &bytes.Buffer{}
+		defer func() {
+			err := origReq.Body.Close()
+			if err != nil {
+				log.Printf("Request body close error: %s", err)
+			}
+		}()
 		n, err := io.Copy(buf, origReq.Body)
 		if err != nil {
 			return nil, err
 		}
-		err = origReq.Body.Close()
-		if err != nil {
-			return nil, err
-		}
+
 		if n > 0 {
 			newReq.Body = &reqBody{bytes: buf.Bytes()}
 		} else {
