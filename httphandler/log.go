@@ -16,7 +16,7 @@ type AccessMessageData struct {
 	Path       string  `json:"path"`
 	UserAgent  string  `json:"useragent"`
 	StatusCode int     `json:"status"`
-	Duration   float64 `json:"duration"`
+	Duration   float64 `json:"duration_ms"`
 	RespErr    string  `json:"error"`
 	ReqID      string  `json:"reqID"`
 	Time       string  `json:"ts"`
@@ -40,7 +40,7 @@ func NewAccessLogMessage(req http.Request,
 		req.Host,
 		req.URL.Path,
 		req.Header.Get("User-Agent"),
-		statusCode, duration * 1000, respErr,
+		statusCode, duration, respErr,
 		reqID, ts}
 }
 

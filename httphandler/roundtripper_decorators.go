@@ -25,7 +25,7 @@ func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Respons
 	timeStart := time.Now()
 	resp, err = lrt.roundTripper.RoundTrip(req)
 
-	duration := time.Since(timeStart).Seconds()
+	duration := time.Since(timeStart).MilliSeconds()
 	statusCode := http.StatusServiceUnavailable
 
 	if resp != nil {
