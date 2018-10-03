@@ -18,6 +18,10 @@ import (
 	"github.com/serialx/hashring"
 )
 
+const (
+	noTimeoutRegressionHeader = "X-Akubra-No-Regression-On-Failure"
+)
+
 // ShardsRingAPI interface
 type ShardsRingAPI interface {
 	DoRequest(req *http.Request) (resp *http.Response, rerr error)
@@ -133,7 +137,7 @@ func closeBody(resp *http.Response, reqID string) {
 func (sr ShardsRing) regressionCall(cl storages.NamedCluster, origClusterName string, req *http.Request) (string, *http.Response, error) {
 	resp, err := sr.send(cl, req)
 	// Do regression call if response status is > 400
-	if err != nil || resp.StatusCode > 400 {
+	if shouldCallRegression(req, resp, err) {
 		rcl, ok := sr.clusterRegressionMap[cl.Name()]
 		if ok && rcl.Name() != origClusterName {
 			if resp != nil && resp.Body != nil {
@@ -145,6 +149,17 @@ func (sr ShardsRing) regressionCall(cl storages.NamedCluster, origClusterName st
 	}
 	return cl.Name(), resp, err
 }
+
+func shouldCallRegression(request *http.Request, response *http.Response, err error) bool {
+	if err == nil && response != nil {
+		return (response.StatusCode > 400) && (response.StatusCode < 500)
+	}
+	if _, hasHeader := request.Header[noTimeoutRegressionHeader]; !hasHeader {
+		return true
+	}
+	return false
+}
+
 func (sr *ShardsRing) logInconsistency(key, expectedClusterName, actualClusterName string) {
 	logJSON, err := json.Marshal(
 		struct {
