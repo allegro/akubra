@@ -20,6 +20,7 @@ func TestResponseTimeBalancingMemberElects(t *testing.T) {
 			&nodeMock{active: true},
 		},
 	}
+
 	member, err = balancer.Elect()
 	require.NoError(t, err)
 	require.NotNil(t, member)
@@ -42,6 +43,7 @@ func TestResponseTimeBalancingMemberElects(t *testing.T) {
 			&nodeMock{err: fmt.Errorf("second"), time: 1, calls: 2, active: true},
 		},
 	}
+
 	member, err = balancer.Elect()
 	require.NoError(t, err)
 	require.Equal(t, secondNode, member)
@@ -82,11 +84,9 @@ func (node *nodeMock) IsActive() bool {
 }
 
 func (node *nodeMock) SetActive(bool) {
-
 }
 
 func (node *nodeMock) Update(time.Duration) {
-
 }
 
 func TestCallMeter(t *testing.T) {
@@ -154,6 +154,7 @@ func (timer *mockTimer) advance() {
 	defer timer.mx.Unlock()
 	timer.baseTime = timer.baseTime.Add(timer.advanceDur)
 }
+
 func TestHistogramRetention(t *testing.T) {
 	retention := 5 * time.Second
 	resolution := 1 * time.Second
@@ -162,9 +163,106 @@ func TestHistogramRetention(t *testing.T) {
 	require.NotNil(t, series)
 }
 
-func TestNodeBreaker(t *testing.T) {
-	// errorRateLimit := 0.1
-	// timeLimit := 2 * time.Second
-	// node := &nodeMock{err: fmt.Errorf("first"), time: 1, calls: 1, active: false}
-	// breaker := newBreaker(node, timeLimit)
+func TestBreaker(t *testing.T) {
+	breaker := makeTestBreaker()
+	require.Implements(t, (*Breaker)(nil), breaker)
+
+	breaker.Record(100*time.Millisecond, true)
+	require.False(t, breaker.ShouldOpen())
+
+	breaker = makeTestBreaker()
+	for i := 0; i < 100; i++ {
+		breaker.Record(1100*time.Millisecond, true)
+	}
+	require.True(t, breaker.ShouldOpen())
+
+	breaker = makeTestBreaker()
+	breaker.Record(1*time.Millisecond, false)
+	require.False(t, breaker.ShouldOpen())
+
+	breaker = makeTestBreaker()
+	for i := 0; i < 11; i++ {
+		breaker.Record(1*time.Millisecond, false)
+	}
+	require.True(t, breaker.ShouldOpen())
+}
+
+func makeTestBreaker() Breaker {
+	errorRate := 0.1
+	timeLimit := time.Second
+	retention := 100
+	timeLimitPercentile := 0.9
+	closeDelay := time.Second
+	maxDelay := 4 * time.Second
+	breaker := newBreaker(
+		retention, timeLimit, timeLimitPercentile,
+		errorRate, closeDelay, maxDelay)
+
+	return breaker
+}
+
+func makeTestBreakerWithTimer(now func() time.Time) Breaker {
+	breaker := makeTestBreaker()
+	nodebreaker := breaker.(*NodeBreaker)
+	nodebreaker.now = now
+	return nodebreaker
+}
+
+func TestBreakerRecoveryPeriodsProgression(t *testing.T) {
+	timer := &mockTimer{
+		baseTime:   time.Now(),
+		advanceDur: 1000 * time.Millisecond}
+
+	breaker := makeTestBreakerWithTimer(timer.now)
+	openBreaker(breaker)
+	opentime := timer.now()
+	checkOpenFor(t, time.Second, breaker, timer)
+	require.False(t, breaker.ShouldOpen(),
+		fmt.Sprintf("should be in halfclosed state after %s", timer.now().Sub(opentime)))
+
+	openBreaker(breaker)
+	require.True(t, breaker.ShouldOpen(), fmt.Sprintf("should be in open"))
+
+	checkOpenFor(t, 2*time.Second, breaker, timer)
+	require.False(t, breaker.ShouldOpen())
+
+	openBreaker(breaker)
+	checkOpenFor(t, 4*time.Second, breaker, timer)
+	require.False(t, breaker.ShouldOpen())
+
+	openBreaker(breaker)
+	checkOpenFor(t, 4*time.Second, breaker, timer)
+	require.False(t, breaker.ShouldOpen())
+}
+
+func TestBreakerRecoveryPeriodsProgressionResetIfOpen(t *testing.T) {
+	timer := &mockTimer{
+		baseTime:   time.Now(),
+		advanceDur: 1100 * time.Millisecond}
+
+	breaker := makeTestBreakerWithTimer(timer.now)
+	openBreaker(breaker)
+	checkOpenFor(t, time.Second, breaker, timer)
+	require.False(t, breaker.ShouldOpen())
+
+	timer.advance()
+	require.False(t, breaker.ShouldOpen())
+	openBreaker(breaker)
+	checkOpenFor(t, time.Second, breaker, timer)
+	require.False(t, breaker.ShouldOpen(), "breaker should be closed after stats reset")
+}
+
+func openBreaker(breaker Breaker) {
+	for i := 0; i < 11; i++ {
+		breaker.Record(1*time.Millisecond, false)
+	}
+}
+
+func checkOpenFor(t *testing.T, d time.Duration, breaker Breaker, timer *mockTimer) {
+	start := timer.now()
+	for timer.now().Sub(start) < d {
+		require.True(t, breaker.ShouldOpen(),
+			fmt.Sprintf("braker closed after %s", timer.now().Sub(start)))
+		timer.advance()
+	}
 }

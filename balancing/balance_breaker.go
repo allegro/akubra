@@ -3,6 +3,7 @@ package balancing
 import (
 	"fmt"
 	"math"
+	"sort"
 	"sync"
 	"time"
 )
@@ -202,7 +203,6 @@ func (h *histogram) pickLastSeries(period time.Duration) []*dataSeries {
 func (h *histogram) index(now time.Time) int {
 	sinceStart := float64(now.Sub(h.t0))
 	idx := math.Floor(sinceStart / float64(h.resolution))
-	fmt.Printf("Index sinceStart %f index %f\n", now.Sub(h.t0).Seconds(), idx)
 	return int(idx)
 }
 
@@ -228,29 +228,214 @@ func (h *histogram) unshiftData(now time.Time) {
 }
 
 type Breaker interface {
-	Node
-	Record(time.Duration)
-	Open()
-	Close()
+	Record(duration time.Duration, success bool) bool
+	ShouldOpen() bool
 }
 
-func newBreaker(node Node, timeLimit time.Duration) Breaker {
-	return &NodeBreaker{}
+func newBreaker(retention int, timeLimit time.Duration,
+	timeLimitPercentile, errorRate float64,
+	closeDelay, maxDelay time.Duration) Breaker {
+
+	return &NodeBreaker{
+		timeData:            newLenLimitCounter(retention),
+		successData:         newLenLimitCounter(retention),
+		rate:                errorRate,
+		limit:               timeLimit,
+		timeLimitPercentile: timeLimitPercentile,
+		now:                 time.Now,
+		closeDelay:          closeDelay,
+		maxDelay:            maxDelay,
+	}
 }
 
 type NodeBreaker struct {
-	*CallMeter
+	rate                float64
+	limit               time.Duration
+	timeData            *lenLimitCounter
+	timeLimitPercentile float64
+	successData         *lenLimitCounter
+	now                 func() time.Time
+	closeDelay          time.Duration
+	maxDelay            time.Duration
+	isOpen              bool
+	openTime            time.Time
+	closeTime           time.Time
+	state               *openStateTracker
 }
 
-func (breaker *NodeBreaker) Close() {
-	breaker.CallMeter.active = true
+func (breaker *NodeBreaker) Record(duration time.Duration, success bool) bool {
+	breaker.timeData.Add(float64(duration))
+	successValue := float64(1)
+	if success {
+		successValue = float64(0)
+	}
+	breaker.successData.Add(successValue)
+	return breaker.ShouldOpen()
 }
 
-func (breaker *NodeBreaker) Open() {
-	breaker.CallMeter.active = false
+func (breaker *NodeBreaker) ShouldOpen() bool {
+	exceeded := breaker.limitsExceeded()
+	if breaker.state != nil {
+		return breaker.checkStateHalfOpen(exceeded)
+	}
+
+	if exceeded {
+		breaker.openBreaker()
+	}
+	return exceeded
 }
 
-func (breaker *NodeBreaker) Record(t time.Duration) {
-	breaker.Update(t)
-	breaker.CallMeter.active = false
+func (breaker *NodeBreaker) checkStateHalfOpen(exceeded bool) bool {
+	state, changed := breaker.state.currentState(breaker.now(), exceeded)
+	if state == closed {
+		if changed {
+			breaker.state = nil
+		}
+		return false
+	}
+	if state == halfopen {
+		if changed {
+			breaker.reset()
+		}
+		return false
+	}
+	return true
+}
+
+func (breaker *NodeBreaker) limitsExceeded() bool {
+	if breaker.errorRate() > breaker.rate {
+		breaker.openBreaker()
+		return true
+	}
+
+	if breaker.timeData.Percentile(breaker.timeLimitPercentile) > float64(breaker.limit) {
+		breaker.openBreaker()
+		return true
+	}
+	return false
+}
+
+func (breaker *NodeBreaker) openBreaker() {
+	if breaker.state != nil {
+		return
+	}
+	breaker.state = newOpenStateTracker(
+		breaker.now(), breaker.closeDelay, breaker.maxDelay)
+}
+
+func (breaker *NodeBreaker) reset() {
+	breaker.timeData.Reset()
+	breaker.successData.Reset()
+}
+
+func (breaker *NodeBreaker) errorRate() float64 {
+	sum := breaker.successData.Sum()
+	count := float64(len(breaker.successData.values))
+	return sum / count
+}
+
+func newLenLimitCounter(retention int) *lenLimitCounter {
+	return &lenLimitCounter{
+		values: make([]float64, retention, retention),
+	}
+}
+
+type lenLimitCounter struct {
+	values  []float64
+	nextIdx int
+	mx      sync.Mutex
+}
+
+func (counter *lenLimitCounter) Add(value float64) {
+	index := counter.nextIdx
+	counter.values[index] = value
+	counter.nextIdx = (counter.nextIdx + 1) % cap(counter.values)
+}
+
+func (counter *lenLimitCounter) Sum() float64 {
+	sum := float64(0)
+	for _, v := range counter.values {
+		sum += v
+	}
+	return sum
+}
+
+func (counter *lenLimitCounter) Percentile(percentile float64) float64 {
+	snapshot := make([]float64, len(counter.values))
+	copy(snapshot, counter.values)
+	sort.Float64s(snapshot)
+	pertcentileIndex := int(math.Floor(float64(len(snapshot)) * percentile))
+	return snapshot[pertcentileIndex]
+}
+
+func (counter *lenLimitCounter) Reset() {
+	for idx := range counter.values {
+		counter.values[idx] = 0
+	}
+}
+
+type breakerState int
+
+const (
+	open     breakerState = 0
+	halfopen              = iota
+	closed                = iota
+)
+
+func newOpenStateTracker(start time.Time, changeDelay, maxDelay time.Duration) *openStateTracker {
+	return &openStateTracker{
+		lastChange:  start,
+		state:       open,
+		changeDelay: changeDelay,
+		maxDelay:    maxDelay,
+	}
+}
+
+type openStateTracker struct {
+	state          breakerState
+	lastChange     time.Time
+	changeDelay    time.Duration
+	maxDelay       time.Duration
+	closeIteration float64
+}
+
+func (tracker *openStateTracker) currentDelay() time.Duration {
+	durationFloat64 := float64(tracker.changeDelay) * math.Pow(2, tracker.closeIteration)
+
+	if durationFloat64 < float64(tracker.maxDelay) {
+		return time.Duration(durationFloat64)
+	}
+	return tracker.maxDelay
+}
+
+func (tracker *openStateTracker) currentState(now time.Time, limitsExceeded bool) (breakerState, bool) {
+
+	if limitsExceeded && tracker.state != open {
+		tracker.state = open
+		tracker.lastChange = now
+		tracker.closeIteration++
+		return tracker.state, true
+	}
+
+	changed := false
+	if now.Sub(tracker.lastChange) < tracker.currentDelay() {
+		return tracker.state, changed
+	}
+
+	changed = true
+	tracker.lastChange = now
+	if tracker.state == open {
+		tracker.state = halfopen
+		return halfopen, changed
+	}
+
+	if tracker.state == halfopen {
+		if limitsExceeded {
+			tracker.state = open
+			tracker.closeIteration++
+		} else {
+			tracker.state = closed
+		}
+	}
+	return tracker.state, changed
 }
