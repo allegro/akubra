@@ -2,10 +2,13 @@ package balancing
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/allegro/akubra/metrics"
+	"github.com/allegro/akubra/storages/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -252,6 +255,15 @@ func TestBreakerRecoveryPeriodsProgressionResetIfOpen(t *testing.T) {
 	require.False(t, breaker.ShouldOpen(), "breaker should be closed after stats reset")
 }
 
+// func TestConcurentBreakerCalls(t *testing.T) {
+// 	timer := &mockTimer{
+// 		baseTime:   time.Now(),
+// 		advanceDur: 1000 * time.Millisecond}
+
+// 	breaker := makeTestBreakerWithTimer(timer.now)
+// 	asyncOpenBreaker(breaker)
+// }
+
 func openBreaker(breaker Breaker) {
 	for i := 0; i < 11; i++ {
 		breaker.Record(1*time.Millisecond, false)
@@ -266,3 +278,88 @@ func checkOpenFor(t *testing.T, d time.Duration, breaker Breaker, timer *mockTim
 		timer.advance()
 	}
 }
+
+func TestPriorityLayersPicker(t *testing.T) {
+	config := config.Storages{
+		{
+			Name:                       "first-a",
+			Priority:                   0,
+			BreakerProbeSize:           10,
+			BreakerErrorRate:           0.09,
+			BreakerTimeLimit:           metrics.Interval{500 * time.Millisecond},
+			BreakerTimeLimitPercentile: 0.9,
+			BreakerBasicCutOutDuration: metrics.Interval{time.Second},
+			BreakerMaxCutOutDuration:   metrics.Interval{180 * time.Second},
+			MeterResolution:            metrics.Interval{5 * time.Second},
+			MeterRetention:             metrics.Interval{10 * time.Second},
+		},
+		{
+			Name:                       "first-b",
+			Priority:                   0,
+			BreakerProbeSize:           10,
+			BreakerErrorRate:           0.09,
+			BreakerTimeLimit:           metrics.Interval{500 * time.Millisecond},
+			BreakerTimeLimitPercentile: 0.9,
+			BreakerBasicCutOutDuration: metrics.Interval{time.Second},
+			BreakerMaxCutOutDuration:   metrics.Interval{180 * time.Second},
+			MeterResolution:            metrics.Interval{5 * time.Second},
+			MeterRetention:             metrics.Interval{10 * time.Second},
+		},
+		{
+			Name:                       "second",
+			Priority:                   1,
+			BreakerProbeSize:           1000,
+			BreakerErrorRate:           0.1,
+			BreakerTimeLimit:           metrics.Interval{500 * time.Millisecond},
+			BreakerTimeLimitPercentile: 0.9,
+			BreakerBasicCutOutDuration: metrics.Interval{time.Second},
+			BreakerMaxCutOutDuration:   metrics.Interval{180 * time.Second},
+			MeterResolution:            metrics.Interval{5 * time.Second},
+			MeterRetention:             metrics.Interval{10 * time.Second},
+		},
+	}
+	errFirstStorageResponse := fmt.Errorf("Error from first-a")
+	errSecondStorageResponse := fmt.Errorf("Error from first-b")
+	errThirdStorageResponse := fmt.Errorf("Error from second-b")
+	backends := map[string]http.RoundTripper{
+		"first-a": &MockRoundTripper{err: errFirstStorageResponse},
+		"first-b": &MockRoundTripper{err: errSecondStorageResponse},
+		"second":  &MockRoundTripper{err: errThirdStorageResponse},
+	}
+	balancerSet := NewBalancerPrioritySet(config, backends)
+	require.NotNil(t, balancerSet)
+	fmt.Println("First expected")
+
+	member := balancerSet.GetMostAvailable()
+	require.NotNil(t, member, "Member should be not nil")
+	require.Implements(t, (*Node)(nil), member, "Member should implement Node interface")
+	require.Implements(t, (*Breaker)(nil), member, "Member should implement Breaker interface")
+	require.Implements(t, (*http.RoundTripper)(nil), member, "Member should implement `http.RoundTripper` interface")
+
+	resp, err := member.RoundTrip(&http.Request{})
+
+	require.Equal(t, errFirstStorageResponse, err)
+	require.Nil(t, resp, err)
+	fmt.Println("Second expected")
+
+	member = balancerSet.GetMostAvailable()
+	resp, err = member.RoundTrip(&http.Request{})
+	require.Equal(t, errSecondStorageResponse, err)
+	require.Nil(t, resp, err)
+
+	fmt.Println("Third expected")
+	member = balancerSet.GetMostAvailable()
+	resp, err = member.RoundTrip(&http.Request{})
+	require.Equal(t, errThirdStorageResponse, err)
+	require.Nil(t, resp, err)
+}
+
+type MockRoundTripper struct {
+	err error
+}
+
+func (mrt *MockRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	return nil, mrt.err
+}
+
+var ErrMockResponse = fmt.Errorf("Mock error")

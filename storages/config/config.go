@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/types"
 )
 
@@ -28,8 +29,23 @@ type BackendsMap map[string]Backend
 // Cluster defines cluster configuration
 type Cluster struct {
 	// Backends should contain s3 backend urls
-	Backends []string `yaml:"Backends"`
+	Storages Storages
 }
 
 // ClustersMap is map of Cluster
 type ClustersMap map[string]Cluster
+
+type Storages []Storage
+
+type Storage struct {
+	Name                       string           `yaml:"Name"`
+	BreakerProbeSize           int              `yaml:"BreakerProbeSize"`
+	BreakerErrorRate           float64          `yaml:"BreakerErrorRate"`
+	BreakerTimeLimit           metrics.Interval `yaml:"BreakerTimeLimit"`
+	BreakerTimeLimitPercentile float64          `yaml:"BreakerTimeLimitPercentile"`
+	BreakerBasicCutOutDuration metrics.Interval `yaml:"BreakerBasicCutOutDuration"`
+	BreakerMaxCutOutDuration   metrics.Interval `yaml:"BreakerMaxCutOutDuration"`
+	Priority                   int              `yaml:"Priority"`
+	MeterResolution            metrics.Interval `yaml:"MeterResolution"`
+	MeterRetention             metrics.Interval `yaml:"MeterRetention"`
+}

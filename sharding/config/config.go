@@ -48,6 +48,3 @@ func (slm *SyncLogMethod) UnmarshalYAML(unmarshal func(interface{}) error) error
 	slm.Method = method
 	return nil
 }
-
-// HumanSizeUnits is yaml deserializer
-type HumanSizeUnits = types.HumanSizeUnits

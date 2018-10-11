@@ -101,5 +101,9 @@ func (br *Response) ReqID() string {
 
 //IsSuccessful returns true if no networ error occured and status code < 400
 func (br *Response) IsSuccessful() bool {
-	return br.Error == nil && br.Response != nil && br.Response.StatusCode < 400
+	return IsSuccessful(br.Response, br.Error)
+}
+
+func IsSuccessful(response *http.Response, err error) bool {
+	return err == nil && response != nil && response.StatusCode < 400
 }

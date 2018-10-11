@@ -2,10 +2,15 @@ package balancing
 
 import (
 	"fmt"
+	"log"
 	"math"
+	"net/http"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/allegro/akubra/storages/backend"
+	"github.com/allegro/akubra/storages/config"
 )
 
 // ResponseTimeBalancer proxies calls to balancing nodes
@@ -18,6 +23,7 @@ func (balancer *ResponseTimeBalancer) Elect() (Node, error) {
 	var elected Node
 
 	for _, node := range balancer.Nodes {
+		fmt.Printf("Electing ... %v, active %t\n", node, node.IsActive())
 		if !node.IsActive() {
 			continue
 		}
@@ -71,7 +77,7 @@ type CallMeter struct {
 	now        func() time.Time
 	duration   time.Duration
 	histogram  *histogram
-	active     bool
+	inActive   bool
 }
 
 func (meter *CallMeter) pickSeries(t time.Time) {
@@ -84,7 +90,6 @@ func (meter *CallMeter) Update(duration time.Duration) {
 	if series == nil {
 		return
 	}
-	println("added")
 	series.Add(float64(duration), meter.now())
 }
 
@@ -107,12 +112,12 @@ func (meter *CallMeter) CallsIn(period time.Duration) float64 {
 
 // IsActive aseses if node should be active
 func (meter *CallMeter) IsActive() bool {
-	return meter.active
+	return !meter.inActive
 }
 
 // SetActive sets meter state
 func (meter *CallMeter) SetActive(active bool) {
-	meter.active = active
+	meter.inActive = !active
 }
 
 // Time returns float64 repesentation of time spent on execution
@@ -194,7 +199,6 @@ func (h *histogram) pickLastSeries(period time.Duration) []*dataSeries {
 	if period > h.retention {
 		period = h.retention
 	}
-	println(h.t0.Format(time.RFC3339Nano), h.now().Format(time.RFC3339Nano))
 	h.unshiftData(h.now())
 	seriesCount := int(math.Ceil(float64(period)/float64(h.resolution))) + 1
 	return h.data[len(h.data)-seriesCount:]
@@ -258,8 +262,6 @@ type NodeBreaker struct {
 	closeDelay          time.Duration
 	maxDelay            time.Duration
 	isOpen              bool
-	openTime            time.Time
-	closeTime           time.Time
 	state               *openStateTracker
 }
 
@@ -438,4 +440,81 @@ func (tracker *openStateTracker) currentState(now time.Time, limitsExceeded bool
 		}
 	}
 	return tracker.state, changed
+}
+
+type MeasuredStorage struct {
+	Node
+	Breaker
+	http.RoundTripper
+	Name string
+}
+
+func (ms *MeasuredStorage) RoundTrip(req *http.Request) (*http.Response, error) {
+	start := time.Now()
+	resp, err := ms.RoundTripper.RoundTrip(req)
+	duration := time.Since(start)
+	success := backend.IsSuccessful(resp, err)
+	open := ms.Breaker.Record(duration, success)
+	fmt.Printf("Updated %s with success %t, and it's open %t\n", ms.Name, success, open)
+	ms.Node.Update(duration)
+	ms.Node.SetActive(!open)
+	return resp, err
+}
+
+func NewBalancerPrioritySet(storagesConfig config.Storages, backends map[string]http.RoundTripper) BalancerPrioritySet {
+	priorities := make([]int, 0)
+	priotitiesFilter := make(map[int]struct{})
+	priorityStorage := make(map[int][]*MeasuredStorage)
+	for _, storageConfig := range storagesConfig {
+		breaker := newBreaker(storageConfig.BreakerProbeSize,
+			storageConfig.BreakerTimeLimit.Duration,
+			storageConfig.BreakerTimeLimitPercentile,
+			storageConfig.BreakerErrorRate,
+			storageConfig.BreakerBasicCutOutDuration.Duration,
+			storageConfig.BreakerMaxCutOutDuration.Duration,
+		)
+		meter := newCallMeter(storageConfig.MeterRetention.Duration, storageConfig.MeterResolution.Duration)
+		backend, ok := backends[storageConfig.Name]
+		if !ok {
+			log.Fatalf("No defined storage %s\n", storageConfig.Name)
+		}
+		if _, ok := priotitiesFilter[storageConfig.Priority]; !ok {
+			priorities = append(priorities, storageConfig.Priority)
+			priotitiesFilter[storageConfig.Priority] = struct{}{}
+		}
+
+		mstorage := &MeasuredStorage{Breaker: breaker, Node: Node(meter), RoundTripper: backend, Name: storageConfig.Name}
+		if _, ok := priorityStorage[storageConfig.Priority]; !ok {
+			priorityStorage[storageConfig.Priority] = make([]*MeasuredStorage, 0, 1)
+		}
+
+		priorityStorage[storageConfig.Priority] = append(
+			priorityStorage[storageConfig.Priority], mstorage)
+	}
+	sort.Ints(priorities)
+	bps := BalancerPrioritySet{balancers: []*ResponseTimeBalancer{}}
+	for _, key := range priorities {
+		nodes := make([]Node, 0)
+		for _, node := range priorityStorage[key] {
+			nodes = append(nodes, Node(node))
+		}
+		balancer := &ResponseTimeBalancer{Nodes: nodes}
+		bps.balancers = append(bps.balancers, balancer)
+	}
+	return bps
+}
+
+type BalancerPrioritySet struct {
+	balancers []*ResponseTimeBalancer
+}
+
+func (bps *BalancerPrioritySet) GetMostAvailable() *MeasuredStorage {
+	for _, balancer := range bps.balancers {
+		node, err := balancer.Elect()
+		if err == ErrNoActiveNodes {
+			continue
+		}
+		return node.(*MeasuredStorage)
+	}
+	return nil
 }
