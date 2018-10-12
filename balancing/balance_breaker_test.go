@@ -255,15 +255,6 @@ func TestBreakerRecoveryPeriodsProgressionResetIfOpen(t *testing.T) {
 	require.False(t, breaker.ShouldOpen(), "breaker should be closed after stats reset")
 }
 
-// func TestConcurentBreakerCalls(t *testing.T) {
-// 	timer := &mockTimer{
-// 		baseTime:   time.Now(),
-// 		advanceDur: 1000 * time.Millisecond}
-
-// 	breaker := makeTestBreakerWithTimer(timer.now)
-// 	asyncOpenBreaker(breaker)
-// }
-
 func openBreaker(breaker Breaker) {
 	for i := 0; i < 11; i++ {
 		breaker.Record(1*time.Millisecond, false)
@@ -286,36 +277,36 @@ func TestPriorityLayersPicker(t *testing.T) {
 			Priority:                   0,
 			BreakerProbeSize:           10,
 			BreakerErrorRate:           0.09,
-			BreakerTimeLimit:           metrics.Interval{500 * time.Millisecond},
+			BreakerTimeLimit:           metrics.Interval{Duration: 500 * time.Millisecond},
 			BreakerTimeLimitPercentile: 0.9,
-			BreakerBasicCutOutDuration: metrics.Interval{time.Second},
-			BreakerMaxCutOutDuration:   metrics.Interval{180 * time.Second},
-			MeterResolution:            metrics.Interval{5 * time.Second},
-			MeterRetention:             metrics.Interval{10 * time.Second},
+			BreakerBasicCutOutDuration: metrics.Interval{Duration: time.Second},
+			BreakerMaxCutOutDuration:   metrics.Interval{Duration: 180 * time.Second},
+			MeterResolution:            metrics.Interval{Duration: 5 * time.Second},
+			MeterRetention:             metrics.Interval{Duration: 10 * time.Second},
 		},
 		{
 			Name:                       "first-b",
 			Priority:                   0,
 			BreakerProbeSize:           10,
 			BreakerErrorRate:           0.09,
-			BreakerTimeLimit:           metrics.Interval{500 * time.Millisecond},
+			BreakerTimeLimit:           metrics.Interval{Duration: 500 * time.Millisecond},
 			BreakerTimeLimitPercentile: 0.9,
-			BreakerBasicCutOutDuration: metrics.Interval{time.Second},
-			BreakerMaxCutOutDuration:   metrics.Interval{180 * time.Second},
-			MeterResolution:            metrics.Interval{5 * time.Second},
-			MeterRetention:             metrics.Interval{10 * time.Second},
+			BreakerBasicCutOutDuration: metrics.Interval{Duration: time.Second},
+			BreakerMaxCutOutDuration:   metrics.Interval{Duration: 180 * time.Second},
+			MeterResolution:            metrics.Interval{Duration: 5 * time.Second},
+			MeterRetention:             metrics.Interval{Duration: 10 * time.Second},
 		},
 		{
 			Name:                       "second",
 			Priority:                   1,
 			BreakerProbeSize:           1000,
 			BreakerErrorRate:           0.1,
-			BreakerTimeLimit:           metrics.Interval{500 * time.Millisecond},
+			BreakerTimeLimit:           metrics.Interval{Duration: 500 * time.Millisecond},
 			BreakerTimeLimitPercentile: 0.9,
-			BreakerBasicCutOutDuration: metrics.Interval{time.Second},
-			BreakerMaxCutOutDuration:   metrics.Interval{180 * time.Second},
-			MeterResolution:            metrics.Interval{5 * time.Second},
-			MeterRetention:             metrics.Interval{10 * time.Second},
+			BreakerBasicCutOutDuration: metrics.Interval{Duration: time.Second},
+			BreakerMaxCutOutDuration:   metrics.Interval{Duration: 180 * time.Second},
+			MeterResolution:            metrics.Interval{Duration: 5 * time.Second},
+			MeterRetention:             metrics.Interval{Duration: 10 * time.Second},
 		},
 	}
 	errFirstStorageResponse := fmt.Errorf("Error from first-a")
@@ -328,7 +319,6 @@ func TestPriorityLayersPicker(t *testing.T) {
 	}
 	balancerSet := NewBalancerPrioritySet(config, backends)
 	require.NotNil(t, balancerSet)
-	fmt.Println("First expected")
 
 	member := balancerSet.GetMostAvailable()
 	require.NotNil(t, member, "Member should be not nil")
@@ -340,14 +330,12 @@ func TestPriorityLayersPicker(t *testing.T) {
 
 	require.Equal(t, errFirstStorageResponse, err)
 	require.Nil(t, resp, err)
-	fmt.Println("Second expected")
 
 	member = balancerSet.GetMostAvailable()
 	resp, err = member.RoundTrip(&http.Request{})
 	require.Equal(t, errSecondStorageResponse, err)
 	require.Nil(t, resp, err)
 
-	fmt.Println("Third expected")
 	member = balancerSet.GetMostAvailable()
 	resp, err = member.RoundTrip(&http.Request{})
 	require.Equal(t, errThirdStorageResponse, err)
@@ -361,5 +349,3 @@ type MockRoundTripper struct {
 func (mrt *MockRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
 	return nil, mrt.err
 }
-
-var ErrMockResponse = fmt.Errorf("Mock error")

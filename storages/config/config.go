@@ -28,15 +28,16 @@ type BackendsMap map[string]Backend
 
 // Cluster defines cluster configuration
 type Cluster struct {
-	// Backends should contain s3 backend urls
 	Storages Storages
 }
 
 // ClustersMap is map of Cluster
 type ClustersMap map[string]Cluster
 
+// Storages is lists of storages
 type Storages []Storage
 
+// Storage describes storage usage requirements
 type Storage struct {
 	Name                       string           `yaml:"Name"`
 	BreakerProbeSize           int              `yaml:"BreakerProbeSize"`

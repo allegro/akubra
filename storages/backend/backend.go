@@ -104,6 +104,7 @@ func (br *Response) IsSuccessful() bool {
 	return IsSuccessful(br.Response, br.Error)
 }
 
+//IsSuccessful returns true if no networ error occured and status code < 400
 func IsSuccessful(response *http.Response, err error) bool {
 	return err == nil && response != nil && response.StatusCode < 400
 }

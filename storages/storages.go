@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/allegro/akubra/balancing"
+
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
 
@@ -81,7 +83,8 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap,
 	}
 
 	for name, clusterConf := range clustersConf {
-		cluster, err := newCluster(name, clusterConf.Backends, backends, syncLog)
+		cluster, err := newCluster(name, backendNames(clusterConf), backends, syncLog)
+		cluster.balancer = balancing.NewBalancerPrioritySet(clusterConf.Storages, convertToRoundTrippersMap(backends))
 		if err != nil {
 			return nil, err
 		}
@@ -95,6 +98,22 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap,
 		Clusters:     clusters,
 		Backends:     backends,
 	}, nil
+}
+
+func convertToRoundTrippersMap(backends map[string]*Backend) map[string]http.RoundTripper {
+	newMap := map[string]http.RoundTripper{}
+	for key, backend := range newMap {
+		newMap[key] = backend
+	}
+	return newMap
+}
+
+func backendNames(conf config.Cluster) []string {
+	names := make([]string, 0)
+	for _, storageConfig := range conf.Storages {
+		names = append(names, storageConfig.Name)
+	}
+	return names
 }
 
 func decorateBackend(transport http.RoundTripper, name string, backendConf config.Backend) (*Backend, error) {

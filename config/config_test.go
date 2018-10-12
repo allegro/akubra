@@ -383,7 +383,7 @@ func PrepareYamlConfig(
 	}
 	clustersMap := make(storageconfig.ClustersMap)
 	clustersMap["cluster1test"] = storageconfig.Cluster{
-		Backends: []string{"default"},
+		Storages: storageconfig.Storages{{Name: "default"}},
 	}
 
 	additionalRequestHeaders := httpHandlerConfig.AdditionalHeaders{

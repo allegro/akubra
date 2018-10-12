@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/allegro/akubra/balancing"
+
 	set "github.com/deckarep/golang-set"
 )
 
@@ -21,10 +23,14 @@ type Cluster struct {
 	synclog           *SyncSender
 	MethodSet         set.Set
 	requestDispatcher dispatcher
+	balancer          *balancing.BalancerPrioritySet
 }
 
 // RoundTrip implements http.RoundTripper interface
 func (c *Cluster) RoundTrip(req *http.Request) (*http.Response, error) {
+	if c.balancer != nil && (req.Method == http.MethodGet || req.Method == http.MethodHead || req.Method == http.MethodOptions) {
+		return c.balancer.GetMostAvailable().RoundTrip(req)
+	}
 	return c.requestDispatcher.Dispatch(req)
 }
 
@@ -32,6 +38,8 @@ func (c *Cluster) RoundTrip(req *http.Request) (*http.Response, error) {
 func (c *Cluster) Name() string {
 	return c.name
 }
+
+// TODO: rename to storages
 
 // Backends get http.RoundTripper slice
 func (c *Cluster) Backends() []*Backend {

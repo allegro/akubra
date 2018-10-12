@@ -231,6 +231,7 @@ func (h *histogram) unshiftData(now time.Time) {
 	h.growSeries()
 }
 
+// Breaker is interface od citcuit breaker
 type Breaker interface {
 	Record(duration time.Duration, success bool) bool
 	ShouldOpen() bool
@@ -252,6 +253,7 @@ func newBreaker(retention int, timeLimit time.Duration,
 	}
 }
 
+// NodeBreaker is implementation of Breaker interface
 type NodeBreaker struct {
 	rate                float64
 	limit               time.Duration
@@ -265,6 +267,7 @@ type NodeBreaker struct {
 	state               *openStateTracker
 }
 
+// Record collects call data and returns bool if breaker should be open
 func (breaker *NodeBreaker) Record(duration time.Duration, success bool) bool {
 	breaker.timeData.Add(float64(duration))
 	successValue := float64(1)
@@ -275,6 +278,7 @@ func (breaker *NodeBreaker) Record(duration time.Duration, success bool) bool {
 	return breaker.ShouldOpen()
 }
 
+// ShouldOpen checks if breaker should be open
 func (breaker *NodeBreaker) ShouldOpen() bool {
 	exceeded := breaker.limitsExceeded()
 	if breaker.state != nil {
@@ -348,12 +352,14 @@ type lenLimitCounter struct {
 	mx      sync.Mutex
 }
 
+// Add acumates new values
 func (counter *lenLimitCounter) Add(value float64) {
 	index := counter.nextIdx
 	counter.values[index] = value
 	counter.nextIdx = (counter.nextIdx + 1) % cap(counter.values)
 }
 
+// Sum returns sum of valuesś
 func (counter *lenLimitCounter) Sum() float64 {
 	sum := float64(0)
 	for _, v := range counter.values {
@@ -362,6 +368,7 @@ func (counter *lenLimitCounter) Sum() float64 {
 	return sum
 }
 
+// Percentile return value for given percentile
 func (counter *lenLimitCounter) Percentile(percentile float64) float64 {
 	snapshot := make([]float64, len(counter.values))
 	copy(snapshot, counter.values)
@@ -442,6 +449,7 @@ func (tracker *openStateTracker) currentState(now time.Time, limitsExceeded bool
 	return tracker.state, changed
 }
 
+// MeasuredStorage coordinates metrics collection
 type MeasuredStorage struct {
 	Node
 	Breaker
@@ -449,19 +457,20 @@ type MeasuredStorage struct {
 	Name string
 }
 
+// RoundTrip implements http.RoundTripper
 func (ms *MeasuredStorage) RoundTrip(req *http.Request) (*http.Response, error) {
 	start := time.Now()
 	resp, err := ms.RoundTripper.RoundTrip(req)
 	duration := time.Since(start)
 	success := backend.IsSuccessful(resp, err)
 	open := ms.Breaker.Record(duration, success)
-	fmt.Printf("Updated %s with success %t, and it's open %t\n", ms.Name, success, open)
 	ms.Node.Update(duration)
 	ms.Node.SetActive(!open)
 	return resp, err
 }
 
-func NewBalancerPrioritySet(storagesConfig config.Storages, backends map[string]http.RoundTripper) BalancerPrioritySet {
+// NewBalancerPrioritySet configures prioritized balancers stack
+func NewBalancerPrioritySet(storagesConfig config.Storages, backends map[string]http.RoundTripper) *BalancerPrioritySet {
 	priorities := make([]int, 0)
 	priotitiesFilter := make(map[int]struct{})
 	priorityStorage := make(map[int][]*MeasuredStorage)
@@ -492,7 +501,7 @@ func NewBalancerPrioritySet(storagesConfig config.Storages, backends map[string]
 			priorityStorage[storageConfig.Priority], mstorage)
 	}
 	sort.Ints(priorities)
-	bps := BalancerPrioritySet{balancers: []*ResponseTimeBalancer{}}
+	bps := &BalancerPrioritySet{balancers: []*ResponseTimeBalancer{}}
 	for _, key := range priorities {
 		nodes := make([]Node, 0)
 		for _, node := range priorityStorage[key] {
@@ -504,10 +513,12 @@ func NewBalancerPrioritySet(storagesConfig config.Storages, backends map[string]
 	return bps
 }
 
+// BalancerPrioritySet selects storage by priority and availability
 type BalancerPrioritySet struct {
 	balancers []*ResponseTimeBalancer
 }
 
+// GetMostAvailable returns balancer member
 func (bps *BalancerPrioritySet) GetMostAvailable() *MeasuredStorage {
 	for _, balancer := range bps.balancers {
 		node, err := balancer.Elect()

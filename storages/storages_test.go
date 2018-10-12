@@ -55,7 +55,7 @@ func TestShouldNotInitStoragesWithWrongBackendType(t *testing.T) {
 	backendType := "unknown"
 	clustersConf := config.ClustersMap{}
 	clusterConfig := config.Cluster{
-		Backends: []string{"http://localhost"},
+		Storages: config.Storages{{Name: "http://localhost"}},
 	}
 	clustersConf["clusterName1"] = clusterConfig
 
