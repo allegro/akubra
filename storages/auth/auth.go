@@ -18,13 +18,13 @@ const (
 )
 
 // Decorators maps Backend type with httphadler decorators factory
-var Decorators = map[string]func(string, config.Backend) (httphandler.Decorator, error){
-	Passthrough: func(string, config.Backend) (httphandler.Decorator, error) {
+var Decorators = map[string]func(string, config.Storage) (httphandler.Decorator, error){
+	Passthrough: func(string, config.Storage) (httphandler.Decorator, error) {
 		return func(rt http.RoundTripper) http.RoundTripper {
 			return rt
 		}, nil
 	},
-	S3FixedKey: func(backend string, backendConf config.Backend) (httphandler.Decorator, error) {
+	S3FixedKey: func(backend string, backendConf config.Storage) (httphandler.Decorator, error) {
 		accessKey, ok := backendConf.Properties["AccessKey"]
 		if !ok {
 			return nil, fmt.Errorf("no AccessKey defined for backend type %q", S3FixedKey)
@@ -40,14 +40,14 @@ var Decorators = map[string]func(string, config.Backend) (httphandler.Decorator,
 			SecretAccessKey: secret,
 		}
 		methods := backendConf.Properties["Methods"]
-		return ForceSignDecorator(keys, backendConf.Region, backendConf.Endpoint.Host, methods), nil
+		return ForceSignDecorator(keys, backendConf.Backend.Host, methods), nil
 	},
-	S3AuthService: func(backend string, backendConf config.Backend) (httphandler.Decorator, error) {
+	S3AuthService: func(backend string, backendConf config.Storage) (httphandler.Decorator, error) {
 		endpoint, ok := backendConf.Properties["AuthServiceEndpoint"]
 		if !ok {
 			endpoint = "default"
 		}
 
-		return SignAuthServiceDecorator(backend, backendConf.Region, endpoint, backendConf.Endpoint.Host), nil
+		return SignAuthServiceDecorator(backend, endpoint, backendConf.Backend.Host), nil
 	},
 }

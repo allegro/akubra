@@ -78,7 +78,7 @@ func main() {
 
 	log.Printf("Health check endpoint: %s", conf.Service.Server.HealthCheckEndpoint)
 	mainlog.Printf("starting on port %s", conf.Service.Server.Listen)
-	mainlog.Printf("backends %#v", conf.Backends)
+	mainlog.Printf("storages %#v", conf.Storages)
 
 	srv := newService(conf)
 	srv.startTechnicalEndpoint()
@@ -123,15 +123,15 @@ func (s *service) start() error {
 	syncSender := &storages.SyncSender{SyncLog: syncLog, AllowedMethods: methods}
 	storage, err := storages.InitStorages(
 		transportMatcher,
-		s.config.Clusters,
-		s.config.Backends,
+		s.config.Shards,
+		s.config.Storages,
 		syncSender)
 
 	if err != nil {
 		log.Fatalf("Storages initialization problem: %q", err)
 	}
 
-	regionsRT, err := regions.NewRegions(s.config.Regions, storage, clusterSyncLog)
+	regionsRT, err := regions.NewRegions(s.config.ShardingPolicies, storage, clusterSyncLog)
 	if err != nil {
 		return err
 	}

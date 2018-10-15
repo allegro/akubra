@@ -83,7 +83,7 @@ func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err
 
 	resp, err = hs.roundTripper.RoundTrip(req)
 
-	if err != nil {
+	if err != nil || resp == nil {
 		return
 	}
 	if resp.Header == nil {

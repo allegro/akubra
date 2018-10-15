@@ -28,12 +28,12 @@ type MultiPartRoundTripper struct {
 func (multiPartRoundTripper MultiPartRoundTripper) Cancel() error { return nil }
 
 // newMultiPartRoundTripper initializes multipart client
-func newMultiPartRoundTripper(backends []*Backend) client {
+func newMultiPartRoundTripper(backends []*StorageClient) client {
 	multiPartRoundTripper := &MultiPartRoundTripper{}
 	var backendsEndpoints []string
 	var activeBackendsEndpoints []string
 
-	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*Backend)
+	multiPartRoundTripper.backendsRoundTrippers = make(map[string]*StorageClient)
 
 	for _, backend := range backends {
 		if !backend.Maintenance {

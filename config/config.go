@@ -28,13 +28,13 @@ const TechnicalEndpointHeaderContentType = "application/yaml"
 
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
-	Service          httphandler.Service                `yaml:"Service,omitempty"`
-	Backends         storages.BackendsMap               `yaml:"Backends,omitempty"`
-	Clusters         storages.ClustersMap               `yaml:"Clusters,omitempty"`
-	Regions          confregions.Regions                `yaml:"Regions,omitempty"`
-	CredentialsStore crdstoreconfig.CredentialsStoreMap `yaml:"CredentialsStore,omitempty"`
-	Logging          logconfig.LoggingConfig            `yaml:"Logging,omitempty"`
-	Metrics          metrics.Config                     `yaml:"Metrics,omitempty"`
+	Service          httphandler.Service                `yaml:"Service"`
+	Storages         storages.StoragesMap               `yaml:"Storages"`
+	Shards           storages.ShardsMap                 `yaml:"Shards"`
+	ShardingPolicies confregions.ShardingPolicies       `yaml:"ShardingPolicies"`
+	CredentialsStore crdstoreconfig.CredentialsStoreMap `yaml:"CredentialsStore"`
+	Logging          logconfig.LoggingConfig            `yaml:"Logging"`
+	Metrics          metrics.Config                     `yaml:"Metrics"`
 }
 
 // Config contains processed YamlConfig data

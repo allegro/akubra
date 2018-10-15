@@ -57,7 +57,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	resp, err := h.roundTripper.RoundTrip(req.WithContext(randomIDContext))
 
-	if err != nil {
+	if err != nil || resp == nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Printf("%s", err)
 		return
@@ -86,6 +86,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func respBodyCloserFactory(resp *http.Response, randomIDStr string) func() {
 	return func() {
+		if resp == nil {
+			return
+		}
 		if resp.Body == nil {
 			log.Debugf("ResponseBody for request %s is nil - nothing to close (handler)", randomIDStr)
 			return

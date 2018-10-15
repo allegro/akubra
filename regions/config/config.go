@@ -1,20 +1,20 @@
 package config
 
-// RegionCluster defines region cluster
-type RegionCluster struct {
-	Name   string  `yaml:"Cluster,omitempty"`
-	Weight float64 `yaml:"Weight"`
+// Policy defines region cluster
+type Policy struct {
+	ShardName string  `yaml:"ShardName"`
+	Weight    float64 `yaml:"Weight"`
 }
 
-// Region region configuration
-type Region struct {
+// Policies region configuration
+type Policies struct {
 	// Multi cluster config
-	Clusters []RegionCluster `yaml:"Clusters"`
+	Shards []Policy `yaml:"Shards"`
 	// Domains used for region matching
 	Domains []string `yaml:"Domains"`
 	// Default region will be applied if Host header would not match any other region
-	Default bool `yaml:"Default,omitempty"`
+	Default bool `yaml:"Default"`
 }
 
-// Regions maps name with Region definition
-type Regions map[string]Region
+// ShardingPolicies maps name with Region definition
+type ShardingPolicies map[string]Policies

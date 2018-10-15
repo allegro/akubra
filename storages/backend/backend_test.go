@@ -13,8 +13,8 @@ import (
 	"github.com/allegro/akubra/utils"
 )
 
-func newBackend(backendConfig config.Backend, transport http.RoundTripper) (*Backend, error) {
-	return &Backend{Endpoint: *backendConfig.Endpoint.URL, RoundTripper: transport}, nil
+func newBackend(backendConfig config.Storage, transport http.RoundTripper) (*Backend, error) {
+	return &Backend{Endpoint: *backendConfig.Backend.URL, RoundTripper: transport}, nil
 }
 
 type testRt struct {
@@ -35,7 +35,7 @@ func TestBackendShouldChangeRequestHost(t *testing.T) {
 		return &http.Response{Request: req}, nil
 	}
 
-	backendConfig := config.Backend{Endpoint: hostURL, Type: "passthrough"}
+	backendConfig := config.Storage{Backend: hostURL, Type: "passthrough"}
 	b, err := newBackend(backendConfig, &testRt{rt: roundtripper})
 	require.NoError(t, err)
 
@@ -57,7 +57,7 @@ func TestBackendShouldWrapErrorWithBackendError(t *testing.T) {
 		return nil, fmt.Errorf("Connection timeout")
 	}
 
-	backendConfig := config.Backend{Endpoint: hostURL, Type: "passthrough"}
+	backendConfig := config.Storage{Backend: hostURL, Type: "passthrough"}
 	b, err := newBackend(backendConfig, &testRt{rt: roundtripper})
 	require.NoError(t, err)
 

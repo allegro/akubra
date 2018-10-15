@@ -31,9 +31,9 @@ type ShardsRingAPI interface {
 // and directs requests to determined shard
 type ShardsRing struct {
 	ring                    *hashring.HashRing
-	shardClusterMap         map[string]storages.NamedCluster
+	shardClusterMap         map[string]storages.NamedShardClient
 	allClustersRoundTripper http.RoundTripper
-	clusterRegressionMap    map[string]storages.NamedCluster
+	clusterRegressionMap    map[string]storages.NamedShardClient
 	inconsistencyLog        log.Logger
 }
 
@@ -43,16 +43,16 @@ func (sr ShardsRing) isBucketPath(path string) bool {
 }
 
 // Pick finds cluster for given relative uri
-func (sr ShardsRing) Pick(key string) (storages.NamedCluster, error) {
+func (sr ShardsRing) Pick(key string) (storages.NamedShardClient, error) {
 	var shardName string
 
 	shardName, ok := sr.ring.GetNode(key)
 	if !ok {
-		return &storages.Cluster{}, fmt.Errorf("no shard for key %s", key)
+		return &storages.ShardClient{}, fmt.Errorf("no shard for key %s", key)
 	}
 	shardCluster, ok := sr.shardClusterMap[shardName]
 	if !ok {
-		return &storages.Cluster{}, fmt.Errorf("no cluster for shard %s, cannot handle key %s", shardName, key)
+		return &storages.ShardClient{}, fmt.Errorf("no cluster for shard %s, cannot handle key %s", shardName, key)
 	}
 
 	return shardCluster, nil
@@ -134,7 +134,7 @@ func closeBody(resp *http.Response, reqID string) {
 	log.Debugf("ResponseBody for request %s closed with %s error (regression)", reqID, closeErr)
 }
 
-func (sr ShardsRing) regressionCall(cl storages.NamedCluster, origClusterName string, req *http.Request) (string, *http.Response, error) {
+func (sr ShardsRing) regressionCall(cl storages.NamedShardClient, origClusterName string, req *http.Request) (string, *http.Response, error) {
 	resp, err := sr.send(cl, req)
 	// Do regression call if response status is > 400
 	if shouldCallRegression(req, resp, err) {

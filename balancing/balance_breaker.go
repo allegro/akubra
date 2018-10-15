@@ -2,13 +2,13 @@ package balancing
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"net/http"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/storages/config"
 )
@@ -460,6 +460,8 @@ type MeasuredStorage struct {
 // RoundTrip implements http.RoundTripper
 func (ms *MeasuredStorage) RoundTrip(req *http.Request) (*http.Response, error) {
 	start := time.Now()
+	reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
+	log.Debug("MeasuredStorage: Got request id %s", reqID)
 	resp, err := ms.RoundTripper.RoundTrip(req)
 	duration := time.Since(start)
 	success := backend.IsSuccessful(resp, err)

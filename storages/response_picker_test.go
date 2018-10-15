@@ -93,7 +93,7 @@ func TestDeleteResponsePickerAllGood(t *testing.T) {
 func createChanOfResponses(successful ...bool) chan BackendResponse {
 	backendResponses := []BackendResponse{}
 	request, _ := http.NewRequest("GET", "http://some.domain/bucket/object", nil)
-	backend := &Backend{
+	backend := &StorageClient{
 		Endpoint: *request.URL,
 		Name:     "somebackend",
 	}

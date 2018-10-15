@@ -14,31 +14,30 @@ const (
 	Passthrough = "passthrough"
 )
 
-// Backend defines backend
-type Backend struct {
-	Endpoint    types.YAMLUrl     `yaml:"Endpoint"`
+// Storage defines backend
+type Storage struct {
+	Backend     types.YAMLUrl     `yaml:"Backend"`
 	Type        string            `yaml:"Type"`
 	Maintenance bool              `yaml:"Maintenance"`
-	Region      string            `yaml:"Region"`
 	Properties  map[string]string `yaml:"Properties"`
 }
 
-// BackendsMap is map of Backend
-type BackendsMap map[string]Backend
+// StoragesMap is map of Backend
+type StoragesMap map[string]Storage
 
-// Cluster defines cluster configuration
-type Cluster struct {
-	Storages Storages
+// Shard defines shard storages configuration
+type Shard struct {
+	Storages Storages `yaml:"Storages"`
 }
 
-// ClustersMap is map of Cluster
-type ClustersMap map[string]Cluster
+// ShardsMap is map of Cluster
+type ShardsMap map[string]Shard
 
 // Storages is lists of storages
-type Storages []Storage
+type Storages []StorageBreakerProperties
 
-// Storage describes storage usage requirements
-type Storage struct {
+// StorageBreakerProperties describes storage usage requirements
+type StorageBreakerProperties struct {
 	Name                       string           `yaml:"Name"`
 	BreakerProbeSize           int              `yaml:"BreakerProbeSize"`
 	BreakerErrorRate           float64          `yaml:"BreakerErrorRate"`
