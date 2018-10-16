@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -187,8 +188,10 @@ func TestValidatorShouldPassWithValidRegionConfig(t *testing.T) {
 }
 
 func TestValidatorShouldFailWithMissingCluster(t *testing.T) {
+	shardName := "someothercluster"
+	policyName := "testregion"
 	multiClusterConfig := shardsconfig.Policy{
-		ShardName: "someothercluster",
+		ShardName: shardName,
 		Weight:    1,
 	}
 
@@ -198,18 +201,20 @@ func TestValidatorShouldFailWithMissingCluster(t *testing.T) {
 	}
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
+
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
 		"127.0.0.1:1234", "127.0.0.1:1235",
-		map[string]shardsconfig.Policies{"testregion": regionConfig}, nil)
+		map[string]shardsconfig.Policies{policyName: regionConfig}, nil)
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("Shard \"testregion\" in policy \"someothercluster\" is not defined"),
+		fmt.Errorf("Shard \"%s\" in policy \"%s\" is not defined", shardName, policyName),
 		validationErrors["RegionsEntryLogicalValidator"][0])
 }
 
 func TestValidatorShouldFailWithInvalidWeight(t *testing.T) {
+
 	multiClusterConfig := shardsconfig.Policy{
 		ShardName: "cluster1test",
 		Weight:    199,
@@ -228,7 +233,7 @@ func TestValidatorShouldFailWithInvalidWeight(t *testing.T) {
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("Weight for cluster \"cluster1test\" in region \"testregion\" is not valid"),
+		errors.New("Weight for shard \"cluster1test\" in policy \"testregion\" is not valid"),
 		validationErrors["RegionsEntryLogicalValidator"][0])
 }
 
@@ -250,7 +255,7 @@ func TestValidatorShouldFailWithMissingClusterDomain(t *testing.T) {
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("No domain defined for region \"testregion\""),
+		errors.New("No domain defined for policy \"testregion\""),
 		validationErrors["RegionsEntryLogicalValidator"][0])
 }
 
@@ -267,7 +272,7 @@ func TestValidatorShouldFailWithMissingClusterDefinition(t *testing.T) {
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("No clusters defined for region \"testregion\""),
+		errors.New("No shards defined for policy \"testregion\""),
 		validationErrors["RegionsEntryLogicalValidator"][0])
 }
 

@@ -51,12 +51,12 @@ const (
           MaxIdleConnsPerHost: 500
           IdleConnTimeout: 2s
           ResponseHeaderTimeout: 2s
-Backends:
+Storages:
   dummy:
     Endpoint: "http://127.0.0.1:8080"
     Type: "passthrough"
     Maintenance: false
-Clusters:
+Shards:
   cluster1test:
     Backends:
       - dummy
@@ -283,7 +283,7 @@ func TestShouldPassValidateConfigurationHTTPHandler(t *testing.T) {
 		`ShardingPolicies:
   testregion:
     Shards:
-      - Shard: cluster1test
+      - ShardName: cluster1test
         Weight: 1
     Domains:
       - endpoint.dc

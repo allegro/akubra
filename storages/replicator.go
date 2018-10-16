@@ -22,7 +22,6 @@ type ReplicationClient struct {
 
 // newReplicationClient returns ReplicationClient
 func newReplicationClient(backends []*backend.Backend) client {
-	log.Debug("Replication Client", len(backends))
 	return &ReplicationClient{Backends: backends}
 }
 
