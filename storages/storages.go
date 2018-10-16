@@ -66,7 +66,6 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ShardsMap,
 	storagesMap config.StoragesMap, syncLog *SyncSender) (*Storages, error) {
 	shards := make(map[string]NamedShardClient)
 	storageClients := make(map[string]*StorageClient)
-	log.Debugf("Storages map %v", storagesMap)
 
 	if len(storagesMap) == 0 {
 		return nil, fmt.Errorf("empty map 'storagesMap' in 'InitStorages'")
@@ -76,7 +75,6 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ShardsMap,
 		if storage.Maintenance {
 			log.Printf("storage %q in maintenance mode", name)
 		}
-		fmt.Printf("Init storages storage %s -> %#v\n", name, storage)
 		decoratedBackend, err := decorateBackend(transport, name, storage)
 		if err != nil {
 			return nil, err
@@ -119,7 +117,6 @@ func storageNames(conf config.Shard) []string {
 	for _, storageConfig := range conf.Storages {
 		names = append(names, storageConfig.Name)
 	}
-	fmt.Printf("storageNames result %#v\n", names)
 	return names
 }
 
@@ -134,7 +131,7 @@ func decorateBackend(transport http.RoundTripper, name string, storageDef config
 	if err != nil {
 		return nil, fmt.Errorf("%s: %q", errPrefix, err)
 	}
-	fmt.Printf("storage def %#v\n", storageDef)
+
 	backend := &StorageClient{
 		RoundTripper: httphandler.Decorate(transport, decorator, merger.ListV2Interceptor),
 		Endpoint:     *storageDef.Backend.URL,

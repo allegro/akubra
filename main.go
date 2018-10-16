@@ -78,7 +78,6 @@ func main() {
 
 	log.Printf("Health check endpoint: %s", conf.Service.Server.HealthCheckEndpoint)
 	mainlog.Printf("starting on port %s", conf.Service.Server.Listen)
-	mainlog.Printf("storages %#v", conf.Storages)
 
 	srv := newService(conf)
 	srv.startTechnicalEndpoint()
