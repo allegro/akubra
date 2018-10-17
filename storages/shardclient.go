@@ -32,12 +32,28 @@ func (c *ShardClient) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
 	log.Debugf("Shard: Got request id %s", reqID)
-	log.Debugf("Shard %s has balancer %t", c.name, c.balancer != nil)
 	if c.balancer != nil && (req.Method == http.MethodGet || req.Method == http.MethodHead || req.Method == http.MethodOptions) {
-		return c.balancer.GetMostAvailable().RoundTrip(req)
+		return c.balancerRoundTrip(req)
 	}
 	log.Debug("It went through request dispatcher")
 	return c.requestDispatcher.Dispatch(req)
+}
+
+func (c *ShardClient) balancerRoundTrip(req *http.Request) (resp *http.Response, err error) {
+	notFoundNodes := []balancing.Node{}
+
+	for node := c.balancer.GetMostAvailable(notFoundNodes...); node != nil; {
+		if node == nil {
+			return nil, fmt.Errorf("no avialable node")
+		}
+		resp, err = node.RoundTrip(req)
+		if resp.StatusCode == http.StatusNotFound {
+			notFoundNodes = append(notFoundNodes, node)
+			continue
+		}
+		return resp, err
+	}
+	return resp, err
 }
 
 // Name get Cluster name

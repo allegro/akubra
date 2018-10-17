@@ -19,17 +19,17 @@ type ResponseTimeBalancer struct {
 }
 
 // Elect elects node and call it with args
-func (balancer *ResponseTimeBalancer) Elect() (Node, error) {
+func (balancer *ResponseTimeBalancer) Elect(skipNodes ...Node) (Node, error) {
+	start := time.Now()
 	var elected Node
-
 	for _, node := range balancer.Nodes {
-		fmt.Printf("Electing ... %v, active %t\n", node, node.IsActive())
-		if !node.IsActive() {
+		if !node.IsActive() || inSkipNodes(skipNodes, node) {
 			continue
 		}
 
 		if elected == nil {
 			elected = node
+			continue
 		}
 
 		if nodeWeight(node) < nodeWeight(elected) {
@@ -39,7 +39,19 @@ func (balancer *ResponseTimeBalancer) Elect() (Node, error) {
 	if elected == nil {
 		return nil, ErrNoActiveNodes
 	}
+	// Disrupt node stats. If all nodes has zero weight only first would
+	// get all the load unless response will come
+	elected.Update(time.Since(start))
 	return elected, nil
+}
+
+func inSkipNodes(skipNodes []Node, node Node) bool {
+	for _, skipNode := range skipNodes {
+		if node == skipNode {
+			return true
+		}
+	}
+	return false
 }
 
 // Node is interface of call node
@@ -78,10 +90,6 @@ type CallMeter struct {
 	duration   time.Duration
 	histogram  *histogram
 	inActive   bool
-}
-
-func (meter *CallMeter) pickSeries(t time.Time) {
-	t = t.Round(meter.resolution)
 }
 
 // Update aggregates data about call duration
@@ -237,7 +245,7 @@ type Breaker interface {
 	ShouldOpen() bool
 }
 
-func newBreaker(retention int, timeLimit time.Duration,
+func newBreaker(retention int, callTimeLimit time.Duration,
 	timeLimitPercentile, errorRate float64,
 	closeDelay, maxDelay time.Duration) Breaker {
 
@@ -245,7 +253,7 @@ func newBreaker(retention int, timeLimit time.Duration,
 		timeData:            newLenLimitCounter(retention),
 		successData:         newLenLimitCounter(retention),
 		rate:                errorRate,
-		limit:               timeLimit,
+		callTimeLimit:       callTimeLimit,
 		timeLimitPercentile: timeLimitPercentile,
 		now:                 time.Now,
 		closeDelay:          closeDelay,
@@ -256,9 +264,9 @@ func newBreaker(retention int, timeLimit time.Duration,
 // NodeBreaker is implementation of Breaker interface
 type NodeBreaker struct {
 	rate                float64
-	limit               time.Duration
-	timeData            *lenLimitCounter
+	callTimeLimit       time.Duration
 	timeLimitPercentile float64
+	timeData            *lenLimitCounter
 	successData         *lenLimitCounter
 	now                 func() time.Time
 	closeDelay          time.Duration
@@ -314,7 +322,7 @@ func (breaker *NodeBreaker) limitsExceeded() bool {
 		return true
 	}
 
-	if breaker.timeData.Percentile(breaker.timeLimitPercentile) > float64(breaker.limit) {
+	if breaker.timeData.Percentile(breaker.timeLimitPercentile) > float64(breaker.callTimeLimit) {
 		breaker.openBreaker()
 		return true
 	}
@@ -521,9 +529,9 @@ type BalancerPrioritySet struct {
 }
 
 // GetMostAvailable returns balancer member
-func (bps *BalancerPrioritySet) GetMostAvailable() *MeasuredStorage {
+func (bps *BalancerPrioritySet) GetMostAvailable(skipNodes ...Node) *MeasuredStorage {
 	for _, balancer := range bps.balancers {
-		node, err := balancer.Elect()
+		node, err := balancer.Elect(skipNodes...)
 		if err == ErrNoActiveNodes {
 			continue
 		}
