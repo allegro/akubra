@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/storages/config"
 )
@@ -476,7 +477,20 @@ func (ms *MeasuredStorage) RoundTrip(req *http.Request) (*http.Response, error) 
 	open := ms.Breaker.Record(duration, success)
 	ms.Node.Update(duration)
 	ms.Node.SetActive(!open)
+	raportMetrics(ms.RoundTripper, start, open)
 	return resp, err
+}
+
+func raportMetrics(rt http.RoundTripper, since time.Time, open bool) {
+	if b, ok := rt.(*backend.Backend); ok {
+		prefix := fmt.Sprintf("reqs.backend.%s.balancer", b.Name)
+		metrics.UpdateSince(prefix+".duration", since)
+		if open {
+			metrics.UpdateGauge(prefix+".open", 1)
+		} else {
+			metrics.UpdateGauge(prefix+".open", 0)
+		}
+	}
 }
 
 // NewBalancerPrioritySet configures prioritized balancers stack
