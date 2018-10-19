@@ -572,7 +572,7 @@ func (bps *BalancerPrioritySet) GetMostAvailable(skipNodes ...Node) *MeasuredSto
 	for level, balancer := range bps.balancers {
 		node, err := balancer.Elect(skipNodes...)
 		if err == ErrNoActiveNodes {
-			log.Println("Changed prioryty level to %s", level)
+			log.Printf("Changed prioryty level to %d", level)
 			continue
 		}
 		return node.(*MeasuredStorage)
