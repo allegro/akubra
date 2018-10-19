@@ -19,7 +19,7 @@ type ResponseTimeBalancer struct {
 	Nodes []Node
 }
 
-// Elect elects node and call it with args
+// Elect elects node and calls it with args
 func (balancer *ResponseTimeBalancer) Elect(skipNodes ...Node) (Node, error) {
 	start := time.Now()
 	var elected Node
@@ -42,7 +42,7 @@ func (balancer *ResponseTimeBalancer) Elect(skipNodes ...Node) (Node, error) {
 	}
 	// Disrupt node stats. If all nodes has zero weight only first would
 	// get all the load unless response will come
-	elected.Update(time.Since(start))
+	elected.UpdateTimeSpent(time.Since(start))
 	return elected, nil
 }
 
@@ -58,14 +58,14 @@ func inSkipNodes(skipNodes []Node, node Node) bool {
 // Node is interface of call node
 type Node interface {
 	Calls() float64
-	Time() float64
+	TimeSpent() float64
 	IsActive() bool
 	SetActive(bool)
-	Update(time.Duration)
+	UpdateTimeSpent(time.Duration)
 }
 
 func nodeWeight(node Node) float64 {
-	return node.Calls() * node.Time()
+	return node.Calls() * node.TimeSpent()
 }
 
 var (
@@ -79,6 +79,7 @@ func newCallMeter(retention, resolution time.Duration) *CallMeter {
 		resolution: resolution,
 		histogram:  newTimeHistogram(retention, resolution),
 		now:        time.Now,
+		isActive:   true,
 	}
 }
 
@@ -88,13 +89,12 @@ type CallMeter struct {
 	resolution time.Duration
 	calls      int
 	now        func() time.Time
-	duration   time.Duration
 	histogram  *histogram
-	inActive   bool
+	isActive   bool
 }
 
-// Update aggregates data about call duration
-func (meter *CallMeter) Update(duration time.Duration) {
+// UpdateTimeSpent aggregates data about call duration
+func (meter *CallMeter) UpdateTimeSpent(duration time.Duration) {
 	series := meter.histogram.pickSeries(meter.now())
 	if series == nil {
 		return
@@ -104,15 +104,15 @@ func (meter *CallMeter) Update(duration time.Duration) {
 
 // Calls returns number of calls in last bucket
 func (meter *CallMeter) Calls() float64 {
-	return meter.CallsIn(meter.resolution)
+	return meter.CallsInLastPeriod(meter.resolution)
 }
 
-// CallsIn returns number of calls in last duration
-func (meter *CallMeter) CallsIn(period time.Duration) float64 {
-	allSeries := meter.histogram.pickLastSeries(period)
+// CallsInLastPeriod returns number of calls in last duration
+func (meter *CallMeter) CallsInLastPeriod(period time.Duration) float64 {
+	lastPeriodSeries := meter.histogram.pickLastSeries(period)
 	sum := float64(0)
 	now := meter.now()
-	for _, series := range allSeries {
+	for _, series := range lastPeriodSeries {
 		values := series.ValueRange(now.Add(-period), now)
 		sum += float64(len(values))
 	}
@@ -121,24 +121,24 @@ func (meter *CallMeter) CallsIn(period time.Duration) float64 {
 
 // IsActive aseses if node should be active
 func (meter *CallMeter) IsActive() bool {
-	return !meter.inActive
+
+	return meter.isActive
 }
 
 // SetActive sets meter state
 func (meter *CallMeter) SetActive(active bool) {
-	meter.inActive = !active
+	meter.isActive = active
 }
 
-// Time returns float64 repesentation of time spent on execution
-func (meter *CallMeter) Time() float64 {
+// TimeSpent returns float64 repesentation of time spent in execution
+func (meter *CallMeter) TimeSpent() float64 {
 	allSeries := meter.histogram.pickLastSeries(meter.resolution)
 	sum := float64(0)
 	now := meter.now()
 	for _, series := range allSeries {
-		values := series.ValueRange(now.Add(-meter.resolution), now)
-		for _, value := range values {
-			sum += value
-		}
+		series.ValueRangeFun(now.Add(-meter.resolution), now, func(value timeValue) {
+			sum += value.value
+		})
 	}
 
 	return sum
@@ -155,13 +155,21 @@ func (series *dataSeries) Add(value float64, dateTime time.Time) {
 	series.data = append(series.data, timeValue{dateTime, value})
 }
 
-func (series *dataSeries) ValueRange(timeStart, timeEnd time.Time) []float64 {
+func (series *dataSeries) ValueRangeFun(timeStart, timeEnd time.Time, fun func(timeValue)) []float64 {
 	dataRange := []float64{}
 	for _, timeVal := range series.data {
 		if (timeStart == timeVal.date || timeStart.Before(timeVal.date)) && timeEnd.After(timeVal.date) {
-			dataRange = append(dataRange, timeVal.value)
+			fun(timeVal)
 		}
 	}
+	return dataRange
+}
+
+func (series *dataSeries) ValueRange(timeStart, timeEnd time.Time) []float64 {
+	dataRange := []float64{}
+	series.ValueRangeFun(timeStart, timeEnd, func(value timeValue) {
+		dataRange = append(dataRange, value.value)
+	})
 	return dataRange
 }
 
@@ -189,17 +197,17 @@ type histogram struct {
 	mx         sync.Mutex
 }
 
-func (h *histogram) pickSeries(now time.Time) *dataSeries {
+func (h *histogram) pickSeries(at time.Time) *dataSeries {
 	h.mx.Lock()
 	defer h.mx.Unlock()
-	idx := h.index(now)
+	idx := h.index(at)
 	if idx < 0 {
 		return nil
 	}
 	cellsNum := h.cellsCount()
 	if idx >= cellsNum || idx >= len(h.data) {
-		h.unshiftData(now)
-		idx = h.index(now)
+		h.unshiftData(at)
+		idx = h.index(at)
 	}
 	return h.data[idx]
 }
@@ -240,7 +248,7 @@ func (h *histogram) unshiftData(now time.Time) {
 	h.growSeries()
 }
 
-// Breaker is interface od citcuit breaker
+// Breaker is interface of citcuit breaker
 type Breaker interface {
 	Record(duration time.Duration, success bool) bool
 	ShouldOpen() bool
@@ -267,12 +275,11 @@ type NodeBreaker struct {
 	rate                float64
 	callTimeLimit       time.Duration
 	timeLimitPercentile float64
-	timeData            *lenLimitCounter
-	successData         *lenLimitCounter
+	timeData            *lengthDelimitedCounter
+	successData         *lengthDelimitedCounter
 	now                 func() time.Time
 	closeDelay          time.Duration
 	maxDelay            time.Duration
-	isOpen              bool
 	state               *openStateTracker
 }
 
@@ -291,7 +298,7 @@ func (breaker *NodeBreaker) Record(duration time.Duration, success bool) bool {
 func (breaker *NodeBreaker) ShouldOpen() bool {
 	exceeded := breaker.limitsExceeded()
 	if breaker.state != nil {
-		return breaker.checkStateHalfOpen(exceeded)
+		return breaker.isHalfOpen(exceeded)
 	}
 
 	if exceeded {
@@ -300,7 +307,7 @@ func (breaker *NodeBreaker) ShouldOpen() bool {
 	return exceeded
 }
 
-func (breaker *NodeBreaker) checkStateHalfOpen(exceeded bool) bool {
+func (breaker *NodeBreaker) isHalfOpen(exceeded bool) bool {
 	state, changed := breaker.state.currentState(breaker.now(), exceeded)
 	if state == closed {
 		if changed {
@@ -349,27 +356,29 @@ func (breaker *NodeBreaker) errorRate() float64 {
 	return sum / count
 }
 
-func newLenLimitCounter(retention int) *lenLimitCounter {
-	return &lenLimitCounter{
+func newLenLimitCounter(retention int) *lengthDelimitedCounter {
+	return &lengthDelimitedCounter{
 		values: make([]float64, retention, retention),
 	}
 }
 
-type lenLimitCounter struct {
+type lengthDelimitedCounter struct {
 	values  []float64
 	nextIdx int
 	mx      sync.Mutex
 }
 
 // Add acumates new values
-func (counter *lenLimitCounter) Add(value float64) {
+func (counter *lengthDelimitedCounter) Add(value float64) {
+	counter.mx.Lock()
+	defer counter.mx.Unlock()
 	index := counter.nextIdx
 	counter.values[index] = value
 	counter.nextIdx = (counter.nextIdx + 1) % cap(counter.values)
 }
 
-// Sum returns sum of valuesś
-func (counter *lenLimitCounter) Sum() float64 {
+// Sum returns sum of values
+func (counter *lengthDelimitedCounter) Sum() float64 {
 	sum := float64(0)
 	for _, v := range counter.values {
 		sum += v
@@ -378,7 +387,7 @@ func (counter *lenLimitCounter) Sum() float64 {
 }
 
 // Percentile return value for given percentile
-func (counter *lenLimitCounter) Percentile(percentile float64) float64 {
+func (counter *lengthDelimitedCounter) Percentile(percentile float64) float64 {
 	snapshot := make([]float64, len(counter.values))
 	copy(snapshot, counter.values)
 	sort.Float64s(snapshot)
@@ -386,7 +395,7 @@ func (counter *lenLimitCounter) Percentile(percentile float64) float64 {
 	return snapshot[pertcentileIndex]
 }
 
-func (counter *lenLimitCounter) Reset() {
+func (counter *lengthDelimitedCounter) Reset() {
 	for idx := range counter.values {
 		counter.values[idx] = 0
 	}
@@ -418,11 +427,13 @@ type openStateTracker struct {
 }
 
 func (tracker *openStateTracker) currentDelay() time.Duration {
-	durationFloat64 := float64(tracker.changeDelay) * math.Pow(2, tracker.closeIteration)
+	multiplier := int(math.Pow(2, tracker.closeIteration))
+	delayDuration := tracker.changeDelay * time.Duration(multiplier)
 
-	if durationFloat64 < float64(tracker.maxDelay) {
-		return time.Duration(durationFloat64)
+	if delayDuration < tracker.maxDelay {
+		return delayDuration
 	}
+
 	return tracker.maxDelay
 }
 
@@ -463,7 +474,8 @@ type MeasuredStorage struct {
 	Node
 	Breaker
 	http.RoundTripper
-	Name string
+	Name           string
+	watcherStarted bool
 }
 
 // RoundTrip implements http.RoundTripper
@@ -475,10 +487,23 @@ func (ms *MeasuredStorage) RoundTrip(req *http.Request) (*http.Response, error) 
 	duration := time.Since(start)
 	success := backend.IsSuccessful(resp, err)
 	open := ms.Breaker.Record(duration, success)
-	ms.Node.Update(duration)
+	ms.Node.UpdateTimeSpent(duration)
 	ms.Node.SetActive(!open)
 	raportMetrics(ms.RoundTripper, start, open)
 	return resp, err
+}
+
+func (ms *MeasuredStorage) watchBreakerStatus(interval time.Duration) {
+	if ms.watcherStarted {
+		return
+	}
+	go func() {
+		for {
+			<-time.After(interval)
+			ms.Node.SetActive(!ms.Breaker.ShouldOpen())
+		}
+	}()
+	ms.watcherStarted = true
 }
 
 func raportMetrics(rt http.RoundTripper, since time.Time, open bool) {
@@ -500,8 +525,8 @@ func NewBalancerPrioritySet(storagesConfig config.Storages, backends map[string]
 	priorityStorage := make(map[int][]*MeasuredStorage)
 	for _, storageConfig := range storagesConfig {
 		breaker := newBreaker(storageConfig.BreakerProbeSize,
-			storageConfig.BreakerTimeLimit.Duration,
-			storageConfig.BreakerTimeLimitPercentile,
+			storageConfig.BreakerCallTimeLimit.Duration,
+			storageConfig.BreakerCallTimeLimitPercentile,
 			storageConfig.BreakerErrorRate,
 			storageConfig.BreakerBasicCutOutDuration.Duration,
 			storageConfig.BreakerMaxCutOutDuration.Duration,
@@ -520,7 +545,7 @@ func NewBalancerPrioritySet(storagesConfig config.Storages, backends map[string]
 		if _, ok := priorityStorage[storageConfig.Priority]; !ok {
 			priorityStorage[storageConfig.Priority] = make([]*MeasuredStorage, 0, 1)
 		}
-
+		mstorage.watchBreakerStatus(storageConfig.BreakerBasicCutOutDuration.Duration)
 		priorityStorage[storageConfig.Priority] = append(
 			priorityStorage[storageConfig.Priority], mstorage)
 	}
@@ -544,9 +569,10 @@ type BalancerPrioritySet struct {
 
 // GetMostAvailable returns balancer member
 func (bps *BalancerPrioritySet) GetMostAvailable(skipNodes ...Node) *MeasuredStorage {
-	for _, balancer := range bps.balancers {
+	for level, balancer := range bps.balancers {
 		node, err := balancer.Elect(skipNodes...)
 		if err == ErrNoActiveNodes {
+			log.Println("Changed prioryty level to %s", level)
 			continue
 		}
 		return node.(*MeasuredStorage)

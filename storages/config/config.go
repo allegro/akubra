@@ -38,14 +38,14 @@ type Storages []StorageBreakerProperties
 
 // StorageBreakerProperties describes storage usage requirements
 type StorageBreakerProperties struct {
-	Name                       string           `yaml:"Name"`
-	BreakerProbeSize           int              `yaml:"BreakerProbeSize"`
-	BreakerErrorRate           float64          `yaml:"BreakerErrorRate"`
-	BreakerTimeLimit           metrics.Interval `yaml:"BreakerTimeLimit"`
-	BreakerTimeLimitPercentile float64          `yaml:"BreakerTimeLimitPercentile"`
-	BreakerBasicCutOutDuration metrics.Interval `yaml:"BreakerBasicCutOutDuration"`
-	BreakerMaxCutOutDuration   metrics.Interval `yaml:"BreakerMaxCutOutDuration"`
-	Priority                   int              `yaml:"Priority"`
-	MeterResolution            metrics.Interval `yaml:"MeterResolution"`
-	MeterRetention             metrics.Interval `yaml:"MeterRetention"`
+	Name                           string           `yaml:"Name"`
+	BreakerProbeSize               int              `yaml:"BreakerProbeSize"`
+	BreakerErrorRate               float64          `yaml:"BreakerErrorRate"`
+	BreakerCallTimeLimit           metrics.Interval `yaml:"BreakerCallTimeLimit"`
+	BreakerCallTimeLimitPercentile float64          `yaml:"BreakerCallTimeLimitPercentile"`
+	BreakerBasicCutOutDuration     metrics.Interval `yaml:"BreakerBasicCutOutDuration"`
+	BreakerMaxCutOutDuration       metrics.Interval `yaml:"BreakerMaxCutOutDuration"`
+	Priority                       int              `yaml:"Priority"`
+	MeterResolution                metrics.Interval `yaml:"MeterResolution"`
+	MeterRetention                 metrics.Interval `yaml:"MeterRetention"`
 }

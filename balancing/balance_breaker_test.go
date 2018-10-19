@@ -78,7 +78,7 @@ func (node *nodeMock) Calls() float64 {
 	return node.calls
 }
 
-func (node *nodeMock) Time() float64 {
+func (node *nodeMock) TimeSpent() float64 {
 	return node.time
 }
 
@@ -89,15 +89,15 @@ func (node *nodeMock) IsActive() bool {
 func (node *nodeMock) SetActive(bool) {
 }
 
-func (node *nodeMock) Update(time.Duration) {
+func (node *nodeMock) UpdateTimeSpent(time.Duration) {
 }
 
 func TestCallMeter(t *testing.T) {
 	callMeter := newCallMeter(5*time.Second, 5*time.Second)
 	require.Implements(t, (*Node)(nil), callMeter)
 
-	callMeter.Update(time.Millisecond)
-	require.Equal(t, float64(time.Millisecond), callMeter.Time(), "Time summary missmatch")
+	callMeter.UpdateTimeSpent(time.Millisecond)
+	require.Equal(t, float64(time.Millisecond), callMeter.TimeSpent(), "Time summary missmatch")
 	require.Equal(t, float64(1), callMeter.Calls(), "Number of calls missmatch")
 }
 
@@ -109,12 +109,12 @@ func TestCallMeterConcurrency(t *testing.T) {
 	callMeter := newCallMeter(5*time.Second, 5*time.Second)
 	for i := 0; i < numberOfSamples; i++ {
 		go func() {
-			callMeter.Update(sampleDuration)
+			callMeter.UpdateTimeSpent(sampleDuration)
 			waitGroup.Done()
 		}()
 	}
 	waitGroup.Wait()
-	require.Equal(t, float64(numberOfSamples*int(sampleDuration)), callMeter.Time())
+	require.Equal(t, float64(numberOfSamples*int(sampleDuration)), callMeter.TimeSpent())
 	require.Equal(t, float64(numberOfSamples), callMeter.Calls())
 }
 
@@ -128,13 +128,13 @@ func TestCallMeterRetention(t *testing.T) {
 	callMeter.now = timer.now
 
 	for i := 0; i < numberOfSamples; i++ {
-		callMeter.Update(time.Millisecond)
+		callMeter.UpdateTimeSpent(time.Millisecond)
 		timer.advance()
 	}
 
 	require.InDelta(t, float64(callMeter.resolution/timer.advanceDur), callMeter.Calls(), float64(1))
 	period := 2 * time.Second
-	require.InDelta(t, float64(period/timer.advanceDur), callMeter.CallsIn(period), float64(1))
+	require.InDelta(t, float64(period/timer.advanceDur), callMeter.CallsInLastPeriod(period), float64(1))
 	timer.advanceDur = 2 * time.Second
 	timer.advance()
 	require.Equal(t, float64(0), callMeter.Calls())
@@ -273,40 +273,40 @@ func checkOpenFor(t *testing.T, d time.Duration, breaker Breaker, timer *mockTim
 func TestPriorityLayersPicker(t *testing.T) {
 	config := config.Storages{
 		{
-			Name:                       "first-a",
-			Priority:                   0,
-			BreakerProbeSize:           10,
-			BreakerErrorRate:           0.09,
-			BreakerTimeLimit:           metrics.Interval{Duration: 500 * time.Millisecond},
-			BreakerTimeLimitPercentile: 0.9,
-			BreakerBasicCutOutDuration: metrics.Interval{Duration: time.Second},
-			BreakerMaxCutOutDuration:   metrics.Interval{Duration: 180 * time.Second},
-			MeterResolution:            metrics.Interval{Duration: 5 * time.Second},
-			MeterRetention:             metrics.Interval{Duration: 10 * time.Second},
+			Name:                           "first-a",
+			Priority:                       0,
+			BreakerProbeSize:               10,
+			BreakerErrorRate:               0.09,
+			BreakerCallTimeLimit:           metrics.Interval{Duration: 500 * time.Millisecond},
+			BreakerCallTimeLimitPercentile: 0.9,
+			BreakerBasicCutOutDuration:     metrics.Interval{Duration: time.Second},
+			BreakerMaxCutOutDuration:       metrics.Interval{Duration: 180 * time.Second},
+			MeterResolution:                metrics.Interval{Duration: 5 * time.Second},
+			MeterRetention:                 metrics.Interval{Duration: 10 * time.Second},
 		},
 		{
-			Name:                       "first-b",
-			Priority:                   0,
-			BreakerProbeSize:           10,
-			BreakerErrorRate:           0.09,
-			BreakerTimeLimit:           metrics.Interval{Duration: 500 * time.Millisecond},
-			BreakerTimeLimitPercentile: 0.9,
-			BreakerBasicCutOutDuration: metrics.Interval{Duration: time.Second},
-			BreakerMaxCutOutDuration:   metrics.Interval{Duration: 180 * time.Second},
-			MeterResolution:            metrics.Interval{Duration: 5 * time.Second},
-			MeterRetention:             metrics.Interval{Duration: 10 * time.Second},
+			Name:                           "first-b",
+			Priority:                       0,
+			BreakerProbeSize:               10,
+			BreakerErrorRate:               0.09,
+			BreakerCallTimeLimit:           metrics.Interval{Duration: 500 * time.Millisecond},
+			BreakerCallTimeLimitPercentile: 0.9,
+			BreakerBasicCutOutDuration:     metrics.Interval{Duration: time.Second},
+			BreakerMaxCutOutDuration:       metrics.Interval{Duration: 180 * time.Second},
+			MeterResolution:                metrics.Interval{Duration: 5 * time.Second},
+			MeterRetention:                 metrics.Interval{Duration: 10 * time.Second},
 		},
 		{
-			Name:                       "second",
-			Priority:                   1,
-			BreakerProbeSize:           1000,
-			BreakerErrorRate:           0.1,
-			BreakerTimeLimit:           metrics.Interval{Duration: 500 * time.Millisecond},
-			BreakerTimeLimitPercentile: 0.9,
-			BreakerBasicCutOutDuration: metrics.Interval{Duration: time.Second},
-			BreakerMaxCutOutDuration:   metrics.Interval{Duration: 180 * time.Second},
-			MeterResolution:            metrics.Interval{Duration: 5 * time.Second},
-			MeterRetention:             metrics.Interval{Duration: 10 * time.Second},
+			Name:                           "second",
+			Priority:                       1,
+			BreakerProbeSize:               1000,
+			BreakerErrorRate:               0.1,
+			BreakerCallTimeLimit:           metrics.Interval{Duration: 500 * time.Millisecond},
+			BreakerCallTimeLimitPercentile: 0.9,
+			BreakerBasicCutOutDuration:     metrics.Interval{Duration: time.Second},
+			BreakerMaxCutOutDuration:       metrics.Interval{Duration: 180 * time.Second},
+			MeterResolution:                metrics.Interval{Duration: 5 * time.Second},
+			MeterRetention:                 metrics.Interval{Duration: 10 * time.Second},
 		},
 	}
 	errFirstStorageResponse := fmt.Errorf("Error from first-a")
@@ -348,4 +348,21 @@ type MockRoundTripper struct {
 
 func (mrt *MockRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
 	return nil, mrt.err
+}
+
+func TestLengthDelimitedCounter(t *testing.T) {
+	limit := 1000
+	counter := newLenLimitCounter(limit)
+	sum := float64(0)
+	wg := sync.WaitGroup{}
+	for i := float64(0); i < float64(limit); i++ {
+		wg.Add(1)
+		go func(i float64) {
+			counter.Add(float64(i))
+			wg.Done()
+		}(i)
+		sum += i
+	}
+	wg.Wait()
+	require.Equal(t, sum, counter.Sum())
 }
