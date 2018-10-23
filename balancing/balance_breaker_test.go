@@ -126,6 +126,7 @@ func TestCallMeterRetention(t *testing.T) {
 
 	callMeter := newCallMeter(5*time.Second, 1*time.Second)
 	callMeter.now = timer.now
+	callMeter.histogram.now = timer.now
 
 	for i := 0; i < numberOfSamples; i++ {
 		callMeter.UpdateTimeSpent(time.Millisecond)
@@ -138,6 +139,28 @@ func TestCallMeterRetention(t *testing.T) {
 	timer.advanceDur = 2 * time.Second
 	timer.advance()
 	require.Equal(t, float64(0), callMeter.Calls())
+}
+
+func TestCallMeterTimeShift(t *testing.T) {
+	timer := &mockTimer{
+		baseTime:   time.Now(),
+		advanceDur: 100 * time.Millisecond}
+	retention := 60 * time.Second
+	callMeter := newCallMeterWithTimer(retention, 15*time.Second, timer.now)
+	require.NotNil(t, callMeter)
+	iterations := float64(1)
+	for i := float64(0); i < iterations; i++ {
+		callMeter.UpdateTimeSpent(time.Second)
+		timer.advance()
+	}
+	require.Equal(t, iterations, callMeter.Calls())
+	require.Equal(t, float64(time.Second)*iterations, callMeter.TimeSpent())
+	callMeter.SetActive(false)
+	timer.baseTime = timer.baseTime.Add(retention)
+	callMeter.SetActive(true)
+	require.Equal(t, iterations, callMeter.Calls())
+	require.Equal(t, float64(time.Second)*iterations, callMeter.TimeSpent())
+
 }
 
 type mockTimer struct {
@@ -161,7 +184,7 @@ func (timer *mockTimer) advance() {
 func TestHistogramRetention(t *testing.T) {
 	retention := 5 * time.Second
 	resolution := 1 * time.Second
-	hist := newTimeHistogram(retention, resolution)
+	hist := newTimeHistogram(retention, resolution, time.Now)
 	series := hist.pickSeries(time.Now())
 	require.NotNil(t, series)
 }
@@ -334,7 +357,7 @@ func TestPriorityLayersPicker(t *testing.T) {
 	member = balancerSet.GetMostAvailable()
 	resp, err = member.RoundTrip(&http.Request{})
 	require.Equal(t, errSecondStorageResponse, err)
-	require.Nil(t, resp, err)
+	require.Nil(t, resp, "Response should be not nil")
 
 	member = balancerSet.GetMostAvailable()
 	resp, err = member.RoundTrip(&http.Request{})

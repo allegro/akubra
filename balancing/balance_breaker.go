@@ -77,20 +77,27 @@ func newCallMeter(retention, resolution time.Duration) *CallMeter {
 	return &CallMeter{
 		retention:  retention,
 		resolution: resolution,
-		histogram:  newTimeHistogram(retention, resolution),
+		histogram:  newTimeHistogram(retention, resolution, time.Now),
 		now:        time.Now,
-		isActive:   true,
 	}
+}
+
+func newCallMeterWithTimer(retention, resolution time.Duration, now func() time.Time) *CallMeter {
+	cm := newCallMeter(retention, resolution)
+	cm.now = now
+	cm.histogram = newTimeHistogram(retention, resolution, now)
+	cm.histogram.now = now
+	return cm
 }
 
 // CallMeter implements Node interface
 type CallMeter struct {
-	retention  time.Duration
-	resolution time.Duration
-	calls      int
-	now        func() time.Time
-	histogram  *histogram
-	isActive   bool
+	retention     time.Duration
+	resolution    time.Duration
+	calls         int
+	now           func() time.Time
+	histogram     *histogram
+	inActiveSince time.Time
 }
 
 // UpdateTimeSpent aggregates data about call duration
@@ -110,6 +117,7 @@ func (meter *CallMeter) Calls() float64 {
 // CallsInLastPeriod returns number of calls in last duration
 func (meter *CallMeter) CallsInLastPeriod(period time.Duration) float64 {
 	lastPeriodSeries := meter.histogram.pickLastSeries(period)
+
 	sum := float64(0)
 	now := meter.now()
 	for _, series := range lastPeriodSeries {
@@ -121,13 +129,18 @@ func (meter *CallMeter) CallsInLastPeriod(period time.Duration) float64 {
 
 // IsActive aseses if node should be active
 func (meter *CallMeter) IsActive() bool {
-
-	return meter.isActive
+	return meter.inActiveSince == time.Time{}
 }
 
 // SetActive sets meter state
 func (meter *CallMeter) SetActive(active bool) {
-	meter.isActive = active
+	if meter.IsActive() && !active {
+		meter.inActiveSince = meter.now()
+	}
+	if !meter.IsActive() && active {
+		meter.histogram.shiftData(meter.now().Sub(meter.inActiveSince))
+		meter.inActiveSince = time.Time{}
+	}
 }
 
 // TimeSpent returns float64 repesentation of time spent in execution
@@ -135,8 +148,9 @@ func (meter *CallMeter) TimeSpent() float64 {
 	allSeries := meter.histogram.pickLastSeries(meter.resolution)
 	sum := float64(0)
 	now := meter.now()
+
 	for _, series := range allSeries {
-		series.ValueRangeFun(now.Add(-meter.resolution), now, func(value timeValue) {
+		series.ValueRangeFun(now.Add(-meter.resolution), now, func(value *timeValue) {
 			sum += value.value
 		})
 	}
@@ -145,17 +159,17 @@ func (meter *CallMeter) TimeSpent() float64 {
 }
 
 type dataSeries struct {
-	data []timeValue
+	data []*timeValue
 	mx   sync.Mutex
 }
 
 func (series *dataSeries) Add(value float64, dateTime time.Time) {
 	series.mx.Lock()
 	defer series.mx.Unlock()
-	series.data = append(series.data, timeValue{dateTime, value})
+	series.data = append(series.data, &timeValue{dateTime, value})
 }
 
-func (series *dataSeries) ValueRangeFun(timeStart, timeEnd time.Time, fun func(timeValue)) []float64 {
+func (series *dataSeries) ValueRangeFun(timeStart, timeEnd time.Time, fun func(*timeValue)) []float64 {
 	dataRange := []float64{}
 	for _, timeVal := range series.data {
 		if (timeStart == timeVal.date || timeStart.Before(timeVal.date)) && timeEnd.After(timeVal.date) {
@@ -167,7 +181,7 @@ func (series *dataSeries) ValueRangeFun(timeStart, timeEnd time.Time, fun func(t
 
 func (series *dataSeries) ValueRange(timeStart, timeEnd time.Time) []float64 {
 	dataRange := []float64{}
-	series.ValueRangeFun(timeStart, timeEnd, func(value timeValue) {
+	series.ValueRangeFun(timeStart, timeEnd, func(value *timeValue) {
 		dataRange = append(dataRange, value.value)
 	})
 	return dataRange
@@ -178,12 +192,12 @@ type timeValue struct {
 	value float64
 }
 
-func newTimeHistogram(retention, resolution time.Duration) *histogram {
+func newTimeHistogram(retention, resolution time.Duration, now func() time.Time) *histogram {
 	return &histogram{
-		t0:         time.Now(),
+		t0:         now(),
 		resolution: resolution,
 		retention:  retention,
-		now:        time.Now,
+		now:        now,
 		mx:         sync.Mutex{},
 	}
 }
@@ -204,8 +218,7 @@ func (h *histogram) pickSeries(at time.Time) *dataSeries {
 	if idx < 0 {
 		return nil
 	}
-	cellsNum := h.cellsCount()
-	if idx >= cellsNum || idx >= len(h.data) {
+	if idx >= h.cellsCount() || idx >= len(h.data) {
 		h.unshiftData(at)
 		idx = h.index(at)
 	}
@@ -217,8 +230,10 @@ func (h *histogram) pickLastSeries(period time.Duration) []*dataSeries {
 		period = h.retention
 	}
 	h.unshiftData(h.now())
-	seriesCount := int(math.Ceil(float64(period)/float64(h.resolution))) + 1
-	return h.data[len(h.data)-seriesCount:]
+	cellsNumber := math.Ceil(float64(period) / float64(h.resolution))
+	stop := h.index(h.now()) + 1
+	start := stop - int(cellsNumber)
+	return h.data[start:stop]
 }
 
 func (h *histogram) index(now time.Time) int {
@@ -239,13 +254,20 @@ func (h *histogram) growSeries() {
 
 func (h *histogram) unshiftData(now time.Time) {
 	idx := h.index(now)
-	cellsNum := h.cellsCount()
-	shiftSize := idx - (cellsNum - 1)
-	if shiftSize > 0 {
+	shiftSize := idx - len(h.data) + 1
+	if shiftSize > 0 && len(h.data) >= shiftSize {
 		h.t0 = h.t0.Add(time.Duration(shiftSize) * h.resolution)
 		h.data = h.data[shiftSize:]
 	}
 	h.growSeries()
+}
+func (h *histogram) shiftData(delta time.Duration) {
+	h.t0 = h.t0.Add(delta)
+	for _, series := range h.data {
+		for _, value := range series.data {
+			value.date = value.date.Add(delta)
+		}
+	}
 }
 
 // Breaker is interface of citcuit breaker
@@ -493,17 +515,11 @@ func (ms *MeasuredStorage) RoundTrip(req *http.Request) (*http.Response, error) 
 	return resp, err
 }
 
-func (ms *MeasuredStorage) watchBreakerStatus(interval time.Duration) {
-	if ms.watcherStarted {
-		return
-	}
-	go func() {
-		for {
-			<-time.After(interval)
-			ms.Node.SetActive(!ms.Breaker.ShouldOpen())
-		}
-	}()
-	ms.watcherStarted = true
+// IsActive checks Breaker status propagates it to Node compound
+func (ms *MeasuredStorage) IsActive() bool {
+	isActive := !ms.Breaker.ShouldOpen()
+	ms.Node.SetActive(isActive)
+	return ms.Node.IsActive()
 }
 
 func raportMetrics(rt http.RoundTripper, since time.Time, open bool) {
@@ -545,7 +561,7 @@ func NewBalancerPrioritySet(storagesConfig config.Storages, backends map[string]
 		if _, ok := priorityStorage[storageConfig.Priority]; !ok {
 			priorityStorage[storageConfig.Priority] = make([]*MeasuredStorage, 0, 1)
 		}
-		mstorage.watchBreakerStatus(storageConfig.BreakerBasicCutOutDuration.Duration)
+
 		priorityStorage[storageConfig.Priority] = append(
 			priorityStorage[storageConfig.Priority], mstorage)
 	}
