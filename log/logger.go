@@ -80,6 +80,7 @@ type LoggerConfig struct {
 	File      string       `yaml:"file"`
 	Syslog    string       `yaml:"syslog"`
 	Database  sql.DBConfig `yaml:"database"`
+	BrimAPI   BrimLogHook  `yaml:"brim"`
 	Level     string       `yaml:"level"`
 }
 
@@ -142,6 +143,17 @@ func createHooks(config LoggerConfig) (lh logrus.LevelHooks, err error) {
 			lh[logrus.InfoLevel] = append(hooks, hook)
 		}
 	}
+	emptyBrimAPIHook := BrimLogHook{}
+	if config.BrimAPI != emptyBrimAPIHook {
+		for _, level := range config.BrimAPI.Levels() {
+			_, ok := lh[level]
+			if !ok {
+				lh[level] = []logrus.Hook{&config.BrimAPI}
+			} else {
+				lh[level] = append(lh[level], &config.BrimAPI)
+			}
+		}
+	}
 	return
 }
 
@@ -153,9 +165,7 @@ func NewLogger(config LoggerConfig) (Logger, error) {
 		return nil, err
 	}
 
-	var formatter logrus.Formatter
-
-	formatter = stripMessageNewLineFormatter{
+	var formatter logrus.Formatter = stripMessageNewLineFormatter{
 		&logrus.TextFormatter{
 			FullTimestamp:   true,
 			TimestampFormat: time.StampMicro,
@@ -181,6 +191,15 @@ func NewLogger(config LoggerConfig) (Logger, error) {
 		Level:     level,
 	}
 	return logger, nil
+}
+
+// NewDefaultLogger return configured Logger or syslog logger
+func NewDefaultLogger(config LoggerConfig, syslogFacility string, plainText bool) (Logger, error) {
+	empty := LoggerConfig{}
+	if config == empty {
+		return NewLogger(LoggerConfig{Syslog: syslogFacility, PlainText: plainText})
+	}
+	return NewLogger(config)
 }
 
 // DefaultLogger ...

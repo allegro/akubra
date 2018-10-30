@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestShouldReturnEntityTooLargeCode(t *testing.T) {
@@ -40,7 +41,8 @@ func TestShouldReturnStatusOKOnHealthCheckEndpoint(t *testing.T) {
 	healthCheckPath := "/status/ping"
 	request := httptest.NewRequest("GET", "http://localhost"+healthCheckPath, nil)
 	rt := Decorate(http.DefaultTransport, HealthCheckHandler(healthCheckPath))
-	rt.RoundTrip(request)
+	_, err := rt.RoundTrip(request)
+	require.NoError(t, err)
 	handler := &Handler{bodyMaxSize: 1024, maxConcurrentRequests: 1}
 	writer := httptest.NewRecorder()
 	handler.roundTripper = statusHandler{
@@ -50,7 +52,7 @@ func TestShouldReturnStatusOKOnHealthCheckEndpoint(t *testing.T) {
 
 	handler.ServeHTTP(writer, request)
 	bodyBytes := make([]byte, 2)
-	_, err := writer.Body.Read(bodyBytes)
+	_, err = writer.Body.Read(bodyBytes)
 
 	assert.NoError(t, err)
 	bodyStr := string(bodyBytes)

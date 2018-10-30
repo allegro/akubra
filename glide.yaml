@@ -8,7 +8,6 @@ import:
   version: ^1.6.0
 - package: github.com/docker/go-units
   version: ^0.3.2
-- package: github.com/go-validator/validator
 - package: github.com/lib/pq
 - package: github.com/rcrowley/go-metrics
   subpackages:
@@ -16,17 +15,31 @@ import:
 - package: github.com/serialx/hashring
 - package: github.com/sirupsen/logrus
   version: ^1.0.3
+
+- package: golang.org/x/sync
+  subpackages:
+  - syncmap
 - package: gopkg.in/gemnasium/logrus-postgresql-hook.v1
   version: ^1.1.0
 - package: gopkg.in/tylerb/graceful.v1
   version: ^1.2.15
 - package: gopkg.in/yaml.v2
+- package: github.com/bnogas/minio-go/
+  version: verify_signature
+  subpackages:
+  - s3signer
+- package: github.com/hashicorp/consul
+  subpackages:
+  - api
 testImport:
 - package: github.com/DATA-DOG/go-sqlmock
   version: ^1.2.0
 - package: github.com/stretchr/testify
-  version: ^1.1.4
   subpackages:
   - assert
   - mock
   - require
+  - suite
+- package: github.com/allegro/mesos-executor
+  subpackages:
+  - xnet

@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"net/http"
-	"strconv"
 
+	confregions "github.com/allegro/akubra/regions/config"
 	set "github.com/deckarep/golang-set"
 )
 
@@ -60,54 +60,69 @@ func UniqueValuesInSliceValidator(v interface{}, param string) error {
 	return nil
 }
 
-//RegionsEntryLogicalValidator checks the correctness of "Regions" part of configuration file
-func (c *YamlConfig) RegionsEntryLogicalValidator(valid *bool, validationErrors *map[string][]error) {
+func (c *YamlConfig) validateRegionCluster(regionName string, regionConf confregions.Region) []error {
+	errList := make([]error, 0)
+	if len(regionConf.Clusters) == 0 {
+		errList = append(errList, fmt.Errorf("No clusters defined for region \"%s\"", regionName))
+	}
+	for _, regionCluster := range regionConf.Clusters {
+		_, exists := c.Clusters[regionCluster.Name]
+		if !exists {
+			errList = append(errList, fmt.Errorf("Cluster \"%s\" is region \"%s\" is not defined", regionName, regionCluster.Name))
+		}
+		if regionCluster.Weight < 0 || regionCluster.Weight > 1 {
+			errList = append(errList, fmt.Errorf("Weight for cluster \"%s\" in region \"%s\" is not valid", regionCluster.Name, regionName))
+		}
+	}
+	if len(regionConf.Domains) == 0 {
+		errList = append(errList, fmt.Errorf("No domain defined for region \"%s\"", regionName))
+	}
+	return errList
+}
+
+// RegionsEntryLogicalValidator checks the correctness of "Regions" part of configuration file
+func (c *YamlConfig) RegionsEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
 	if len(c.Regions) == 0 {
 		errList = append(errList, errors.New("Empty regions definition"))
+	}
+	for regionName, regionConf := range c.Regions {
+		errList = append(errList, c.validateRegionCluster(regionName, regionConf)...)
+	}
+	validationErrors, valid = prepareErrors(errList, "RegionsEntryLogicalValidator")
+	return
+}
+
+// TransportsEntryLogicalValidator checks the correctness of "Transports" part of configuration file
+func (c *YamlConfig) TransportsEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
+	errList := make([]error, 0)
+	if len(c.Service.Client.Transports) == 0 {
+		errList = append(errList, errors.New("Empty transports definition"))
 	} else {
-		for regionName, clusterDef := range c.Regions {
-			if len(clusterDef.Clusters) == 0 {
-				errList = append(errList, fmt.Errorf("No clusters defined for region \"%s\"", regionName))
-			}
-			for _, singleCluster := range clusterDef.Clusters {
-				_, exists := c.Clusters[singleCluster.Cluster]
-				if !exists {
-					errList = append(errList, fmt.Errorf("Cluster \"%s\" is region \"%s\" is not defined", regionName, singleCluster.Cluster))
-				}
-				if singleCluster.Weight < 0 || singleCluster.Weight > 1 {
-					errList = append(errList, fmt.Errorf("Weight for cluster \"%s\" in region \"%s\" is not valid", singleCluster.Cluster, regionName))
-				}
-			}
-			if len(clusterDef.Domains) == 0 {
-				errList = append(errList, fmt.Errorf("No domain defined for region \"%s\"", regionName))
+		for _, transportConf := range c.Service.Client.Transports {
+			properties := transportConf.Properties
+			if properties.MaxIdleConns < 0 || properties.MaxIdleConnsPerHost < 0 || properties.ResponseHeaderTimeout.Duration <= 0 || properties.IdleConnTimeout.Duration < 0 {
+				errList = append(errList, fmt.Errorf("Wrong or empty transport 'Properties' for 'Name': %s", transportConf.Name))
+				break
 			}
 		}
 	}
-	if len(errList) > 0 {
-		*valid = false
-		errorsList := make(map[string][]error)
-		errorsList["RegionsEntryLogicalValidator"] = errList
-		*validationErrors = mergeErrors(*validationErrors, errorsList)
-	} else {
-		*valid = true
-	}
+	validationErrors, valid = prepareErrors(errList, "TransportsEntryLogicalValidator")
+	return
 }
 
 // ListenPortsLogicalValidator make sure that listen port and technical listen port are not equal
-func (c *YamlConfig) ListenPortsLogicalValidator(valid *bool, validationErrors *map[string][]error) {
+func (c *YamlConfig) ListenPortsLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errorsList := make(map[string][]error)
-	listenParts := strings.Split(c.Listen, ":")
-	listenTechnicalParts := strings.Split(c.TechnicalEndpointListen, ":")
-
+	listenParts := strings.Split(c.Service.Server.Listen, ":")
+	listenTechnicalParts := strings.Split(c.Service.Server.TechnicalEndpointListen, ":")
+	valid = true
 	if listenParts[0] == listenTechnicalParts[0] && listenParts[1] == listenTechnicalParts[1] {
-		*valid = false
+		valid = false
 		errorDetail := []error{errors.New("Listen and TechnicalEndpointListen has the same port")}
 		errorsList["ListenPortsLogicalValidator"] = errorDetail
-	} else {
-		*valid = true
 	}
-	*validationErrors = mergeErrors(*validationErrors, errorsList)
+	return valid, errorsList
 }
 
 func mergeErrors(maps ...map[string][]error) (output map[string][]error) {
@@ -127,21 +142,14 @@ func mergeErrors(maps ...map[string][]error) (output map[string][]error) {
 	return output
 }
 
-// RequestHeaderContentLengthValidator for Content-Length header in request
-func RequestHeaderContentLengthValidator(req http.Request, bodyMaxSize int64) int {
-	var contentLength int64
-	contentLengthHeader := req.Header.Get("Content-Length")
-	if contentLengthHeader != "" {
-		var err error
-		contentLength, err = strconv.ParseInt(contentLengthHeader, 10, 64)
-		if err != nil {
-			return http.StatusBadRequest
-		}
+// prepareErrors
+func prepareErrors(errList []error, validatorName string) (validationErrors map[string][]error, valid bool) {
+	if valid = len(errList) < 1; !valid {
+		errorsList := make(map[string][]error)
+		errorsList[validatorName] = errList
+		validationErrors = mergeErrors(validationErrors, errorsList)
 	}
-	if contentLength > bodyMaxSize || req.ContentLength > bodyMaxSize {
-		return http.StatusRequestEntityTooLarge
-	}
-	return 0
+	return
 }
 
 // RequestHeaderContentTypeValidator for Content-Type header in request

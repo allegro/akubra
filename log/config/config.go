@@ -8,4 +8,5 @@ type LoggingConfig struct {
 	Synclog        log.LoggerConfig `yaml:"Synclog,omitempty"`
 	Mainlog        log.LoggerConfig `yaml:"Mainlog,omitempty"`
 	ClusterSyncLog log.LoggerConfig `yaml:"ClusterSynclog,omitempty"`
+	SyncLogMethods []string         `yaml:"SyncLogMethods,omitempty"`
 }

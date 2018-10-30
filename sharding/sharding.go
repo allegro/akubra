@@ -1,54 +1,50 @@
 package sharding
 
 import (
-	"net/http"
-	"net/url"
-
+	"fmt"
 	"math"
 
-	"github.com/allegro/akubra/config"
-	"github.com/allegro/akubra/httphandler"
-	shardingconfig "github.com/allegro/akubra/sharding/config"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/regions/config"
 	"github.com/allegro/akubra/storages"
-	"github.com/allegro/akubra/transport"
 	"github.com/serialx/hashring"
 )
 
 // RingFactory produces clients ShardsRing
 type RingFactory struct {
-	conf      config.Config
-	transport http.RoundTripper
-	storages  *storages.Storages
+	conf     config.Regions
+	storages storages.ClusterStorage
+	syncLog  log.Logger
 }
 
-func (rf RingFactory) uniqBackends(regionCfg shardingconfig.RegionConfig) ([]url.URL, error) {
-	allBackendsSet := make(map[shardingconfig.YAMLUrl]struct{})
-	for _, clusterConfig := range regionCfg.Clusters {
-		clientCluster, err := rf.storages.GetCluster(clusterConfig.Cluster)
+func (rf RingFactory) createRegressionMap(config config.Region) (map[string]storages.NamedCluster, error) {
+	regressionMap := make(map[string]storages.NamedCluster)
+	lastClusterName := config.Clusters[len(config.Clusters)-1].Name
+	previousCluster, err := rf.storages.GetCluster(lastClusterName)
+	if err != nil {
+		log.Printf("Last cluster in region not defined in storages")
+	}
+	for _, cluster := range config.Clusters {
+		clientCluster, err := rf.storages.GetCluster(cluster.Name)
 		if err != nil {
 			return nil, err
 		}
-		for _, backendURL := range clientCluster.Backends {
-			allBackendsSet[backendURL] = struct{}{}
-		}
+		regressionMap[cluster.Name] = previousCluster
+		previousCluster = clientCluster
 	}
-	var uniqBackendsSlice []url.URL
-	for url := range allBackendsSet {
-		uniqBackendsSlice = append(uniqBackendsSlice, *url.URL)
-	}
-	return uniqBackendsSlice, nil
+	return regressionMap, nil
 }
 
-func (rf RingFactory) getRegionClusters(regionCfg shardingconfig.RegionConfig) map[string]int {
-	res := make(map[string]int, len(regionCfg.Clusters))
+func (rf RingFactory) getRegionClustersWeights(regionCfg config.Region) map[string]int {
+	res := make(map[string]int)
 	for _, clusterConfig := range regionCfg.Clusters {
-		res[clusterConfig.Cluster] = int(math.Floor(clusterConfig.Weight * 100))
+		res[clusterConfig.Name] = int(math.Floor(clusterConfig.Weight * 100))
 	}
 	return res
 }
 
-func (rf RingFactory) makeClusterMap(clientClusters map[string]int) (map[string]storages.Cluster, error) {
-	res := make(map[string]storages.Cluster, len(clientClusters))
+func (rf RingFactory) makeRegionClusterMap(clientClusters map[string]int) (map[string]storages.NamedCluster, error) {
+	res := make(map[string]storages.NamedCluster, len(clientClusters))
 	for name := range clientClusters {
 		cl, err := rf.storages.GetCluster(name)
 		if err != nil {
@@ -59,59 +55,40 @@ func (rf RingFactory) makeClusterMap(clientClusters map[string]int) (map[string]
 	return res, nil
 }
 
-func (rf RingFactory) createRegressionMap(regionConfig shardingconfig.RegionConfig) (map[string]storages.Cluster, error) {
-	regressionMap := make(map[string]storages.Cluster, len(regionConfig.Clusters))
-	var previousCluster storages.Cluster
-	for i, cluster := range regionConfig.Clusters {
-		clientCluster, err := rf.storages.GetCluster(cluster.Cluster)
-		if err != nil {
-			return nil, err
-		}
-		if i > 0 {
-			regressionMap[cluster.Cluster] = previousCluster
-		}
-		previousCluster = clientCluster
-	}
-	return regressionMap, nil
-}
-
 // RegionRing returns ShardsRing for region
-func (rf RingFactory) RegionRing(regionCfg shardingconfig.RegionConfig) (ShardsRing, error) {
-	clientClusters := rf.getRegionClusters(regionCfg)
-	shardClusterMap, err := rf.makeClusterMap(clientClusters)
+func (rf RingFactory) RegionRing(name string, regionCfg config.Region) (ShardsRing, error) {
+	clustersWeights := rf.getRegionClustersWeights(regionCfg)
+
+	shardClusterMap, err := rf.makeRegionClusterMap(clustersWeights)
 	if err != nil {
 		return ShardsRing{}, err
 	}
-	cHashMap := hashring.NewWithWeights(clientClusters)
-	allBackendsSlice, err := rf.uniqBackends(regionCfg)
-	if err != nil {
-		return ShardsRing{}, err
+	var regionShards []storages.NamedCluster
+	for _, cluster := range shardClusterMap {
+		regionShards = append(regionShards, cluster)
 	}
 
-	respHandler := httphandler.LateResponseHandler(rf.conf)
+	cHashMap := hashring.NewWithWeights(clustersWeights)
 
+	allBackendsRoundTripper := rf.storages.ClusterShards(fmt.Sprintf("region-%s", name), regionShards...)
 	regressionMap, err := rf.createRegressionMap(regionCfg)
 	if err != nil {
-		return ShardsRing{}, nil
+		return ShardsRing{}, err
 	}
-	allBackendsRoundTripper := transport.NewMultiTransport(
-		rf.transport,
-		allBackendsSlice,
-		respHandler,
-		rf.conf.MaintainedBackends)
+
 	return ShardsRing{
-		cHashMap,
-		shardClusterMap,
-		allBackendsRoundTripper,
-		regressionMap,
-		rf.conf.ClusterSyncLog}, nil
+		ring:                    cHashMap,
+		shardClusterMap:         shardClusterMap,
+		allClustersRoundTripper: allBackendsRoundTripper,
+		clusterRegressionMap:    regressionMap,
+		inconsistencyLog:        rf.syncLog}, nil
 }
 
-//NewRingFactory creates ring factory
-func NewRingFactory(conf config.Config, storages *storages.Storages, transport http.RoundTripper) RingFactory {
+// NewRingFactory creates ring factory
+func NewRingFactory(conf config.Regions, storages storages.ClusterStorage, syncLog log.Logger) RingFactory {
 	return RingFactory{
-		conf:      conf,
-		storages:  storages,
-		transport: transport,
+		conf:     conf,
+		storages: storages,
+		syncLog:  syncLog,
 	}
 }

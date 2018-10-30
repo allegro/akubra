@@ -3,69 +3,115 @@ package storages
 import (
 	"fmt"
 	"net/http"
-	"net/url"
 
-	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/httphandler"
-	shardingconfig "github.com/allegro/akubra/sharding/config"
-	"github.com/allegro/akubra/transport"
+	"github.com/allegro/akubra/log"
+
+	"github.com/allegro/akubra/storages/auth"
+	"github.com/allegro/akubra/storages/config"
+	"github.com/allegro/akubra/storages/merger"
 )
 
-// Cluster stores information about cluster backends
-type Cluster struct {
-	http.RoundTripper
-	Backends []shardingconfig.YAMLUrl
-	Name     string
+// ClusterStorage is basic cluster storage interface
+type ClusterStorage interface {
+	GetCluster(name string) (NamedCluster, error)
+	ClusterShards(name string, clusters ...NamedCluster) NamedCluster
 }
 
-//Storages config
+// Storages config
 type Storages struct {
-	Conf      config.Config
-	Transport http.RoundTripper
-	Clusters  map[string]Cluster
+	clustersConf config.ClustersMap
+	backendsConf config.BackendsMap
+	syncLog      *SyncSender
+	Clusters     map[string]NamedCluster
+	Backends     map[string]*Backend
 }
 
-func newMultiBackendCluster(transp http.RoundTripper,
-	multiResponseHandler transport.MultipleResponsesHandler,
-	clusterConf shardingconfig.ClusterConfig, name string, maintainedBackends []shardingconfig.YAMLUrl) Cluster {
-	backends := make([]url.URL, len(clusterConf.Backends))
-
-	for i, backend := range clusterConf.Backends {
-		backends[i] = *backend.URL
-	}
-
-	multiTransport := transport.NewMultiTransport(
-		transp,
-		backends,
-		multiResponseHandler,
-		maintainedBackends)
-
-	return Cluster{
-		multiTransport,
-		clusterConf.Backends,
-		name,
-	}
-}
-
-func (st Storages) initCluster(name string) (Cluster, error) {
-	clusterConf, ok := st.Conf.Clusters[name]
-	if !ok {
-		return Cluster{}, fmt.Errorf("no cluster %q in configuration", name)
-	}
-	respHandler := httphandler.EarliestResponseHandler(st.Conf)
-	return newMultiBackendCluster(st.Transport, respHandler, clusterConf, name, st.Conf.MaintainedBackends), nil
-}
-
-//GetCluster gets cluster by name or nil if cluster with given name was not found
-func (st Storages) GetCluster(name string) (Cluster, error) {
+// GetCluster gets cluster by name or nil if cluster with given name was not found
+func (st *Storages) GetCluster(name string) (NamedCluster, error) {
 	s3cluster, ok := st.Clusters[name]
 	if ok {
 		return s3cluster, nil
 	}
-	s3cluster, err := st.initCluster(name)
-	if err != nil {
-		return s3cluster, err
+	return &Cluster{}, fmt.Errorf("no such cluster defined %q", name)
+}
+
+// ClusterShards extends Clusters list of Storages by cluster made of joined clusters backends and returns it.
+// If cluster of given name is already defined returns previously defined cluster instead.
+func (st *Storages) ClusterShards(name string, clusters ...NamedCluster) NamedCluster {
+	cluster, ok := st.Clusters[name]
+	if ok {
+		return cluster
 	}
-	st.Clusters[name] = s3cluster
-	return s3cluster, nil
+	backendsNames := make([]string, 0)
+	for _, cluster := range clusters {
+		for _, backend := range cluster.Backends() {
+			backendsNames = append(backendsNames, backend.Name)
+		}
+	}
+	sCluster, err := newCluster(name, backendsNames, st.Backends, st.syncLog)
+	if err != nil {
+		log.Fatalf("Initialization of region cluster %s failed reason: %s", name, err)
+	}
+	st.Clusters[name] = sCluster
+	return sCluster
+}
+
+// InitStorages setups storages
+func InitStorages(transport http.RoundTripper, clustersConf config.ClustersMap, backendsConf config.BackendsMap, syncLog *SyncSender) (*Storages, error) {
+	clusters := make(map[string]NamedCluster)
+	backends := make(map[string]*Backend)
+	if len(backendsConf) == 0 {
+		return nil, fmt.Errorf("empty map 'backendsConf' in 'InitStorages'")
+	}
+	for name, backendConf := range backendsConf {
+		if backendConf.Maintenance {
+			log.Printf("backend %q in maintenance mode", name)
+		}
+		decoratedBackend, err := decorateBackend(transport, name, backendConf)
+		if err != nil {
+			return nil, err
+		}
+		backends[name] = decoratedBackend
+	}
+
+	if len(clustersConf) == 0 {
+		return nil, fmt.Errorf("empty map 'clustersConf' in 'InitStorages'")
+	}
+
+	for name, clusterConf := range clustersConf {
+		cluster, err := newCluster(name, clusterConf.Backends, backends, syncLog)
+		if err != nil {
+			return nil, err
+		}
+		clusters[name] = cluster
+	}
+
+	return &Storages{
+		clustersConf: clustersConf,
+		backendsConf: backendsConf,
+		syncLog:      syncLog,
+		Clusters:     clusters,
+		Backends:     backends,
+	}, nil
+}
+
+func decorateBackend(transport http.RoundTripper, name string, backendConf config.Backend) (*Backend, error) {
+
+	errPrefix := fmt.Sprintf("initialization of backend '%s' resulted with error", name)
+	decoratorFactory, ok := auth.Decorators[backendConf.Type]
+	if !ok {
+		return nil, fmt.Errorf("%s: no decorator defined for type '%s'", errPrefix, backendConf.Type)
+	}
+	decorator, err := decoratorFactory(name, backendConf)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %q", errPrefix, err)
+	}
+	backend := &Backend{
+		RoundTripper: httphandler.Decorate(transport, decorator, merger.ListV2Interceptor),
+		Endpoint:     *backendConf.Endpoint.URL,
+		Name:         name,
+		Maintenance:  backendConf.Maintenance,
+	}
+	return backend, nil
 }

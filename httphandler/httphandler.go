@@ -7,15 +7,9 @@ import (
 	"io"
 	"net/http"
 	"sync/atomic"
-	"time"
 
-	"github.com/allegro/akubra/config"
+	"github.com/allegro/akubra/httphandler/config"
 	"github.com/allegro/akubra/log"
-)
-
-const (
-	defaultMaxIdleConnsPerHost   = 100
-	defaultResponseHeaderTimeout = 5 * time.Second
 )
 
 func randomStr(length int) string {
@@ -37,6 +31,9 @@ type Handler struct {
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	canServe := true
+	log.Printf("handler url %s", req.URL)
+	log.Printf("url host %s, header host %s, req host %s", req.URL.Host, req.Header.Get("Host"), req.Host)
+
 	if atomic.AddInt32(&h.runningRequestCount, 1) > h.maxConcurrentRequests {
 		canServe = false
 	}
@@ -62,15 +59,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		log.Printf("%s", err)
 		return
 	}
-	defer func() {
-		closeErr := resp.Body.Close()
-		if closeErr != nil {
-			log.Printf("Cannot send response body reason: %q",
-				closeErr.Error())
-		}
-	}()
+	defer respBodyCloserFactory(resp, randomIDStr)()
 
 	wh := w.Header()
 	for k, v := range resp.Header {
@@ -78,9 +70,28 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.WriteHeader(resp.StatusCode)
+	if resp.Body == nil {
+		return
+	}
+
 	if _, copyErr := io.Copy(w, resp.Body); copyErr != nil {
-		log.Printf("Cannot send response body reason: %q",
+		log.Printf("Handler.ServeHTTP Cannot send response body %s reason: %q",
+			randomIDStr,
 			copyErr.Error())
+	} else {
+		log.Printf("Handler.ServeHTTP Sent response body %s",
+			randomIDStr)
+	}
+}
+
+func respBodyCloserFactory(resp *http.Response, randomIDStr string) func() {
+	return func() {
+		if resp.Body == nil {
+			log.Debugf("ResponseBody for request %s is nil - nothing to close (handler)", randomIDStr)
+			return
+		}
+		closeErr := resp.Body.Close()
+		log.Debugf("ResponseBody for request %s closed with %s error (handler)", randomIDStr, closeErr)
 	}
 }
 
@@ -88,47 +99,22 @@ func (h *Handler) validateIncomingRequest(req *http.Request) int {
 	return config.RequestHeaderContentLengthValidator(*req, h.bodyMaxSize)
 }
 
-// ConfigureHTTPTransport returns http.Transport with customized dialer,
-// MaxIdleConnsPerHost and DisableKeepAlives
-func ConfigureHTTPTransport(conf config.Config) (*http.Transport, error) {
-	maxIdleConnsPerHost := defaultMaxIdleConnsPerHost
-	responseHeaderTimeout := defaultResponseHeaderTimeout
-
-	if conf.MaxIdleConnsPerHost != 0 {
-		maxIdleConnsPerHost = conf.MaxIdleConnsPerHost
-	}
-
-	if conf.ResponseHeaderTimeout.Duration != 0 {
-		responseHeaderTimeout = conf.ResponseHeaderTimeout.Duration
-	}
-
-	httpTransport := &http.Transport{
-		MaxIdleConns:          conf.MaxIdleConns,
-		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
-		IdleConnTimeout:       conf.IdleConnTimeout.Duration,
-		ResponseHeaderTimeout: responseHeaderTimeout,
-		DisableKeepAlives:     conf.DisableKeepAlives,
-	}
-
-	return httpTransport, nil
-}
-
 // DecorateRoundTripper applies common http.RoundTripper decorators
-func DecorateRoundTripper(conf config.Config, rt http.RoundTripper) http.RoundTripper {
+func DecorateRoundTripper(conf config.Client, accesslog log.Logger, healthCheckEndpoint string, rt http.RoundTripper) http.RoundTripper {
 	return Decorate(
 		rt,
 		HeadersSuplier(conf.AdditionalRequestHeaders, conf.AdditionalResponseHeaders),
-		AccessLogging(conf.Accesslog),
+		AccessLogging(accesslog),
 		OptionsHandler,
-		HealthCheckHandler(conf.HealthCheckEndpoint),
+		HealthCheckHandler(healthCheckEndpoint),
 	)
 }
 
 // NewHandlerWithRoundTripper returns Handler, but will not construct transport.MultiTransport by itself
-func NewHandlerWithRoundTripper(roundTripper http.RoundTripper, bodyMaxSize int64, maxConcurrentRequests int32) (http.Handler, error) {
+func NewHandlerWithRoundTripper(roundTripper http.RoundTripper, servConfig config.Server) (http.Handler, error) {
 	return &Handler{
 		roundTripper:          roundTripper,
-		bodyMaxSize:           bodyMaxSize,
-		maxConcurrentRequests: maxConcurrentRequests,
+		bodyMaxSize:           servConfig.BodyMaxSize.SizeInBytes,
+		maxConcurrentRequests: servConfig.MaxConcurrentRequests,
 	}, nil
 }

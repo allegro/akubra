@@ -8,8 +8,8 @@ import (
 
 	"io/ioutil"
 
+	"github.com/allegro/akubra/httphandler/config"
 	"github.com/allegro/akubra/log"
-	shardingconfig "github.com/allegro/akubra/sharding/config"
 )
 
 // Decorator is http.RoundTripper interface wrapper
@@ -57,8 +57,8 @@ func AccessLogging(logger log.Logger) Decorator {
 }
 
 type headersSuplier struct {
-	requestHeaders  shardingconfig.AdditionalHeaders
-	responseHeaders shardingconfig.AdditionalHeaders
+	requestHeaders  config.AdditionalHeaders
+	responseHeaders config.AdditionalHeaders
 	roundTripper    http.RoundTripper
 }
 
@@ -86,7 +86,9 @@ func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err
 	if err != nil {
 		return
 	}
-
+	if resp.Header == nil {
+		resp.Header = http.Header{}
+	}
 	for k, v := range hs.responseHeaders {
 		_, ok := resp.Header[k]
 		if !ok {
@@ -97,7 +99,7 @@ func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err
 }
 
 // HeadersSuplier creates Decorator which adds headers to request and response
-func HeadersSuplier(requestHeaders, responseHeaders shardingconfig.AdditionalHeaders) Decorator {
+func HeadersSuplier(requestHeaders, responseHeaders config.AdditionalHeaders) Decorator {
 	return func(roundTripper http.RoundTripper) http.RoundTripper {
 		return &headersSuplier{
 			requestHeaders:  requestHeaders,
@@ -137,13 +139,12 @@ type statusHandler struct {
 }
 
 func (sh statusHandler) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-
 	if strings.ToLower(req.URL.Path) == sh.healthCheckEndpoint {
 		resp := &http.Response{}
 		bodyContent := "OK"
 		resp.Body = ioutil.NopCloser(strings.NewReader(bodyContent))
 		resp.ContentLength = int64(len(bodyContent))
-		resp.Header = make(http.Header, 0)
+		resp.Header = make(http.Header)
 		resp.Header.Set("Cache-Control", "no-cache, no-store")
 		resp.Header.Set("Content-Type", "text/plain")
 		resp.StatusCode = http.StatusOK

@@ -93,22 +93,66 @@ the pool and an error is logged.
 Configuration is read from a YAML configuration file with the following fields:
 
 ```yaml
-# Listen interface and port e.g. "127.0.0.1:9090", ":80"
-Listen: ":8080"
-# Technical endpoint interface
-TechnicalEndpointListen: ":8071"
-# Technical health check endpoint (for load balancers)
-HealthCheckEndpoint: "/status/ping"
-# Additional not AWS S3 specific headers proxy will add to original request
-AdditionalRequestHeaders:
-    'Cache-Control': "public, s-maxage=600, max-age=600"
-    'X-Akubra-Version': '0.9.26'
-# Additional headers added to backend response
-AdditionalResponseHeaders:
-    'Access-Control-Allow-Origin': "*"
-    'Access-Control-Allow-Credentials': "true"
-    'Access-Control-Allow-Methods': "GET, POST, OPTIONS"
-    'Access-Control-Allow-Headers': "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type"
+Service:
+  Server:
+    BodyMaxSize: 100MB
+    MaxConcurrentRequests: 200
+    # Listen interface and port e.g. "0:8000", "localhost:9090", ":80"
+    Listen: ":7082"
+    # Technical endpoint interface
+    TechnicalEndpointListen: ":7005"
+    # Health check endpoint (for load balancers)
+    HealthCheckEndpoint: "/status/ping"
+  Client:
+    # Additional not AWS S3 specific headers proxy will add to original request
+    AdditionalResponseHeaders:
+        'Access-Control-Allow-Origin': "*"
+        'Access-Control-Allow-Credentials': "true"
+        'Access-Control-Allow-Methods': "GET, POST, OPTIONS"
+        'Access-Control-Allow-Headers': "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,X-CSRFToken"
+        'Cache-Control': "public, s-maxage=600, max-age=600"
+    # Additional headers added to backend response
+    AdditionalRequestHeaders:
+        'Cache-Control': "public, s-maxage=600, max-age=600"
+    # Backends in maintenance mode
+    # MaintainedBackends:
+    #  - "http://s3.dc2.internal"
+    # List request methods to be logged in synclog in case of backend failure
+    SyncLogMethods:
+      - GET
+      - PUT
+      - DELETE
+    # Transports rules with dedicated timeouts
+    Transports:
+      -
+        Name: TransportDef-Method:GET|POST
+        Rules:
+          Method: GET|POST
+          Path: .*
+        Properties:
+          MaxIdleConns: 200
+          MaxIdleConnsPerHost: 1000
+          IdleConnTimeout: 2s
+          ResponseHeaderTimeout: 5s
+      -
+        Name: TransportDef-Method:GET|POST|PUT
+        Rules:
+          Method: GET|POST|PUT
+          QueryParam: acl
+        Properties:
+          MaxIdleConns: 200
+          MaxIdleConnsPerHost: 500
+          IdleConnTimeout: 5s
+          ResponseHeaderTimeout: 5s
+      -
+        Name: OtherTransportDefinition
+        Rules:
+        Properties:
+          MaxIdleConns: 300
+          MaxIdleConnsPerHost: 600
+          IdleConnTimeout: 2s
+          ResponseHeaderTimeout: 2s
+
 # MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
 # Default 0 (no limit)
 MaxIdleConns: 0
@@ -212,7 +256,7 @@ It's configured with TechnicalEndpointListen property.
 
 ### Example usage
 
-    curl -vv -X POST -H "Content-Type: application/yaml" --data-binary @akubra.cfg.yaml http://127.0.0.1:8071/validate/configuration
+    curl -vv -X POST -H "Content-Type: application/yaml" --data-binary @akubra.cfg.yaml http://127.0.0.1:8071/configuration/validate
 
 Possible responses:
 
@@ -239,6 +283,20 @@ Response:
     < Content-Type: text/html
     < Content-Length: 2
     OK
+
+## Transports and Rules with dedicated timeouts
+
+This feature guarantees high availability and better transmission.
+
+For example, when one specific HTTP method has lag we can set timeouts with special 'Rule'.
+Another example, when user adds big chunks by multi upload,
+default timeout needs to be changed with dedicated 'Transport' with 'Rule' for this case.
+
+We have 'Rules' for 'Transports' definitions:
+ - required minimum one item in 'Transports' section
+ - required empty or one property (Method, Path, QueryParam) in 'Rules' section
+ - if 'Rules' section is empty, the transport will match any requests
+ - when transport cannot be matched, http 500 error code will be sent to client.
 
 ## Limitations
 
