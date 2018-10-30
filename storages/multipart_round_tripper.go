@@ -151,7 +151,7 @@ func containsUploadID(request *http.Request) bool {
 }
 
 func isCompleteUploadResponseSuccessful(response *http.Response) bool {
-	return response.StatusCode == 200 &&
+	return response != nil && response.StatusCode == 200 &&
 		!strings.Contains(response.Request.URL.RawQuery, "partNumber=") &&
 		responseContainsCompleteUploadString(response)
 }
