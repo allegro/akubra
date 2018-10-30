@@ -23,6 +23,7 @@ type ResponseTimeBalancer struct {
 func (balancer *ResponseTimeBalancer) Elect(skipNodes ...Node) (Node, error) {
 	start := time.Now()
 	var elected Node
+
 	for _, node := range balancer.Nodes {
 		if !node.IsActive() || inSkipNodes(skipNodes, node) {
 			continue
@@ -47,7 +48,11 @@ func (balancer *ResponseTimeBalancer) Elect(skipNodes ...Node) (Node, error) {
 }
 
 func inSkipNodes(skipNodes []Node, node Node) bool {
+	// mStorage := node.(*MeasuredStorage)
 	for _, skipNode := range skipNodes {
+		// skipStorage := skipNode.(*MeasuredStorage)
+		// log.Printf("Node compare %v, %v, reqID: %s\n", mStorage.Name, skipStorage.Name, reqID)
+		// if mStorage.Name == skipStorage.Name {
 		if node == skipNode {
 			return true
 		}
@@ -65,7 +70,7 @@ type Node interface {
 }
 
 func nodeWeight(node Node) float64 {
-	return node.Calls() * node.TimeSpent()
+	return node.TimeSpent()
 }
 
 var (
@@ -94,16 +99,17 @@ func newCallMeterWithTimer(retention, resolution time.Duration, now func() time.
 type CallMeter struct {
 	retention     time.Duration
 	resolution    time.Duration
-	calls         int
 	now           func() time.Time
 	histogram     *histogram
 	inActiveSince time.Time
+	statsShiftMx  sync.Mutex
 }
 
 // UpdateTimeSpent aggregates data about call duration
 func (meter *CallMeter) UpdateTimeSpent(duration time.Duration) {
 	series := meter.histogram.pickSeries(meter.now())
 	if series == nil {
+		fmt.Println("nil series while time spent update")
 		return
 	}
 	series.Add(float64(duration), meter.now())
@@ -117,10 +123,10 @@ func (meter *CallMeter) Calls() float64 {
 // CallsInLastPeriod returns number of calls in last duration
 func (meter *CallMeter) CallsInLastPeriod(period time.Duration) float64 {
 	lastPeriodSeries := meter.histogram.pickLastSeries(period)
-
 	sum := float64(0)
 	now := meter.now()
 	for _, series := range lastPeriodSeries {
+
 		values := series.ValueRange(now.Add(-period), now)
 		sum += float64(len(values))
 	}
@@ -167,6 +173,8 @@ func (series *dataSeries) Add(value float64, dateTime time.Time) {
 	series.mx.Lock()
 	defer series.mx.Unlock()
 	series.data = append(series.data, &timeValue{dateTime, value})
+	fmt.Println("series updated", series.data[0].value)
+
 }
 
 func (series *dataSeries) ValueRangeFun(timeStart, timeEnd time.Time, fun func(*timeValue)) []float64 {
@@ -215,6 +223,7 @@ func (h *histogram) pickSeries(at time.Time) *dataSeries {
 	h.mx.Lock()
 	defer h.mx.Unlock()
 	idx := h.index(at)
+	fmt.Println("Idx", idx)
 	if idx < 0 {
 		return nil
 	}
@@ -226,13 +235,20 @@ func (h *histogram) pickSeries(at time.Time) *dataSeries {
 }
 
 func (h *histogram) pickLastSeries(period time.Duration) []*dataSeries {
+	h.mx.Lock()
+	defer h.mx.Unlock()
 	if period > h.retention {
 		period = h.retention
 	}
 	h.unshiftData(h.now())
-	cellsNumber := math.Ceil(float64(period) / float64(h.resolution))
-	stop := h.index(h.now()) + 1
-	start := stop - int(cellsNumber)
+	cellsNumber := math.Ceil(float64(period)/float64(h.resolution)) + 1
+	now := h.now()
+	stop := h.index(now) + 1
+	start := int(math.Max(float64(stop-int(cellsNumber)), 0))
+	fmt.Println("num of cells", cellsNumber, "start", start, "stop", stop, now.After(h.t0))
+	for i := start; i < stop; i++ {
+		fmt.Println("series to iterate with", len(h.data[i].data))
+	}
 	return h.data[start:stop]
 }
 
@@ -247,7 +263,9 @@ func (h *histogram) cellsCount() int {
 }
 
 func (h *histogram) growSeries() {
+
 	for len(h.data) < h.cellsCount() {
+		fmt.Println("Growing", len(h.data), "->", h.cellsCount())
 		h.data = append(h.data, &dataSeries{mx: sync.Mutex{}})
 	}
 }
@@ -257,12 +275,18 @@ func (h *histogram) unshiftData(now time.Time) {
 	shiftSize := idx - len(h.data) + 1
 	if shiftSize > 0 && len(h.data) >= shiftSize {
 		h.t0 = h.t0.Add(time.Duration(shiftSize) * h.resolution)
+		fmt.Println("Unshift t0", h.t0)
 		h.data = h.data[shiftSize:]
 	}
 	h.growSeries()
 }
 func (h *histogram) shiftData(delta time.Duration) {
-	h.t0 = h.t0.Add(delta)
+	newT0 := h.t0.Add(delta)
+	if newT0.After(h.now()) {
+		return
+	}
+	h.t0 = newT0
+	fmt.Println("ShiftData t0", h.t0, delta)
 	for _, series := range h.data {
 		for _, value := range series.data {
 			value.date = value.date.Add(delta)
@@ -279,7 +303,8 @@ type Breaker interface {
 func newBreaker(retention int, callTimeLimit time.Duration,
 	timeLimitPercentile, errorRate float64,
 	closeDelay, maxDelay time.Duration) Breaker {
-
+	log.Debugf("New breaker retention %d, callTimeLimit %s,	timeLimitPercentile %f, errorRate %f, closeDelay %s, maxDelay %s",
+		retention, callTimeLimit, timeLimitPercentile, errorRate, closeDelay, maxDelay)
 	return &NodeBreaker{
 		timeData:            newLenLimitCounter(retention),
 		successData:         newLenLimitCounter(retention),
@@ -347,13 +372,16 @@ func (breaker *NodeBreaker) isHalfOpen(exceeded bool) bool {
 }
 
 func (breaker *NodeBreaker) limitsExceeded() bool {
-	if breaker.errorRate() > breaker.rate {
+	errorRate := breaker.errorRate()
+	if errorRate > breaker.rate {
 		breaker.openBreaker()
+		log.Debugf("Breaker: error rate exceeded %f", errorRate)
 		return true
 	}
-
-	if breaker.timeData.Percentile(breaker.timeLimitPercentile) > float64(breaker.callTimeLimit) {
+	percentile := breaker.timeData.Percentile(breaker.timeLimitPercentile)
+	if percentile > float64(breaker.callTimeLimit) {
 		breaker.openBreaker()
+		log.Debugf("Breaker: time percentile exceeded %f", percentile)
 		return true
 	}
 	return false
@@ -504,11 +532,14 @@ type MeasuredStorage struct {
 func (ms *MeasuredStorage) RoundTrip(req *http.Request) (*http.Response, error) {
 	start := time.Now()
 	reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
-	log.Debug("MeasuredStorage: Got request id %s", reqID)
+	log.Debugf("MeasuredStorage %s: Got request id %s\n", ms.Name, reqID)
 	resp, err := ms.RoundTripper.RoundTrip(req)
 	duration := time.Since(start)
 	success := backend.IsSuccessful(resp, err)
 	open := ms.Breaker.Record(duration, success)
+	log.Debugf("MeasuredStorage %s: Request %s took %s was successful: %t, opened breaker %t\n", ms.Name, reqID, duration, success, open)
+	log.Debugf("MeasuredStorage %s: Request %s cumtime %s, cumcount %d, weight %d\n", ms.Name, reqID, time.Duration(ms.Node.TimeSpent()), int(ms.Node.Calls()), int(nodeWeight(ms.Node)))
+
 	ms.Node.UpdateTimeSpent(duration)
 	ms.Node.SetActive(!open)
 	raportMetrics(ms.RoundTripper, start, open)
@@ -591,7 +622,8 @@ func (bps *BalancerPrioritySet) GetMostAvailable(skipNodes ...Node) *MeasuredSto
 			log.Printf("Changed prioryty level to %d", level)
 			continue
 		}
-		return node.(*MeasuredStorage)
+		ms := node.(*MeasuredStorage)
+		return ms
 	}
 	return nil
 }

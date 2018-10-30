@@ -36,11 +36,11 @@ func (b *Backend) RoundTrip(req *http.Request) (resp *http.Response, err error) 
 	}
 
 	resp, oerror := b.RoundTripper.RoundTrip(req)
-	log.Debugf("Response for req %s from %s/%s with %s err with", reqID, req.URL.Host, req.URL.Path, oerror)
+	log.Debugf("Response for req %s from %s%s with %q err", reqID, req.URL.Host, req.URL.Path, oerror)
 	if oerror != nil {
 		err = &types.BackendError{HostName: b.Endpoint.Host, OrigErr: oerror}
 	} else if resp != nil {
-		log.Debugf("Body for req %s from %s is nil: %t, status: %d", reqID, req.URL.Host, resp.Body == nil, resp.StatusCode)
+		log.Debugf("Body for req %s from %s%s is nil: %t, status: %d", reqID, req.URL.Host, req.URL.Path, resp.Body == nil, resp.StatusCode)
 	}
 
 	return resp, err

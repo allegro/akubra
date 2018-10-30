@@ -2,6 +2,7 @@ package balancing
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"sync"
 	"testing"
@@ -142,25 +143,64 @@ func TestCallMeterRetention(t *testing.T) {
 }
 
 func TestCallMeterTimeShift(t *testing.T) {
+	clockAdvance := 100 * time.Millisecond
 	timer := &mockTimer{
 		baseTime:   time.Now(),
-		advanceDur: 100 * time.Millisecond}
+		advanceDur: clockAdvance}
 	retention := 60 * time.Second
-	callMeter := newCallMeterWithTimer(retention, 15*time.Second, timer.now)
+	resolution := 1 * time.Second
+	callMeter := newCallMeterWithTimer(retention, resolution, timer.now)
 	require.NotNil(t, callMeter)
-	iterations := float64(1)
+	timeSpent := time.Second
+	iterations := float64(14)
 	for i := float64(0); i < iterations; i++ {
-		callMeter.UpdateTimeSpent(time.Second)
+		callMeter.UpdateTimeSpent(timeSpent)
 		timer.advance()
 	}
-	require.Equal(t, iterations, callMeter.Calls())
-	require.Equal(t, float64(time.Second)*iterations, callMeter.TimeSpent())
-	callMeter.SetActive(false)
-	timer.baseTime = timer.baseTime.Add(retention)
-	callMeter.SetActive(true)
-	require.Equal(t, iterations, callMeter.Calls())
-	require.Equal(t, float64(time.Second)*iterations, callMeter.TimeSpent())
 
+	expectedCalls := math.Min(float64(resolution/clockAdvance), iterations)
+	expectedTime := math.Min(expectedCalls*float64(timeSpent), float64(timeSpent)*iterations)
+	require.Equal(t, expectedCalls, callMeter.Calls())
+	require.Equal(t, expectedTime, callMeter.TimeSpent())
+
+	callMeter.SetActive(false)
+	timer.baseTime = timer.baseTime.Add(2 * retention)
+	callMeter.SetActive(true)
+
+	require.Equal(t, expectedCalls, callMeter.Calls())
+	require.Equal(t, expectedTime, callMeter.TimeSpent())
+}
+
+func TestCallMeterNoActivity(t *testing.T) {
+	clockAdvance := 100 * time.Millisecond
+	retention := 6 * time.Second
+	resolution := 1 * time.Second
+	timeSpent := time.Second
+	iterations := float64(14)
+	expectedCalls := math.Min(float64(resolution/clockAdvance), iterations)
+	expectedTime := math.Min(expectedCalls*float64(timeSpent), float64(timeSpent)*iterations)
+
+	timer := &mockTimer{
+		baseTime:   time.Now(),
+		advanceDur: clockAdvance}
+
+	callMeter := newCallMeterWithTimer(retention, resolution, timer.now)
+	require.NotNil(t, callMeter)
+
+	for i := float64(0); i < iterations; i++ {
+		callMeter.UpdateTimeSpent(timeSpent)
+		timer.advance()
+	}
+
+	require.Equal(t, expectedCalls, callMeter.Calls())
+	require.Equal(t, expectedTime, callMeter.TimeSpent())
+	timer.baseTime = timer.baseTime.Add(resolution)
+	fmt.Println("Time shifted", timer.baseTime)
+	require.Equal(t, float64(0), callMeter.TimeSpent())
+	fmt.Println("Update time spent after delay")
+	callMeter.UpdateTimeSpent(timeSpent)
+	timer.baseTime = timer.baseTime.Add(time.Millisecond)
+	require.Equal(t, float64(timeSpent), callMeter.TimeSpent())
 }
 
 type mockTimer struct {

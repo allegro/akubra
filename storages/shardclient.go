@@ -33,21 +33,27 @@ func (c *ShardClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
 	log.Debugf("Shard: Got request id %s", reqID)
 	if c.balancer != nil && (req.Method == http.MethodGet || req.Method == http.MethodHead || req.Method == http.MethodOptions) {
-		return c.balancerRoundTrip(req)
+		resp, err := c.balancerRoundTrip(req)
+		log.Debugf("Request %s, processed by balancer error %s", reqID, err)
+		return resp, err
+
 	}
-	log.Debug("It went through request dispatcher")
+	log.Debug("Request %s processed by dispatcher, reqId")
 	return c.requestDispatcher.Dispatch(req)
 }
 
 func (c *ShardClient) balancerRoundTrip(req *http.Request) (resp *http.Response, err error) {
 	notFoundNodes := []balancing.Node{}
+	reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
+	log.Printf("Balancer RoundTrip %s", reqID)
 
-	for node := c.balancer.GetMostAvailable(notFoundNodes...); node != nil; {
+	for node := c.balancer.GetMostAvailable(notFoundNodes...); node != nil; node = c.balancer.GetMostAvailable(notFoundNodes...) {
+		log.Printf("Balancer roundTrip node loop %s %s", node.Name, reqID)
 		if node == nil {
 			return nil, fmt.Errorf("no avialable node")
 		}
 		resp, err = node.RoundTrip(req)
-		if resp.StatusCode == http.StatusNotFound {
+		if (resp == nil && err != balancing.ErrNoActiveNodes) || resp.StatusCode == http.StatusNotFound {
 			notFoundNodes = append(notFoundNodes, node)
 			continue
 		}
