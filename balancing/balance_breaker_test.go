@@ -173,10 +173,10 @@ func TestCallMeterTimeShift(t *testing.T) {
 
 func TestCallMeterNoActivity(t *testing.T) {
 	clockAdvance := 100 * time.Millisecond
-	retention := 6 * time.Second
-	resolution := 1 * time.Second
+	retention := 10 * time.Second
+	resolution := 5 * time.Second
 	timeSpent := time.Second
-	iterations := float64(14)
+	iterations := float64(3)
 	expectedCalls := math.Min(float64(resolution/clockAdvance), iterations)
 	expectedTime := math.Min(expectedCalls*float64(timeSpent), float64(timeSpent)*iterations)
 
@@ -186,6 +186,7 @@ func TestCallMeterNoActivity(t *testing.T) {
 
 	callMeter := newCallMeterWithTimer(retention, resolution, timer.now)
 	require.NotNil(t, callMeter)
+	callMeter.histogram.now = timer.now
 
 	for i := float64(0); i < iterations; i++ {
 		callMeter.UpdateTimeSpent(timeSpent)
@@ -194,7 +195,7 @@ func TestCallMeterNoActivity(t *testing.T) {
 
 	require.Equal(t, expectedCalls, callMeter.Calls())
 	require.Equal(t, expectedTime, callMeter.TimeSpent())
-	timer.baseTime = timer.baseTime.Add(resolution)
+	timer.baseTime = timer.baseTime.Add(6*resolution + time.Second)
 	fmt.Println("Time shifted", timer.baseTime)
 	require.Equal(t, float64(0), callMeter.TimeSpent())
 	fmt.Println("Update time spent after delay")
