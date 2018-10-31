@@ -67,7 +67,7 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 		return shardsRing.DoRequest(req)
 	} else if bucketName == "" {
 		if req.URL.Path == "/" {
-			log.Debug("Domain style request with domain '%s' with empty bucket on path='/'")
+			log.Debug("Domain style request with domain '%s' and path='/'", host)
 			return rg.healthCheckResolver(req)
 		}
 	}
