@@ -7,9 +7,9 @@ import (
 
 	"github.com/allegro/akubra/sharding"
 	"github.com/allegro/akubra/utils"
+	"github.com/bnogas/minio-go/pkg/s3signer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/bnogas/minio-go/pkg/s3signer"
 )
 
 type ShardsRingMock struct {
@@ -29,11 +29,26 @@ func TestCode404OnNotSupportedDomain(t *testing.T) {
 	}
 	shardsRing := &sharding.ShardsRing{}
 	regions.assignShardsRing("test1.qxlint", *shardsRing)
-	request := &http.Request{Host: "test2.qxlint"}
+	request := &http.Request{Host: "test2.qxlint", URL: &url.URL{Path: "/bucket"}}
 
 	response, _ := regions.RoundTrip(request)
 
 	assert.Equal(t, 404, response.StatusCode)
+}
+
+func TestCode200OnNotSupportedDomainWithRootPath(t *testing.T) {
+	shardsMap := make(map[string]sharding.ShardsRingAPI)
+	regions := &Regions{
+		multiCluters: shardsMap,
+	}
+	shardsRing := &sharding.ShardsRing{}
+	regions.assignShardsRing("test1.qxlint", *shardsRing)
+	request := &http.Request{Host: "domain-not-exists-in-config.qxlint", URL: &url.URL{Path: "/"}}
+
+	response, _ := regions.RoundTrip(request)
+
+	assert.Equal(t, 200, response.StatusCode)
+	assert.Equal(t, int64(len(defaultRootS3EndpointContent)), response.ContentLength)
 }
 
 func TestShouldReturnResponseFromShardsRingOnHostWithPort(t *testing.T) {
@@ -41,7 +56,7 @@ func TestShouldReturnResponseFromShardsRingOnHostWithPort(t *testing.T) {
 	regions := &Regions{
 		multiCluters: shardsMap,
 	}
-	request := &http.Request{Host: "test1.qxlint:1234", Header: map[string][]string{}}
+	request := &http.Request{Host: "test1.qxlint:1234", Header: map[string][]string{}, URL: &url.URL{Path: "/"}}
 	expectedResponse := &http.Response{
 		Status:     "200 OK",
 		StatusCode: 200,
@@ -60,8 +75,8 @@ func TestShouldDetectADomainStyleRequestAndExtractBucketNameFromHost(t *testing.
 		multiCluters: make(map[string]sharding.ShardsRingAPI),
 	}
 
-	originalRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
-	interceptedRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
+	originalRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}, URL: &url.URL{Path: "/"}}
+	interceptedRequest := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}, URL: &url.URL{Path: "/"}}
 	interceptedRequest.Header.Add(utils.InternalBucketHeader, "bucket")
 	interceptedRequest.Header.Add(s3signer.CustomStorageHost, "test.qxlint")
 
@@ -77,7 +92,7 @@ func TestShouldDetectADomainStyleRequestAndExtractBucketNameFromHost(t *testing.
 
 	assert.Equal(t, 200, response.StatusCode)
 	assert.Equal(t, "", originalRequest.Header.Get(utils.InternalPathStyleFlag))
-	assert.Equal(t,"bucket", originalRequest.Header.Get(utils.InternalBucketHeader))
+	assert.Equal(t, "bucket", originalRequest.Header.Get(utils.InternalBucketHeader))
 }
 
 func TestShouldDetectADomainStyleRequestAndExtractMultiLabelBucketNameFromHost(t *testing.T) {
@@ -85,8 +100,8 @@ func TestShouldDetectADomainStyleRequestAndExtractMultiLabelBucketNameFromHost(t
 		multiCluters: make(map[string]sharding.ShardsRingAPI),
 	}
 
-	originalRequest := &http.Request{Host: "sub.bucket.test.qxlint", Header: map[string][]string{}}
-	interceptedRequest := &http.Request{Host: "sub.bucket.test.qxlint", Header: map[string][]string{}}
+	originalRequest := &http.Request{Host: "sub.bucket.test.qxlint", Header: map[string][]string{}, URL: &url.URL{Path: "/"}}
+	interceptedRequest := &http.Request{Host: "sub.bucket.test.qxlint", Header: map[string][]string{}, URL: &url.URL{Path: "/"}}
 	assert.Equal(t, "", originalRequest.Header.Get(utils.InternalPathStyleFlag))
 
 	interceptedRequest.Header.Add(utils.InternalBucketHeader, "sub.bucket")
@@ -105,7 +120,7 @@ func TestShouldDetectADomainStyleRequestAndExtractMultiLabelBucketNameFromHost(t
 
 	assert.Equal(t, 200, response.StatusCode)
 	assert.Equal(t, "", originalRequest.Header.Get(utils.InternalPathStyleFlag))
-	assert.Equal(t,"sub.bucket", originalRequest.Header.Get(utils.InternalBucketHeader))
+	assert.Equal(t, "sub.bucket", originalRequest.Header.Get(utils.InternalBucketHeader))
 }
 
 func TestShouldDetectADomainStyleRequestButFailOnMissingRegions(t *testing.T) {
@@ -113,7 +128,7 @@ func TestShouldDetectADomainStyleRequestButFailOnMissingRegions(t *testing.T) {
 		multiCluters: make(map[string]sharding.ShardsRingAPI),
 	}
 
-	requestWithNotSupportedDomain:= &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}}
+	requestWithNotSupportedDomain := &http.Request{Host: "bucket.test.qxlint", Header: map[string][]string{}, URL: &url.URL{Path: "/bucket"}}
 	expectedResponse := &http.Response{
 		Status:     "404 Bad request",
 		StatusCode: 404,
@@ -136,7 +151,7 @@ func TestShouldDetectAPathStyleRequestAndSetTheHeaderFlag(t *testing.T) {
 	}
 
 	requestURL, _ := url.Parse("http://test.qxlint:8080/bucket/object")
-	requestWithNotSupportedDomain:= &http.Request{URL: requestURL, Host: "test.qxlint", Header: map[string][]string{}}
+	requestWithNotSupportedDomain := &http.Request{URL: requestURL, Host: "test.qxlint", Header: map[string][]string{}}
 	expectedResponse := &http.Response{
 		Status:     "OK",
 		StatusCode: 200,
