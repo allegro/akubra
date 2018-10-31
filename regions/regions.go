@@ -12,10 +12,15 @@ import (
 
 	"net"
 
+	"fmt"
 	"github.com/allegro/akubra/regions/config"
 	"github.com/allegro/akubra/sharding"
 	storage "github.com/allegro/akubra/storages"
 )
+
+const defaultRootS3EndpointContent = "<?xml version='1.0' encoding='UTF-8'?>" +
+	"<ListAllMyBucketsResult xmlns='http://s3.amazonaws.com/doc/2006-03-01/'>" +
+	"<Owner><ID>anonymous</ID><DisplayName></DisplayName></Owner><Buckets></Buckets></ListAllMyBucketsResult>"
 
 // Regions container for multiclusters
 type Regions struct {
@@ -60,6 +65,11 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 		req.Header.Add(utils.InternalBucketHeader, bucketName)
 		log.Debugf("Domain style request with domain '%s' and bucket '%s'", host, bucketName)
 		return shardsRing.DoRequest(req)
+	} else if bucketName == "" {
+		if req.URL.Path == "/" {
+			log.Debug("Domain style request with domain '%s' and path='/'", host)
+			return rg.healthCheckResolver(req)
+		}
 	}
 	return rg.getNoSuchDomainResponse(req), nil
 }
@@ -68,7 +78,7 @@ func (rg Regions) findHostInDomainStyle(originalHost string) (currentHost, bucke
 	currentHost = ""
 	lastSubDomainIndex := strings.LastIndex(originalHost, ".")
 	for lastSubDomainIndex != -1 {
-		currentHost = originalHost[lastSubDomainIndex + 1:] + currentHost
+		currentHost = originalHost[lastSubDomainIndex+1:] + currentHost
 		_, domainFoundInConfig := rg.multiCluters[currentHost]
 		if domainFoundInConfig {
 			return currentHost, originalHost[:lastSubDomainIndex]
@@ -78,6 +88,22 @@ func (rg Regions) findHostInDomainStyle(originalHost string) (currentHost, bucke
 		lastSubDomainIndex = strings.LastIndex(originalHost, ".")
 	}
 	return
+}
+
+func (rg Regions) healthCheckResolver(req *http.Request) (resp *http.Response, err error) {
+	resp = &http.Response{
+		Status:        fmt.Sprintf("%d OK", http.StatusOK),
+		StatusCode:    http.StatusOK,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Body:          ioutil.NopCloser(bytes.NewBufferString(defaultRootS3EndpointContent)),
+		ContentLength: int64(len(defaultRootS3EndpointContent)),
+		Request:       req,
+		Header:        make(http.Header, 0),
+	}
+
+	return resp, nil
 }
 
 // NewRegions build new region http.RoundTripper
