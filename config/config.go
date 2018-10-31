@@ -10,6 +10,8 @@ import (
 
 	httphandler "github.com/allegro/akubra/httphandler/config"
 
+	"path/filepath"
+
 	crdstoreconfig "github.com/allegro/akubra/crdstore/config"
 	"github.com/allegro/akubra/log"
 	logconfig "github.com/allegro/akubra/log/config"
@@ -56,7 +58,7 @@ func parseConf(file io.Reader) (YamlConfig, error) {
 
 // Configure parse configuration file
 func Configure(configFilePath string) (conf Config, err error) {
-	confFile, err := os.Open(configFilePath)
+	confFile, err := os.Open(filepath.Clean(configFilePath))
 	if err != nil {
 		log.Fatalf("[ ERROR ] Problem with opening config file: '%s' - err: %v !", configFilePath, err)
 		return conf, err

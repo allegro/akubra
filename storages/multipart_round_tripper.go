@@ -109,7 +109,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) RoundTrip(request *http.Requ
 
 func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(request *http.Request) (*Backend, error) {
 	objectPath := request.URL.Path
-	if utils.IsDomainStyleRequest(request) && !utils.IsBucketPath(request){
+	if utils.IsDomainStyleRequest(request) && !utils.IsBucketPath(request) {
 		objectPath = fmt.Sprintf("/%s%s", request.Header.Get(utils.InternalBucketHeader), objectPath)
 	}
 
@@ -156,16 +156,13 @@ func responseContainsCompleteUploadString(response *http.Response) bool {
 	}
 
 	responseBodyBytes, bodyReadError := ioutil.ReadAll(response.Body)
-	response.Body.Close()
-
 	if bodyReadError != nil {
-
 		log.Debugf(
 			"Failed to read response body from CompleteMultipartUpload response for object %s, error: %s",
 			response.Request.URL, bodyReadError)
-
 		return false
 	}
+
 	err := response.Body.Close()
 	if err != nil {
 		log.Println("Could not close response.Body")
