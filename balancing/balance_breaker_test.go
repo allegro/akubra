@@ -107,16 +107,24 @@ func TestCallMeterConcurrency(t *testing.T) {
 	sampleDuration := time.Millisecond
 	waitGroup := &sync.WaitGroup{}
 	waitGroup.Add(numberOfSamples)
-	callMeter := newCallMeter(5*time.Second, 5*time.Second)
+	clockAdvance := time.Microsecond
+	timer := &mockTimer{
+		baseTime:   time.Now(),
+		advanceDur: clockAdvance}
+	retention := 5 * time.Second
+	resolution := 5 * time.Second
+	callMeter := newCallMeterWithTimer(retention, resolution, timer.now)
+
 	for i := 0; i < numberOfSamples; i++ {
 		go func() {
 			callMeter.UpdateTimeSpent(sampleDuration)
+			timer.advance()
 			waitGroup.Done()
 		}()
 	}
 	waitGroup.Wait()
-	require.Equal(t, float64(numberOfSamples*int(sampleDuration)), callMeter.TimeSpent())
-	require.Equal(t, float64(numberOfSamples), callMeter.Calls())
+	require.Equal(t, float64(numberOfSamples*int(sampleDuration)), callMeter.TimeSpent(), "Time spent missmatch")
+	require.Equal(t, float64(numberOfSamples), callMeter.Calls(), "Number of calls missmatch")
 }
 
 func TestCallMeterRetention(t *testing.T) {
@@ -124,10 +132,9 @@ func TestCallMeterRetention(t *testing.T) {
 	timer := &mockTimer{
 		baseTime:   time.Now(),
 		advanceDur: 100 * time.Millisecond}
-
-	callMeter := newCallMeter(5*time.Second, 1*time.Second)
-	callMeter.now = timer.now
-	callMeter.histogram.now = timer.now
+	retention := 5 * time.Second
+	resolution := time.Second
+	callMeter := newCallMeterWithTimer(retention, resolution, timer.now)
 
 	for i := 0; i < numberOfSamples; i++ {
 		callMeter.UpdateTimeSpent(time.Millisecond)
