@@ -437,21 +437,3 @@ func TestLengthDelimitedCounter(t *testing.T) {
 	wg.Wait()
 	require.Equal(t, sum, counter.Sum())
 }
-
-func BenchmarkCallMetrics(b *testing.B) {
-	clockAdvance := 4 * time.Millisecond
-	timer := &mockTimer{
-		baseTime:   time.Now(),
-		advanceDur: clockAdvance}
-	retention := 20 * time.Second
-	resolution := 10 * time.Second
-	callMeter := newCallMeterWithTimer(retention, resolution, timer.now)
-	iterations := int(retention / clockAdvance)
-	for i := 0; i < iterations; i++ {
-		callMeter.UpdateTimeSpent(10 * time.Millisecond)
-	}
-	for n := 0; n < b.N; n++ {
-		callMeter.TimeSpent()
-		callMeter.Calls()
-	}
-}
