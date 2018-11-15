@@ -368,7 +368,7 @@ func (breaker *NodeBreaker) limitsExceeded() bool {
 	percentile := breaker.timeData.Percentile(breaker.timeLimitPercentile)
 	if percentile > float64(breaker.callTimeLimit) {
 		breaker.openBreaker()
-		log.Debugf("Breaker: time percentile exceeded %f", percentile)
+		log.Debugf("Breaker: time percentile exceeded %f / %f", percentile, float64(breaker.callTimeLimit))
 		return true
 	}
 	return false
@@ -390,7 +390,7 @@ func (breaker *NodeBreaker) reset() {
 func (breaker *NodeBreaker) errorRate() float64 {
 	sum := breaker.successData.Sum()
 	count := float64(len(breaker.successData.values))
-	return sum / count
+	return 1 - sum/count
 }
 
 func newLenLimitCounter(retention int) *lengthDelimitedCounter {
