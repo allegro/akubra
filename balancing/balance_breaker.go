@@ -294,7 +294,7 @@ func newBreaker(retention int, callTimeLimit time.Duration,
 	closeDelay, maxDelay time.Duration) Breaker {
 	return &NodeBreaker{
 		timeData:            newLenLimitCounter(retention),
-		successData:         newLenLimitCounter(retention),
+		failures:            newLenLimitCounter(retention),
 		rate:                errorRate,
 		callTimeLimit:       callTimeLimit,
 		timeLimitPercentile: timeLimitPercentile,
@@ -310,7 +310,7 @@ type NodeBreaker struct {
 	callTimeLimit       time.Duration
 	timeLimitPercentile float64
 	timeData            *lengthDelimitedCounter
-	successData         *lengthDelimitedCounter
+	failures            *lengthDelimitedCounter
 	now                 func() time.Time
 	closeDelay          time.Duration
 	maxDelay            time.Duration
@@ -320,11 +320,11 @@ type NodeBreaker struct {
 // Record collects call data and returns bool if breaker should be open
 func (breaker *NodeBreaker) Record(duration time.Duration, success bool) bool {
 	breaker.timeData.Add(float64(duration))
-	successValue := float64(1)
+	failValue := float64(1)
 	if success {
-		successValue = float64(0)
+		failValue = float64(0)
 	}
-	breaker.successData.Add(successValue)
+	breaker.failures.Add(failValue)
 	return breaker.ShouldOpen()
 }
 
@@ -384,13 +384,13 @@ func (breaker *NodeBreaker) openBreaker() {
 
 func (breaker *NodeBreaker) reset() {
 	breaker.timeData.Reset()
-	breaker.successData.Reset()
+	breaker.failures.Reset()
 }
 
 func (breaker *NodeBreaker) errorRate() float64 {
-	sum := breaker.successData.Sum()
-	count := float64(len(breaker.successData.values))
-	return 1 - sum/count
+	sum := breaker.failures.Sum()
+	count := float64(len(breaker.failures.values))
+	return sum / count
 }
 
 func newLenLimitCounter(retention int) *lengthDelimitedCounter {
@@ -522,7 +522,7 @@ func (ms *MeasuredStorage) RoundTrip(req *http.Request) (*http.Response, error) 
 	log.Debugf("MeasuredStorage %s: Got request id %s\n", ms.Name, reqID)
 	resp, err := ms.RoundTripper.RoundTrip(req)
 	duration := time.Since(start)
-	success := backend.IsSuccessful(resp, err)
+	success := backendSuccess(resp, err)
 	open := ms.Breaker.Record(duration, success)
 	log.Debugf("MeasuredStorage %s: Request %s took %s was successful: %t, opened breaker %t\n", ms.Name, reqID, duration, success, open)
 
@@ -530,6 +530,10 @@ func (ms *MeasuredStorage) RoundTrip(req *http.Request) (*http.Response, error) 
 	ms.Node.SetActive(!open)
 	raportMetrics(ms.RoundTripper, start, open)
 	return resp, err
+}
+
+func backendSuccess(response *http.Response, err error) bool {
+	return err == nil && response != nil && response.StatusCode < 500
 }
 
 // IsActive checks Breaker status propagates it to Node compound
