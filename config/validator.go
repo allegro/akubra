@@ -67,7 +67,6 @@ func (c *YamlConfig) validateRegionCluster(policyName string, policies confregio
 	}
 
 	for _, policy := range policies.Shards {
-		println("dupa")
 		fmt.Printf("sharding policies %v\n", c.Shards)
 		_, exists := c.Shards[policy.ShardName]
 		if !exists {
