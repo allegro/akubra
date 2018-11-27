@@ -88,21 +88,21 @@ func logWriteHeaderErr(err error, when string) {
 func ValidateConf(conf YamlConfig, enableLogicalValidator bool) (bool, map[string][]error) {
 	err := validator.SetValidationFunc("NoEmptyValuesSlice", NoEmptyValuesInSliceValidator)
 	if err != nil {
-		return false, map[string][]error{"SetValidationFuncError": []error{err}}
+		return false, map[string][]error{"SetValidationFuncError": {err}}
 	}
 	err = validator.SetValidationFunc("UniqueValuesSlice", UniqueValuesInSliceValidator)
 	if err != nil {
-		return false, map[string][]error{"SetValidationFuncError": []error{err}}
+		return false, map[string][]error{"SetValidationFuncError": {err}}
 	}
 
 	valid, validationErrors := validator.Validate(conf)
-
 	if valid && enableLogicalValidator {
 		validListenPorts, portsValidationErrors := conf.ListenPortsLogicalValidator()
 		validRegionsEntries, regionsValidationErrors := conf.RegionsEntryLogicalValidator()
 		validTransportsEntries, transportsValidationErrors := conf.TransportsEntryLogicalValidator()
-		valid = valid && validListenPorts && validRegionsEntries && validTransportsEntries
-		validationErrors = mergeErrors(validationErrors, portsValidationErrors, regionsValidationErrors, transportsValidationErrors)
+		validWatchdogEntries, watchdogValidatorsErrors := conf.WatchdogEntryLogicalValidator()
+		valid = valid && validListenPorts && validRegionsEntries && validTransportsEntries && validWatchdogEntries
+		validationErrors = mergeErrors(validationErrors, portsValidationErrors, regionsValidationErrors, transportsValidationErrors, watchdogValidatorsErrors)
 	}
 
 	for propertyName, validatorMessage := range validationErrors {

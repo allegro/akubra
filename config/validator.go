@@ -128,6 +128,35 @@ func (c *YamlConfig) ListenPortsLogicalValidator() (valid bool, validationErrors
 	return valid, errorsList
 }
 
+// WatchdogEntryLogicalValidator validates ConsistencyWatchdog's config depending on the types of watchdogs defined
+func (config YamlConfig) WatchdogEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
+	errList := make([]error, 0)
+	if config.Watchdog == nil {
+		return true, validationErrors
+	}
+	if len(config.Watchdog) > 1 {
+		valid = false
+		errList = append(errList, errors.New("only one watchdog can be defined"))
+		validationErrors, valid = prepareErrors(errList, "WatchdogEntryLogicalValidator")
+		return
+	}
+	supportedWatchdogs := map[string][]string {
+		"postgres" : {"user", "password", "dbname", "host", "port", "maxopenconns", "maxidleconns", "connmaxlifetime"},
+	}
+	for watchdogType, _ := range config.Watchdog {
+		for _, requiredField := range supportedWatchdogs[watchdogType] {
+			if _, paramPresent := config.Watchdog[watchdogType][requiredField]; !paramPresent {
+				errMsg := fmt.Sprintf("param '%s' for watchdog '%s' is missing", requiredField, watchdogType)
+				errList = append(errList, errors.New(errMsg))
+			}
+		}
+	}
+	validationErrors, valid = prepareErrors(errList, "WatchdogEntryLogicalValidator")
+	return
+}
+
+
+
 func mergeErrors(maps ...map[string][]error) (output map[string][]error) {
 	size := len(maps)
 	if size == 0 {
