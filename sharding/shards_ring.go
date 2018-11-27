@@ -137,7 +137,7 @@ func closeBody(resp *http.Response, reqID string) {
 func (sr ShardsRing) regressionCall(cl storages.NamedShardClient, origClusterName string, req *http.Request) (string, *http.Response, error) {
 	resp, err := sr.send(cl, req)
 	// Do regression call if response status is > 400
-	if shouldCallRegression(req, resp, err) {
+	if shouldCallRegression(req, resp, err) { //TODO Do we want to try another storage if the consistency couldn't be satisfied???
 		rcl, ok := sr.clusterRegressionMap[cl.Name()]
 		if ok && rcl.Name() != origClusterName {
 			if resp != nil && resp.Body != nil {

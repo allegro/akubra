@@ -2,8 +2,15 @@ package storages
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/allegro/akubra/storages/backend"
+	"github.com/allegro/akubra/utils"
+	"github.com/allegro/akubra/watchdog"
+)
+
+const (
+	oneWeek = time.Hour * 24 * 7
 )
 
 type dispatcher interface {
@@ -12,15 +19,15 @@ type dispatcher interface {
 
 // RequestDispatcher passes requests and responses to matching replicators and response pickers
 type RequestDispatcher struct {
-	Backends                  []*backend.Backend
-	syncLog                   *SyncSender
-	pickClientFactory         func(*http.Request) func([]*backend.Backend) client
-	pickResponsePickerFactory func(*http.Request) func(<-chan BackendResponse) responsePicker
+	Backends                  	[]*backend.Backend
+	syncLog                   	*SyncSender
+	pickClientFactory         	func(*http.Request) func([]*backend.Backend) client
+	pickResponsePickerFactory 	func(*http.Request) func(<-chan BackendResponse) responsePicker
+	watchdog 					watchdog.ConsistencyWatchdog
 }
 
 // NewRequestDispatcher creates RequestDispatcher instance
 func NewRequestDispatcher(backends []*backend.Backend, syncLog *SyncSender) *RequestDispatcher {
-
 	return &RequestDispatcher{
 		Backends:                  backends,
 		syncLog:                   syncLog,
@@ -31,13 +38,40 @@ func NewRequestDispatcher(backends []*backend.Backend, syncLog *SyncSender) *Req
 
 // Dispatch creates and calls replicators and response pickers
 func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, error) {
+	storageRequest := &Request{request, nil, nil}
+	if rd.watchdog != nil && !utils.IsBucketPath(request.URL.Path) {
+		recordedRequest, err := rd.createAndInsertRecordFor(request)
+		if err != nil {
+			return nil, err
+		}
+		storageRequest.record = recordedRequest.record
+		storageRequest.marker = recordedRequest.marker
+	}
 	clientFactory := rd.pickClientFactory(request)
 	cli := clientFactory(rd.Backends)
-	respChan := cli.Do(request)
+	respChan := cli.Do(storageRequest)
 	pickerFactory := rd.pickResponsePickerFactory(request)
 	pickr := pickerFactory(respChan)
 	go pickr.SendSyncLog(rd.syncLog)
 	return pickr.Pick()
+}
+func (rd *RequestDispatcher) createAndInsertRecordFor(request *http.Request) (*Request, error) {
+	record, err := watchdog.CreateRecordFor(request)
+	if err != nil {
+		return nil, err
+	}
+	if isInitiateMultipartUploadRequest(request) {
+		record.ExecutionDate = record.ExecutionDate.Add(oneWeek)
+	}
+	deleteMarker, err := rd.watchdog.Insert(record)
+	if err != nil {
+		return nil, err
+	}
+	return &Request{
+		request,
+		record,
+		deleteMarker,
+	}, nil
 }
 
 type responsePicker interface {
@@ -45,8 +79,14 @@ type responsePicker interface {
 	SendSyncLog(*SyncSender)
 }
 
+type Request struct {
+	*http.Request
+	record *watchdog.ConsistencyRecord
+	marker *watchdog.DeleteMarker
+}
+
 type client interface {
-	Do(*http.Request) <-chan BackendResponse
+	Do(request *Request) <-chan BackendResponse
 	Cancel() error
 }
 
@@ -58,11 +98,11 @@ var defaultReplicationClientFactory = func(request *http.Request) func([]*backen
 }
 
 var defaultResponsePickerFactory = func(request *http.Request) func(<-chan BackendResponse) responsePicker {
-	if isBucketPath(request.URL.Path) && (request.Method == http.MethodGet) {
+	if utils.IsBucketPath(request.URL.Path) && (request.Method == http.MethodGet) {
 		return newResponseHandler
 	}
 
-	if isBucketPath(request.URL.Path) && ((request.Method == http.MethodPut) || (request.Method == http.MethodDelete)) {
+	if utils.IsBucketPath(request.URL.Path) && ((request.Method == http.MethodPut) || (request.Method == http.MethodDelete)) {
 		return newDeleteResponsePicker
 	}
 

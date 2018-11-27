@@ -12,6 +12,7 @@ import (
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/types"
+	"github.com/allegro/akubra/watchdog"
 	"github.com/serialx/hashring"
 )
 
@@ -19,9 +20,10 @@ import (
 // to the backend selected using the active backends hash ring, otherwise the cluster round tripper is used
 // to handle the operation in standard fashion
 type MultiPartRoundTripper struct {
-	backendsRoundTrippers map[string]*backend.Backend
-	backendsRing          *hashring.HashRing
-	backendsEndpoints     []string
+	backendsRoundTrippers 	map[string]*backend.Backend
+	backendsRing          	*hashring.HashRing
+	backendsEndpoints     	[]string
+	watchdog 				watchdog.ConsistencyWatchdog
 }
 
 // Cancel Client interface
@@ -49,21 +51,21 @@ func newMultiPartRoundTripper(backends []*StorageClient) client {
 	return multiPartRoundTripper
 }
 
-var errPushToSyncLog = errors.New("Sync multipart upload")
+var errPushToSyncLog = errors.New("sync multipart upload")
 
 // ErrReplicationIndicator signals backends where object has to be replicated
-var ErrReplicationIndicator = errors.New("Replication required")
+var ErrReplicationIndicator = errors.New("replication required")
 
 // ErrImpossibleMultipart is issued if there is no viable backend to store file
-var ErrImpossibleMultipart = errors.New("Can't handle multi upload")
+var ErrImpossibleMultipart = errors.New("can't handle multi upload")
 
 // Do performs backend request
-func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *http.Request) <-chan BackendResponse {
+func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *Request) <-chan BackendResponse {
 	backendResponseChannel := make(chan BackendResponse)
 	if !multiPartRoundTripper.canHandleMultiUpload() {
 		log.Debugf("Multi upload for %s failed - no backends available.", request.URL.Path)
 		go func() {
-			backendResponseChannel <- BackendResponse{Request: request, Response: nil, Error: ErrImpossibleMultipart}
+			backendResponseChannel <- BackendResponse{Request: request.Request, Response: nil, Error: ErrImpossibleMultipart}
 			close(backendResponseChannel)
 		}()
 		return backendResponseChannel
@@ -74,7 +76,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *http.Request) <-
 	if backendSelectError != nil {
 		log.Debugf("Multi upload failed for %s - %s", backendSelectError, request.URL.Path)
 		go func() {
-			backendResponseChannel <- BackendResponse{Request: request, Response: nil, Error: ErrReplicationIndicator}
+			backendResponseChannel <- BackendResponse{Request: request.Request, Response: nil, Error: ErrReplicationIndicator}
 			close(backendResponseChannel)
 		}()
 		return backendResponseChannel
@@ -85,13 +87,13 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *http.Request) <-
 		multiUploadBackend.Endpoint,
 		request.Context().Value(log.ContextreqIDKey))
 
-	httpResponse, requestError := multiUploadBackend.RoundTrip(request)
+	httpResponse, requestError := multiUploadBackend.RoundTrip(request.Request)
 
 	if requestError != nil {
 		log.Debugf("Error during multipart upload: %s", requestError)
 		go func() {
 			backendResponseChannel <- BackendResponse{
-				Request:  request,
+				Request:  request.Request,
 				Response: httpResponse,
 				Error:    requestError,
 				Backend:  multiUploadBackend,
@@ -99,14 +101,17 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *http.Request) <-
 		}()
 	}
 	go func() {
-		if !isInitiateRequest(request) && isCompleteUploadResponseSuccessful(httpResponse) {
+		if !isInitiateMultipartUploadRequest(request.Request) && isCompleteUploadResponseSuccessful(httpResponse) {
+			if request.record != nil {
+				multiPartRoundTripper.updateExecutionTime(request)
+			}
 			for _, backend := range multiPartRoundTripper.backendsRoundTrippers {
 				if backend != multiUploadBackend {
-					backendResponseChannel <- BackendResponse{Request: request, Response: nil, Error: errPushToSyncLog, Backend: backend}
+					backendResponseChannel <- BackendResponse{Request: request.Request, Response: nil, Error: errPushToSyncLog, Backend: backend}
 				}
 			}
 		}
-		backendResponseChannel <- BackendResponse{Request: request, Response: httpResponse, Error: requestError, Backend: multiUploadBackend}
+		backendResponseChannel <- BackendResponse{Request: request.Request, Response: httpResponse, Error: requestError, Backend: multiUploadBackend}
 		close(backendResponseChannel)
 	}()
 
@@ -118,13 +123,13 @@ func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath strin
 	backendEndpoint, nodeFound := multiPartRoundTripper.backendsRing.GetNode(objectPath)
 
 	if !nodeFound {
-		return nil, errors.New("Can't find backned for upload in multi uplaod ring")
+		return nil, errors.New("can't find backned for upload in multi uplaod ring")
 	}
 
 	backend, backendFound := multiPartRoundTripper.backendsRoundTrippers[backendEndpoint]
 
 	if !backendFound {
-		return nil, errors.New("Can't find backend for upload in backendsRoundTripper")
+		return nil, errors.New("can't find backend for upload in backendsRoundTripper")
 	}
 
 	return backend, nil
@@ -133,12 +138,20 @@ func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath strin
 func (multiPartRoundTripper *MultiPartRoundTripper) canHandleMultiUpload() bool {
 	return len(multiPartRoundTripper.backendsRoundTrippers) > 0
 }
-
-func isMultiPartUploadRequest(request *http.Request) bool {
-	return isInitiateRequest(request) || containsUploadID(request)
+func (multiPartRoundTripper *MultiPartRoundTripper) updateExecutionTime(request *Request) {
+	request.record.ExecutionDate = request.record.ExecutionDate.Add(-oneWeek)
+	err := multiPartRoundTripper.watchdog.Update(request.record)
+	if err != nil {
+		log.Printf("Failed to update multipart's execution time, reqId = %s, error: %s",
+			request.Context().Value(log.ContextreqIDKey), err)
+	}
 }
 
-func isInitiateRequest(request *http.Request) bool {
+func isMultiPartUploadRequest(request *http.Request) bool {
+	return isInitiateMultipartUploadRequest(request) || containsUploadID(request)
+}
+
+func isInitiateMultipartUploadRequest(request *http.Request) bool {
 	reqQuery := request.URL.Query()
 	_, has := reqQuery["uploads"]
 	return has

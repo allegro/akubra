@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	httphandler "github.com/allegro/akubra/httphandler/config"
+	"github.com/allegro/akubra/watchdog"
 
 	crdstoreconfig "github.com/allegro/akubra/crdstore/config"
 	"github.com/allegro/akubra/log"
@@ -35,6 +36,7 @@ type YamlConfig struct {
 	CredentialsStore crdstoreconfig.CredentialsStoreMap `yaml:"CredentialsStore"`
 	Logging          logconfig.LoggingConfig            `yaml:"Logging"`
 	Metrics          metrics.Config                     `yaml:"Metrics"`
+	Watchdog         watchdog.Config                    `yaml:"Watchdog"`
 }
 
 // Config contains processed YamlConfig data
@@ -42,7 +44,7 @@ type Config struct {
 	YamlConfig
 }
 
-// Parse json config
+// Parse yaml config
 func parseConf(file io.Reader) (YamlConfig, error) {
 
 	bs, err := ioutil.ReadAll(file)

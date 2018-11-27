@@ -2,9 +2,15 @@ package utils
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/allegro/akubra/log"
 	auth2 "github.com/allegro/akubra/storages/auth"
+)
+
+const (
+	// ClusterName is a constant used to put/get cluster's name from request's context
+	ClusterName = "Cluster-Name"
 )
 
 // BackendError interface helps logging inconsistencies
@@ -40,4 +46,25 @@ func ExtractAccessKey(req *http.Request) string {
 		return ""
 	}
 	return parsedAuthHeader.AccessKey
+}
+
+// ExtractBucketAndKey extract object's bucket and key from request URL
+func ExtractBucketAndKey(requestPath string) (string, string) {
+	trimmedPath := strings.Trim(requestPath, "/")
+	if trimmedPath == "" {
+		return "", ""
+	}
+	pathParts := strings.Split(trimmedPath, "/")
+	if len(pathParts) < 2 { 
+		return "", ""
+	}
+	return pathParts[0], pathParts[1]
+}
+// IsBucketPath check if a given path is a bucket path
+func IsBucketPath(path string) bool {
+	trimmedPath := strings.Trim(path, "/")
+	if trimmedPath == "" {
+		return false
+	}
+	return len(strings.Split(trimmedPath, "/")) == 1
 }

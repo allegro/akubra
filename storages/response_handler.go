@@ -2,10 +2,10 @@ package storages
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/merger"
+	"github.com/allegro/akubra/utils"
 )
 
 const listTypeV2 = "2"
@@ -112,7 +112,7 @@ func (rm *responseMerger) isMergable(req *http.Request) bool {
 			}
 		}
 	}
-	return !unsupportedQuery && (method == http.MethodGet) && isBucketPath(path)
+	return !unsupportedQuery && (method == http.MethodGet) && utils.IsBucketPath(path)
 }
 
 func (rm *responseMerger) isPartiallyMergable(req *http.Request) bool {
@@ -128,15 +128,7 @@ func (rm *responseMerger) isPartiallyMergable(req *http.Request) bool {
 			}
 		}
 	}
-	return partiallySupportedQuery && (method == http.MethodGet) && isBucketPath(path)
-}
-
-func isBucketPath(path string) bool {
-	trimmedPath := strings.Trim(path, "/")
-	if trimmedPath == "" {
-		return false
-	}
-	return len(strings.Split(trimmedPath, "/")) == 1
+	return partiallySupportedQuery && (method == http.MethodGet) && utils.IsBucketPath(path)
 }
 
 // Pick implements picker interface

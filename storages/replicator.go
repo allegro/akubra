@@ -9,6 +9,7 @@ import (
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/types"
+	"github.com/allegro/akubra/watchdog"
 )
 
 // ErrRequestCanceled is returned if request was canceled
@@ -16,8 +17,9 @@ var ErrRequestCanceled = fmt.Errorf("Request canceled")
 
 // ReplicationClient is multiple endpoints client
 type ReplicationClient struct {
-	Backends   []*backend.Backend
-	cancelFunc context.CancelFunc
+	Backends            []*backend.Backend
+	cancelFunc          context.CancelFunc
+	consistencyWatchdog watchdog.ConsistencyWatchdog
 }
 
 // newReplicationClient returns ReplicationClient
@@ -26,13 +28,13 @@ func newReplicationClient(backends []*backend.Backend) client {
 }
 
 // Do send request to all given backends
-func (rc *ReplicationClient) Do(request *http.Request) <-chan BackendResponse {
-	responsesChan := make(chan BackendResponse)
-	wg := sync.WaitGroup{}
+func (rc *ReplicationClient) Do(request *Request) <-chan BackendResponse {
 	reqIDValue, ok := request.Context().Value(log.ContextreqIDKey).(string)
 	if !ok {
 		reqIDValue = ""
 	}
+	responsesChan := make(chan BackendResponse)
+	wg := sync.WaitGroup{}
 	newContext := context.Background()
 	newContextWithValue := context.WithValue(newContext, log.ContextreqIDKey, reqIDValue)
 	ctx, cancelFunc := context.WithCancel(newContextWithValue)
@@ -45,13 +47,24 @@ func (rc *ReplicationClient) Do(request *http.Request) <-chan BackendResponse {
 			if resetter, ok := request.Body.(types.Resetter); ok {
 				requestWithContext.Body = resetter.Reset()
 			}
-			callBackend(requestWithContext, backend, responsesChan)
+			isBRespSuccessful := callBackend(requestWithContext, backend, responsesChan)
+			if request.record != nil {
+				request.record.AddBackendResult(isBRespSuccessful)
+			}
 			wg.Done()
 		}(backend)
 	}
 
 	go func() {
 		wg.Wait()
+
+		if request.record != nil && request.record.IsReflectedOnAllStorages() {
+			err := rc.consistencyWatchdog.Delete(request.marker)
+			if err != nil {
+				log.Printf("Failed to delete records for request %s: %s", reqIDValue, err.Error())
+			}
+		}
+
 		close(responsesChan)
 	}()
 	return responsesChan
@@ -73,7 +86,7 @@ type BackendResponse = backend.Response
 // StorageClient is alias of storage.types.StorageClient
 type StorageClient = backend.Backend
 
-func callBackend(request *http.Request, backend *backend.Backend, backendResponseChan chan BackendResponse) {
+func callBackend(request *http.Request, backend *backend.Backend, backendResponseChan chan BackendResponse) bool {
 	resp, err := backend.RoundTrip(request)
 	contextErr := request.Context().Err()
 	bresp := BackendResponse{Response: resp, Error: err, Backend: backend, Request: request}
@@ -88,5 +101,7 @@ func callBackend(request *http.Request, backend *backend.Backend, backendRespons
 		bresp.Error = ErrRequestCanceled
 	}
 
+	isBRespSuccessful := bresp.IsSuccessful()
 	backendResponseChan <- bresp
+	return isBRespSuccessful
 }
