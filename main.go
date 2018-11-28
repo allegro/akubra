@@ -48,8 +48,11 @@ var (
 			Bool()
 )
 
-func main() {
+const (
+	postgresConnStringFormat = "dbname=:dbname: user=:user: password=:password: host=:host: port=:port: connect_timeout=:conntimeout:"
+)
 
+func main() {
 	versionString := fmt.Sprintf("Akubra (%s version)", version)
 	kingpin.Version(versionString)
 	kingpin.Parse()
@@ -171,7 +174,12 @@ func (s *service) start() error {
 	return srv.Serve(listener)
 }
 func createWatchdog(watchdogConfig *watchdog.Config) watchdog.ConsistencyWatchdog {
-	factories := []watchdog.ConsistencyWatchdogFactory { &watchdog.PostgresWatchdogFactory{} }
+	factories := []watchdog.ConsistencyWatchdogFactory {
+		watchdog.CreateSQLWatchdogFactory(
+			"postgres",
+					postgresConnStringFormat,
+					[]string{"user", "password", "dbname", "host", "port", "conntimeout"}),
+	}
 	var watchdog watchdog.ConsistencyWatchdog = nil
 	for _, factory := range factories {
 		w, err := factory.CreateWatchdogInstance(watchdogConfig)
