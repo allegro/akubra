@@ -8,11 +8,6 @@ import (
 	auth2 "github.com/allegro/akubra/storages/auth"
 )
 
-const (
-	// ClusterName is a constant used to put/get cluster's name from request's context
-	ClusterName = "Cluster-Name"
-)
-
 // BackendError interface helps logging inconsistencies
 type BackendError interface {
 	Backend() string

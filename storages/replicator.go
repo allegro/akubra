@@ -59,6 +59,7 @@ func (rc *ReplicationClient) Do(request *Request) <-chan BackendResponse {
 		wg.Wait()
 
 		if request.record != nil && request.record.IsReflectedOnAllStorages() {
+			log.Debugf("Request '%s' reflected on all storages", reqIDValue)
 			err := rc.watchdog.Delete(request.marker)
 			if err != nil {
 				log.Printf("Failed to delete records for request %s: %s", reqIDValue, err.Error())

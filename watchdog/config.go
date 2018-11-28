@@ -1,6 +1,6 @@
 package watchdog
 
-type Method uint
+type Method string
 
 type watchdogType = string
 type watchdogProps = map[string]string

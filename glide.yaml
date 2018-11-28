@@ -43,4 +43,5 @@ testImport:
 - package: github.com/allegro/mesos-executor
   subpackages:
   - xnet
-- package: github.com/lib/pq
+- package: github.com/satori/go.uuid
+- package: glide get github.com/jinzhu/gorm

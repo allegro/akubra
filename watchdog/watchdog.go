@@ -7,18 +7,21 @@ import (
 	"sync"
 	"time"
 
+	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/utils"
 )
 
 const (
 	fiveMinutes = time.Minute * 5
+	// ClusterName is a constant used to put/get cluster's name from request's context
+	ClusterName = "Cluster-Name"
 )
 
 const (
 	// PUT consistency method states that an object should be present
-	PUT Method = iota
+	PUT Method = "PUT"
 	// DELETE consistency method states that an object should be deleted
-	DELETE
+	DELETE Method = "DELETE"
 )
 
 // ConsistencyRecord describes the state of an object in cluster
@@ -27,6 +30,7 @@ type ConsistencyRecord struct {
 	method        Method
 	cluster       string
 	accessKey     string
+	requestId     string
 	ExecutionDate time.Time
 
 	mx                    *sync.Mutex
@@ -37,7 +41,7 @@ type ConsistencyRecord struct {
 type DeleteMarker struct {
 	objectID      string
 	cluster       string
-	insertionDate string
+	insertionDate time.Time
 }
 
 // ConsistencyWatchdog manages the ConsistencyRecords and DeleteMarkers
@@ -49,13 +53,13 @@ type ConsistencyWatchdog interface {
 
 // CreateRecordFor creates a ConsistencyRecord from a http request
 func CreateRecordFor(request *http.Request) (*ConsistencyRecord, error) {
-	record := &ConsistencyRecord{}
+	var method Method
 	switch request.Method {
 	case "PUT":
-		record.method = PUT
+		method = PUT
 		break
 	case "DELETE":
-		record.method = DELETE
+		method = DELETE
 		break
 	default:
 		return nil, fmt.Errorf("unsupported method - %s", request.Method)
@@ -73,9 +77,14 @@ func CreateRecordFor(request *http.Request) (*ConsistencyRecord, error) {
 		return nil, errors.New("failed to extract access key")
 	}
 
-	clusterName, clusterNamePresent := request.Context().Value(utils.ClusterName).(string)
+	clusterName, clusterNamePresent := request.Context().Value(ClusterName).(string)
 	if !clusterNamePresent {
 		return nil, errors.New("cluster name is not present in context")
+	}
+
+	requestId, reqIdPresent := request.Context().Value(log.ContextreqIDKey).(string)
+	if !reqIdPresent {
+		return nil, errors.New("reqId name is not present in context")
 	}
 
 	return &ConsistencyRecord{
@@ -83,8 +92,10 @@ func CreateRecordFor(request *http.Request) (*ConsistencyRecord, error) {
 		ExecutionDate:         execDate,
 		accessKey:             accessKey,
 		cluster:               clusterName,
-		isReflectedOnBackends: false,
+		requestId:             requestId,
+		isReflectedOnBackends: true,
 		mx:                    &sync.Mutex{},
+		method:                method,
 	}, nil
 }
 
