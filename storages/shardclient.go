@@ -6,6 +6,7 @@ import (
 
 	"github.com/allegro/akubra/balancing"
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/watchdog"
 
 	set "github.com/deckarep/golang-set"
 )
@@ -74,7 +75,7 @@ func (c *ShardClient) Backends() []*StorageClient {
 	return c.backends
 }
 
-func newShard(name string, storageNames []string, storages map[string]*StorageClient, synclog *SyncSender) (*ShardClient, error) {
+func newShard(name string, storageNames []string, storages map[string]*StorageClient, synclog *SyncSender, watchdog watchdog.ConsistencyWatchdog) (*ShardClient, error) {
 	shardStorages := make([]*StorageClient, 0)
 	for _, storageName := range storageNames {
 		backendRT, ok := storages[storageName]
@@ -84,6 +85,6 @@ func newShard(name string, storageNames []string, storages map[string]*StorageCl
 		shardStorages = append(shardStorages, backendRT)
 	}
 	log.Debugf("Shard %s storages %v", name, shardStorages)
-	cluster := &ShardClient{backends: shardStorages, name: name, requestDispatcher: NewRequestDispatcher(shardStorages, synclog), synclog: synclog}
+	cluster := &ShardClient{backends: shardStorages, name: name, requestDispatcher: NewRequestDispatcher(shardStorages, synclog, watchdog), synclog: synclog}
 	return cluster, nil
 }

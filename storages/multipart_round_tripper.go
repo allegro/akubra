@@ -30,7 +30,7 @@ type MultiPartRoundTripper struct {
 func (multiPartRoundTripper MultiPartRoundTripper) Cancel() error { return nil }
 
 // newMultiPartRoundTripper initializes multipart client
-func newMultiPartRoundTripper(backends []*StorageClient) client {
+func newMultiPartRoundTripper(backends []*StorageClient, watchdog watchdog.ConsistencyWatchdog) client {
 	multiPartRoundTripper := &MultiPartRoundTripper{}
 	var backendsEndpoints []string
 	var activeBackendsEndpoints []string
@@ -46,6 +46,7 @@ func newMultiPartRoundTripper(backends []*StorageClient) client {
 		backendsEndpoints = append(backendsEndpoints, backend.Endpoint.Host)
 	}
 
+	multiPartRoundTripper.watchdog = watchdog
 	multiPartRoundTripper.backendsEndpoints = backendsEndpoints
 	multiPartRoundTripper.backendsRing = hashring.New(activeBackendsEndpoints)
 	return multiPartRoundTripper

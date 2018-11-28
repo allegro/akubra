@@ -19,20 +19,21 @@ type dispatcher interface {
 
 // RequestDispatcher passes requests and responses to matching replicators and response pickers
 type RequestDispatcher struct {
-	Backends                  	[]*backend.Backend
-	syncLog                   	*SyncSender
-	pickClientFactory         	func(*http.Request) func([]*backend.Backend) client
-	pickResponsePickerFactory 	func(*http.Request) func(<-chan BackendResponse) responsePicker
-	watchdog 					watchdog.ConsistencyWatchdog
+	Backends                  []*backend.Backend
+	syncLog                   *SyncSender
+	pickClientFactory         func(*http.Request) func([]*backend.Backend, watchdog.ConsistencyWatchdog) client
+	pickResponsePickerFactory func(*http.Request) func(<-chan BackendResponse) responsePicker
+	watchdog                  watchdog.ConsistencyWatchdog
 }
 
 // NewRequestDispatcher creates RequestDispatcher instance
-func NewRequestDispatcher(backends []*backend.Backend, syncLog *SyncSender) *RequestDispatcher {
+func NewRequestDispatcher(backends []*backend.Backend, syncLog *SyncSender, watchdog watchdog.ConsistencyWatchdog) *RequestDispatcher {
 	return &RequestDispatcher{
 		Backends:                  backends,
 		syncLog:                   syncLog,
 		pickResponsePickerFactory: defaultResponsePickerFactory,
 		pickClientFactory:         defaultReplicationClientFactory,
+		watchdog:                  watchdog,
 	}
 }
 
@@ -48,7 +49,7 @@ func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, er
 		storageRequest.marker = recordedRequest.marker
 	}
 	clientFactory := rd.pickClientFactory(request)
-	cli := clientFactory(rd.Backends)
+	cli := clientFactory(rd.Backends, rd.watchdog)
 	respChan := cli.Do(storageRequest)
 	pickerFactory := rd.pickResponsePickerFactory(request)
 	pickr := pickerFactory(respChan)
@@ -90,7 +91,7 @@ type client interface {
 	Cancel() error
 }
 
-var defaultReplicationClientFactory = func(request *http.Request) func([]*backend.Backend) client {
+var defaultReplicationClientFactory = func(request *http.Request) func([]*backend.Backend, watchdog.ConsistencyWatchdog) client {
 	if isMultiPartUploadRequest(request) {
 		return newMultiPartRoundTripper
 	}

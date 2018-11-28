@@ -17,14 +17,14 @@ var ErrRequestCanceled = fmt.Errorf("Request canceled")
 
 // ReplicationClient is multiple endpoints client
 type ReplicationClient struct {
-	Backends            []*backend.Backend
-	cancelFunc          context.CancelFunc
-	consistencyWatchdog watchdog.ConsistencyWatchdog
+	Backends   []*backend.Backend
+	cancelFunc context.CancelFunc
+	watchdog   watchdog.ConsistencyWatchdog
 }
 
 // newReplicationClient returns ReplicationClient
-func newReplicationClient(backends []*backend.Backend) client {
-	return &ReplicationClient{Backends: backends}
+func newReplicationClient(backends []*backend.Backend, watchdog watchdog.ConsistencyWatchdog) client {
+	return &ReplicationClient{Backends: backends, watchdog: watchdog}
 }
 
 // Do send request to all given backends
@@ -59,7 +59,7 @@ func (rc *ReplicationClient) Do(request *Request) <-chan BackendResponse {
 		wg.Wait()
 
 		if request.record != nil && request.record.IsReflectedOnAllStorages() {
-			err := rc.consistencyWatchdog.Delete(request.marker)
+			err := rc.watchdog.Delete(request.marker)
 			if err != nil {
 				log.Printf("Failed to delete records for request %s: %s", reqIDValue, err.Error())
 			}

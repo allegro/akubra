@@ -9,6 +9,7 @@ import (
 
 	"github.com/allegro/akubra/log"
 	logconfig "github.com/allegro/akubra/log/config"
+	"github.com/allegro/akubra/watchdog"
 	"gopkg.in/tylerb/graceful.v1"
 
 	"github.com/alecthomas/kingpin"
@@ -120,11 +121,14 @@ func (s *service) start() error {
 
 	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
 	syncSender := &storages.SyncSender{SyncLog: syncLog, AllowedMethods: methods}
-	storage, err := storages.InitStorages(
-		transportMatcher,
-		s.config.Shards,
-		s.config.Storages,
-		syncSender)
+	consistencyWatchdog := createWatchdog(&s.config.Watchdog)
+	storagesFactory := storages.NewStoragesFactory(transportMatcher, syncSender, consistencyWatchdog)
+
+	if consistencyWatchdog == nil {
+		log.Printf("Not using ConsistencyWatchdog as no supported watchdog is defined")
+	}
+
+	storage, err := storagesFactory.InitStorages(s.config.Shards, s.config.Storages)
 
 	if err != nil {
 		log.Fatalf("Storages initialization problem: %q", err)
@@ -165,6 +169,19 @@ func (s *service) start() error {
 	}
 
 	return srv.Serve(listener)
+}
+func createWatchdog(watchdogConfig *watchdog.Config) watchdog.ConsistencyWatchdog {
+	factories := []watchdog.ConsistencyWatchdogFactory { &watchdog.PostgresWatchdogFactory{} }
+	var watchdog watchdog.ConsistencyWatchdog = nil
+	for _, factory := range factories {
+		w, err := factory.CreateWatchdogInstance(watchdogConfig)
+		if err != nil {
+			log.Printf(err.Error())
+			continue
+		}
+		watchdog = w
+	}
+	return watchdog
 }
 
 func newService(cfg config.Config) *service {
