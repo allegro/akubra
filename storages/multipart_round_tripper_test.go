@@ -22,9 +22,10 @@ func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenBackendRingIsEmpty(t
 		activeBackendRoundTrippers,
 		emptyMultiPartUploadHashRing,
 		nil,
+		nil,
 	}
 
-	respChan := multiPartRoundTripper.Do(multiPartUploadRequest)
+	respChan := multiPartRoundTripper.Do(&Request{multiPartUploadRequest, nil, nil})
 	for resp := range respChan {
 		assert.Error(testSuite, resp.Error, "can't handle multi upload")
 	}
@@ -42,9 +43,10 @@ func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenAllBackendsAreInMain
 		make(map[string]*StorageClient),
 		hashRingOnlyWithMaitenanceBackend,
 		nil,
+		nil,
 	}
 
-	respChan := multiPartRoundTripper.Do(multiPartUploadRequest)
+	respChan := multiPartRoundTripper.Do(&Request{multiPartUploadRequest, nil, nil})
 	for resp := range respChan {
 		assert.Error(testSuite, resp.Error, "can't handle multi upload")
 	}
@@ -91,17 +93,18 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 		activeBackendRoundTrippers,
 		multiPartUploadHashRing,
 		[]string{activeBackendURL.String(), activeBackendURL2.String()},
+		nil,
 	}
 
 	activeBackendRoundTripper1.On("RoundTrip", initiateMultiPartUploadRequest).Return(responseForInitiate, nil)
 	activeBackendRoundTripper1.On("RoundTrip", uploadPartRequest).Return(responseForPartUpload, nil)
 
-	rChan1 := multiPartRoundTripper.Do(initiateMultiPartUploadRequest)
+	rChan1 := multiPartRoundTripper.Do(&Request{initiateMultiPartUploadRequest, nil, nil})
 	for bresp := range rChan1 {
 		assert.Equal(testSuite, bresp.Response, responseForInitiate)
 		assert.NoError(testSuite, bresp.Error)
 	}
-	rChan2 := multiPartRoundTripper.Do(uploadPartRequest)
+	rChan2 := multiPartRoundTripper.Do(&Request{uploadPartRequest, nil, nil})
 	for bresp := range rChan2 {
 		assert.Equal(testSuite, bresp.Response, responseForPartUpload)
 		assert.NoError(testSuite, bresp.Error)
@@ -160,11 +163,12 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 		activeBackendRoundTrippers,
 		multiPartUploadHashRing,
 		[]string{activeBackendURL.String(), activeBackendURL2.String()},
+		nil,
 	}
 
 	activeBackendRoundTripper1.On("RoundTrip", completeUploadRequest).Return(responseForComplete, nil)
 
-	rChan := multiPartRoundTripper.Do(completeUploadRequest)
+	rChan := multiPartRoundTripper.Do(&Request{completeUploadRequest, nil, nil})
 	for bresp := range rChan {
 		assert.Equal(testSuite, bresp.Response, responseForComplete)
 	}

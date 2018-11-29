@@ -40,7 +40,7 @@ func (c *ShardClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		return resp, err
 
 	}
-	log.Debug("Request %s processed by dispatcher, reqId")
+	log.Debugf("Request %s processed by dispatcher", reqID)
 	clusterNameContext := context.WithValue(req.Context(), watchdog.ClusterName, c.name)
 	return c.requestDispatcher.Dispatch(req.WithContext(clusterNameContext))
 }

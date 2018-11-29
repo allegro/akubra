@@ -64,6 +64,8 @@ func (rc *ReplicationClient) Do(request *Request) <-chan BackendResponse {
 			if err != nil {
 				log.Printf("Failed to delete records for request %s: %s", reqIDValue, err.Error())
 			}
+		} else {
+			log.Debugf("Request '%s' not reflected on all storages", reqIDValue)
 		}
 
 		close(responsesChan)

@@ -31,6 +31,7 @@ func (suite *ClusterTestSuite) SetupTest() {
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 	require := suite.Require()
 	require.NoError(err)
@@ -51,8 +52,11 @@ func (suite *ClusterTestSuite) TestSuccessObjectRequest() {
 	require.NoError(err)
 
 	okResponse := makeSuccessfulResponse(request, http.StatusOK)
+
 	dispatchMock := suite.dispatcher.(*dispatcherMock)
-	dispatchMock.On("Dispatch", request).Return(okResponse, nil)
+	dispatcherRequestContext := context.WithValue(request.Context(), "Cluster-Name", "testCluster")
+	dispatcherRequestMock := request.WithContext(dispatcherRequestContext)
+	dispatchMock.On("Dispatch", dispatcherRequestMock).Return(okResponse, nil)
 
 	resp, err := cluster.RoundTrip(request)
 	require.NoError(err)
@@ -65,8 +69,8 @@ func makeGetObjectRequest() (*http.Request, error) {
 	if err != nil {
 		return request, err
 	}
-	valueCtx := context.WithValue(context.Background(), log.ContextreqIDKey, "testid")
-	req := request.WithContext(valueCtx)
+	reqContext := context.WithValue(context.Background(), log.ContextreqIDKey, "testid")
+	req := request.WithContext(reqContext)
 	return req, err
 }
 

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/allegro/akubra/watchdog"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -46,13 +47,13 @@ func TestRequestDispatcherPicks(t *testing.T) {
 		{"PUT", "http://some.storage/bucket", matchReplicationClient, matchDeletePicker},
 	}
 
-	dispatcher := NewRequestDispatcher(nil, nil)
+	dispatcher := NewRequestDispatcher(nil, nil, nil)
 	require.NotNil(t, dispatcher)
 	for _, tc := range testCases {
 		request, _ := http.NewRequest(tc.method, tc.url, nil)
 		replicatorFac := dispatcher.pickClientFactory(request)
 		require.NotNil(t, replicatorFac)
-		replicator := replicatorFac(nil)
+		replicator := replicatorFac(nil, nil)
 		pickerFac := dispatcher.pickResponsePickerFactory(request)
 		require.NotNil(t, pickerFac)
 		pic := pickerFac(nil)
@@ -69,6 +70,7 @@ func TestRequestDispatcherDispatch(t *testing.T) {
 		Backends:                  nil,
 		pickClientFactory:         clientFactoryMock,
 		pickResponsePickerFactory: responsePickerFactoryMock,
+		watchdog:                  nil,
 	}
 	require.NotNil(t, dispatcher)
 
@@ -80,7 +82,7 @@ func TestRequestDispatcherDispatch(t *testing.T) {
 	response := &http.Response{}
 	go func() { respChan <- BackendResponse{Response: response, Error: nil} }()
 	require.NotNil(t, clientMock)
-	clientMock.On("Do", request).Return(respChan)
+	clientMock.On("Do", &Request{request, nil, nil}).Return(respChan)
 	respPickerMock.On("Pick").Return(response, nil)
 	dispatcher.Dispatch(request)
 	clientMock.AssertExpectations(t)
@@ -88,9 +90,9 @@ func TestRequestDispatcherDispatch(t *testing.T) {
 
 }
 
-func clientFactoryMockFactory(mock *replicationClientMock) func(request *http.Request) func([]*StorageClient) client {
-	return func(request *http.Request) func([]*StorageClient) client {
-		return func([]*StorageClient) client {
+func clientFactoryMockFactory(mock *replicationClientMock) func(request *http.Request) func([]*StorageClient, watchdog.ConsistencyWatchdog) client {
+	return func(request *http.Request) func([]*StorageClient, watchdog.ConsistencyWatchdog) client {
+		return func([]*StorageClient, watchdog.ConsistencyWatchdog) client {
 			return mock
 		}
 	}
@@ -100,7 +102,7 @@ type replicationClientMock struct {
 	*mock.Mock
 }
 
-func (rcm replicationClientMock) Do(req *http.Request) <-chan BackendResponse {
+func (rcm replicationClientMock) Do(req *Request) <-chan BackendResponse {
 	args := rcm.Called(req)
 	resp := args.Get(0).(chan BackendResponse)
 	return resp

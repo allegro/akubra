@@ -14,7 +14,7 @@ import (
 
 func TestReplicationClientCreation(t *testing.T) {
 	backends := []*StorageClient{}
-	cli := newReplicationClient(backends)
+	cli := newReplicationClient(backends, nil)
 	require.NotNil(t, cli)
 }
 
@@ -26,11 +26,11 @@ func TestReplicationClientRequestPassing(t *testing.T) {
 	}
 
 	backends := []*StorageClient{createDummyBackend(callClountHandler)}
-	cli := newReplicationClient(backends)
+	cli := newReplicationClient(backends, nil)
 	require.NotNil(t, cli)
 
 	request := dummyRequest()
-	responses := cli.Do(request)
+	responses := cli.Do(&Request{request, nil, nil})
 
 	responsesCount := 0
 	for range responses {
@@ -73,10 +73,10 @@ func TestHttpCancelContext(t *testing.T) {
 func TestReplicationClientCancelRequest(t *testing.T) {
 	backends := []*StorageClient{createDummyBackend(slowRoundTripper), createDummyBackend(successRoundTripper)}
 
-	cli := newReplicationClient(backends)
+	cli := newReplicationClient(backends, nil)
 	request := dummyRequest()
 
-	responses := cli.Do(request)
+	responses := cli.Do(&Request{request, nil, nil})
 
 	cancelCount := 0
 	for resp := range responses {
