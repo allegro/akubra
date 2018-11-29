@@ -40,7 +40,7 @@ func NewRequestDispatcher(backends []*backend.Backend, syncLog *SyncSender, watc
 // Dispatch creates and calls replicators and response pickers
 func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, error) {
 	storageRequest := &Request{request, nil, nil}
-	if rd.watchdog != nil && !utils.IsBucketPath(request.URL.Path) {
+	if rd.watchdog != nil && !utils.IsBucketPath(request.URL.Path) && len(rd.Backends) > 1 {
 		recordedRequest, err := rd.createAndInsertRecordFor(request)
 		if err != nil {
 			return nil, err
