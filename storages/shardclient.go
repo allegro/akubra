@@ -77,7 +77,15 @@ func (c *ShardClient) Backends() []*StorageClient {
 	return c.backends
 }
 
-func newShard(name string, storageNames []string, storages map[string]*StorageClient, synclog *SyncSender, watchdog watchdog.ConsistencyWatchdog) (*ShardClient, error) {
+
+// ShardFactory creates shards
+type shardFactory struct {
+	synclog *SyncSender
+	watchdog watchdog.ConsistencyWatchdog
+	watchdogRequestFactory watchdog.ConsistencyRecordFactory
+}
+
+func (factory *shardFactory) newShard(name string, storageNames []string, storages map[string]*StorageClient) (*ShardClient, error) {
 	shardStorages := make([]*StorageClient, 0)
 	for _, storageName := range storageNames {
 		backendRT, ok := storages[storageName]
@@ -87,6 +95,7 @@ func newShard(name string, storageNames []string, storages map[string]*StorageCl
 		shardStorages = append(shardStorages, backendRT)
 	}
 	log.Debugf("Shard %s storages %v", name, shardStorages)
-	cluster := &ShardClient{backends: shardStorages, name: name, requestDispatcher: NewRequestDispatcher(shardStorages, synclog, watchdog), synclog: synclog}
+	requestDispatcher := NewRequestDispatcher(shardStorages, factory.synclog, factory.watchdog, factory.watchdogRequestFactory)
+	cluster := &ShardClient{backends: shardStorages, name: name, requestDispatcher: requestDispatcher, synclog: factory.synclog}
 	return cluster, nil
 }

@@ -26,6 +26,8 @@ const (
 
 // ConsistencyRecord describes the state of an object in cluster
 type ConsistencyRecord struct {
+	sync.Mutex
+
 	objectID      string
 	method        Method
 	cluster       string
@@ -33,7 +35,6 @@ type ConsistencyRecord struct {
 	requestId     string
 	ExecutionDate time.Time
 
-	mx                    *sync.Mutex
 	isReflectedOnBackends bool
 }
 
@@ -51,8 +52,17 @@ type ConsistencyWatchdog interface {
 	Update(record *ConsistencyRecord) error
 }
 
+// ConsistencyRecordFactory creates records from http requests
+type ConsistencyRecordFactory interface {
+	CreateRecordFor(request *http.Request) (*ConsistencyRecord, error)
+}
+
+// DefaultConsistencyRecordFactory is a default implementation of ConsistencyRecordFactory
+type DefaultConsistencyRecordFactory struct {
+}
+
 // CreateRecordFor creates a ConsistencyRecord from a http request
-func CreateRecordFor(request *http.Request) (*ConsistencyRecord, error) {
+func (factory *DefaultConsistencyRecordFactory) CreateRecordFor(request *http.Request) (*ConsistencyRecord, error) {
 	var method Method
 	switch request.Method {
 	case "PUT":
@@ -94,21 +104,20 @@ func CreateRecordFor(request *http.Request) (*ConsistencyRecord, error) {
 		cluster:               clusterName,
 		requestId:             requestId,
 		isReflectedOnBackends: true,
-		mx:                    &sync.Mutex{},
 		method:                method,
 	}, nil
 }
 
 // AddBackendResult combines backend's response with the previous responses
 func (record *ConsistencyRecord) AddBackendResult(wasSuccessfullOnBackend bool) {
-	record.mx.Lock()
-	defer record.mx.Unlock()
+	record.Lock()
+	defer record.Unlock()
 	record.isReflectedOnBackends = record.isReflectedOnBackends && wasSuccessfullOnBackend
 }
 
 // IsReflectedOnAllStorages tell wheter the request was successfull on all backends
 func (record *ConsistencyRecord) IsReflectedOnAllStorages() bool {
-	record.mx.Lock()
-	defer record.mx.Unlock()
+	record.Lock()
+	defer record.Unlock()
 	return record.isReflectedOnBackends
 }

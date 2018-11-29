@@ -24,16 +24,19 @@ type RequestDispatcher struct {
 	pickClientFactory         func(*http.Request) func([]*backend.Backend, watchdog.ConsistencyWatchdog) client
 	pickResponsePickerFactory func(*http.Request) func(<-chan BackendResponse) responsePicker
 	watchdog                  watchdog.ConsistencyWatchdog
+	watchdogRecordFactory     watchdog.ConsistencyRecordFactory
 }
 
 // NewRequestDispatcher creates RequestDispatcher instance
-func NewRequestDispatcher(backends []*backend.Backend, syncLog *SyncSender, watchdog watchdog.ConsistencyWatchdog) *RequestDispatcher {
+func NewRequestDispatcher(backends []*backend.Backend, syncLog *SyncSender,
+	watchdog watchdog.ConsistencyWatchdog, watchdogRecordFactory watchdog.ConsistencyRecordFactory) *RequestDispatcher {
 	return &RequestDispatcher{
 		Backends:                  backends,
 		syncLog:                   syncLog,
 		pickResponsePickerFactory: defaultResponsePickerFactory,
 		pickClientFactory:         defaultReplicationClientFactory,
 		watchdog:                  watchdog,
+		watchdogRecordFactory:     watchdogRecordFactory,
 	}
 }
 
@@ -57,7 +60,7 @@ func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, er
 	return pickr.Pick()
 }
 func (rd *RequestDispatcher) createAndInsertRecordFor(request *http.Request) (*Request, error) {
-	record, err := watchdog.CreateRecordFor(request)
+	record, err := rd.watchdogRecordFactory.CreateRecordFor(request)
 	if err != nil {
 		return nil, err
 	}

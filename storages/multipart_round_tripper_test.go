@@ -7,8 +7,10 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/allegro/akubra/watchdog"
 	"github.com/serialx/hashring"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenBackendRingIsEmpty(testSuite *testing.T) {
@@ -115,22 +117,32 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 }
 
 func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorButFailOnParsingTheResponse(testSuite *testing.T) {
-	testBadResponse(200, "<InvalidResponse></InvalidResponse>", testSuite)
+	testMultipartFlow(200, "<InvalidResponse></InvalidResponse>", nil, nil, nil, testSuite)
 }
 
 func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorWhenStatusCodeIsWrong(testSuite *testing.T) {
-	testBadResponse(500, "<Error>Nope</Error>", testSuite)
+	testMultipartFlow(500, "<Error>Nope</Error>",  nil, nil, nil,testSuite)
 }
 
-func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
+func TestShouldUpdateExecutionTimeOfTheConsistencyRecordIfMultiPartWasSuccessful(t *testing.T) {
+	testMultipartFlow(200, successfulMultipartResponse, &watchdog.ConsistencyRecord{}, &watchdog.DeleteMarker{}, &WatchdogMock{&mock.Mock{}}, t)
+}
+
+func TestShouldNotUpdateExecutionTimeIfRecordIsNullAndWatchdogIsDefined(t *testing.T) {
+	testMultipartFlow(200, successfulMultipartResponse, nil, nil, &WatchdogMock{&mock.Mock{}}, t)
+}
+
+func testMultipartFlow(statusCode int, xmlResponse string,
+						  record *watchdog.ConsistencyRecord, marker *watchdog.DeleteMarker,
+						  watchdogMock *WatchdogMock, testSuite *testing.T) {
 
 	completeUploadRequestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321")
 	completeUploadRequest := &http.Request{URL: completeUploadRequestURL}
 
 	responseForComplete := &http.Response{Request: completeUploadRequest}
-	invalidXMLResponse := xmlResponse
-	responseForComplete.Body = ioutil.NopCloser(bytes.NewBufferString(invalidXMLResponse))
-	responseForComplete.StatusCode = 500
+	XMLResponse := xmlResponse
+	responseForComplete.Body = ioutil.NopCloser(bytes.NewBufferString(XMLResponse))
+	responseForComplete.StatusCode = statusCode
 
 	activeBackendRoundTripper1 := &MockedRoundTripper{}
 	activeBackendRoundTripper2 := &MockedRoundTripper{}
@@ -163,14 +175,36 @@ func testBadResponse(statusCode int, xmlResponse string, testSuite *testing.T) {
 		activeBackendRoundTrippers,
 		multiPartUploadHashRing,
 		[]string{activeBackendURL.String(), activeBackendURL2.String()},
-		nil,
+		watchdogMock,
+	}
+
+	if watchdogMock != nil && record != nil {
+		watchdogMock.On("Update", record).Return(nil)
 	}
 
 	activeBackendRoundTripper1.On("RoundTrip", completeUploadRequest).Return(responseForComplete, nil)
 
-	rChan := multiPartRoundTripper.Do(&Request{completeUploadRequest, nil, nil})
+	rChan := multiPartRoundTripper.Do(&Request{completeUploadRequest, record, marker})
 	for bresp := range rChan {
+		if bresp.Response == nil {
+			continue
+		}
 		assert.Equal(testSuite, bresp.Response, responseForComplete)
 	}
+
+	if watchdogMock != nil && record != nil{
+		watchdogMock.AssertCalled(testSuite, "Update", record)
+	}
+
 	activeBackendRoundTripper1.AssertNumberOfCalls(testSuite, "RoundTrip", 1)
 }
+
+
+const successfulMultipartResponse =
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+"<CompleteMultipartUploadResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
+"<Location>http://Example-Bucket.s3.amazonaws.com/Example-Object</Location>" +
+"<Bucket>Example-Bucket</Bucket>" +
+"<Key>Example-Object</Key>" +
+"<ETag>\"3858f62230ac3c915f300c664312c11f-9\"</ETag>" +
+"</CompleteMultipartUploadResult>"

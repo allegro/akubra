@@ -103,7 +103,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *Request) <-chan 
 	}
 	go func() {
 		if !isInitiateMultipartUploadRequest(request.Request) && isCompleteUploadResponseSuccessful(httpResponse) {
-			if request.record != nil {
+			if multiPartRoundTripper.watchdog != nil && request.record != nil {
 				multiPartRoundTripper.updateExecutionTime(request)
 			}
 			for _, backend := range multiPartRoundTripper.backendsRoundTrippers {

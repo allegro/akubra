@@ -2,6 +2,7 @@ package storages
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/storages/backend"
+	"github.com/allegro/akubra/watchdog"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,6 +45,72 @@ func TestReplicationClientRequestPassing(t *testing.T) {
 
 	require.Equal(t, len(backends), callCount, "Not all backends called")
 	require.Equal(t, len(backends), responsesCount, "Not all responses passed")
+}
+
+var watchdogRequestScenarios = []struct {
+	numOfBackends      int
+	shouldDeleteRecord bool
+	failedBackendIndex int
+}{
+	{2, true, -1},
+	{2, false, 0},
+}
+
+func TestWatchdogIntegration(t *testing.T) {
+	for _, requestScenario := range watchdogRequestScenarios {
+		request := createRequest(t, "PUT", "http://random.domain/bucket/object", "testCluster", "123")
+		record, err := (&watchdog.DefaultConsistencyRecordFactory{}).CreateRecordFor(request)
+		assert.NotNil(t, record)
+		assert.NoError(t, err)
+
+		deleteMarker := &watchdog.DeleteMarker{}
+
+		watchdogMock := &WatchdogMock{&mock.Mock{}}
+		watchdogMock.On("Delete", deleteMarker).Return(nil)
+
+		alwaysSuccessfulHandler := func(r *http.Request) (*http.Response, error) {
+			return &http.Response{Request: r, StatusCode: http.StatusOK}, nil
+		}
+		alwaysFailingHandler := func(r *http.Request) (*http.Response, error) {
+			return nil, errors.New("network err")
+		}
+
+		var backends []*backend.Backend
+		for i := 0; i < requestScenario.numOfBackends; i++ {
+			if i == requestScenario.failedBackendIndex {
+				backends = append(backends, createDummyBackend(alwaysFailingHandler))
+			} else {
+				backends = append(backends, createDummyBackend(alwaysSuccessfulHandler))
+			}
+		}
+
+		cli := newReplicationClient(backends, watchdogMock)
+		respChan := cli.Do(&Request{request, record, deleteMarker})
+
+		for range respChan {
+		}
+
+		if requestScenario.shouldDeleteRecord {
+			watchdogMock.AssertCalled(t, "Delete", deleteMarker)
+		} else {
+			watchdogMock.AssertNotCalled(t, "Delete", deleteMarker)
+		}
+	}
+}
+
+func createRequest(t *testing.T, method string, reqUrl string, clusterName string, reqId string) *http.Request {
+	rUrl, err := url.Parse(reqUrl)
+	assert.NoError(t, err)
+	assert.NotNil(t, rUrl)
+
+	req := &http.Request{
+		Method: method,
+		URL:    rUrl,
+	}
+	req.Header = http.Header{}
+	req.Header.Add("Authorization", authHeaderV4)
+	req = req.WithContext(context.WithValue(context.Background(), "Cluster-Name", clusterName))
+	return req.WithContext(context.WithValue(req.Context(), log.ContextreqIDKey, reqId))
 }
 
 func TestHttpCancelContext(t *testing.T) {
