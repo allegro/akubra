@@ -132,7 +132,12 @@ func (c *YamlConfig) ListenPortsLogicalValidator() (valid bool, validationErrors
 func (config YamlConfig) WatchdogEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
 	supportedWatchdogs := map[string][]string{
-		"sql": {"dialect", "user", "password", "dbname", "host", "port", "maxopenconns", "maxidleconns", "connmaxlifetime", "conn_timeout"},
+		"sql": {"dialect", "user", "password", "dbname", "host", "port", "maxopenconns", "maxidleconns", "connmaxlifetime", "conntimeout"},
+	}
+	if _, watchdogSupported := supportedWatchdogs[config.Watchdog.Type]; !watchdogSupported {
+		errMsg := fmt.Sprintf("watchog of type '%s' is not supported", config.Watchdog.Type)
+		errList = append(errList, errors.New(errMsg))
+		return
 	}
 	for _, requiredField := range supportedWatchdogs[config.Watchdog.Type] {
 		if _, paramPresent := config.Watchdog.Props[requiredField]; !paramPresent {
