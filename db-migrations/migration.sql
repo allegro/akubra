@@ -5,6 +5,6 @@ CREATE TABLE consistency_record (
   cluster_name    CHARACTER VARYING(64) NOT NULL,
   access_key      CHARACTER VARYING(128) NOT NULL,
   execution_date  TIMESTAMP NOT NULL,
-  created_at      TIMESTAMP NOT NULL,
+  created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMP NOT NULL
 );

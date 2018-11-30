@@ -43,7 +43,7 @@ func NewRequestDispatcher(backends []*backend.Backend, syncLog *SyncSender,
 // Dispatch creates and calls replicators and response pickers
 func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, error) {
 	storageRequest := &Request{request, nil, nil}
-	if rd.watchdog != nil && !utils.IsBucketPath(request.URL.Path) && len(rd.Backends) > 1 {
+	if rd.shouldUseConsistencyWatchdog(request) {
 		recordedRequest, err := rd.createAndInsertRecordFor(request)
 		if err != nil {
 			return nil, err
@@ -76,6 +76,11 @@ func (rd *RequestDispatcher) createAndInsertRecordFor(request *http.Request) (*R
 		record,
 		deleteMarker,
 	}, nil
+}
+func (rd *RequestDispatcher) shouldUseConsistencyWatchdog(request *http.Request) bool {
+	return rd.watchdog != nil && len(rd.Backends) > 1 &&
+			(request.Method == http.MethodPut || request.Method == http.MethodDelete) &&
+			!utils.IsBucketPath(request.URL.Path)
 }
 
 type responsePicker interface {

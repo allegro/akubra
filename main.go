@@ -124,11 +124,11 @@ func (s *service) start() error {
 
 	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
 	syncSender := &storages.SyncSender{SyncLog: syncLog, AllowedMethods: methods}
-	consistencyWatchdog := createWatchdog(&s.config.Watchdog)
-	storagesFactory := storages.NewStoragesFactory(transportMatcher, syncSender, consistencyWatchdog)
+	consistencyWatchdog, recordFactory := createWatchdog(&s.config.Watchdog)
+	storagesFactory := storages.NewStoragesFactory(transportMatcher, syncSender, consistencyWatchdog, recordFactory)
 
 	if consistencyWatchdog == nil {
-		log.Printf("Not using ConsistencyWatchdog as no supported watchdog is defined")
+		log.Printf("Not using ConsistencyWatchdog as no watchdog is defined")
 	}
 
 	storage, err := storagesFactory.InitStorages(s.config.Shards, s.config.Storages)
@@ -173,23 +173,25 @@ func (s *service) start() error {
 
 	return srv.Serve(listener)
 }
-func createWatchdog(watchdogConfig *watchdog.Config) watchdog.ConsistencyWatchdog {
+func createWatchdog(watchdogConfig *watchdog.Config) (watchdog.ConsistencyWatchdog, watchdog.ConsistencyRecordFactory) {
 	factories := []watchdog.ConsistencyWatchdogFactory {
 		watchdog.CreateSQLWatchdogFactory(
 			"postgres",
 					postgresConnStringFormat,
 					[]string{"user", "password", "dbname", "host", "port", "conntimeout"}),
 	}
-	var watchdog watchdog.ConsistencyWatchdog = nil
+	var wd watchdog.ConsistencyWatchdog = nil
+	var recordFactory watchdog.ConsistencyRecordFactory = nil
 	for _, factory := range factories {
 		w, err := factory.CreateWatchdogInstance(watchdogConfig)
 		if err != nil {
 			log.Printf(err.Error())
 			continue
 		}
-		watchdog = w
+		wd = w
+		recordFactory = &watchdog.DefaultConsistencyRecordFactory{}
 	}
-	return watchdog
+	return wd, recordFactory
 }
 
 func newService(cfg config.Config) *service {
