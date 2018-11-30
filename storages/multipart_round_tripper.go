@@ -3,6 +3,7 @@ package storages
 import (
 	"bytes"
 	"encoding/xml"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/types"
+	"github.com/allegro/akubra/utils"
 	"github.com/allegro/akubra/watchdog"
 	"github.com/serialx/hashring"
 )
@@ -102,8 +104,8 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *Request) <-chan 
 		}()
 	}
 	go func() {
-		if !isInitiateMultipartUploadRequest(request.Request) && isCompleteUploadResponseSuccessful(httpResponse) {
-			if multiPartRoundTripper.watchdog != nil && request.record != nil {
+		if !isInitiateMultiPartUploadRequest(request.Request) && isCompleteUploadResponseSuccessful(httpResponse) {
+			if multiPartRoundTripper.watchdog != nil {
 				multiPartRoundTripper.updateExecutionTime(request)
 			}
 			for _, backend := range multiPartRoundTripper.backendsRoundTrippers {
@@ -140,19 +142,39 @@ func (multiPartRoundTripper *MultiPartRoundTripper) canHandleMultiUpload() bool 
 	return len(multiPartRoundTripper.backendsRoundTrippers) > 0
 }
 func (multiPartRoundTripper *MultiPartRoundTripper) updateExecutionTime(request *Request) {
-	request.record.ExecutionDate = request.record.ExecutionDate.Add(-oneWeek)
-	err := multiPartRoundTripper.watchdog.Update(request.record)
+	bucket, key := utils.ExtractBucketAndKey(request.URL.Path)
+	if bucket == "" || key == "" {
+		log.Printf("Failed to update multipart's execution time, reqId = %s, no reqId in context",
+			request.Context().Value(log.ContextreqIDKey))
+		return
+	}
+	clusterName, ok := request.Context().Value(watchdog.ClusterName).(string)
+	if !ok {
+		log.Printf("Failed to update multipart's execution time, reqId = %s, no cluster name in context",
+			request.Context().Value(log.ContextreqIDKey))
+		return
+	}
+
+	delta := &watchdog.ExecutionTimeDelta{
+		ObjectId: fmt.Sprintf("%s/%s", bucket, key),
+		ClusterName: clusterName,
+		Delta: -int64(oneWeek.Seconds()),
+	}
+
+	err := multiPartRoundTripper.watchdog.UpdateExecutionTime(delta)
 	if err != nil {
 		log.Printf("Failed to update multipart's execution time, reqId = %s, error: %s",
 			request.Context().Value(log.ContextreqIDKey), err)
+		return
 	}
+	log.Debugf("Updated execution time for req '%s'", request.Context().Value(log.ContextreqIDKey))
 }
 
 func isMultiPartUploadRequest(request *http.Request) bool {
-	return isInitiateMultipartUploadRequest(request) || containsUploadID(request)
+	return isInitiateMultiPartUploadRequest(request) || containsUploadID(request)
 }
 
-func isInitiateMultipartUploadRequest(request *http.Request) bool {
+func isInitiateMultiPartUploadRequest(request *http.Request) bool {
 	reqQuery := request.URL.Query()
 	_, has := reqQuery["uploads"]
 	return has
@@ -165,13 +187,12 @@ func containsUploadID(request *http.Request) bool {
 }
 
 func isCompleteUploadResponseSuccessful(response *http.Response) bool {
-	return response.StatusCode == 200 &&
+	return response != nil && response.StatusCode == 200 &&
 		!strings.Contains(response.Request.URL.RawQuery, "partNumber=") &&
 		responseContainsCompleteUploadString(response)
 }
 
 func responseContainsCompleteUploadString(response *http.Response) bool {
-
 	responseBodyBytes, bodyReadError := ioutil.ReadAll(response.Body)
 
 	if bodyReadError != nil {

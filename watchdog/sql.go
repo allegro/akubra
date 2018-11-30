@@ -13,7 +13,10 @@ import (
 
 const (
 	watchdogTable         = "consistency_record"
-	markersInsertedEalier = "object_id = ? AND created_at <= ?"
+	markersInsertedEalier = "cluster_name = ? AND object_id = ? AND inserted_at <= ?"
+	updateRecordExecutionTime = "UPDATE consistency_record " +
+								"SET execution_date = execution_date + (? ||' seconds')::interval, updated_at = NOW() " +
+								"WHERE request_id = (SELECT request_id FROM consistency_record WHERE cluster_name = ? AND object_id = ? ORDER BY inserted_at LIMIT 1)"
 )
 
 type SQLWatchdogFactory struct {
@@ -29,8 +32,8 @@ type DatabaseWatchdog struct {
 var DatabaseError = errors.New("database error")
 
 type SQLConsistencyRecord struct {
-	CreatedAt     time.Time `gorm:"column:created_at"`
-	UpdatedAt     time.Time `gorm:"column:updated_at"`
+	InsertedAt    time.Time `gorm:"-"`
+	UpdatedAt     time.Time `gorm:"-"`
 	ObjectID      string    `gorm:"column:object_id"`
 	Method        string    `gorm:"column:method"`
 	Cluster       string    `gorm:"column:cluster_name"`
@@ -113,11 +116,42 @@ func (watchdog *DatabaseWatchdog) Insert(record *ConsistencyRecord) (*DeleteMark
 
 	return createDeleteMarkerFor(insertedRecord), nil
 }
+
+func (watchdog *DatabaseWatchdog) Delete(marker *DeleteMarker) error {
+	deleteResult := watchdog.
+		dbConn.
+		Table(watchdogTable).
+		Where(markersInsertedEalier, marker.cluster, marker.objectID, marker.insertionDate).
+		Delete(&ConsistencyRecord{})
+
+	if deleteResult.Error != nil {
+		log.Debugf("Failed to delete records for object '%s' older than %s: %s", marker.objectID, marker.insertionDate, deleteResult.Error)
+		return DatabaseError
+	}
+
+	log.Debugf("Successfully deleted records for object '%s' older than %s", marker.objectID, marker.insertionDate.Format(time.RFC3339))
+	return nil
+}
+
+func (watchdog *DatabaseWatchdog) UpdateExecutionTime(delta *ExecutionTimeDelta) error {
+	updateErr := watchdog.
+		dbConn.
+		Exec(updateRecordExecutionTime, delta.Delta, delta.ClusterName, delta.ObjectId).
+		Error
+
+	if updateErr != nil {
+		log.Printf("Failed to update record for obj '%s' on cluster '%s'", delta.ObjectId, delta.ClusterName)
+	}
+
+	log.Debugf("Successfully updated record for obj '%s' on cluster '%s", delta.ObjectId, delta.ClusterName)
+	return nil
+}
+
 func createDeleteMarkerFor(record *SQLConsistencyRecord) *DeleteMarker {
 	return &DeleteMarker{
 		objectID:      record.ObjectID,
 		cluster:       record.Cluster,
-		insertionDate: record.CreatedAt,
+		insertionDate: record.InsertedAt,
 	}
 }
 func createSQLRecord(record *ConsistencyRecord) *SQLConsistencyRecord {
@@ -129,39 +163,4 @@ func createSQLRecord(record *ConsistencyRecord) *SQLConsistencyRecord {
 		AccessKey:     record.accessKey,
 		Cluster:       record.cluster,
 	}
-}
-
-func (watchdog *DatabaseWatchdog) Delete(marker *DeleteMarker) error {
-	deleteResult := watchdog.
-		dbConn.
-		Table(watchdogTable).
-		Where(markersInsertedEalier, marker.objectID, marker.insertionDate).
-		Delete(&ConsistencyRecord{})
-
-	if deleteResult.Error != nil {
-		log.Debugf("Failed to delete records for object '%s' older than %s: %s", marker.objectID, marker.insertionDate, deleteResult.Error)
-		return DatabaseError
-	}
-
-	log.Debugf("Successfully deleted records for object '%s' older than %s", marker.objectID, marker.insertionDate.Format(time.RFC3339))
-	return nil
-}
-func (watchdog *DatabaseWatchdog) Update(record *ConsistencyRecord) error {
-	if record.requestId == "" {
-		log.Debugf("RequestId was null")
-		return DatabaseError
-	}
-
-	updateErr := watchdog.
-		dbConn.
-		Table(watchdogTable).
-		Update(record).
-		Error
-
-	if updateErr != nil {
-		log.Debugf("Failed to update record fro reqId = '%s': %s", record.requestId, updateErr)
-	}
-
-	log.Debugf("Successfully updated record for reqId", record.requestId)
-	return nil
 }

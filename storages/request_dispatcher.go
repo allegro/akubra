@@ -64,8 +64,8 @@ func (rd *RequestDispatcher) createAndInsertRecordFor(request *http.Request) (*R
 	if err != nil {
 		return nil, err
 	}
-	if isInitiateMultipartUploadRequest(request) {
-		record.ExecutionDate = record.ExecutionDate.Add(oneWeek)
+	if isInitiateMultiPartUploadRequest(request) {
+		record.ExecutionDate = record.ExecutionDate.Add(oneWeek).Add(time.Minute * 10)
 	}
 	deleteMarker, err := rd.watchdog.Insert(record)
 	if err != nil {
@@ -78,9 +78,18 @@ func (rd *RequestDispatcher) createAndInsertRecordFor(request *http.Request) (*R
 	}, nil
 }
 func (rd *RequestDispatcher) shouldUseConsistencyWatchdog(request *http.Request) bool {
-	return rd.watchdog != nil && len(rd.Backends) > 1 &&
-			(request.Method == http.MethodPut || request.Method == http.MethodDelete) &&
-			!utils.IsBucketPath(request.URL.Path)
+	isMultiPartRequest := isMultiPartUploadRequest(request)
+	isInitiateMultiPart := isInitiateMultiPartUploadRequest(request)
+
+	consistencyCondition := rd.watchdog != nil && len(rd.Backends) > 1
+
+	methodCondition := (http.MethodPut == request.Method && !isMultiPartRequest) ||
+						http.MethodDelete == request.Method ||
+						(http.MethodPost == request.Method && isInitiateMultiPart)
+
+	pathCondition := !utils.IsBucketPath(request.URL.Path)
+
+	return consistencyCondition && methodCondition && pathCondition
 }
 
 type responsePicker interface {

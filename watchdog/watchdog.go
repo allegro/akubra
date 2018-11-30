@@ -45,11 +45,17 @@ type DeleteMarker struct {
 	insertionDate time.Time
 }
 
+type ExecutionTimeDelta struct {
+	ClusterName string
+	ObjectId 	string
+	Delta 		int64
+}
+
 // ConsistencyWatchdog manages the ConsistencyRecords and DeleteMarkers
 type ConsistencyWatchdog interface {
 	Insert(record *ConsistencyRecord) (*DeleteMarker, error)
 	Delete(marker *DeleteMarker) error
-	Update(record *ConsistencyRecord) error
+	UpdateExecutionTime(delta *ExecutionTimeDelta) error
 }
 
 // ConsistencyRecordFactory creates records from http requests
@@ -65,7 +71,7 @@ type DefaultConsistencyRecordFactory struct {
 func (factory *DefaultConsistencyRecordFactory) CreateRecordFor(request *http.Request) (*ConsistencyRecord, error) {
 	var method Method
 	switch request.Method {
-	case "PUT":
+	case "PUT", "POST":
 		method = PUT
 		break
 	case "DELETE":
