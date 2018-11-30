@@ -71,6 +71,7 @@ type Factory struct {
 	shardFactory *shardFactory
 }
 
+//NewStoragesFactory creates StoragesFactory
 func NewStoragesFactory(transport http.RoundTripper, syncLog *SyncSender, watchdog watchdog.ConsistencyWatchdog, watchdogRequestFactory watchdog.ConsistencyRecordFactory) *Factory {
 	return &Factory{
 		transport: transport,

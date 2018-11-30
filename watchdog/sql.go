@@ -19,7 +19,7 @@ const (
 								"WHERE request_id = (SELECT request_id FROM consistency_record WHERE cluster_name = ? AND object_id = ? ORDER BY inserted_at LIMIT 1)"
 )
 
-// SQLWatchdogFactoryFactory creates instances of SQLWatchdog
+// SQLWatchdogFactory creates instances of SQLWatchdog
 type SQLWatchdogFactory struct {
 	dialect                   string
 	connectionStringFormat    string
@@ -146,14 +146,14 @@ func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 func (watchdog *SQLWatchdog) UpdateExecutionTime(delta *ExecutionTimeDelta) error {
 	updateErr := watchdog.
 		dbConn.
-		Exec(updateRecordExecutionTime, delta.Delta, delta.ClusterName, delta.ObjectId).
+		Exec(updateRecordExecutionTime, delta.Delta, delta.ClusterName, delta.ObjectID).
 		Error
 
 	if updateErr != nil {
-		log.Printf("Failed to update record for obj '%s' on cluster '%s'", delta.ObjectId, delta.ClusterName)
+		log.Printf("Failed to update record for obj '%s' on cluster '%s'", delta.ObjectID, delta.ClusterName)
 	}
 
-	log.Debugf("Successfully updated record for obj '%s' on cluster '%s", delta.ObjectId, delta.ClusterName)
+	log.Debugf("Successfully updated record for obj '%s' on cluster '%s", delta.ObjectID, delta.ClusterName)
 	return nil
 }
 

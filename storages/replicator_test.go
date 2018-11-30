@@ -97,7 +97,7 @@ func TestWatchdogIntegration(t *testing.T) {
 	}
 }
 
-func createRequest(t *testing.T, method string, reqURL string, clusterName string, reqId string) *http.Request {
+func createRequest(t *testing.T, method string, reqURL string, clusterName string, reqID string) *http.Request {
 	rURL, err := url.Parse(reqURL)
 	assert.NoError(t, err)
 	assert.NotNil(t, rURL)
@@ -109,7 +109,7 @@ func createRequest(t *testing.T, method string, reqURL string, clusterName strin
 	req.Header = http.Header{}
 	req.Header.Add("Authorization", authHeaderV4)
 	req = req.WithContext(context.WithValue(context.Background(), watchdog.ClusterName, clusterName))
-	return req.WithContext(context.WithValue(req.Context(), log.ContextreqIDKey, reqId))
+	return req.WithContext(context.WithValue(req.Context(), log.ContextreqIDKey, reqID))
 }
 
 func TestHttpCancelContext(t *testing.T) {

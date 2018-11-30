@@ -45,6 +45,7 @@ type DeleteMarker struct {
 	insertionDate time.Time
 }
 
+//ExecutionTimeDelta tells how to change the execution time of a record
 type ExecutionTimeDelta struct {
 	ClusterName string
 	ObjectID 	string
