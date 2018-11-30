@@ -19,18 +19,22 @@ const (
 								"WHERE request_id = (SELECT request_id FROM consistency_record WHERE cluster_name = ? AND object_id = ? ORDER BY inserted_at LIMIT 1)"
 )
 
+// SQLWatchdogFactoryFactory creates instances of SQLWatchdog
 type SQLWatchdogFactory struct {
 	dialect                   string
 	connectionStringFormat    string
 	connectionStringArgsNames []string
 }
 
-type DatabaseWatchdog struct {
+// SQLWatchdog is a type of ConsistencyWatchdog that uses a SQL database
+type SQLWatchdog struct {
 	dbConn *gorm.DB
 }
 
-var DatabaseError = errors.New("database error")
+// ErrDataBase indicates a database errors
+var ErrDataBase = errors.New("database error")
 
+// SQLConsistencyRecord is a SQL representation of ConsistencyRecord
 type SQLConsistencyRecord struct {
 	InsertedAt    time.Time `gorm:"-"`
 	UpdatedAt     time.Time `gorm:"-"`
@@ -39,9 +43,11 @@ type SQLConsistencyRecord struct {
 	Cluster       string    `gorm:"column:cluster_name"`
 	AccessKey     string    `gorm:"column:access_key"`
 	ExecutionDate time.Time `gorm:"column:execution_date"`
-	RequestId     string    `gorm:"column:request_id"`
+	RequestID     string    `gorm:"column:request_id"`
 }
 
+
+// CreateSQLWatchdogFactory creates instances of SQLWatchdogFactory
 func CreateSQLWatchdogFactory(dialect, connStringFormat string, connStringArgsNames []string) ConsistencyWatchdogFactory {
 	return &SQLWatchdogFactory{
 		dialect:                   dialect,
@@ -50,6 +56,7 @@ func CreateSQLWatchdogFactory(dialect, connStringFormat string, connStringArgsNa
 	}
 }
 
+// CreateWatchdogInstance creates instances of SQLWatchdog
 func (factory *SQLWatchdogFactory) CreateWatchdogInstance(config *Config) (ConsistencyWatchdog, error) {
 	if strings.ToLower(config.Type) != "sql" {
 		return nil, fmt.Errorf("SQLWatchdogFactory can't instantiate watchdog of type '%s'", config.Type)
@@ -86,7 +93,7 @@ func (factory *SQLWatchdogFactory) CreateWatchdogInstance(config *Config) (Consi
 
 	log.Printf("SQLWatchdog '%s' watcher setup successful", factory.dialect)
 
-	return &DatabaseWatchdog{dbConn: db}, nil
+	return &SQLWatchdog{dbConn: db}, nil
 }
 
 func (factory *SQLWatchdogFactory) createConnString(config *Config) (string, error) {
@@ -101,14 +108,15 @@ func (factory *SQLWatchdogFactory) createConnString(config *Config) (string, err
 	return connString, nil
 }
 
-func (watchdog *DatabaseWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, error) {
+// Insert inserts to SQL db
+func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, error) {
 	log.Debugf("Inserting consistency record for object '%s'", record.objectID)
 	sqlRecord := createSQLRecord(record)
 	insertResult := watchdog.dbConn.Table(watchdogTable).Create(sqlRecord)
 
 	if insertResult.Error != nil {
 		log.Printf("Failed to insert consistency record for object '%s'", sqlRecord.ObjectID)
-		return nil, DatabaseError
+		return nil, ErrDataBase
 	}
 
 	insertedRecord, _ := insertResult.Value.(*SQLConsistencyRecord)
@@ -117,7 +125,8 @@ func (watchdog *DatabaseWatchdog) Insert(record *ConsistencyRecord) (*DeleteMark
 	return createDeleteMarkerFor(insertedRecord), nil
 }
 
-func (watchdog *DatabaseWatchdog) Delete(marker *DeleteMarker) error {
+// Delete deletes from SQL db
+func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 	deleteResult := watchdog.
 		dbConn.
 		Table(watchdogTable).
@@ -126,14 +135,15 @@ func (watchdog *DatabaseWatchdog) Delete(marker *DeleteMarker) error {
 
 	if deleteResult.Error != nil {
 		log.Debugf("Failed to delete records for object '%s' older than %s: %s", marker.objectID, marker.insertionDate, deleteResult.Error)
-		return DatabaseError
+		return ErrDataBase
 	}
 
 	log.Debugf("Successfully deleted records for object '%s' older than %s", marker.objectID, marker.insertionDate.Format(time.RFC3339))
 	return nil
 }
 
-func (watchdog *DatabaseWatchdog) UpdateExecutionTime(delta *ExecutionTimeDelta) error {
+// UpdateExecutionTime updates execution time of a record in SQL db
+func (watchdog *SQLWatchdog) UpdateExecutionTime(delta *ExecutionTimeDelta) error {
 	updateErr := watchdog.
 		dbConn.
 		Exec(updateRecordExecutionTime, delta.Delta, delta.ClusterName, delta.ObjectId).
@@ -156,7 +166,7 @@ func createDeleteMarkerFor(record *SQLConsistencyRecord) *DeleteMarker {
 }
 func createSQLRecord(record *ConsistencyRecord) *SQLConsistencyRecord {
 	return &SQLConsistencyRecord{
-		RequestId:     record.requestId,
+		RequestID:     record.requestID,
 		ObjectID:      record.objectID,
 		Method:        string(record.method),
 		ExecutionDate: record.ExecutionDate,

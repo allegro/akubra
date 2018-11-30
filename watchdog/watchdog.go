@@ -32,7 +32,7 @@ type ConsistencyRecord struct {
 	method        Method
 	cluster       string
 	accessKey     string
-	requestId     string
+	requestID     string
 	ExecutionDate time.Time
 
 	isReflectedOnBackends bool
@@ -47,7 +47,7 @@ type DeleteMarker struct {
 
 type ExecutionTimeDelta struct {
 	ClusterName string
-	ObjectId 	string
+	ObjectID 	string
 	Delta 		int64
 }
 
@@ -98,9 +98,9 @@ func (factory *DefaultConsistencyRecordFactory) CreateRecordFor(request *http.Re
 		return nil, errors.New("cluster name is not present in context")
 	}
 
-	requestId, reqIdPresent := request.Context().Value(log.ContextreqIDKey).(string)
-	if !reqIdPresent {
-		return nil, errors.New("reqId name is not present in context")
+	requestID, reqIDPresent := request.Context().Value(log.ContextreqIDKey).(string)
+	if !reqIDPresent {
+		return nil, errors.New("reqID name is not present in context")
 	}
 
 	return &ConsistencyRecord{
@@ -108,7 +108,7 @@ func (factory *DefaultConsistencyRecordFactory) CreateRecordFor(request *http.Re
 		ExecutionDate:         execDate,
 		accessKey:             accessKey,
 		cluster:               clusterName,
-		requestId:             requestId,
+		requestID:             requestID,
 		isReflectedOnBackends: true,
 		method:                method,
 	}, nil

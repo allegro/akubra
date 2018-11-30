@@ -180,8 +180,8 @@ func createWatchdog(watchdogConfig *watchdog.Config) (watchdog.ConsistencyWatchd
 					postgresConnStringFormat,
 					[]string{"user", "password", "dbname", "host", "port", "conntimeout"}),
 	}
-	var wd watchdog.ConsistencyWatchdog = nil
-	var recordFactory watchdog.ConsistencyRecordFactory = nil
+	var wd watchdog.ConsistencyWatchdog
+	var recordFactory watchdog.ConsistencyRecordFactory
 	for _, factory := range factories {
 		w, err := factory.CreateWatchdogInstance(watchdogConfig)
 		if err != nil {

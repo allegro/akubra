@@ -97,6 +97,7 @@ type responsePicker interface {
 	SendSyncLog(*SyncSender)
 }
 
+// Request encapsulates the http requests along with the watchdog-data
 type Request struct {
 	*http.Request
 	record *watchdog.ConsistencyRecord

@@ -114,7 +114,7 @@ func TestAddingConsistencyRecords(t *testing.T) {
 		require.NotNil(t, request)
 		request.Header.Add("Authorization", authHeaderV4)
 
-		reqWithContext := supplyRequestWithIdAndClusterName(request)
+		reqWithContext := supplyRequestWithIDAndClusterName(request)
 		record := &watchdog.ConsistencyRecord{}
 		watchdogRecordFactory.On("CreateRecordFor", reqWithContext).Return(record, nil)
 
@@ -155,9 +155,9 @@ func TestAddingConsistencyRecords(t *testing.T) {
 	}
 }
 
-func supplyRequestWithIdAndClusterName(request *http.Request) *http.Request {
+func supplyRequestWithIDAndClusterName(request *http.Request) *http.Request {
 	recordedReqContext := context.WithValue(request.Context(), log.ContextreqIDKey, "testID")
-	recordedReqContext = context.WithValue(recordedReqContext, "Cluster-Name", "testCluster")
+	recordedReqContext = context.WithValue(recordedReqContext, watchdog.ClusterName, "testCluster")
 	return request.WithContext(recordedReqContext)
 }
 
@@ -227,7 +227,7 @@ type WatchdogMock struct {
 func (wm *WatchdogMock) Insert(record *watchdog.ConsistencyRecord) (*watchdog.DeleteMarker, error) {
 	args := wm.Called(record)
 	arg0 := args.Get(0)
-	var deleteMarker *watchdog.DeleteMarker = nil
+	var deleteMarker *watchdog.DeleteMarker
 	if arg0 != nil {
 		deleteMarker = arg0.(*watchdog.DeleteMarker)
 	}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/watchdog"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -53,7 +54,7 @@ func (suite *ClusterTestSuite) TestSuccessObjectRequest() {
 	okResponse := makeSuccessfulResponse(request, http.StatusOK)
 
 	dispatchMock := suite.dispatcher.(*dispatcherMock)
-	dispatcherRequestContext := context.WithValue(request.Context(), "Cluster-Name", "testCluster")
+	dispatcherRequestContext := context.WithValue(request.Context(), watchdog.ClusterName, "testCluster")
 	dispatcherRequestMock := request.WithContext(dispatcherRequestContext)
 	dispatchMock.On("Dispatch", dispatcherRequestMock).Return(okResponse, nil)
 

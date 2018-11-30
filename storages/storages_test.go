@@ -67,7 +67,7 @@ func TestShouldNotInitStoragesWithWrongBackendType(t *testing.T) {
 		Type:        backendType,
 	}}
 
-	storagesFactory := StoragesFactory{
+	storagesFactory := Factory{
 		transport: http.DefaultTransport,
 		syncLog: nil,
 		watchdog: nil,

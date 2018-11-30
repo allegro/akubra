@@ -129,21 +129,21 @@ func (c *YamlConfig) ListenPortsLogicalValidator() (valid bool, validationErrors
 }
 
 // WatchdogEntryLogicalValidator validates ConsistencyWatchdog's config depending on the types of watchdogs defined
-func (config YamlConfig) WatchdogEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
+func (c YamlConfig) WatchdogEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
 	supportedWatchdogs := map[string][]string{
 		"sql": {"dialect", "user", "password", "dbname", "host", "port", "maxopenconns", "maxidleconns", "connmaxlifetime", "conntimeout"},
 	}
-	if config.Watchdog.Type == "" {
+	if c.Watchdog.Type == "" {
 		return true, validationErrors
 	}
-	if _, watchdogSupported := supportedWatchdogs[strings.ToLower(config.Watchdog.Type)]; !watchdogSupported {
-		errMsg := fmt.Errorf("watchog of type '%s' is not supported", config.Watchdog.Type)
+	if _, watchdogSupported := supportedWatchdogs[strings.ToLower(c.Watchdog.Type)]; !watchdogSupported {
+		errMsg := fmt.Errorf("watchog of type '%s' is not supported", c.Watchdog.Type)
 		errList = append(errList, errMsg)
 	}
-	for _, requiredField := range supportedWatchdogs[config.Watchdog.Type] {
-		if _, paramPresent := config.Watchdog.Props[requiredField]; !paramPresent {
-			errMsg := fmt.Sprintf("param '%s' for watchdog '%s' is missing", requiredField, config.Watchdog.Type)
+	for _, requiredField := range supportedWatchdogs[c.Watchdog.Type] {
+		if _, paramPresent := c.Watchdog.Props[requiredField]; !paramPresent {
+			errMsg := fmt.Sprintf("param '%s' for watchdog '%s' is missing", requiredField, c.Watchdog.Type)
 			errList = append(errList, errors.New(errMsg))
 		}
 	}

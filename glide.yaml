@@ -44,4 +44,4 @@ testImport:
   subpackages:
   - xnet
 - package: github.com/satori/go.uuid
-- package: glide get github.com/jinzhu/gorm
+- package: github.com/jinzhu/gorm

@@ -139,7 +139,7 @@ func testMultipartFlow(statusCode int, xmlResponse string,
 
 	completeUploadRequestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321")
 	completeUploadRequest := &http.Request{URL: completeUploadRequestURL}
-	completeUploadRequest = completeUploadRequest.WithContext(context.WithValue(completeUploadRequest.Context(), "Cluster-Name", "testCluster"))
+	completeUploadRequest = completeUploadRequest.WithContext(context.WithValue(completeUploadRequest.Context(), watchdog.ClusterName, "testCluster"))
 
 	responseForComplete := &http.Response{Request: completeUploadRequest}
 	XMLResponse := xmlResponse
