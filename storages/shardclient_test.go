@@ -26,10 +26,9 @@ func TestClusterTestSuite(t *testing.T) {
 // SetupTest conforms suite interface
 func (suite *ClusterTestSuite) SetupTest() {
 	clusterName := "testCluster"
-	cluster, err := newShard(
+	shardFactory := &shardFactory{}
+	cluster, err := shardFactory.newShard(
 		clusterName,
-		nil,
-		nil,
 		nil,
 		nil,
 	)

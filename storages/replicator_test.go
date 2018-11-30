@@ -47,16 +47,15 @@ func TestReplicationClientRequestPassing(t *testing.T) {
 	require.Equal(t, len(backends), responsesCount, "Not all responses passed")
 }
 
-var watchdogRequestScenarios = []struct {
-	numOfBackends      int
-	shouldDeleteRecord bool
-	failedBackendIndex int
-}{
-	{2, true, -1},
-	{2, false, 0},
-}
-
 func TestWatchdogIntegration(t *testing.T) {
+	var watchdogRequestScenarios = []struct {
+		numOfBackends      int
+		shouldDeleteRecord bool
+		failedBackendIndex int
+	}{
+		{2, true, -1},
+		{2, false, 0},
+	}
 	for _, requestScenario := range watchdogRequestScenarios {
 		request := createRequest(t, "PUT", "http://random.domain/bucket/object", "testCluster", "123")
 		record, err := (&watchdog.DefaultConsistencyRecordFactory{}).CreateRecordFor(request)

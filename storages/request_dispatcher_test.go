@@ -31,7 +31,7 @@ func TestRequestDispatcherPicks(t *testing.T) {
 		return ok
 	}
 	matchDeletePicker := func(pic interface{}) bool {
-		_, ok := pic.(*deleteResponsePicker)
+		_, ok := pic.(*baseDeleteResponsePicker)
 		return ok
 	}
 	multipartMultipartReplicator := func(rep interface{}) bool {
@@ -62,7 +62,7 @@ func TestRequestDispatcherPicks(t *testing.T) {
 		replicatorFac := dispatcher.pickClientFactory(request)
 		require.NotNil(t, replicatorFac)
 		replicator := replicatorFac(nil, nil)
-		pickerFac := dispatcher.pickResponsePickerFactory(request)
+		pickerFac := dispatcher.pickResponsePickerFactory(&Request{request, nil, nil})
 		require.NotNil(t, pickerFac)
 		pic := pickerFac(nil)
 		require.True(t, tc.expectedReplicator(replicator))
@@ -90,22 +90,22 @@ func TestRequestDispatcherDispatch(t *testing.T) {
 
 }
 
-var requestScenarios = [] struct {
-	method                 string
-	url                    string
-	backends               []*backend.Backend
-	shouldTryToInsertRecord bool
-	shouldInsertFail       bool
-}{
-	{"PUT", "http://random.domain/bucket/object", []*backend.Backend{}, false, false},
-	{"GET", "http://random.domain/bucket/object", []*backend.Backend{{}}, false, false},
-	{"GET", "http://random.domain/bucket", []*backend.Backend{{}}, false, false},
-	{"PUT", "http://random.domain/bucket", []*backend.Backend{{}}, false, false},
-	{"PUT", "http://random.domain/bucket/object", []*backend.Backend{{}, {}}, true, false},
-	{"PUT", "http://random.domain/bucket/object", []*backend.Backend{{}, {}}, true, true},
-}
-
 func TestAddingConsistencyRecords(t *testing.T) {
+	var requestScenarios = [] struct {
+		method                 string
+		url                    string
+		backends               []*backend.Backend
+		shouldTryToInsertRecord bool
+		shouldInsertFail       bool
+	}{
+		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{}, false, false},
+		{"GET", "http://random.domain/bucket/object", []*backend.Backend{{}}, false, false},
+		{"GET", "http://random.domain/bucket", []*backend.Backend{{}}, false, false},
+		{"PUT", "http://random.domain/bucket", []*backend.Backend{{}}, false, false},
+		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{{}, {}}, true, false},
+		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{{}, {}}, true, true},
+	}
+
 	for _, requestScenario := range requestScenarios {
 		dispatcher, clientMock, respPickerMock, watchdogMock, watchdogRecordFactory := prepareTest(requestScenario.backends)
 
@@ -200,8 +200,8 @@ func (rcm replicationClientMock) Cancel() error {
 	return nil
 }
 
-func responsePickFactoryMockFactory(mock *responsePickerMock) func(request *http.Request) func(<-chan BackendResponse) responsePicker {
-	return func(request *http.Request) func(<-chan BackendResponse) responsePicker {
+func responsePickFactoryMockFactory(mock *responsePickerMock) func(request *Request) func(<-chan BackendResponse) responsePicker {
+	return func(request *Request) func(<-chan BackendResponse) responsePicker {
 		return func(<-chan BackendResponse) responsePicker {
 			return mock
 		}
@@ -240,8 +240,8 @@ func (wm *WatchdogMock) Delete(marker *watchdog.DeleteMarker) error {
 	return args.Error(0)
 }
 
-func (wm *WatchdogMock) Update(record *watchdog.ConsistencyRecord) error {
-	args := wm.Called(record)
+func (wm *WatchdogMock) UpdateExecutionTime(delta *watchdog.ExecutionTimeDelta) error {
+	args := wm.Called(delta)
 	return args.Error(0)
 }
 

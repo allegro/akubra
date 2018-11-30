@@ -22,7 +22,7 @@ type RequestDispatcher struct {
 	Backends                  []*backend.Backend
 	syncLog                   *SyncSender
 	pickClientFactory         func(*http.Request) func([]*backend.Backend, watchdog.ConsistencyWatchdog) client
-	pickResponsePickerFactory func(*http.Request) func(<-chan BackendResponse) responsePicker
+	pickResponsePickerFactory func(*Request) func(<-chan BackendResponse) responsePicker
 	watchdog                  watchdog.ConsistencyWatchdog
 	watchdogRecordFactory     watchdog.ConsistencyRecordFactory
 }
@@ -54,7 +54,7 @@ func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, er
 	clientFactory := rd.pickClientFactory(request)
 	cli := clientFactory(rd.Backends, rd.watchdog)
 	respChan := cli.Do(storageRequest)
-	pickerFactory := rd.pickResponsePickerFactory(request)
+	pickerFactory := rd.pickResponsePickerFactory(storageRequest)
 	pickr := pickerFactory(respChan)
 	go pickr.SendSyncLog(rd.syncLog)
 	return pickr.Pick()
@@ -115,7 +115,7 @@ var defaultReplicationClientFactory = func(request *http.Request) func([]*backen
 	return newReplicationClient
 }
 
-var defaultResponsePickerFactory = func(request *http.Request) func(<-chan BackendResponse) responsePicker {
+var defaultResponsePickerFactory = func(request *Request) func(<-chan BackendResponse) responsePicker {
 	if utils.IsBucketPath(request.URL.Path) && (request.Method == http.MethodGet) {
 		return newResponseHandler
 	}
@@ -125,7 +125,11 @@ var defaultResponsePickerFactory = func(request *http.Request) func(<-chan Backe
 	}
 
 	if request.Method == http.MethodDelete {
+		if request.record != nil {
+			return newDeleteResponsePickerWatchdog
+		}
 		return newDeleteResponsePicker
 	}
+
 	return newObjectResponsePicker
 }

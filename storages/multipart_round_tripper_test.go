@@ -2,6 +2,7 @@ package storages
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -117,27 +118,28 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 }
 
 func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorButFailOnParsingTheResponse(testSuite *testing.T) {
-	testMultipartFlow(200, "<InvalidResponse></InvalidResponse>", nil, nil, nil, testSuite)
+	testMultipartFlow(200, "<InvalidResponse></InvalidResponse>", nil, nil, nil, nil, testSuite)
 }
 
 func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorWhenStatusCodeIsWrong(testSuite *testing.T) {
-	testMultipartFlow(500, "<Error>Nope</Error>",  nil, nil, nil,testSuite)
+	testMultipartFlow(500, "<Error>Nope</Error>", nil, nil, nil, nil,testSuite)
 }
 
 func TestShouldUpdateExecutionTimeOfTheConsistencyRecordIfMultiPartWasSuccessful(t *testing.T) {
-	testMultipartFlow(200, successfulMultipartResponse, &watchdog.ConsistencyRecord{}, &watchdog.DeleteMarker{}, &WatchdogMock{&mock.Mock{}}, t)
+	testMultipartFlow(200, successfulMultipartResponse, &watchdog.ConsistencyRecord{}, &watchdog.ExecutionTimeDelta{ClusterName:"testCluster", ObjectId:"someBucket/someObject", Delta:-604800}, &watchdog.DeleteMarker{}, &WatchdogMock{&mock.Mock{}}, t)
 }
 
-func TestShouldNotUpdateExecutionTimeIfRecordIsNullAndWatchdogIsDefined(t *testing.T) {
-	testMultipartFlow(200, successfulMultipartResponse, nil, nil, &WatchdogMock{&mock.Mock{}}, t)
+func TestShouldNotUpdateExecutionTimeIfWatchdogIsNotDefined(t *testing.T) {
+	testMultipartFlow(200, successfulMultipartResponse, nil,nil, nil, nil, t)
 }
 
 func testMultipartFlow(statusCode int, xmlResponse string,
-						  record *watchdog.ConsistencyRecord, marker *watchdog.DeleteMarker,
+						  record *watchdog.ConsistencyRecord, delta *watchdog.ExecutionTimeDelta, marker *watchdog.DeleteMarker,
 						  watchdogMock *WatchdogMock, testSuite *testing.T) {
 
 	completeUploadRequestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321")
 	completeUploadRequest := &http.Request{URL: completeUploadRequestURL}
+	completeUploadRequest = completeUploadRequest.WithContext(context.WithValue(completeUploadRequest.Context(), "Cluster-Name", "testCluster"))
 
 	responseForComplete := &http.Response{Request: completeUploadRequest}
 	XMLResponse := xmlResponse
@@ -175,11 +177,12 @@ func testMultipartFlow(statusCode int, xmlResponse string,
 		activeBackendRoundTrippers,
 		multiPartUploadHashRing,
 		[]string{activeBackendURL.String(), activeBackendURL2.String()},
-		watchdogMock,
+		nil,
 	}
 
-	if watchdogMock != nil && record != nil {
-		watchdogMock.On("Update", record).Return(nil)
+	if watchdogMock != nil && delta != nil {
+		multiPartRoundTripper.watchdog = watchdogMock
+		watchdogMock.On("UpdateExecutionTime", delta).Return(nil)
 	}
 
 	activeBackendRoundTripper1.On("RoundTrip", completeUploadRequest).Return(responseForComplete, nil)
@@ -192,8 +195,8 @@ func testMultipartFlow(statusCode int, xmlResponse string,
 		assert.Equal(testSuite, bresp.Response, responseForComplete)
 	}
 
-	if watchdogMock != nil && record != nil{
-		watchdogMock.AssertCalled(testSuite, "Update", record)
+	if watchdogMock != nil {
+		watchdogMock.AssertCalled(testSuite, "UpdateExecutionTime", delta)
 	}
 
 	activeBackendRoundTripper1.AssertNumberOfCalls(testSuite, "RoundTrip", 1)

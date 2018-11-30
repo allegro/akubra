@@ -134,6 +134,9 @@ func (config YamlConfig) WatchdogEntryLogicalValidator() (valid bool, validation
 	supportedWatchdogs := map[string][]string{
 		"sql": {"dialect", "user", "password", "dbname", "host", "port", "maxopenconns", "maxidleconns", "connmaxlifetime", "conntimeout"},
 	}
+	if config.Watchdog.Type == "" {
+		return true, validationErrors
+	}
 	if _, watchdogSupported := supportedWatchdogs[strings.ToLower(config.Watchdog.Type)]; !watchdogSupported {
 		errMsg := fmt.Errorf("watchog of type '%s' is not supported", config.Watchdog.Type)
 		errList = append(errList, errMsg)
