@@ -31,6 +31,8 @@ import:
 - package: github.com/hashicorp/consul
   subpackages:
   - api
+- package: github.com/satori/go.uuid
+- package: github.com/jinzhu/gorm
 testImport:
 - package: github.com/DATA-DOG/go-sqlmock
   version: ^1.2.0
@@ -43,5 +45,3 @@ testImport:
 - package: github.com/allegro/mesos-executor
   subpackages:
   - xnet
-- package: github.com/satori/go.uuid
-- package: github.com/jinzhu/gorm

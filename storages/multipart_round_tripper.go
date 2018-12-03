@@ -156,7 +156,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) updateExecutionTime(request 
 	}
 
 	delta := &watchdog.ExecutionTimeDelta{
-		ObjectId: fmt.Sprintf("%s/%s", bucket, key),
+		ObjectID: fmt.Sprintf("%s/%s", bucket, key),
 		ClusterName: clusterName,
 		Delta: -int64(oneWeek.Seconds()),
 	}
