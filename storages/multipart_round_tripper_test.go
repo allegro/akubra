@@ -126,7 +126,7 @@ func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorWhenStatusCodeI
 }
 
 func TestShouldUpdateExecutionTimeOfTheConsistencyRecordIfMultiPartWasSuccessful(t *testing.T) {
-	testMultipartFlow(200, successfulMultipartResponse, &watchdog.ConsistencyRecord{}, &watchdog.ExecutionTimeDelta{ClusterName:"testCluster", ObjectId:"someBucket/someObject", Delta:-604800}, &watchdog.DeleteMarker{}, &WatchdogMock{&mock.Mock{}}, t)
+	testMultipartFlow(200, successfulMultipartResponse, &watchdog.ConsistencyRecord{}, &watchdog.ExecutionTimeDelta{ClusterName:"testCluster", ObjectID:"someBucket/someObject", Delta:-604800}, &watchdog.DeleteMarker{}, &WatchdogMock{&mock.Mock{}}, t)
 }
 
 func TestShouldNotUpdateExecutionTimeIfWatchdogIsNotDefined(t *testing.T) {
