@@ -14,7 +14,7 @@ import (
 const (
 	fiveMinutes = time.Minute * 5
 	// ClusterName is a constant used to put/get cluster's name from request's context
-	ClusterName = "Cluster-Name"
+	ClusterName = log.ContextKey("Cluster-Name")
 )
 
 const (
