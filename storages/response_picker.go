@@ -116,14 +116,13 @@ func (orp *ObjectResponsePicker) pullResponses(out chan<- BackendResponse) {
 	close(orp.syncLogReady)
 }
 
-
 type deleteResponsePuller = func(drp *baseDeleteResponsePicker, out chan<- BackendResponse)
 
 type baseDeleteResponsePicker struct {
 	BasePicker
 	softErrors   []BackendResponse
 	syncLogReady chan struct{}
-	respPuller deleteResponsePuller
+	respPuller   deleteResponsePuller
 }
 
 // Pick returns first successful response, discard others
@@ -135,11 +134,11 @@ func (drp *baseDeleteResponsePicker) Pick() (*http.Response, error) {
 }
 
 func newDeleteResponsePicker(rch <-chan BackendResponse) responsePicker {
-	return &baseDeleteResponsePicker{BasePicker{responsesChan: rch}, []BackendResponse{}, make(chan struct{}), pullResponses}
+	return &baseDeleteResponsePicker{BasePicker{responsesChan: rch}, []BackendResponse{}, make(chan struct{}), deleteResponsePuller(pullResponses)}
 }
 
 func newDeleteResponsePickerWatchdog(rch <-chan BackendResponse) responsePicker {
-	return &baseDeleteResponsePicker{BasePicker{responsesChan: rch}, []BackendResponse{}, make(chan struct{}), pullResponsesWatchdog}
+	return &baseDeleteResponsePicker{BasePicker{responsesChan: rch}, []BackendResponse{}, make(chan struct{}), deleteResponsePuller(pullResponsesWatchdog)}
 }
 
 func (drp *baseDeleteResponsePicker) collectFailureResponse(bresp BackendResponse) {
@@ -173,7 +172,6 @@ func pullResponses(drp *baseDeleteResponsePicker, out chan<- BackendResponse) {
 	close(drp.syncLogReady)
 }
 
-
 func pullResponsesWatchdog(drp *baseDeleteResponsePicker, out chan<- BackendResponse) {
 	shouldSend := false
 	emptyResponse := BackendResponse{}
@@ -206,4 +204,3 @@ func (drp *baseDeleteResponsePicker) SendSyncLog(syncLog *SyncSender) {
 	<-drp.syncLogReady
 	sendSynclogs(syncLog, drp.success, drp.softErrors)
 }
-
