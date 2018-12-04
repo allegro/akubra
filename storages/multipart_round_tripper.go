@@ -22,10 +22,10 @@ import (
 // to the backend selected using the active backends hash ring, otherwise the cluster round tripper is used
 // to handle the operation in standard fashion
 type MultiPartRoundTripper struct {
-	backendsRoundTrippers 	map[string]*backend.Backend
-	backendsRing          	*hashring.HashRing
-	backendsEndpoints     	[]string
-	watchdog 				watchdog.ConsistencyWatchdog
+	backendsRoundTrippers map[string]*backend.Backend
+	backendsRing          *hashring.HashRing
+	backendsEndpoints     []string
+	watchdog              watchdog.ConsistencyWatchdog
 }
 
 // Cancel Client interface
@@ -126,7 +126,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath strin
 	backendEndpoint, nodeFound := multiPartRoundTripper.backendsRing.GetNode(objectPath)
 
 	if !nodeFound {
-		return nil, errors.New("can't find backned for upload in multi uplaod ring")
+		return nil, errors.New("can't find backend for upload in multi upload ring")
 	}
 
 	backend, backendFound := multiPartRoundTripper.backendsRoundTrippers[backendEndpoint]
@@ -156,9 +156,9 @@ func (multiPartRoundTripper *MultiPartRoundTripper) updateExecutionTime(request 
 	}
 
 	delta := &watchdog.ExecutionTimeDelta{
-		ObjectID: fmt.Sprintf("%s/%s", bucket, key),
+		ObjectID:    fmt.Sprintf("%s/%s", bucket, key),
 		ClusterName: clusterName,
-		Delta: -int64(oneWeek.Seconds()),
+		Delta:       -int64(oneWeek.Seconds()),
 	}
 
 	err := multiPartRoundTripper.watchdog.UpdateExecutionTime(delta)

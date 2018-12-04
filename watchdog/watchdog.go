@@ -48,8 +48,8 @@ type DeleteMarker struct {
 //ExecutionTimeDelta tells how to change the execution time of a record
 type ExecutionTimeDelta struct {
 	ClusterName string
-	ObjectID 	string
-	Delta 		int64
+	ObjectID    string
+	Delta       int64
 }
 
 // ConsistencyWatchdog manages the ConsistencyRecords and DeleteMarkers
@@ -66,6 +66,16 @@ type ConsistencyRecordFactory interface {
 
 // DefaultConsistencyRecordFactory is a default implementation of ConsistencyRecordFactory
 type DefaultConsistencyRecordFactory struct {
+}
+
+// CreateSQL creates ConsistencyWatchdog and ConsistencyRecordFactory that make use of a SQL database
+func CreateSQL(dialect, connStringFormat string, params []string, watchdogConfig *Config) (ConsistencyWatchdog, error) {
+	sqlWatchdogFactory := CreateSQLWatchdogFactory(dialect, connStringFormat, params)
+	watchdog, err := sqlWatchdogFactory.CreateWatchdogInstance(watchdogConfig)
+	if err != nil {
+		return nil, err
+	}
+	return watchdog, nil
 }
 
 // CreateRecordFor creates a ConsistencyRecord from a http request

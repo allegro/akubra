@@ -122,20 +122,20 @@ func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorButFailOnParsin
 }
 
 func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorWhenStatusCodeIsWrong(testSuite *testing.T) {
-	testMultipartFlow(500, "<Error>Nope</Error>", nil, nil, nil, nil,testSuite)
+	testMultipartFlow(500, "<Error>Nope</Error>", nil, nil, nil, nil, testSuite)
 }
 
 func TestShouldUpdateExecutionTimeOfTheConsistencyRecordIfMultiPartWasSuccessful(t *testing.T) {
-	testMultipartFlow(200, successfulMultipartResponse, &watchdog.ConsistencyRecord{}, &watchdog.ExecutionTimeDelta{ClusterName:"testCluster", ObjectID:"someBucket/someObject", Delta:-604800}, &watchdog.DeleteMarker{}, &WatchdogMock{&mock.Mock{}}, t)
+	testMultipartFlow(200, successfulMultipartResponse, &watchdog.ConsistencyRecord{}, &watchdog.ExecutionTimeDelta{ClusterName: "testCluster", ObjectID: "someBucket/someObject", Delta: -604800}, &watchdog.DeleteMarker{}, &WatchdogMock{&mock.Mock{}}, t)
 }
 
 func TestShouldNotUpdateExecutionTimeIfWatchdogIsNotDefined(t *testing.T) {
-	testMultipartFlow(200, successfulMultipartResponse, nil,nil, nil, nil, t)
+	testMultipartFlow(200, successfulMultipartResponse, nil, nil, nil, nil, t)
 }
 
 func testMultipartFlow(statusCode int, xmlResponse string,
-						  record *watchdog.ConsistencyRecord, delta *watchdog.ExecutionTimeDelta, marker *watchdog.DeleteMarker,
-						  watchdogMock *WatchdogMock, testSuite *testing.T) {
+	record *watchdog.ConsistencyRecord, delta *watchdog.ExecutionTimeDelta, marker *watchdog.DeleteMarker,
+	watchdogMock *WatchdogMock, testSuite *testing.T) {
 
 	completeUploadRequestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321")
 	completeUploadRequest := &http.Request{URL: completeUploadRequestURL}
@@ -202,12 +202,10 @@ func testMultipartFlow(statusCode int, xmlResponse string,
 	activeBackendRoundTripper1.AssertNumberOfCalls(testSuite, "RoundTrip", 1)
 }
 
-
-const successfulMultipartResponse =
-"<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-"<CompleteMultipartUploadResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
-"<Location>http://Example-Bucket.s3.amazonaws.com/Example-Object</Location>" +
-"<Bucket>Example-Bucket</Bucket>" +
-"<Key>Example-Object</Key>" +
-"<ETag>\"3858f62230ac3c915f300c664312c11f-9\"</ETag>" +
-"</CompleteMultipartUploadResult>"
+const successfulMultipartResponse = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+	"<CompleteMultipartUploadResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
+	"<Location>http://Example-Bucket.s3.amazonaws.com/Example-Object</Location>" +
+	"<Bucket>Example-Bucket</Bucket>" +
+	"<Key>Example-Object</Key>" +
+	"<ETag>\"3858f62230ac3c915f300c664312c11f-9\"</ETag>" +
+	"</CompleteMultipartUploadResult>"

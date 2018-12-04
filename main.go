@@ -38,14 +38,14 @@ var (
 
 	// CLI flags
 	configFile = kingpin.
-			Flag("config", "Configuration file path e.g.: \"conf/dev.yaml\"").
-			Short('c').
-			Required().
-			ExistingFile()
+		Flag("config", "Configuration file path e.g.: \"conf/dev.yaml\"").
+		Short('c').
+		Required().
+		ExistingFile()
 	testConfig = kingpin.
-			Flag("test-config", "Testing only configuration file from 'config' arg. (app. not starting).").
-			Short('t').
-			Bool()
+		Flag("test-config", "Testing only configuration file from 'config' arg. (app. not starting).").
+		Short('t').
+		Bool()
 )
 
 const (
@@ -124,8 +124,18 @@ func (s *service) start() error {
 
 	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
 	syncSender := &storages.SyncSender{SyncLog: syncLog, AllowedMethods: methods}
-	consistencyWatchdog, recordFactory := createWatchdog(&s.config.Watchdog)
-	storagesFactory := storages.NewStoragesFactory(transportMatcher, syncSender, consistencyWatchdog, recordFactory)
+	consistencyWatchdog, err := watchdog.CreateSQL("postgres",
+		postgresConnStringFormat,
+		[]string{"user", "password", "dbname", "host", "port", "conntimeout"},
+		&s.config.Watchdog)
+
+	if err != nil {
+		log.Fatalf("Failed to create watchdog %s", err)
+	}
+
+	watchdogRecordFactory := &watchdog.DefaultConsistencyRecordFactory{}
+
+	storagesFactory := storages.NewStoragesFactory(transportMatcher, syncSender, consistencyWatchdog, watchdogRecordFactory)
 
 	if consistencyWatchdog == nil {
 		log.Printf("Not using ConsistencyWatchdog as no watchdog is defined")
@@ -172,26 +182,6 @@ func (s *service) start() error {
 	}
 
 	return srv.Serve(listener)
-}
-func createWatchdog(watchdogConfig *watchdog.Config) (watchdog.ConsistencyWatchdog, watchdog.ConsistencyRecordFactory) {
-	factories := []watchdog.ConsistencyWatchdogFactory {
-		watchdog.CreateSQLWatchdogFactory(
-			"postgres",
-					postgresConnStringFormat,
-					[]string{"user", "password", "dbname", "host", "port", "conntimeout"}),
-	}
-	var wd watchdog.ConsistencyWatchdog
-	var recordFactory watchdog.ConsistencyRecordFactory
-	for _, factory := range factories {
-		w, err := factory.CreateWatchdogInstance(watchdogConfig)
-		if err != nil {
-			log.Printf(err.Error())
-			continue
-		}
-		wd = w
-		recordFactory = &watchdog.DefaultConsistencyRecordFactory{}
-	}
-	return wd, recordFactory
 }
 
 func newService(cfg config.Config) *service {

@@ -7,7 +7,6 @@ import (
 )
 
 var emptyBackendResponse = BackendResponse{}
-
 // BasePicker contains common methods of pickers
 type BasePicker struct {
 	responsesChan <-chan BackendResponse
@@ -173,7 +172,6 @@ func pullResponses(drp *baseDeleteResponsePicker, out chan<- BackendResponse) {
 
 func pullResponsesWatchdog(drp *baseDeleteResponsePicker, out chan<- BackendResponse) {
 	shouldSend := false
-	emptyResponse := BackendResponse{}
 	for bresp := range drp.responsesChan {
 		success := bresp.IsSuccessful()
 		if success {
@@ -181,16 +179,16 @@ func pullResponsesWatchdog(drp *baseDeleteResponsePicker, out chan<- BackendResp
 
 		} else {
 			drp.collectFailureResponse(bresp)
-			if drp.failure == emptyResponse {
+			if drp.failure == emptyBackendResponse {
 				drp.failure = bresp
 			}
 		}
-		if shouldSend && drp.success == emptyResponse {
+		if shouldSend && drp.success == emptyBackendResponse {
 			drp.success = bresp
 			drp.send(out, bresp)
 		}
 	}
-	if drp.success == emptyResponse {
+	if drp.success == emptyBackendResponse {
 		drp.send(out, drp.failure)
 	}
 	close(out)

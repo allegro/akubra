@@ -42,7 +42,7 @@ func NewRequestDispatcher(backends []*backend.Backend, syncLog *SyncSender,
 
 // Dispatch creates and calls replicators and response pickers
 func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, error) {
-	storageRequest := &Request{request, nil, nil}
+	storageRequest := &Request{Request: request}
 	if rd.shouldUseConsistencyWatchdog(request) {
 		recordedRequest, err := rd.createAndInsertRecordFor(request)
 		if err != nil {
@@ -72,9 +72,9 @@ func (rd *RequestDispatcher) createAndInsertRecordFor(request *http.Request) (*R
 		return nil, err
 	}
 	return &Request{
-		request,
-		record,
-		deleteMarker,
+		Request: request,
+		record: record,
+		marker: deleteMarker,
 	}, nil
 }
 func (rd *RequestDispatcher) shouldUseConsistencyWatchdog(request *http.Request) bool {
