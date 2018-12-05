@@ -124,22 +124,15 @@ func (s *service) start() error {
 
 	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
 	syncSender := &storages.SyncSender{SyncLog: syncLog, AllowedMethods: methods}
-	consistencyWatchdog, err := watchdog.CreateSQL("postgres",
-		postgresConnStringFormat,
-		[]string{"user", "password", "dbname", "host", "port", "conntimeout"},
-		&s.config.Watchdog)
-
-	if err != nil {
-		log.Fatalf("Failed to create watchdog %s", err)
-	}
 
 	watchdogRecordFactory := &watchdog.DefaultConsistencyRecordFactory{}
-
-	storagesFactory := storages.NewStoragesFactory(transportMatcher, syncSender, consistencyWatchdog, watchdogRecordFactory)
+	consistencyWatchdog := setupWatchdog(s.config.Watchdog)
 
 	if consistencyWatchdog == nil {
-		log.Printf("Not using ConsistencyWatchdog as no watchdog is defined")
+		log.Printf("Not using consisntency watchdog")
 	}
+
+	storagesFactory := storages.NewStoragesFactory(transportMatcher, syncSender, consistencyWatchdog, watchdogRecordFactory)
 
 	storage, err := storagesFactory.InitStorages(s.config.Shards, s.config.Storages)
 
@@ -182,6 +175,23 @@ func (s *service) start() error {
 	}
 
 	return srv.Serve(listener)
+}
+
+func setupWatchdog(watchdogConfig watchdog.Config) (watchdog.ConsistencyWatchdog) {
+	if watchdogConfig.Type == "" {
+		return nil
+	}
+
+	consistencyWatchdog, err := watchdog.CreateSQL("postgres",
+		postgresConnStringFormat,
+		[]string{"user", "password", "dbname", "host", "port", "conntimeout"},
+		&watchdogConfig)
+
+	if err != nil {
+		log.Fatalf("Failed to create consistencyWatchdog %s", err)
+	}
+
+	return consistencyWatchdog
 }
 
 func newService(cfg config.Config) *service {
