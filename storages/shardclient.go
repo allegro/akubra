@@ -1,7 +1,6 @@
 package storages
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
@@ -41,8 +40,7 @@ func (c *ShardClient) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	}
 	log.Debugf("Request %s processed by dispatcher", reqID)
-	clusterNameContext := context.WithValue(req.Context(), watchdog.ClusterName, c.name)
-	return c.requestDispatcher.Dispatch(req.WithContext(clusterNameContext))
+	return c.requestDispatcher.Dispatch(req)
 }
 
 func (c *ShardClient) balancerRoundTrip(req *http.Request) (resp *http.Response, err error) {
@@ -65,7 +63,7 @@ func (c *ShardClient) balancerRoundTrip(req *http.Request) (resp *http.Response,
 	return resp, err
 }
 
-// Name get Cluster name
+// Name get Domain name
 func (c *ShardClient) Name() string {
 	return c.name
 }

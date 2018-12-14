@@ -3,7 +3,10 @@ package storages
 import (
 	"context"
 	"errors"
+	"io"
+	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/allegro/akubra/log"
@@ -62,7 +65,7 @@ func TestRequestDispatcherPicks(t *testing.T) {
 		replicatorFac := dispatcher.pickClientFactory(request)
 		require.NotNil(t, replicatorFac)
 		replicator := replicatorFac(nil, nil)
-		pickerFac := dispatcher.pickResponsePickerFactory(&Request{request, nil, nil})
+		pickerFac := dispatcher.pickResponsePickerFactory(&Request{Request: request})
 		require.NotNil(t, pickerFac)
 		pic := pickerFac(nil)
 		require.True(t, tc.expectedReplicator(replicator))
@@ -82,7 +85,7 @@ func TestRequestDispatcherDispatch(t *testing.T) {
 	response := &http.Response{}
 	go func() { respChan <- BackendResponse{Response: response, Error: nil} }()
 	require.NotNil(t, clientMock)
-	clientMock.On("Do", &Request{request, nil, nil}).Return(respChan)
+	clientMock.On("Do", &Request{Request: request}).Return(respChan)
 	respPickerMock.On("Pick").Return(response, nil)
 	dispatcher.Dispatch(request)
 	clientMock.AssertExpectations(t)
@@ -92,21 +95,26 @@ func TestRequestDispatcherDispatch(t *testing.T) {
 
 func TestAddingConsistencyRecords(t *testing.T) {
 	var requestScenarios = [] struct {
-		method                 string
-		url                    string
-		backends               []*backend.Backend
+		method                  string
+		url                     string
+		backends                []*backend.Backend
 		shouldTryToInsertRecord bool
-		shouldInsertFail       bool
+		shouldInsertFail        bool
+		multiPartUploadId       string
+		respBody                io.ReadCloser
 	}{
-		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{}, false, false},
-		{"GET", "http://random.domain/bucket/object", []*backend.Backend{{}}, false, false},
-		{"GET", "http://random.domain/bucket", []*backend.Backend{{}}, false, false},
-		{"PUT", "http://random.domain/bucket", []*backend.Backend{{}}, false, false},
-		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{{}, {}}, true, false},
-		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{{}, {}}, true, true},
+		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{}, false, false, "", nil},
+		{"GET", "http://random.domain/bucket/object", []*backend.Backend{{}}, false, false, "", nil},
+		{"GET", "http://random.domain/bucket", []*backend.Backend{{}}, false, false, "", nil},
+		{"PUT", "http://random.domain/bucket", []*backend.Backend{{}}, false, false, "", nil},
+		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{{}, {}}, true, false, "", nil},
+		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{{}, {}}, true, true, "", nil},
+		{"POST", "http://random.domain/bucket/object?uploads", []*backend.Backend{{}, {}}, true, false, "123", ioutil.NopCloser(strings.NewReader(initiateMultiPartResp))},
+		{"POST", "http://random.domain/bucket/object?uploads", []*backend.Backend{{}, {}}, true, true, "123", ioutil.NopCloser(strings.NewReader(initiateMultiPartResp))},
 	}
 
 	for _, requestScenario := range requestScenarios {
+		isMultiPart := strings.Contains(requestScenario.url, "?uploads")
 		dispatcher, clientMock, respPickerMock, watchdogMock, watchdogRecordFactory := prepareTest(requestScenario.backends)
 
 		request, err := http.NewRequest(requestScenario.method, requestScenario.url, nil)
@@ -117,22 +125,38 @@ func TestAddingConsistencyRecords(t *testing.T) {
 		reqWithContext := supplyRequestWithIDAndClusterName(request)
 		record := &watchdog.ConsistencyRecord{}
 		watchdogRecordFactory.On("CreateRecordFor", reqWithContext).Return(record, nil)
-
 		respChan := make(chan BackendResponse)
 		response := &http.Response{}
+		response.Body = requestScenario.respBody
+
 		go func() { respChan <- BackendResponse{Response: response, Error: nil} }()
 		require.NotNil(t, clientMock)
 
 		if requestScenario.shouldTryToInsertRecord {
 			if requestScenario.shouldInsertFail {
-				watchdogMock.On("Insert", record).Return(nil, errors.New("db error"))
+				if isMultiPart {
+					watchdogMock.On("SupplyRecordWithVersion", record).Return(errors.New("db error"))
+				} else {
+					watchdogMock.On("Insert", record).Return(nil, errors.New("db error"))
+				}
 			} else {
+				storageRequest := &Request{Request: reqWithContext, record: record}
 				marker := &watchdog.DeleteMarker{}
-				watchdogMock.On("Insert", record).Return(marker, nil)
-				clientMock.On("Do", &Request{reqWithContext, record, marker}).Return(respChan)
+
+				if isMultiPart {
+					storageRequest.isInitiateMultipartUploadRequest = true
+					storageRequest.isMultiPartUploadRequest = true
+					watchdogMock.On("SupplyRecordWithVersion", record).Return(nil)
+					watchdogMock.On("InsertWithRequestID", requestScenario.multiPartUploadId, record).Return(marker, nil)
+
+				} else {
+					storageRequest.marker = marker
+					watchdogMock.On("Insert", record).Return(marker, nil)
+				}
+				clientMock.On("Do", storageRequest).Return(respChan)
 			}
 		} else {
-			clientMock.On("Do", &Request{reqWithContext, nil, nil}).Return(respChan)
+			clientMock.On("Do", &Request{Request: reqWithContext}).Return(respChan)
 		}
 
 		if !requestScenario.shouldInsertFail {
@@ -143,21 +167,36 @@ func TestAddingConsistencyRecords(t *testing.T) {
 		clientMock.AssertExpectations(t)
 		respPickerMock.AssertExpectations(t)
 
-		if !requestScenario.shouldInsertFail {
-			respPickerMock.AssertNotCalled(t, "Pick", response)
-		}
-
 		if requestScenario.shouldTryToInsertRecord {
-			watchdogMock.AssertCalled(t, "Insert", record)
+
+			if !isMultiPart {
+				watchdogMock.AssertCalled(t, "Insert", record)
+			}
+			if requestScenario.shouldInsertFail {
+				respPickerMock.AssertNotCalled(t, "Pick", response)
+				if isMultiPart && requestScenario.multiPartUploadId != "" {
+					watchdogMock.AssertCalled(t, "SupplyRecordWithVersion" , record)
+					watchdogMock.AssertNotCalled(t, "InsertWithRequestID", requestScenario.multiPartUploadId, record)
+				}
+			} else {
+				if isMultiPart && requestScenario.multiPartUploadId != "" {
+					watchdogMock.AssertCalled(t, "InsertWithRequestID", requestScenario.multiPartUploadId, record)
+				}
+			}
+
 		} else {
+
 			watchdogMock.AssertNotCalled(t, "Insert", record)
+			watchdogMock.AssertNotCalled(t, "InsertWithRequestID", requestScenario.multiPartUploadId, record)
+			respPickerMock.AssertNotCalled(t, "Pick", response)
+
 		}
 	}
 }
 
 func supplyRequestWithIDAndClusterName(request *http.Request) *http.Request {
 	recordedReqContext := context.WithValue(request.Context(), log.ContextreqIDKey, "testID")
-	recordedReqContext = context.WithValue(recordedReqContext, watchdog.ClusterName, "testCluster")
+	recordedReqContext = context.WithValue(recordedReqContext, watchdog.Domain, "testCluster")
 	return request.WithContext(recordedReqContext)
 }
 
@@ -235,13 +274,29 @@ func (wm *WatchdogMock) Insert(record *watchdog.ConsistencyRecord) (*watchdog.De
 	return deleteMarker, err
 }
 
+func (wm *WatchdogMock) InsertWithRequestID(requestID string, record *watchdog.ConsistencyRecord) (*watchdog.DeleteMarker, error) {
+	args := wm.Called(requestID, record)
+	arg0 := args.Get(0)
+	var deleteMarker *watchdog.DeleteMarker
+	if arg0 != nil {
+		deleteMarker = arg0.(*watchdog.DeleteMarker)
+	}
+	err := args.Error(1)
+	return deleteMarker, err
+}
+
 func (wm *WatchdogMock) Delete(marker *watchdog.DeleteMarker) error {
 	args := wm.Called(marker)
 	return args.Error(0)
 }
 
-func (wm *WatchdogMock) UpdateExecutionTime(delta *watchdog.ExecutionTimeDelta) error {
+func (wm *WatchdogMock) UpdateExecutionDelay(delta *watchdog.ExecutionDelay) error {
 	args := wm.Called(delta)
+	return args.Error(0)
+}
+
+func (wm *WatchdogMock) SupplyRecordWithVersion(record *watchdog.ConsistencyRecord) (error) {
+	args := wm.Called(record)
 	return args.Error(0)
 }
 
@@ -255,3 +310,9 @@ func (fm *ConsistencyRecordFactoryMock) CreateRecordFor(request *http.Request) (
 	err := args.Error(1)
 	return record, err
 }
+
+const initiateMultiPartResp = "<InitiateMultipartUploadResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
+	"<Bucket>example-bucket</Bucket>" +
+	"<Key>example-object</Key>" +
+	"<UploadId>123</UploadId>" +
+	"</InitiateMultipartUploadResult>"

@@ -8,8 +8,9 @@ type watchdogProps = map[string]string
 
 // Config is watchdog type
 type Config struct {
-	Type  string        `yaml:"Type"`
-	Props watchdogProps `yaml:"Props"`
+	ObjectVersionHeaderName string        `yaml:"ObjectVersionHeaderName"`
+	Type                    string        `yaml:"Type"`
+	Props                   watchdogProps `yaml:"Props"`
 }
 
 // ConsistencyWatchdogFactory creates ConsistencyWatchdogs

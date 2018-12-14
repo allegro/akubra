@@ -2,11 +2,13 @@ package regions
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"net"
 	"net/http"
 
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/watchdog"
 
 	"github.com/allegro/akubra/regions/config"
 	"github.com/allegro/akubra/sharding"
@@ -42,6 +44,10 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		reqHost = req.Host
 	}
+
+	contextWithDomain := context.WithValue(req.Context(), watchdog.Domain, reqHost)
+	req = req.WithContext(contextWithDomain)
+
 	shardsRing, ok := rg.multiCluters[reqHost]
 	if ok {
 		return shardsRing.DoRequest(req)

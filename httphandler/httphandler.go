@@ -48,7 +48,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	randomIDContext := context.WithValue(req.Context(), log.ContextreqIDKey, randomIDStr)
 	log.Debugf("Request id %s", randomIDStr)
-
+	
 	resp, err := h.roundTripper.RoundTrip(req.WithContext(randomIDContext))
 
 	if err != nil || resp == nil {
@@ -104,6 +104,7 @@ func DecorateRoundTripper(conf config.Client, accesslog log.Logger, healthCheckE
 		AccessLogging(accesslog),
 		OptionsHandler,
 		HealthCheckHandler(healthCheckEndpoint),
+		ResponseHeadersStripper(conf.ResponseHeadersToStrip),
 	)
 }
 

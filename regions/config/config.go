@@ -16,5 +16,5 @@ type Policies struct {
 	Default bool `yaml:"Default"`
 }
 
-// ShardingPolicies maps name with Region definition
+// ShardingPolicies maps name with Domain definition
 type ShardingPolicies map[string]Policies

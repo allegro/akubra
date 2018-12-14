@@ -1,6 +1,7 @@
 package storages
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -42,50 +43,62 @@ func NewRequestDispatcher(backends []*backend.Backend, syncLog *SyncSender,
 
 // Dispatch creates and calls replicators and response pickers
 func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, error) {
-	storageRequest := &Request{Request: request}
-	if rd.shouldUseConsistencyWatchdog(request) {
-		recordedRequest, err := rd.createAndInsertRecordFor(request)
+	storageRequest := &Request{
+		Request: request,
+		isMultiPartUploadRequest: utils.IsMultiPartUploadRequest(request),
+		isInitiateMultipartUploadRequest: utils.IsInitiateMultiPartUploadRequest(request),
+	}
+
+	if rd.shouldUseConsistencyWatchdogFor(storageRequest) {
+
+		consistencyRecord, err := rd.watchdogRecordFactory.CreateRecordFor(request)
 		if err != nil {
 			return nil, err
 		}
-		storageRequest.record = recordedRequest.record
-		storageRequest.marker = recordedRequest.marker
+		storageRequest.record = consistencyRecord
+
+		if storageRequest.isInitiateMultipartUploadRequest {
+			err = rd.watchdog.SupplyRecordWithVersion(consistencyRecord)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			deleteMarker, err := rd.watchdog.Insert(consistencyRecord)
+			if err != nil {
+				return nil, err
+			}
+			storageRequest.marker = deleteMarker
+		}
 	}
+
 	clientFactory := rd.pickClientFactory(request)
 	cli := clientFactory(rd.Backends, rd.watchdog)
 	respChan := cli.Do(storageRequest)
 	pickerFactory := rd.pickResponsePickerFactory(storageRequest)
 	pickr := pickerFactory(respChan)
 	go pickr.SendSyncLog(rd.syncLog)
-	return pickr.Pick()
-}
-func (rd *RequestDispatcher) createAndInsertRecordFor(request *http.Request) (*Request, error) {
-	record, err := rd.watchdogRecordFactory.CreateRecordFor(request)
+	resp, err := pickr.Pick()
 	if err != nil {
 		return nil, err
 	}
-	if isInitiateMultiPartUploadRequest(request) {
-		record.ExecutionDate = record.ExecutionDate.Add(oneWeek).Add(time.Minute * 10)
+	if storageRequest.record != nil && storageRequest.isInitiateMultipartUploadRequest {
+		multiPartUploadID, err := utils.ExtractMultiPartUploadIDFrom(resp)
+		if err != nil {
+			return nil, fmt.Errorf("failed on extracting multipart upload ID from response: %s", err)
+		}
+		_, err = rd.watchdog.InsertWithRequestID(multiPartUploadID, storageRequest.record)
+		if err != nil {
+			return nil, err
+		}
 	}
-	deleteMarker, err := rd.watchdog.Insert(record)
-	if err != nil {
-		return nil, err
-	}
-	return &Request{
-		Request: request,
-		record: record,
-		marker: deleteMarker,
-	}, nil
+	return resp, nil
 }
-func (rd *RequestDispatcher) shouldUseConsistencyWatchdog(request *http.Request) bool {
-	isMultiPartRequest := isMultiPartUploadRequest(request)
-	isInitiateMultiPart := isInitiateMultiPartUploadRequest(request)
-
+func (rd *RequestDispatcher) shouldUseConsistencyWatchdogFor(request *Request) bool {
 	consistencyCondition := rd.watchdog != nil && len(rd.Backends) > 1
 
-	methodCondition := (http.MethodPut == request.Method && !isMultiPartRequest) ||
-						http.MethodDelete == request.Method ||
-						(http.MethodPost == request.Method && isInitiateMultiPart)
+	methodCondition := (http.MethodPut == request.Method && !request.isMultiPartUploadRequest) ||
+		http.MethodDelete == request.Method ||
+		(http.MethodPost == request.Method && request.isInitiateMultipartUploadRequest)
 
 	pathCondition := !utils.IsBucketPath(request.URL.Path)
 
@@ -100,8 +113,10 @@ type responsePicker interface {
 // Request encapsulates the http requests along with the watchdog-data
 type Request struct {
 	*http.Request
-	record *watchdog.ConsistencyRecord
-	marker *watchdog.DeleteMarker
+	record                           *watchdog.ConsistencyRecord
+	marker                           *watchdog.DeleteMarker
+	isMultiPartUploadRequest         bool
+	isInitiateMultipartUploadRequest bool
 }
 
 type client interface {
@@ -110,7 +125,7 @@ type client interface {
 }
 
 var defaultReplicationClientFactory = func(request *http.Request) func([]*backend.Backend, watchdog.ConsistencyWatchdog) client {
-	if isMultiPartUploadRequest(request) {
+	if utils.IsMultiPartUploadRequest(request) {
 		return newMultiPartRoundTripper
 	}
 	return newReplicationClient

@@ -28,7 +28,7 @@ func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenBackendRingIsEmpty(t
 		nil,
 	}
 
-	respChan := multiPartRoundTripper.Do(&Request{multiPartUploadRequest, nil, nil})
+	respChan := multiPartRoundTripper.Do(&Request{Request: multiPartUploadRequest})
 	for resp := range respChan {
 		assert.Error(testSuite, resp.Error, "can't handle multi upload")
 	}
@@ -49,7 +49,7 @@ func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenAllBackendsAreInMain
 		nil,
 	}
 
-	respChan := multiPartRoundTripper.Do(&Request{multiPartUploadRequest, nil, nil})
+	respChan := multiPartRoundTripper.Do(&Request{Request: multiPartUploadRequest})
 	for resp := range respChan {
 		assert.Error(testSuite, resp.Error, "can't handle multi upload")
 	}
@@ -102,12 +102,12 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 	activeBackendRoundTripper1.On("RoundTrip", initiateMultiPartUploadRequest).Return(responseForInitiate, nil)
 	activeBackendRoundTripper1.On("RoundTrip", uploadPartRequest).Return(responseForPartUpload, nil)
 
-	rChan1 := multiPartRoundTripper.Do(&Request{initiateMultiPartUploadRequest, nil, nil})
+	rChan1 := multiPartRoundTripper.Do(&Request{Request: initiateMultiPartUploadRequest})
 	for bresp := range rChan1 {
 		assert.Equal(testSuite, bresp.Response, responseForInitiate)
 		assert.NoError(testSuite, bresp.Error)
 	}
-	rChan2 := multiPartRoundTripper.Do(&Request{uploadPartRequest, nil, nil})
+	rChan2 := multiPartRoundTripper.Do(&Request{Request: uploadPartRequest})
 	for bresp := range rChan2 {
 		assert.Equal(testSuite, bresp.Response, responseForPartUpload)
 		assert.NoError(testSuite, bresp.Error)
@@ -125,8 +125,8 @@ func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorWhenStatusCodeI
 	testMultipartFlow(500, "<Error>Nope</Error>", nil, nil, nil, nil, testSuite)
 }
 
-func TestShouldUpdateExecutionTimeOfTheConsistencyRecordIfMultiPartWasSuccessful(t *testing.T) {
-	testMultipartFlow(200, successfulMultipartResponse, &watchdog.ConsistencyRecord{}, &watchdog.ExecutionTimeDelta{ClusterName: "testCluster", ObjectID: "someBucket/someObject", Delta: -604800}, &watchdog.DeleteMarker{}, &WatchdogMock{&mock.Mock{}}, t)
+func TestShouldUpdateExecutionDelayOfTheConsistencyRecordIfMultiPartWasSuccessful(t *testing.T) {
+	testMultipartFlow(200, successfulMultipartResponse, &watchdog.ConsistencyRecord{}, &watchdog.ExecutionDelay{RequestID: "321", Delay: 300000000000}, &watchdog.DeleteMarker{}, &WatchdogMock{&mock.Mock{}}, t)
 }
 
 func TestShouldNotUpdateExecutionTimeIfWatchdogIsNotDefined(t *testing.T) {
@@ -134,12 +134,12 @@ func TestShouldNotUpdateExecutionTimeIfWatchdogIsNotDefined(t *testing.T) {
 }
 
 func testMultipartFlow(statusCode int, xmlResponse string,
-	record *watchdog.ConsistencyRecord, delta *watchdog.ExecutionTimeDelta, marker *watchdog.DeleteMarker,
+	record *watchdog.ConsistencyRecord, delta *watchdog.ExecutionDelay, marker *watchdog.DeleteMarker,
 	watchdogMock *WatchdogMock, testSuite *testing.T) {
 
 	completeUploadRequestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321")
 	completeUploadRequest := &http.Request{URL: completeUploadRequestURL}
-	completeUploadRequest = completeUploadRequest.WithContext(context.WithValue(completeUploadRequest.Context(), watchdog.ClusterName, "testCluster"))
+	completeUploadRequest = completeUploadRequest.WithContext(context.WithValue(completeUploadRequest.Context(), watchdog.Domain, "321"))
 
 	responseForComplete := &http.Response{Request: completeUploadRequest}
 	XMLResponse := xmlResponse
@@ -182,12 +182,12 @@ func testMultipartFlow(statusCode int, xmlResponse string,
 
 	if watchdogMock != nil && delta != nil {
 		multiPartRoundTripper.watchdog = watchdogMock
-		watchdogMock.On("UpdateExecutionTime", delta).Return(nil)
+		watchdogMock.On("UpdateExecutionDelay", delta).Return(nil)
 	}
 
 	activeBackendRoundTripper1.On("RoundTrip", completeUploadRequest).Return(responseForComplete, nil)
 
-	rChan := multiPartRoundTripper.Do(&Request{completeUploadRequest, record, marker})
+	rChan := multiPartRoundTripper.Do(&Request{Request: completeUploadRequest, record: record, marker: marker})
 	for bresp := range rChan {
 		if bresp.Response == nil {
 			continue
@@ -196,7 +196,7 @@ func testMultipartFlow(statusCode int, xmlResponse string,
 	}
 
 	if watchdogMock != nil {
-		watchdogMock.AssertCalled(testSuite, "UpdateExecutionTime", delta)
+		watchdogMock.AssertCalled(testSuite, "UpdateExecutionDelay", delta)
 	}
 
 	activeBackendRoundTripper1.AssertNumberOfCalls(testSuite, "RoundTrip", 1)

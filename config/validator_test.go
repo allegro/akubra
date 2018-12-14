@@ -460,10 +460,35 @@ func TestShouldPassWhenNoWatchdogIsDefined(t *testing.T) {
 	assert.True(t, valid)
 }
 
+func TestShouldNotPassWhenWatchdogIsDefinedAndObjectVersionHeaderNameIsNotDefined(t *testing.T) {
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	watchdogConfig := watchdog.Config{Type: "sql", Props: map[string]string{}}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, watchdogConfig)
+	valid, errList := yamlConfig.WatchdogEntryLogicalValidator()
+	assert.Contains(t, errList["WatchdogEntryLogicalValidator"], errors.New("ObjectVersionHeaderName can't be empty if watcher is defined"))
+	assert.False(t, valid)
+}
+
+func TestShouldNotPassWhenWatchdogIsDefinedAndObjectVersionHeaderNameHasWrongFormat(t *testing.T) {
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	watchdogConfig := watchdog.Config{Type: "sql", ObjectVersionHeaderName: "SomeBadFormat",  Props: map[string]string{}}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, watchdogConfig)
+	valid, errList := yamlConfig.WatchdogEntryLogicalValidator()
+	assert.Contains(t, errList["WatchdogEntryLogicalValidator"], errors.New("ObjectVersionHeaderName has to start with 'x-amz-meta'"))
+	assert.False(t, valid)
+}
+
 func TestShouldFailWhenWatchdogConfigDoesNotHaveAllOfTheFieldsProvided(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	watchdogConfig := watchdog.Config{Type: "sql", Props: map[string]string{
+	watchdogConfig := watchdog.Config{
+		Type: "sql",
+		ObjectVersionHeaderName: "x-amz-meta-akubra",
+		Props: map[string]string{
 		"dialect": "postgres",
 		"user": "brim",
 		"password": "brim",

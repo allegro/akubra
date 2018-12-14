@@ -1,11 +1,16 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/xml"
+	"errors"
+	"io/ioutil"
 	"net/http"
 	"strings"
 
 	"github.com/allegro/akubra/log"
 	auth2 "github.com/allegro/akubra/storages/auth"
+	"github.com/allegro/akubra/types"
 )
 
 // BackendError interface helps logging inconsistencies
@@ -62,4 +67,44 @@ func IsBucketPath(path string) bool {
 		return false
 	}
 	return len(strings.Split(trimmedPath, "/")) == 1
+}
+
+//IsMultiPartUploadRequest checks if a request is a multipart upload request
+func IsMultiPartUploadRequest(request *http.Request) bool {
+	return IsInitiateMultiPartUploadRequest(request) || containsUploadID(request)
+}
+
+//IsInitiateMultiPartUploadRequest checks if a request is an initiate multipart upload request
+func IsInitiateMultiPartUploadRequest(request *http.Request) bool {
+	reqQuery := request.URL.Query()
+	_, has := reqQuery["uploads"]
+	return has
+}
+
+func containsUploadID(request *http.Request) bool {
+	reqQuery := request.URL.Query()
+	_, has := reqQuery["uploadId"]
+	return has
+}
+
+func ExtractMultiPartUploadIDFrom(response *http.Response) (string, error) {
+	responseBodyBytes, bodyReadError := ioutil.ReadAll(response.Body)
+	if bodyReadError != nil {
+		return "", bodyReadError
+	}
+	err := response.Body.Close()
+	if err != nil {
+		return "", nil
+	}
+	response.Body = ioutil.NopCloser(bytes.NewBuffer(responseBodyBytes))
+
+	var initiateMultipartUploadResult types.InitiateMultipartUploadResult
+	err = xml.Unmarshal(responseBodyBytes, &initiateMultipartUploadResult)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(initiateMultipartUploadResult.UploadId) == "" {
+		return "", errors.New("upload ID was empty")
+	}
+	return initiateMultipartUploadResult.UploadId, nil
 }

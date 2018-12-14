@@ -49,7 +49,7 @@ var (
 )
 
 const (
-	postgresConnStringFormat = "dbname=:dbname: user=:user: password=:password: host=:host: port=:port: connect_timeout=:conntimeout:"
+	postgresConnStringFormat = "sslmode=disable dbname=:dbname: user=:user: password=:password: host=:host: port=:port: connect_timeout=:conntimeout:"
 )
 
 func main() {
@@ -129,7 +129,7 @@ func (s *service) start() error {
 	consistencyWatchdog := setupWatchdog(s.config.Watchdog)
 
 	if consistencyWatchdog == nil {
-		log.Printf("Not using consisntency watchdog")
+		log.Printf("Not using consistency watchdog")
 	}
 
 	storagesFactory := storages.NewStoragesFactory(transportMatcher, syncSender, consistencyWatchdog, watchdogRecordFactory)

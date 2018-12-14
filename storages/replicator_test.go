@@ -36,7 +36,7 @@ func TestReplicationClientRequestPassing(t *testing.T) {
 	require.NotNil(t, cli)
 
 	request := dummyRequest()
-	responses := cli.Do(&Request{request, nil, nil})
+	responses := cli.Do(&Request{Request: request})
 
 	responsesCount := 0
 	for range responses {
@@ -84,7 +84,7 @@ func TestWatchdogIntegration(t *testing.T) {
 		}
 
 		cli := newReplicationClient(backends, watchdogMock)
-		respChan := cli.Do(&Request{request, record, deleteMarker})
+		respChan := cli.Do(&Request{Request: request, record: record, marker: deleteMarker})
 
 		for range respChan {
 		}
@@ -108,7 +108,7 @@ func createRequest(t *testing.T, method string, reqURL string, clusterName strin
 	}
 	req.Header = http.Header{}
 	req.Header.Add("Authorization", authHeaderV4)
-	req = req.WithContext(context.WithValue(context.Background(), watchdog.ClusterName, clusterName))
+	req = req.WithContext(context.WithValue(context.Background(), watchdog.Domain, clusterName))
 	return req.WithContext(context.WithValue(req.Context(), log.ContextreqIDKey, reqID))
 }
 
@@ -147,7 +147,7 @@ func TestReplicationClientCancelRequest(t *testing.T) {
 	cli := newReplicationClient(backends, nil)
 	request := dummyRequest()
 
-	responses := cli.Do(&Request{request, nil, nil})
+	responses := cli.Do(&Request{Request: request})
 
 	cancelCount := 0
 	for resp := range responses {

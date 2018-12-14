@@ -13,8 +13,9 @@ import (
 
 const (
 	fiveMinutes = time.Minute * 5
-	// ClusterName is a constant used to put/get cluster's name from request's context
-	ClusterName = log.ContextKey("Cluster-Name")
+	oneWeek = time.Hour * 24 * 7
+	// Domain is a constant used to put/get domain's name from request's context
+	Domain = log.ContextKey("Domain")
 )
 
 const (
@@ -24,16 +25,17 @@ const (
 	DELETE Method = "DELETE"
 )
 
-// ConsistencyRecord describes the state of an object in cluster
+// ConsistencyRecord describes the state of an object in domain
 type ConsistencyRecord struct {
 	sync.Mutex
 
-	objectID      string
-	method        Method
-	cluster       string
-	accessKey     string
-	requestID     string
-	ExecutionDate time.Time
+	RequestID      string
+	ExecutionDelay time.Duration
+	objectID       string
+	method         Method
+	domain         string
+	accessKey      string
+	objectVersion  string
 
 	isReflectedOnBackends bool
 }
@@ -41,22 +43,23 @@ type ConsistencyRecord struct {
 // DeleteMarker indicates which ConsistencyRecords for a given object can be deleted
 type DeleteMarker struct {
 	objectID      string
-	cluster       string
+	domain        string
 	insertionDate time.Time
 }
 
-//ExecutionTimeDelta tells how to change the execution time of a record
-type ExecutionTimeDelta struct {
-	ClusterName string
-	ObjectID    string
-	Delta       int64
+//ExecutionDelay tells how to change the execution time of a record
+type ExecutionDelay struct {
+	RequestID string
+	Delay     time.Duration
 }
 
 // ConsistencyWatchdog manages the ConsistencyRecords and DeleteMarkers
 type ConsistencyWatchdog interface {
 	Insert(record *ConsistencyRecord) (*DeleteMarker, error)
+	InsertWithRequestID(requestID string, record *ConsistencyRecord) (*DeleteMarker, error)
 	Delete(marker *DeleteMarker) error
-	UpdateExecutionTime(delta *ExecutionTimeDelta) error
+	UpdateExecutionDelay(delta *ExecutionDelay) error
+	SupplyRecordWithVersion(record *ConsistencyRecord) error
 }
 
 // ConsistencyRecordFactory creates records from http requests
@@ -92,8 +95,6 @@ func (factory *DefaultConsistencyRecordFactory) CreateRecordFor(request *http.Re
 		return nil, fmt.Errorf("unsupported method - %s", request.Method)
 	}
 
-	execDate := time.Now().Add(fiveMinutes)
-
 	bucket, key := utils.ExtractBucketAndKey(request.URL.Path)
 	if bucket == "" || key == "" {
 		return nil, errors.New("failed to extract bucket/key from path")
@@ -104,9 +105,9 @@ func (factory *DefaultConsistencyRecordFactory) CreateRecordFor(request *http.Re
 		return nil, errors.New("failed to extract access key")
 	}
 
-	clusterName, clusterNamePresent := request.Context().Value(ClusterName).(string)
-	if !clusterNamePresent {
-		return nil, errors.New("cluster name is not present in context")
+	domain, domainPresent := request.Context().Value(Domain).(string)
+	if !domainPresent {
+		return nil, errors.New("domain name is not present in context")
 	}
 
 	requestID, reqIDPresent := request.Context().Value(log.ContextreqIDKey).(string)
@@ -114,12 +115,17 @@ func (factory *DefaultConsistencyRecordFactory) CreateRecordFor(request *http.Re
 		return nil, errors.New("reqID name is not present in context")
 	}
 
+	executionDelay := fiveMinutes
+	if utils.IsMultiPartUploadRequest(request) {
+		executionDelay = oneWeek
+	}
+
 	return &ConsistencyRecord{
+		RequestID:             requestID,
+		ExecutionDelay:        executionDelay,
 		objectID:              fmt.Sprintf("%s/%s", bucket, key),
-		ExecutionDate:         execDate,
 		accessKey:             accessKey,
-		cluster:               clusterName,
-		requestID:             requestID,
+		domain:                domain,
 		isReflectedOnBackends: true,
 		method:                method,
 	}, nil

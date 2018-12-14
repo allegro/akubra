@@ -63,6 +63,8 @@ type Client struct {
 	Transports transport.Transports `yaml:"Transports,omitempty"`
 	// DialTimeout limits wait period for connection dial
 	DialTimeout metrics.Interval `yaml:"DialTimeout"`
+	//ResponseHeadersToStrip are HTTP headers that should be stripped before sending response to client
+	ResponseHeadersToStrip []string `yaml:"ResponseHeadersToStrip,omitempty"`
 }
 
 // HumanSizeUnits type for max. payload body size in bytes

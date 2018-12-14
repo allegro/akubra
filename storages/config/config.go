@@ -30,7 +30,7 @@ type Shard struct {
 	Storages Storages `yaml:"Storages"`
 }
 
-// ShardsMap is map of Cluster
+// ShardsMap is map of Domain
 type ShardsMap map[string]Shard
 
 // Storages is lists of storages

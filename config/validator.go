@@ -137,6 +137,16 @@ func (c YamlConfig) WatchdogEntryLogicalValidator() (valid bool, validationError
 	if c.Watchdog.Type == "" {
 		return true, validationErrors
 	}
+	if strings.TrimSpace(c.Watchdog.ObjectVersionHeaderName) == "" {
+		errList = append(errList, errors.New("ObjectVersionHeaderName can't be empty if watcher is defined"))
+		validationErrors, valid = prepareErrors(errList, "WatchdogEntryLogicalValidator")
+		return
+	}
+	if !strings.HasPrefix(c.Watchdog.ObjectVersionHeaderName, "x-amz-meta") {
+		errList = append(errList, errors.New("ObjectVersionHeaderName has to start with 'x-amz-meta'"))
+		validationErrors, valid = prepareErrors(errList, "WatchdogEntryLogicalValidator")
+		return
+	}
 	if _, watchdogSupported := supportedWatchdogs[strings.ToLower(c.Watchdog.Type)]; !watchdogSupported {
 		errMsg := fmt.Errorf("watchog of type '%s' is not supported", c.Watchdog.Type)
 		errList = append(errList, errMsg)

@@ -12,11 +12,12 @@ import (
 )
 
 const (
-	watchdogTable         = "consistency_record"
-	markersInsertedEalier = "cluster_name = ? AND object_id = ? AND inserted_at <= ?"
-	updateRecordExecutionTime = "UPDATE consistency_record " +
-								"SET execution_date = execution_date + (? ||' seconds')::interval, updated_at = NOW() " +
-								"WHERE request_id = (SELECT request_id FROM consistency_record WHERE cluster_name = ? AND object_id = ? ORDER BY inserted_at LIMIT 1)"
+	selectNow                        = "SELECT NOW()"
+	watchdogTable                    = "consistency_record"
+	markersInsertedEalier            = "domain = ? AND object_id = ? AND inserted_at <= ?"
+	updateRecordExecutionTimeByReqId = "UPDATE consistency_record " +
+		"SET execution_delay = ?" +
+		"WHERE request_id = ?"
 )
 
 // SQLWatchdogFactory creates instances of SQLWatchdog
@@ -28,7 +29,8 @@ type SQLWatchdogFactory struct {
 
 // SQLWatchdog is a type of ConsistencyWatchdog that uses a SQL database
 type SQLWatchdog struct {
-	dbConn *gorm.DB
+	dbConn                  *gorm.DB
+	objectVersionHeaderName string
 }
 
 // ErrDataBase indicates a database errors
@@ -36,16 +38,15 @@ var ErrDataBase = errors.New("database error")
 
 // SQLConsistencyRecord is a SQL representation of ConsistencyRecord
 type SQLConsistencyRecord struct {
-	InsertedAt    time.Time `gorm:"-"`
-	UpdatedAt     time.Time `gorm:"-"`
-	ObjectID      string    `gorm:"column:object_id"`
-	Method        string    `gorm:"column:method"`
-	Cluster       string    `gorm:"column:cluster_name"`
-	AccessKey     string    `gorm:"column:access_key"`
-	ExecutionDate time.Time `gorm:"column:execution_date"`
-	RequestID     string    `gorm:"column:request_id"`
+	InsertedAt     time.Time `gorm:"column:inserted_at;default:NOW()"`
+	UpdatedAt      time.Time `gorm:"column:updated_at"`
+	ObjectID       string    `gorm:"column:object_id"`
+	Method         string    `gorm:"column:method"`
+	Domain         string    `gorm:"column:domain"`
+	AccessKey      string    `gorm:"column:access_key"`
+	ExecutionDelay string    `gorm:"column:execution_delay"`
+	RequestID      string    `gorm:"column:request_id"`
 }
-
 
 // CreateSQLWatchdogFactory creates instances of SQLWatchdogFactory
 func CreateSQLWatchdogFactory(dialect, connStringFormat string, connStringArgsNames []string) ConsistencyWatchdogFactory {
@@ -93,7 +94,9 @@ func (factory *SQLWatchdogFactory) CreateWatchdogInstance(config *Config) (Consi
 
 	log.Printf("SQLWatchdog '%s' watcher setup successful", factory.dialect)
 
-	return &SQLWatchdog{dbConn: db}, nil
+	return &SQLWatchdog{
+		dbConn:                  db,
+		objectVersionHeaderName: config.ObjectVersionHeaderName}, nil
 }
 
 func (factory *SQLWatchdogFactory) createConnString(config *Config) (string, error) {
@@ -125,12 +128,17 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 	return createDeleteMarkerFor(insertedRecord), nil
 }
 
+func (watchdog *SQLWatchdog) InsertWithRequestID(requestID string, record *ConsistencyRecord) (*DeleteMarker, error) {
+	record.RequestID = requestID
+	return watchdog.Insert(record)
+}
+
 // Delete deletes from SQL db
 func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 	deleteResult := watchdog.
 		dbConn.
 		Table(watchdogTable).
-		Where(markersInsertedEalier, marker.cluster, marker.objectID, marker.insertionDate).
+		Where(markersInsertedEalier, marker.domain, marker.objectID, marker.insertionDate).
 		Delete(&ConsistencyRecord{})
 
 	if deleteResult.Error != nil {
@@ -138,39 +146,70 @@ func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 		return ErrDataBase
 	}
 
+	if deleteResult.RowsAffected < 1 {
+		return fmt.Errorf("no records for object '%s' older than %s were deleted", marker.objectID, marker.insertionDate)
+	}
+
 	log.Debugf("Successfully deleted records for object '%s' older than %s", marker.objectID, marker.insertionDate.Format(time.RFC3339))
 	return nil
 }
 
-// UpdateExecutionTime updates execution time of a record in SQL db
-func (watchdog *SQLWatchdog) UpdateExecutionTime(delta *ExecutionTimeDelta) error {
+// UpdateExecutionDelay updates execution time of a record in SQL db
+func (watchdog *SQLWatchdog) UpdateExecutionDelay(delta *ExecutionDelay) error {
 	updateErr := watchdog.
 		dbConn.
-		Exec(updateRecordExecutionTime, delta.Delta, delta.ClusterName, delta.ObjectID).
+		Exec(updateRecordExecutionTimeByReqId, fmt.Sprintf("%d minutes", uint64(delta.Delay.Minutes())), delta.RequestID).
 		Error
 
 	if updateErr != nil {
-		log.Printf("Failed to update record for obj '%s' on cluster '%s'", delta.ObjectID, delta.ClusterName)
+		log.Printf("Failed to update record for reqId '%s' on domain '%s'", delta.RequestID)
 	}
 
-	log.Debugf("Successfully updated record for obj '%s' on cluster '%s", delta.ObjectID, delta.ClusterName)
+	log.Debugf("Successfully updated record for reqId '%s' on domain '%s", delta.RequestID)
+	return nil
+}
+
+// SupplyRecordWithVersion queries database for NOW and sets it as object's version
+func (watchdog *SQLWatchdog) SupplyRecordWithVersion(record *ConsistencyRecord) error {
+	rows, err := watchdog.
+		dbConn.
+		Raw(selectNow).
+		Rows()
+
+	if err != nil {
+		log.Debugf("Failed to supply object with version: %s", err)
+		return ErrDataBase
+	}
+	if !rows.Next() {
+		log.Debugf("Empty response from database")
+		return ErrDataBase
+	}
+
+	var objectVersion time.Time
+
+	err = rows.Scan(&objectVersion)
+	if err != nil {
+		return err
+	}
+
+	record.objectVersion = objectVersion.String()
 	return nil
 }
 
 func createDeleteMarkerFor(record *SQLConsistencyRecord) *DeleteMarker {
 	return &DeleteMarker{
 		objectID:      record.ObjectID,
-		cluster:       record.Cluster,
+		domain:        record.Domain,
 		insertionDate: record.InsertedAt,
 	}
 }
 func createSQLRecord(record *ConsistencyRecord) *SQLConsistencyRecord {
 	return &SQLConsistencyRecord{
-		RequestID:     record.requestID,
-		ObjectID:      record.objectID,
-		Method:        string(record.method),
-		ExecutionDate: record.ExecutionDate,
-		AccessKey:     record.accessKey,
-		Cluster:       record.cluster,
+		RequestID:      record.RequestID,
+		ObjectID:       record.objectID,
+		Method:         string(record.method),
+		ExecutionDelay: fmt.Sprintf("%d minutes", uint64(record.ExecutionDelay.Minutes())),
+		AccessKey:      record.accessKey,
+		Domain:         record.domain,
 	}
 }

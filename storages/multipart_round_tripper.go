@@ -3,10 +3,10 @@ package storages
 import (
 	"bytes"
 	"encoding/xml"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"errors"
 
@@ -104,9 +104,9 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *Request) <-chan 
 		}()
 	}
 	go func() {
-		if !isInitiateMultiPartUploadRequest(request.Request) && isCompleteUploadResponseSuccessful(httpResponse) {
+		if !utils.IsInitiateMultiPartUploadRequest(request.Request) && isCompleteUploadResponseSuccessful(httpResponse) {
 			if multiPartRoundTripper.watchdog != nil {
-				multiPartRoundTripper.updateExecutionTime(request)
+				multiPartRoundTripper.updateExecutionDelay(request)
 			}
 			for _, backend := range multiPartRoundTripper.backendsRoundTrippers {
 				if backend != multiUploadBackend {
@@ -122,15 +122,12 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *Request) <-chan 
 }
 
 func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath string) (*backend.Backend, error) {
-
 	backendEndpoint, nodeFound := multiPartRoundTripper.backendsRing.GetNode(objectPath)
-
 	if !nodeFound {
 		return nil, errors.New("can't find backend for upload in multi upload ring")
 	}
 
 	backend, backendFound := multiPartRoundTripper.backendsRoundTrippers[backendEndpoint]
-
 	if !backendFound {
 		return nil, errors.New("can't find backend for upload in backendsRoundTripper")
 	}
@@ -141,49 +138,22 @@ func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath strin
 func (multiPartRoundTripper *MultiPartRoundTripper) canHandleMultiUpload() bool {
 	return len(multiPartRoundTripper.backendsRoundTrippers) > 0
 }
-func (multiPartRoundTripper *MultiPartRoundTripper) updateExecutionTime(request *Request) {
-	bucket, key := utils.ExtractBucketAndKey(request.URL.Path)
-	if bucket == "" || key == "" {
-		log.Printf("Failed to update multipart's execution time, reqId = %s, no reqId in context",
-			request.Context().Value(log.ContextreqIDKey))
-		return
-	}
-	clusterName, ok := request.Context().Value(watchdog.ClusterName).(string)
-	if !ok {
-		log.Printf("Failed to update multipart's execution time, reqId = %s, no cluster name in context",
-			request.Context().Value(log.ContextreqIDKey))
-		return
+func (multiPartRoundTripper *MultiPartRoundTripper) updateExecutionDelay(request *Request) {
+	reqQuery := request.URL.Query()
+	uploadID, _ := reqQuery["uploadId"]
+
+	delta := &watchdog.ExecutionDelay{
+		RequestID: uploadID[0],
+		Delay:     time.Minute * 5,
 	}
 
-	delta := &watchdog.ExecutionTimeDelta{
-		ObjectID:    fmt.Sprintf("%s/%s", bucket, key),
-		ClusterName: clusterName,
-		Delta:       -int64(oneWeek.Seconds()),
-	}
-
-	err := multiPartRoundTripper.watchdog.UpdateExecutionTime(delta)
+	err := multiPartRoundTripper.watchdog.UpdateExecutionDelay(delta)
 	if err != nil {
 		log.Printf("Failed to update multipart's execution time, reqId = %s, error: %s",
 			request.Context().Value(log.ContextreqIDKey), err)
 		return
 	}
 	log.Debugf("Updated execution time for req '%s'", request.Context().Value(log.ContextreqIDKey))
-}
-
-func isMultiPartUploadRequest(request *http.Request) bool {
-	return isInitiateMultiPartUploadRequest(request) || containsUploadID(request)
-}
-
-func isInitiateMultiPartUploadRequest(request *http.Request) bool {
-	reqQuery := request.URL.Query()
-	_, has := reqQuery["uploads"]
-	return has
-}
-
-func containsUploadID(request *http.Request) bool {
-	reqQuery := request.URL.Query()
-	_, has := reqQuery["uploadId"]
-	return has
 }
 
 func isCompleteUploadResponseSuccessful(response *http.Response) bool {
