@@ -164,10 +164,10 @@ func (watchdog *SQLWatchdog) UpdateExecutionDelay(delta *ExecutionDelay) error {
 		Error
 
 	if updateErr != nil {
-		log.Printf("Failed to update record for reqId '%s' on domain '%s'", delta.RequestID)
+		log.Printf("Failed to update record for reqId '%s'", delta.RequestID)
 	}
 
-	log.Debugf("Successfully updated record for reqId '%s' on domain '%s", delta.RequestID)
+	log.Debugf("Successfully updated record for reqId '%s'", delta.RequestID)
 	return nil
 }
 
