@@ -50,7 +50,7 @@ func (c *ShardClient) balancerRoundTrip(req *http.Request) (resp *http.Response,
 	for node := c.balancer.GetMostAvailable(notFoundNodes...); node != nil; node = c.balancer.GetMostAvailable(notFoundNodes...) {
 		log.Printf("Balancer roundTrip node loop %s %s", node.Name, reqID)
 		if node == nil {
-			return nil, fmt.Errorf("no avialable node")
+			return nil, fmt.Errorf("no available node")
 		}
 		resp, err = node.RoundTrip(req)
 		if (resp == nil && err != balancing.ErrNoActiveNodes) || resp.StatusCode == http.StatusNotFound {

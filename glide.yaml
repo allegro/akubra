@@ -15,7 +15,6 @@ import:
 - package: github.com/serialx/hashring
 - package: github.com/sirupsen/logrus
   version: ^1.0.3
-
 - package: golang.org/x/sync
   subpackages:
   - syncmap
@@ -24,13 +23,15 @@ import:
 - package: gopkg.in/tylerb/graceful.v1
   version: ^1.2.15
 - package: gopkg.in/yaml.v2
-- package: github.com/bnogas/minio-go/
+- package: github.com/bnogas/minio-go
   version: verify_signature
   subpackages:
   - s3signer
 - package: github.com/hashicorp/consul
   subpackages:
   - api
+- package: github.com/jinzhu/gorm
+  version: ^1.9.2
 testImport:
 - package: github.com/DATA-DOG/go-sqlmock
   version: ^1.2.0
