@@ -93,16 +93,18 @@ func TestRequestDispatcherDispatch(t *testing.T) {
 
 }
 
+type dispatcherRequestScenario struct {
+method                  string
+url                     string
+backends                []*backend.Backend
+shouldTryToInsertRecord bool
+shouldInsertFail        bool
+multiPartUploadID       string
+respBody                io.ReadCloser
+}
+
 func TestAddingConsistencyRecords(t *testing.T) {
-	var requestScenarios = [] struct {
-		method                  string
-		url                     string
-		backends                []*backend.Backend
-		shouldTryToInsertRecord bool
-		shouldInsertFail        bool
-		multiPartUploadId       string
-		respBody                io.ReadCloser
-	}{
+	var requestScenarios = [] dispatcherRequestScenario {
 		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{}, false, false, "", nil},
 		{"GET", "http://random.domain/bucket/object", []*backend.Backend{{}}, false, false, "", nil},
 		{"GET", "http://random.domain/bucket", []*backend.Backend{{}}, false, false, "", nil},
@@ -114,83 +116,107 @@ func TestAddingConsistencyRecords(t *testing.T) {
 	}
 
 	for _, requestScenario := range requestScenarios {
-		isMultiPart := strings.Contains(requestScenario.url, "?uploads")
 		dispatcher, clientMock, respPickerMock, watchdogMock, watchdogRecordFactory := prepareTest(requestScenario.backends)
-
-		request, err := http.NewRequest(requestScenario.method, requestScenario.url, nil)
-		require.NoError(t, err)
-		require.NotNil(t, request)
-		request.Header.Add("Authorization", authHeaderV4)
-
-		reqWithContext := supplyRequestWithIDAndClusterName(request)
-		record := &watchdog.ConsistencyRecord{}
-		watchdogRecordFactory.On("CreateRecordFor", reqWithContext).Return(record, nil)
-		respChan := make(chan BackendResponse)
-		response := &http.Response{}
-		response.Body = requestScenario.respBody
-
-		go func() { respChan <- BackendResponse{Response: response, Error: nil} }()
 		require.NotNil(t, clientMock)
 
-		if requestScenario.shouldTryToInsertRecord {
-			if requestScenario.shouldInsertFail {
-				if isMultiPart {
-					watchdogMock.On("SupplyRecordWithVersion", record).Return(errors.New("db error"))
-				} else {
-					watchdogMock.On("Insert", record).Return(nil, errors.New("db error"))
-				}
-			} else {
-				storageRequest := &Request{Request: reqWithContext, record: record}
-				marker := &watchdog.DeleteMarker{}
+		storageRequest, response := prepareTestScenario(t, &requestScenario, watchdogMock, watchdogRecordFactory, clientMock, respPickerMock)
 
-				if isMultiPart {
-					storageRequest.isInitiateMultipartUploadRequest = true
-					storageRequest.isMultiPartUploadRequest = true
-					watchdogMock.On("SupplyRecordWithVersion", record).Return(nil)
-					watchdogMock.On("InsertWithRequestID", requestScenario.multiPartUploadId, record).Return(marker, nil)
-
-				} else {
-					storageRequest.marker = marker
-					watchdogMock.On("Insert", record).Return(marker, nil)
-				}
-				clientMock.On("Do", storageRequest).Return(respChan)
-			}
-		} else {
-			clientMock.On("Do", &Request{Request: reqWithContext}).Return(respChan)
-		}
-
-		if !requestScenario.shouldInsertFail {
-			respPickerMock.On("Pick").Return(response, nil)
-		}
-
-		dispatcher.Dispatch(reqWithContext)
+		dispatcher.Dispatch(storageRequest.Request)
 		clientMock.AssertExpectations(t)
 		respPickerMock.AssertExpectations(t)
 
-		if requestScenario.shouldTryToInsertRecord {
+		assertTestScenario(t, storageRequest, response, &requestScenario, watchdogMock, respPickerMock)
+	}
+}
+func prepareTestScenario(t *testing.T,
+	requestScenario *dispatcherRequestScenario,
+	watchdogMock *WatchdogMock,
+	watchdogRecordFactory *ConsistencyRecordFactoryMock,
+	clientMock *replicationClientMock,
+	respPickerMock *responsePickerMock) (*Request, *http.Response){
 
-			if !isMultiPart {
-				watchdogMock.AssertCalled(t, "Insert", record)
-			}
-			if requestScenario.shouldInsertFail {
-				respPickerMock.AssertNotCalled(t, "Pick", response)
-				if isMultiPart && requestScenario.multiPartUploadId != "" {
-					watchdogMock.AssertCalled(t, "SupplyRecordWithVersion" , record)
-					watchdogMock.AssertNotCalled(t, "InsertWithRequestID", requestScenario.multiPartUploadId, record)
-				}
+	isMultiPart := strings.Contains(requestScenario.url, "?uploads")
+
+	request, err := http.NewRequest(requestScenario.method, requestScenario.url, nil)
+	require.NoError(t, err)
+	require.NotNil(t, request)
+	request.Header.Add("Authorization", authHeaderV4)
+
+	reqWithContext := supplyRequestWithIDAndClusterName(request)
+	record := &watchdog.ConsistencyRecord{}
+	watchdogRecordFactory.On("CreateRecordFor", reqWithContext).Return(record, nil)
+	respChan := make(chan BackendResponse)
+	response := &http.Response{}
+	response.Body = requestScenario.respBody
+
+	go func() { respChan <- BackendResponse{Response: response, Error: nil} }()
+	require.NotNil(t, clientMock)
+	storageRequest := &Request{Request: reqWithContext, record: record}
+
+	if requestScenario.shouldTryToInsertRecord {
+		if requestScenario.shouldInsertFail {
+			if isMultiPart {
+				watchdogMock.On("SupplyRecordWithVersion", record).Return(errors.New("db error"))
 			} else {
-				if isMultiPart && requestScenario.multiPartUploadId != "" {
-					watchdogMock.AssertCalled(t, "InsertWithRequestID", requestScenario.multiPartUploadId, record)
-				}
+				watchdogMock.On("Insert", record).Return(nil, errors.New("db error"))
 			}
-
 		} else {
+			marker := &watchdog.DeleteMarker{}
 
-			watchdogMock.AssertNotCalled(t, "Insert", record)
-			watchdogMock.AssertNotCalled(t, "InsertWithRequestID", requestScenario.multiPartUploadId, record)
-			respPickerMock.AssertNotCalled(t, "Pick", response)
+			if isMultiPart {
+				storageRequest.isInitiateMultipartUploadRequest = true
+				storageRequest.isMultiPartUploadRequest = true
+				watchdogMock.On("SupplyRecordWithVersion", record).Return(nil)
+				watchdogMock.On("InsertWithRequestID", requestScenario.multiPartUploadID, record).Return(marker, nil)
 
+			} else {
+				storageRequest.marker = marker
+				watchdogMock.On("Insert", record).Return(marker, nil)
+			}
+			clientMock.On("Do", storageRequest).Return(respChan)
 		}
+	} else {
+		clientMock.On("Do", &Request{Request: reqWithContext}).Return(respChan)
+	}
+
+	if !requestScenario.shouldInsertFail {
+		respPickerMock.On("Pick").Return(response, nil)
+	}
+
+	return storageRequest, response
+}
+
+func assertTestScenario(
+	t *testing.T,
+	storageRequest *Request, response *http.Response,
+	requestScenario *dispatcherRequestScenario,
+	watchdogMock *WatchdogMock,
+	respPickerMock *responsePickerMock) {
+	isMultiPart := strings.Contains(requestScenario.url, "?uploads")
+
+	if requestScenario.shouldTryToInsertRecord {
+
+		if !isMultiPart {
+			watchdogMock.AssertCalled(t, "Insert", storageRequest.record)
+		}
+		if requestScenario.shouldInsertFail {
+			respPickerMock.AssertNotCalled(t, "Pick", response)
+			if isMultiPart && requestScenario.multiPartUploadID != "" {
+				watchdogMock.AssertCalled(t, "SupplyRecordWithVersion" , storageRequest.record)
+				watchdogMock.AssertNotCalled(t, "InsertWithRequestID", requestScenario.multiPartUploadID, storageRequest.record)
+			}
+		} else {
+			if isMultiPart && requestScenario.multiPartUploadID != "" {
+				watchdogMock.AssertCalled(t, "InsertWithRequestID", requestScenario.multiPartUploadID, storageRequest.record)
+			}
+		}
+
+	} else {
+
+		watchdogMock.AssertNotCalled(t, "Insert", storageRequest.record)
+		watchdogMock.AssertNotCalled(t, "InsertWithRequestID", requestScenario.multiPartUploadID, storageRequest.record)
+		respPickerMock.AssertNotCalled(t, "Pick", response)
+
 	}
 }
 
@@ -314,5 +340,5 @@ func (fm *ConsistencyRecordFactoryMock) CreateRecordFor(request *http.Request) (
 const initiateMultiPartResp = "<InitiateMultipartUploadResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
 	"<Bucket>example-bucket</Bucket>" +
 	"<Key>example-object</Key>" +
-	"<UploadId>123</UploadId>" +
+	"<UploadID>123</UploadID>" +
 	"</InitiateMultipartUploadResult>"

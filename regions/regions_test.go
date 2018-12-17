@@ -1,10 +1,12 @@
 package regions
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
 	"github.com/allegro/akubra/sharding"
+	"github.com/allegro/akubra/watchdog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -43,21 +45,26 @@ func TestShouldReturnResponseFromShardsRing(t *testing.T) {
 		Status:     "200 OK",
 		StatusCode: 200,
 	}
+
+
 	shardsRingMock := &ShardsRingMock{}
-	shardsRingMock.On("DoRequest", request).Return(expectedResponse)
+	requestWithDomain := request.WithContext(context.WithValue(request.Context(), watchdog.Domain, request.Host))
+	shardsRingMock.On("DoRequest", requestWithDomain).Return(expectedResponse)
 	regions.assignShardsRing("test1.qxlint", shardsRingMock)
 	regions.defaultRing = shardsRingMock
 	response, _ := regions.RoundTrip(request)
 
 	request2 := &http.Request{Host: ""}
-	assert.Equal(t, 200, response.StatusCode)
-	shardsRingMock.AssertCalled(t, "DoRequest", request)
 
-	shardsRingMock.On("DoRequest", request2).Return(expectedResponse)
+	assert.Equal(t, 200, response.StatusCode)
+	shardsRingMock.AssertCalled(t, "DoRequest", requestWithDomain)
+	requestWithDomain2 := request2.WithContext(context.WithValue(request2.Context(), watchdog.Domain, request2.Host))
+	shardsRingMock.On("DoRequest", requestWithDomain2).Return(expectedResponse)
 
 	response2, _ := regions.RoundTrip(request2)
+
 	assert.Equal(t, 200, response2.StatusCode)
-	shardsRingMock.AssertCalled(t, "DoRequest", request2)
+	shardsRingMock.AssertCalled(t, "DoRequest", requestWithDomain2)
 }
 
 func TestShouldReturnResponseFromShardsRingOnHostWithPort(t *testing.T) {
@@ -71,10 +78,10 @@ func TestShouldReturnResponseFromShardsRingOnHostWithPort(t *testing.T) {
 		StatusCode: 200,
 	}
 	shardsRingMock := &ShardsRingMock{}
-	shardsRingMock.On("DoRequest", request).Return(expectedResponse)
+	requestWithDomain := request.WithContext(context.WithValue(request.Context(), watchdog.Domain, "test1.qxlint"))
+	shardsRingMock.On("DoRequest", requestWithDomain).Return(expectedResponse)
 	regions.assignShardsRing("test1.qxlint", shardsRingMock)
 
 	response, _ := regions.RoundTrip(request)
-
 	assert.Equal(t, 200, response.StatusCode)
 }

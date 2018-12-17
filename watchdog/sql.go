@@ -15,7 +15,7 @@ const (
 	selectNow                        = "SELECT NOW()"
 	watchdogTable                    = "consistency_record"
 	markersInsertedEalier            = "domain = ? AND object_id = ? AND inserted_at <= ?"
-	updateRecordExecutionTimeByReqId = "UPDATE consistency_record " +
+	updateRecordExecutionTimeByReqID = "UPDATE consistency_record " +
 		"SET execution_delay = ?" +
 		"WHERE request_id = ?"
 )
@@ -128,6 +128,8 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 	return createDeleteMarkerFor(insertedRecord), nil
 }
 
+
+//InsertWithRequestID inserts a record with custom ID
 func (watchdog *SQLWatchdog) InsertWithRequestID(requestID string, record *ConsistencyRecord) (*DeleteMarker, error) {
 	record.RequestID = requestID
 	return watchdog.Insert(record)
@@ -158,7 +160,7 @@ func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 func (watchdog *SQLWatchdog) UpdateExecutionDelay(delta *ExecutionDelay) error {
 	updateErr := watchdog.
 		dbConn.
-		Exec(updateRecordExecutionTimeByReqId, fmt.Sprintf("%d minutes", uint64(delta.Delay.Minutes())), delta.RequestID).
+		Exec(updateRecordExecutionTimeByReqID, fmt.Sprintf("%d minutes", uint64(delta.Delay.Minutes())), delta.RequestID).
 		Error
 
 	if updateErr != nil {

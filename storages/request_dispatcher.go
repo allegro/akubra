@@ -3,15 +3,10 @@ package storages
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/utils"
 	"github.com/allegro/akubra/watchdog"
-)
-
-const (
-	oneWeek = time.Hour * 24 * 7
 )
 
 type dispatcher interface {
@@ -48,26 +43,11 @@ func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, er
 		isMultiPartUploadRequest: utils.IsMultiPartUploadRequest(request),
 		isInitiateMultipartUploadRequest: utils.IsInitiateMultiPartUploadRequest(request),
 	}
-
+	var err error
 	if rd.shouldUseConsistencyWatchdogFor(storageRequest) {
-
-		consistencyRecord, err := rd.watchdogRecordFactory.CreateRecordFor(request)
+		storageRequest, err = rd.recordRequest(storageRequest)
 		if err != nil {
 			return nil, err
-		}
-		storageRequest.record = consistencyRecord
-
-		if storageRequest.isInitiateMultipartUploadRequest {
-			err = rd.watchdog.SupplyRecordWithVersion(consistencyRecord)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			deleteMarker, err := rd.watchdog.Insert(consistencyRecord)
-			if err != nil {
-				return nil, err
-			}
-			storageRequest.marker = deleteMarker
 		}
 	}
 
@@ -82,12 +62,7 @@ func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, er
 		return nil, err
 	}
 	if storageRequest.record != nil && storageRequest.isInitiateMultipartUploadRequest {
-		multiPartUploadID, err := utils.ExtractMultiPartUploadIDFrom(resp)
-		if err != nil {
-			return nil, fmt.Errorf("failed on extracting multipart upload ID from response: %s", err)
-		}
-		_, err = rd.watchdog.InsertWithRequestID(multiPartUploadID, storageRequest.record)
-		if err != nil {
+		if rd.recordMultipart(storageRequest, resp) != nil {
 			return nil, err
 		}
 	}
@@ -103,6 +78,39 @@ func (rd *RequestDispatcher) shouldUseConsistencyWatchdogFor(request *Request) b
 	pathCondition := !utils.IsBucketPath(request.URL.Path)
 
 	return consistencyCondition && methodCondition && pathCondition
+}
+func (rd *RequestDispatcher) recordRequest(storageRequest *Request) (*Request, error) {
+	consistencyRecord, err := rd.watchdogRecordFactory.CreateRecordFor(storageRequest.Request)
+	if err != nil {
+		return nil, err
+	}
+	storageRequest.record = consistencyRecord
+
+	if storageRequest.isInitiateMultipartUploadRequest {
+		err = rd.watchdog.SupplyRecordWithVersion(consistencyRecord)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		deleteMarker, err := rd.watchdog.Insert(consistencyRecord)
+		if err != nil {
+			return nil, err
+		}
+		storageRequest.marker = deleteMarker
+	}
+
+	return storageRequest, nil
+}
+func (rd *RequestDispatcher) recordMultipart(storageRequest *Request, resp *http.Response) error {
+	multiPartUploadID, err := utils.ExtractMultiPartUploadIDFrom(resp)
+	if err != nil {
+		return fmt.Errorf("failed on extracting multipart upload ID from response: %s", err)
+	}
+	_, err = rd.watchdog.InsertWithRequestID(multiPartUploadID, storageRequest.record)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 type responsePicker interface {

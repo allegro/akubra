@@ -87,6 +87,7 @@ func containsUploadID(request *http.Request) bool {
 	return has
 }
 
+//ExtractMultiPartUploadIDFrom extract multipart upload id from http response
 func ExtractMultiPartUploadIDFrom(response *http.Response) (string, error) {
 	responseBodyBytes, bodyReadError := ioutil.ReadAll(response.Body)
 	if bodyReadError != nil {
@@ -103,8 +104,8 @@ func ExtractMultiPartUploadIDFrom(response *http.Response) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if strings.TrimSpace(initiateMultipartUploadResult.UploadId) == "" {
+	if strings.TrimSpace(initiateMultipartUploadResult.UploadID) == "" {
 		return "", errors.New("upload ID was empty")
 	}
-	return initiateMultipartUploadResult.UploadId, nil
+	return initiateMultipartUploadResult.UploadID, nil
 }
