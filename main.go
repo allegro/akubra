@@ -51,7 +51,7 @@ func main() {
 	kingpin.Parse()
 	conf, err := parseConfig(*configFile)
 	if err != nil {
-		log.Fatalf("Configuration corrupted: %s")
+		log.Fatalf("Configuration corrupted: %s", err)
 	}
 
 	if *testConfig {
@@ -124,7 +124,7 @@ func (s *service) start() (err error) {
 	s.ctx = context.Background()
 	s.handler, err = s.createHandler(s.config)
 	if err != nil {
-		log.Fatal("Handler creation error: %s", err)
+		log.Fatalf("Handler creation error: %s", err)
 	}
 	srv := &http.Server{
 		Addr:         s.config.Service.Server.Listen,
@@ -154,7 +154,7 @@ func (s *service) signalsHandler() {
 		case <-hup:
 			config, err := parseConfig(s.configPath)
 			if err != nil {
-				log.Println("New config is corrupted %s", err)
+				log.Printf("New config is corrupted %s", err)
 				continue
 			}
 			handler, err := s.createHandler(config)
@@ -165,7 +165,10 @@ func (s *service) signalsHandler() {
 			log.Println("Handler replaced")
 		case <-intr:
 			log.Println("Shutting down")
-			s.srv.Shutdown(s.ctx)
+			err := s.srv.Shutdown(s.ctx)
+			if err != nil {
+				log.Printf("Server shutsown error: %s", err)
+			}
 			log.Println("Fin")
 		}
 	}
@@ -215,7 +218,10 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	metrics.Init(conf.Metrics)
+	err = metrics.Init(conf.Metrics)
+	if err != nil {
+		log.Printf("Metrics initialization error: %s", err)
+	}
 	return handler, nil
 }
 
