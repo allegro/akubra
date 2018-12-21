@@ -152,12 +152,12 @@ func (s *service) signalsHandler() {
 		signal.Notify(intr, syscall.SIGINT)
 		select {
 		case <-hup:
-			config, err := parseConfig(s.configPath)
+			conf, err := parseConfig(s.configPath)
 			if err != nil {
 				log.Printf("New config is corrupted %s", err)
 				continue
 			}
-			handler, err := s.createHandler(config)
+			handler, err := s.createHandler(conf)
 			if err != nil {
 				log.Printf("Handler initialization failure %s", err)
 			}
