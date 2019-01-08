@@ -1,35 +1,32 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
+	"github.com/allegro/akubra/crdstore"
+	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
 	logconfig "github.com/allegro/akubra/log/config"
-	"gopkg.in/tylerb/graceful.v1"
+	"github.com/allegro/akubra/metrics"
+	"github.com/allegro/akubra/regions"
+	"github.com/allegro/akubra/storages"
+	"github.com/allegro/akubra/transport"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/config"
 
-	"github.com/allegro/akubra/httphandler"
-	"github.com/allegro/akubra/metrics"
-	"github.com/allegro/akubra/regions"
-	"github.com/allegro/akubra/storages"
 	_ "github.com/lib/pq"
-
-	"github.com/allegro/akubra/crdstore"
-	"github.com/allegro/akubra/transport"
 )
 
 // TechnicalEndpointGeneralTimeout for /configuration/validate endpoint
 const TechnicalEndpointGeneralTimeout = 5 * time.Second
-
-type service struct {
-	config config.Config
-}
 
 var (
 	// filled by linker
@@ -52,39 +49,44 @@ func main() {
 	versionString := fmt.Sprintf("Akubra (%s version)", version)
 	kingpin.Version(versionString)
 	kingpin.Parse()
-
-	conf, err := config.Configure(*configFile)
+	conf, err := parseConfig(*configFile)
 	if err != nil {
-		log.Fatalf("Improperly configured %s", err)
+		log.Fatalf("Configuration corrupted: %s", err)
 	}
-
-	valid, errs := config.ValidateConf(conf.YamlConfig, true)
-	if !valid {
-		log.Printf("YAML validation - errors: %q", errs)
-		os.Exit(1)
-	}
-	log.Println("Configuration checked - OK.")
-
-	mainlog, err := log.NewDefaultLogger(conf.Logging.Mainlog, "LOG_LOCAL2", false)
-	if err != nil {
-		log.Fatalf("Could not set up main logger: %q", err)
-	}
-
-	log.DefaultLogger = mainlog
 
 	if *testConfig {
 		os.Exit(0)
 	}
 
+	mainlog, err := log.NewDefaultLogger(conf.Logging.Mainlog, "LOG_LOCAL2", false)
+	if err != nil {
+		log.Fatalf("Could not set up main logger: %q", err)
+	}
+	log.DefaultLogger = mainlog
+
 	log.Printf("Health check endpoint: %s", conf.Service.Server.HealthCheckEndpoint)
 	mainlog.Printf("starting on port %s", conf.Service.Server.Listen)
 
-	srv := newService(conf)
+	srv := newService(conf, *configFile)
 	srv.startTechnicalEndpoint()
 	startErr := srv.start()
 	if startErr != nil {
 		mainlog.Fatalf("Could not start service, reason: %q", startErr.Error())
 	}
+}
+func parseConfig(path string) (config.Config, error) {
+	conf, err := config.Configure(*configFile)
+	if err != nil {
+		return config.Config{}, fmt.Errorf("Improperly configured %s", err)
+	}
+
+	valid, errs := config.ValidateConf(conf.YamlConfig, true)
+	if !valid {
+		return config.Config{}, fmt.Errorf("YAML validation - errors: %q", errs)
+	}
+	log.Println("Configuration checked - OK.")
+
+	return conf, nil
 }
 
 func mkServiceLogs(logConf logconfig.LoggingConfig) (syncLog, clusterSyncLog, accessLog log.Logger, err error) {
@@ -104,21 +106,93 @@ func mkServiceLogs(logConf logconfig.LoggingConfig) (syncLog, clusterSyncLog, ac
 	return
 }
 
-func (s *service) start() error {
-	transportMatcher, err := transport.ConfigureHTTPTransports(s.config.Service.Client)
+func newService(cfg config.Config, configPath string) *service {
+	hh := func(rw http.ResponseWriter, r *http.Request) {}
+	var h = http.HandlerFunc(hh)
+	return &service{config: cfg, configPath: configPath, handler: h}
+}
+
+type service struct {
+	config     config.Config
+	configPath string
+	handler    http.Handler
+	srv        *http.Server
+	ctx        context.Context
+}
+
+func (s *service) start() (err error) {
+	s.ctx = context.Background()
+	s.handler, err = s.createHandler(s.config)
 	if err != nil {
-		log.Fatalf("Couldn't set up client Transports - err: %q", err)
+		log.Fatalf("Handler creation error: %s", err)
 	}
-	syncLog, clusterSyncLog, accessLog, err := mkServiceLogs(s.config.Logging)
+	srv := &http.Server{
+		Addr:         s.config.Service.Server.Listen,
+		Handler:      s,
+		ReadTimeout:  s.config.Service.Server.ReadTimeout.Duration,
+		WriteTimeout: s.config.Service.Server.WriteTimeout.Duration,
+	}
+
+	srv.SetKeepAlivesEnabled(true)
+	s.srv = srv
+	listener, err := net.Listen("tcp", s.config.Service.Server.Listen)
 	if err != nil {
-		return err
+		log.Fatalln(err)
+	}
+	go s.signalsHandler()
+	return srv.Serve(listener)
+}
+
+func (s *service) signalsHandler() {
+
+	for {
+		hup := make(chan os.Signal, 1)
+		signal.Notify(hup, syscall.SIGHUP)
+		intr := make(chan os.Signal, 1)
+		signal.Notify(intr, syscall.SIGINT)
+		select {
+		case <-hup:
+			conf, err := parseConfig(s.configPath)
+			if err != nil {
+				log.Printf("New config is corrupted %s", err)
+				continue
+			}
+			handler, err := s.createHandler(conf)
+			if err != nil {
+				log.Printf("Handler initialization failure %s", err)
+			}
+			s.handler = handler
+			log.Println("Handler replaced")
+		case <-intr:
+			log.Println("Shutting down")
+			err := s.srv.Shutdown(s.ctx)
+			if err != nil {
+				log.Printf("Server shutsown error: %s", err)
+			}
+			log.Println("Fin")
+		}
+	}
+}
+
+func (s *service) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	handler := s.handler
+	handler.ServeHTTP(rw, r)
+}
+func (s *service) createHandler(conf config.Config) (http.Handler, error) {
+	transportMatcher, err := transport.ConfigureHTTPTransports(conf.Service.Client)
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't set up client Transports - err: %q", err)
+	}
+	syncLog, clusterSyncLog, accessLog, err := mkServiceLogs(conf.Logging)
+	if err != nil {
+		return nil, err
 	}
 	methods := make(map[string]struct{})
-	for _, method := range s.config.Logging.SyncLogMethods {
+	for _, method := range conf.Logging.SyncLogMethods {
 		methods[method] = struct{}{}
 	}
 
-	crdstore.InitializeCredentialsStore(s.config.CredentialsStore)
+	crdstore.InitializeCredentialsStore(conf.CredentialsStore)
 	syncSender := &storages.SyncSender{SyncLog: syncLog, AllowedMethods: methods}
 	storage, err := storages.InitStorages(
 		transportMatcher,
@@ -128,48 +202,29 @@ func (s *service) start() error {
 
 	if err != nil {
 		log.Fatalf("Storages initialization problem: %q", err)
+		return nil, err
 	}
 
 	regionsRT, err := regions.NewRegions(s.config.ShardingPolicies, storage, clusterSyncLog)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	regionsDecoratedRT := httphandler.DecorateRoundTripper(s.config.Service.Client,
-		accessLog, s.config.Service.Server.HealthCheckEndpoint, regionsRT)
+	regionsDecoratedRT := httphandler.DecorateRoundTripper(conf.Service.Client,
+		accessLog, conf.Service.Server.HealthCheckEndpoint, regionsRT)
 
-	handler, err := httphandler.NewHandlerWithRoundTripper(regionsDecoratedRT, s.config.Service.Server)
+	handler, err := httphandler.NewHandlerWithRoundTripper(regionsDecoratedRT, conf.Service.Server)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	err = metrics.Init(s.config.Metrics)
+	err = metrics.Init(conf.Metrics)
 	if err != nil {
-		return err
+		log.Printf("Metrics initialization error: %s", err)
 	}
-
-	srv := &graceful.Server{
-		Server: &http.Server{
-			Addr:         s.config.Service.Server.Listen,
-			Handler:      handler,
-			ReadTimeout:  s.config.Service.Server.ReadTimeout.Duration,
-			WriteTimeout: s.config.Service.Server.WriteTimeout.Duration,
-		},
-		Timeout: s.config.Service.Server.ShutdownTimeout.Duration,
-	}
-
-	srv.SetKeepAlivesEnabled(true)
-	listener, err := net.Listen("tcp", s.config.Service.Server.Listen)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	return srv.Serve(listener)
+	return handler, nil
 }
 
-func newService(cfg config.Config) *service {
-	return &service{config: cfg}
-}
 func (s *service) startTechnicalEndpoint() {
 	port := s.config.Service.Server.TechnicalEndpointListen
 	log.Printf("Starting technical HTTP endpoint on port: %q", port)
@@ -179,19 +234,13 @@ func (s *service) startTechnicalEndpoint() {
 		config.ValidateConfigurationHTTPHandler,
 	)
 	go func() {
-		srv := &graceful.Server{
-			Server: &http.Server{
-				Addr:           port,
-				Handler:        serveMuxHandler,
-				MaxHeaderBytes: 512,
-				WriteTimeout:   TechnicalEndpointGeneralTimeout,
-				ReadTimeout:    TechnicalEndpointGeneralTimeout,
-			},
-			Timeout:      TechnicalEndpointGeneralTimeout,
-			TCPKeepAlive: 1 * time.Minute,
-			Logger:       graceful.DefaultLogger(),
+		srv := &http.Server{
+			Addr:           port,
+			Handler:        serveMuxHandler,
+			MaxHeaderBytes: 512,
+			WriteTimeout:   TechnicalEndpointGeneralTimeout,
+			ReadTimeout:    TechnicalEndpointGeneralTimeout,
 		}
-
 		log.Fatal(srv.ListenAndServe())
 	}()
 	log.Println("Technical HTTP endpoint is running.")
