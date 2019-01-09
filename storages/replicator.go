@@ -40,7 +40,7 @@ func (rc *ReplicationClient) Do(request *http.Request) <-chan BackendResponse {
 
 	for _, backend := range rc.Backends {
 		wg.Add(1)
-		go func(backend *Backend) {
+		go func(backend *StorageClient) {
 			requestWithContext := request.WithContext(ctx)
 			if resetter, ok := request.Body.(types.Resetter); ok {
 				requestWithContext.Body = resetter.Reset()
@@ -70,8 +70,8 @@ func (rc *ReplicationClient) Cancel() error {
 // BackendResponse is alias of storage.types.BackendResponse
 type BackendResponse = backend.Response
 
-// Backend is alias of storage.types.Backend
-type Backend = backend.Backend
+// StorageClient is alias of storage.types.StorageClient
+type StorageClient = backend.Backend
 
 func callBackend(request *http.Request, backend *backend.Backend, backendResponseChan chan BackendResponse) {
 	resp, err := backend.RoundTrip(request)

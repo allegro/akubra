@@ -40,14 +40,14 @@ func TestShouldSetupMultiUploadRingAndMigrationEndpoints(testSuite *testing.T) {
 	activeBackendURL, _ := url.Parse("http://backend:1234")
 	activeBackendURL2, _ := url.Parse("http://backend2:1234")
 
-	activateBackend := &Backend{
+	activateBackend := &StorageClient{
 		RoundTripper: activeBackendRoundTripper,
 		Endpoint:     *activeBackendURL,
 		Maintenance:  false,
 		Name:         "activateBackend",
 	}
 
-	activateBackend2 := &Backend{
+	activateBackend2 := &StorageClient{
 		RoundTripper: activeBackendRoundTripper2,
 		Endpoint:     *activeBackendURL2,
 		Maintenance:  false,
@@ -56,14 +56,14 @@ func TestShouldSetupMultiUploadRingAndMigrationEndpoints(testSuite *testing.T) {
 
 	maintenanceBackendURL, _ := url.Parse("http://maintenance:8421")
 
-	maintenanceBackend := &Backend{
+	maintenanceBackend := &StorageClient{
 		RoundTripper: nil,
 		Endpoint:     *maintenanceBackendURL,
 		Maintenance:  true,
 		Name:         "maintenanceBackend",
 	}
 
-	backends := []*Backend{activateBackend, activateBackend2, maintenanceBackend}
+	backends := []*StorageClient{activateBackend, activateBackend2, maintenanceBackend}
 	multiPartRoundTripper := newMultiPartRoundTripper(backends)
 	mprt, ok := multiPartRoundTripper.(*MultiPartRoundTripper)
 	assert.True(testSuite, ok)

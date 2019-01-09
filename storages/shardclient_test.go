@@ -14,7 +14,7 @@ import (
 // ClusterTestSuite setups cluster test suite
 type ClusterTestSuite struct {
 	suite.Suite
-	cluster    Cluster
+	cluster    ShardClient
 	dispatcher dispatcher
 }
 
@@ -26,7 +26,7 @@ func TestClusterTestSuite(t *testing.T) {
 // SetupTest conforms suite interface
 func (suite *ClusterTestSuite) SetupTest() {
 	clusterName := "testCluster"
-	cluster, err := newCluster(
+	cluster, err := newShard(
 		clusterName,
 		nil,
 		nil,

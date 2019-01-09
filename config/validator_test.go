@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,7 +11,7 @@ import (
 
 	httphandlerconfig "github.com/allegro/akubra/httphandler/config"
 	"github.com/allegro/akubra/metrics"
-	regionsconfig "github.com/allegro/akubra/regions/config"
+	shardsconfig "github.com/allegro/akubra/regions/config"
 	transportconfig "github.com/allegro/akubra/transport/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -90,10 +91,10 @@ func TestShouldPassListenPortsLogicalValidator(t *testing.T) {
 	listenTechnicalEndpoint := ":8081"
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	regionConfig := regionsconfig.Region{}
+	regionConfig := shardsconfig.Policies{}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", listen,
 		listenTechnicalEndpoint,
-		map[string]regionsconfig.Region{"region": regionConfig}, nil)
+		map[string]shardsconfig.Policies{"region": regionConfig}, nil)
 	valid, validationErrors := yamlConfig.ListenPortsLogicalValidator()
 
 	assert.Len(t, validationErrors, 0, "Should not be errors")
@@ -105,10 +106,10 @@ func TestShouldNotPassListenPortsLogicalValidatorWhenPortsAreEqual(t *testing.T)
 	listenTechnicalEndpoint := listen
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	regionConfig := regionsconfig.Region{}
+	regionConfig := shardsconfig.Policies{}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", listen,
 		listenTechnicalEndpoint,
-		map[string]regionsconfig.Region{"region": regionConfig}, nil)
+		map[string]shardsconfig.Policies{"region": regionConfig}, nil)
 	valid, validationErrors := yamlConfig.ListenPortsLogicalValidator()
 
 	assert.Len(t, validationErrors, 1, "Should be one error")
@@ -164,14 +165,14 @@ func TestShouldNotPassRequestHeaderContentTypeValidatorWhenContentTypeIsUnsuppor
 }
 
 func TestValidatorShouldPassWithValidRegionConfig(t *testing.T) {
-	multiClusterConfig := regionsconfig.RegionCluster{
-		Name:   "cluster1test",
-		Weight: 1,
+	multiClusterConfig := shardsconfig.Policy{
+		ShardName: "cluster1test",
+		Weight:    1,
 	}
 
-	regionConfig := regionsconfig.Region{
-		Clusters: []regionsconfig.RegionCluster{multiClusterConfig},
-		Domains:  []string{"domain.dc"},
+	regionConfig := shardsconfig.Policies{
+		Shards:  []shardsconfig.Policy{multiClusterConfig},
+		Domains: []string{"domain.dc"},
 	}
 
 	var size httphandlerconfig.HumanSizeUnits
@@ -179,7 +180,7 @@ func TestValidatorShouldPassWithValidRegionConfig(t *testing.T) {
 
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
 		"127.0.0.1:1234", "127.0.0.1:1235",
-		map[string]regionsconfig.Region{"region": regionConfig}, nil)
+		map[string]shardsconfig.Policies{"region": regionConfig}, nil)
 
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.True(t, valid)
@@ -187,40 +188,44 @@ func TestValidatorShouldPassWithValidRegionConfig(t *testing.T) {
 }
 
 func TestValidatorShouldFailWithMissingCluster(t *testing.T) {
-	multiClusterConfig := regionsconfig.RegionCluster{
-		Name:   "someothercluster",
-		Weight: 1,
+	shardName := "someothercluster"
+	policyName := "testregion"
+	multiClusterConfig := shardsconfig.Policy{
+		ShardName: shardName,
+		Weight:    1,
 	}
 
-	regionConfig := regionsconfig.Region{
-		Clusters: []regionsconfig.RegionCluster{multiClusterConfig},
-		Domains:  []string{"domain.dc"},
+	regionConfig := shardsconfig.Policies{
+		Shards:  []shardsconfig.Policy{multiClusterConfig},
+		Domains: []string{"domain.dc"},
 	}
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
+
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
 		"127.0.0.1:1234", "127.0.0.1:1235",
-		map[string]regionsconfig.Region{"testregion": regionConfig}, nil)
+		map[string]shardsconfig.Policies{policyName: regionConfig}, nil)
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("Cluster \"testregion\" is region \"someothercluster\" is not defined"),
+		fmt.Errorf("Shard \"%s\" in policy \"%s\" is not defined", shardName, policyName),
 		validationErrors["RegionsEntryLogicalValidator"][0])
 }
 
 func TestValidatorShouldFailWithInvalidWeight(t *testing.T) {
-	multiClusterConfig := regionsconfig.RegionCluster{
-		Name:   "cluster1test",
-		Weight: 199,
+
+	multiClusterConfig := shardsconfig.Policy{
+		ShardName: "cluster1test",
+		Weight:    199,
 	}
-	regionConfig := regionsconfig.Region{
-		Clusters: []regionsconfig.RegionCluster{multiClusterConfig},
-		Domains:  []string{"domain.dc"},
+	regionConfig := shardsconfig.Policies{
+		Shards:  []shardsconfig.Policy{multiClusterConfig},
+		Domains: []string{"domain.dc"},
 	}
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	regions := map[string]regionsconfig.Region{"testregion": regionConfig}
+	regions := map[string]shardsconfig.Policies{"testregion": regionConfig}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
 		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
 
@@ -228,46 +233,46 @@ func TestValidatorShouldFailWithInvalidWeight(t *testing.T) {
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("Weight for cluster \"cluster1test\" in region \"testregion\" is not valid"),
+		errors.New("Weight for shard \"cluster1test\" in policy \"testregion\" is not valid"),
 		validationErrors["RegionsEntryLogicalValidator"][0])
 }
 
 func TestValidatorShouldFailWithMissingClusterDomain(t *testing.T) {
-	multiClusterConfig := regionsconfig.RegionCluster{
-		Name:   "cluster1test",
-		Weight: 1,
+	multiClusterConfig := shardsconfig.Policy{
+		ShardName: "cluster1test",
+		Weight:    1,
 	}
-	regionConfig := regionsconfig.Region{
-		Clusters: []regionsconfig.RegionCluster{multiClusterConfig},
+	regionConfig := shardsconfig.Policies{
+		Shards: []shardsconfig.Policy{multiClusterConfig},
 	}
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 
-	regions := map[string]regionsconfig.Region{"testregion": regionConfig}
+	regions := map[string]shardsconfig.Policies{"testregion": regionConfig}
 	yamlConfig := PrepareYamlConfig(size, 31, 45,
 		"127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("No domain defined for region \"testregion\""),
+		errors.New("No domain defined for policy \"testregion\""),
 		validationErrors["RegionsEntryLogicalValidator"][0])
 }
 
 func TestValidatorShouldFailWithMissingClusterDefinition(t *testing.T) {
-	regionConfig := regionsconfig.Region{
+	regionConfig := shardsconfig.Policies{
 		Domains: []string{"domain.dc"},
 	}
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	regions := map[string]regionsconfig.Region{"testregion": regionConfig}
+	regions := map[string]shardsconfig.Policies{"testregion": regionConfig}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
 		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
 		t,
-		errors.New("No clusters defined for region \"testregion\""),
+		errors.New("No shards defined for policy \"testregion\""),
 		validationErrors["RegionsEntryLogicalValidator"][0])
 }
 

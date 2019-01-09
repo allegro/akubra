@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/types"
 )
 
@@ -13,23 +14,38 @@ const (
 	Passthrough = "passthrough"
 )
 
-// Backend defines backend
-type Backend struct {
-	Endpoint    types.YAMLUrl     `yaml:"Endpoint"`
+// Storage defines backend
+type Storage struct {
+	Backend     types.YAMLUrl     `yaml:"Backend"`
 	Type        string            `yaml:"Type"`
 	Maintenance bool              `yaml:"Maintenance"`
-	Region      string            `yaml:"Region"`
 	Properties  map[string]string `yaml:"Properties"`
 }
 
-// BackendsMap is map of Backend
-type BackendsMap map[string]Backend
+// StoragesMap is map of Backend
+type StoragesMap map[string]Storage
 
-// Cluster defines cluster configuration
-type Cluster struct {
-	// Backends should contain s3 backend urls
-	Backends []string `yaml:"Backends"`
+// Shard defines shard storages configuration
+type Shard struct {
+	Storages Storages `yaml:"Storages"`
 }
 
-// ClustersMap is map of Cluster
-type ClustersMap map[string]Cluster
+// ShardsMap is map of Cluster
+type ShardsMap map[string]Shard
+
+// Storages is lists of storages
+type Storages []StorageBreakerProperties
+
+// StorageBreakerProperties describes storage usage requirements
+type StorageBreakerProperties struct {
+	Name                           string           `yaml:"Name"`
+	BreakerProbeSize               int              `yaml:"BreakerProbeSize"`
+	BreakerErrorRate               float64          `yaml:"BreakerErrorRate"`
+	BreakerCallTimeLimit           metrics.Interval `yaml:"BreakerCallTimeLimit"`
+	BreakerCallTimeLimitPercentile float64          `yaml:"BreakerCallTimeLimitPercentile"`
+	BreakerBasicCutOutDuration     metrics.Interval `yaml:"BreakerBasicCutOutDuration"`
+	BreakerMaxCutOutDuration       metrics.Interval `yaml:"BreakerMaxCutOutDuration"`
+	Priority                       int              `yaml:"Priority"`
+	MeterResolution                metrics.Interval `yaml:"MeterResolution"`
+	MeterRetention                 metrics.Interval `yaml:"MeterRetention"`
+}

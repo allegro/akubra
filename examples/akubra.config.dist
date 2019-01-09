@@ -1,22 +1,14 @@
-# Listen interface and port e.g. "0:8000", "localhost:9090", ":80"
-Listen: ":8080"
-TechnicalEndpointListen: ":8071"
-# Technical health check endpoint (for load balancers)
-HealthCheckEndpoint: "/status/ping"
-# Additional not AWS S3 specific headers proxy will add to original request
-AdditionalResponseHeaders:
-    'Access-Control-Allow-Origin': "*"
-    'Access-Control-Allow-Credentials': "true"
-    'Access-Control-Allow-Methods': "GET, POST, OPTIONS"
-    'Access-Control-Allow-Headers': 'DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,X-CSRFToken'
-# Additional headers added to backend response
-AdditionalRequestHeaders:
-    'Cache-Control': "public, s-maxage=600, max-age=600"
-    'X-Akubra-Version': '0.9.26'
-# Maximum accepted body size
-BodyMaxSize: "100MB"
-# Backend in maintenance mode. Akubra will skip this endpoint
-# MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
+Service:
+  Server:
+    # Listen interface and port e.g. "0:8000", "localhost:9090", ":80"
+    Listen: ":8080"
+    TechnicalEndpointListen: ":8071"
+    # Technical health check endpoint
+    HealthCheckEndpoint: "/status/ping"
+    MaxConcurrentRequests: 1000
+    # Maximum accepted body size
+    BodyMaxSize: 100M
+
 # Default 0 (no limit)
 MaxIdleConns: 0
 # MaxIdleConnsPerHost see: https://golang.org/pkg/net/http/#Transport
@@ -33,6 +25,145 @@ ResponseHeaderTimeout: 5s
 DisableKeepAlives: false
 # Maximum number of incoming requests to process at once
 MaxConcurrentRequests: 200
+  Client:
+    # Additional non AWS S3 headers proxy appended to original request if not privided
+    AdditionalRequestHeaders:
+      'Cache-Control': "public, s-maxage=600, max-age=600"
+    # Additional non AWS S3 headers proxy appended to response if not privided
+    AdditionalResponseHeaders:
+      'Cache-Control': "public, s-maxage=600, max-age=600"
+      'X-Akubra': "v1.0"
+    Transports:
+      -
+        Name: Method:GET
+        Rules:
+          Method: GET
+        Properties:
+          # MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
+          MaxIdleConns: 0
+          # MaxIdleConnsPerHost see: https://golang.org/pkg/net/http/#Transport
+          MaxIdleConnsPerHost: 100
+          IdleConnTimeout: 0s
+          ResponseHeaderTimeout: 2s
+      -
+        Name: DefaultTransport
+        Rules:
+        Properties:
+          MaxIdleConns: 0
+          MaxIdleConnsPerHost: 100
+          IdleConnTimeout: 0s
+          ResponseHeaderTimeout: 5s
+
+Storages:
+  local_first:
+    Backend: http://s3.first.local
+    Type: passthrough
+    Maintenance: false
+
+  local_second:
+    Backend: http://s3.second.local
+    Type: passthrough
+    Maintenance: false
+
+Shards:
+  local:
+    Storages:
+    - <<: &storageBreakerDefaults
+        BreakerProbeSize: 10
+        BreakerErrorRate: 0.1
+        BreakerTimeLimit: 1s
+        BreakerTimeLimitPercentile: 0.8
+        BreakerBasicCutOutDuration: 1m
+        BreakerMaxCutOutDuration: 180m
+        MeterResolution: 5s
+        MeterRetention: 10s
+      Name: "local_first"
+      Priority: 0
+
+    - <<: *storageBreakerDefaults
+      Name: "local_second"
+      Priority: 0
+
+CredentialsStore:
+    default:
+      Endpoint: "http://localhost:8090"
+      AuthRefreshInterval: 10s
+
+ShardingPolicies:
+  devpolicy:
+    Shards:
+    - ShardName: local
+      Weight: 1
+    Domains:
+    - doesnotexist.akubra.local
+    Default: true
+
+Logging:
+  Synclog:
+    stderr: true
+  #  stdout: false  # default: false
+  #  file: "/var/log/akubra/sync.log"  # default: ""
+  #  syslog: LOG_LOCAL1  # default: LOG_LOCAL1
+  #  brim:
+  #    creds:
+  #      user: "someuser"
+  #      pass: "somepass"
+  #    host: "http://brim.local"
+  #    path: "/v1/processes/uploadsynctasks"
+
+  SyncLogMethods:
+    - GET
+    - PUT
+    - DELETE
+
+  Mainlog:
+    stderr: true
+  #  stdout: false  # default: false
+  #  file: "/var/log/akubra/akubra.log"  # default: ""
+  #  syslog: LOG_LOCAL2  # default: LOG_LOCAL2
+  #  level: Error   # default: Debug
+
+  Accesslog:
+    stderr: true  # default: false
+  #  stdout: false  # default: false
+  #  file: "/var/log/akubra/access.log"  # default: ""
+  #  syslog: LOG_LOCAL3  # default: LOG_LOCAL3
+  #   database:
+  #     user: dbUser
+  #     password: ""
+  #     dbname: dbName
+  #     host: localhost
+  #     inserttmpl: |
+  #       INSERT INTO tablename(path, successhost, failedhost, ts,
+  #        method, useragent, error)
+  #       VALUES ('new','{{.path}}','{{.successhost}}','{{.failedhost}}',
+  #       '{{.ts}}'::timestamp, '{{.method}}','{{.useragent}}','{{.error}}');
+
+Metrics:
+  Target: expvar
+  ExpAddr: ":9089"
+
+Metrics:
+  Target: stdout # graphite
+  Addr: skystats.qxlint:2003
+  Prefix: stats.tech.images.akubra
+  AppendDefaults: true
+  Interval: 1m
+
+
+Listen: ":8080"
+TechnicalEndpointListen: ":8071"
+HealthCheckEndpoint: "/status/ping"
+AdditionalResponseHeaders:
+    'Access-Control-Allow-Origin': "*"
+    'Access-Control-Allow-Credentials': "true"
+    'Access-Control-Allow-Methods': "GET, POST, OPTIONS"
+    'Access-Control-Allow-Headers': 'DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,X-CSRFToken'
+# Additional headers added to backend response
+AdditionalRequestHeaders:
+    'Cache-Control': "public, s-maxage=600, max-age=600"
+    'X-Akubra-Version': '0.9.26'
+
 # MaintainedBackends:
 #   - "http://127.0.0.1:9002"
 

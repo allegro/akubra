@@ -60,22 +60,25 @@ func UniqueValuesInSliceValidator(v interface{}, param string) error {
 	return nil
 }
 
-func (c *YamlConfig) validateRegionCluster(regionName string, regionConf confregions.Region) []error {
+func (c *YamlConfig) validateRegionCluster(policyName string, policies confregions.Policies) []error {
 	errList := make([]error, 0)
-	if len(regionConf.Clusters) == 0 {
-		errList = append(errList, fmt.Errorf("No clusters defined for region \"%s\"", regionName))
+	if len(policies.Shards) == 0 {
+		errList = append(errList, fmt.Errorf("No shards defined for policy \"%s\"", policyName))
 	}
-	for _, regionCluster := range regionConf.Clusters {
-		_, exists := c.Clusters[regionCluster.Name]
+
+	for _, policy := range policies.Shards {
+		fmt.Printf("sharding policies %v\n", c.Shards)
+		_, exists := c.Shards[policy.ShardName]
 		if !exists {
-			errList = append(errList, fmt.Errorf("Cluster \"%s\" is region \"%s\" is not defined", regionName, regionCluster.Name))
+			errList = append(errList, fmt.Errorf("Shard \"%s\" in policy \"%s\" is not defined", policy.ShardName, policyName))
 		}
-		if regionCluster.Weight < 0 || regionCluster.Weight > 1 {
-			errList = append(errList, fmt.Errorf("Weight for cluster \"%s\" in region \"%s\" is not valid", regionCluster.Name, regionName))
+		if policy.Weight < 0 || policy.Weight > 1 {
+			errList = append(errList, fmt.Errorf("Weight for shard \"%s\" in policy \"%s\" is not valid", policy.ShardName, policyName))
 		}
 	}
-	if len(regionConf.Domains) == 0 {
-		errList = append(errList, fmt.Errorf("No domain defined for region \"%s\"", regionName))
+
+	if len(policies.Domains) == 0 {
+		errList = append(errList, fmt.Errorf("No domain defined for policy \"%s\"", policyName))
 	}
 	return errList
 }
@@ -83,10 +86,10 @@ func (c *YamlConfig) validateRegionCluster(regionName string, regionConf confreg
 // RegionsEntryLogicalValidator checks the correctness of "Regions" part of configuration file
 func (c *YamlConfig) RegionsEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
-	if len(c.Regions) == 0 {
+	if len(c.ShardingPolicies) == 0 {
 		errList = append(errList, errors.New("Empty regions definition"))
 	}
-	for regionName, regionConf := range c.Regions {
+	for regionName, regionConf := range c.ShardingPolicies {
 		errList = append(errList, c.validateRegionCluster(regionName, regionConf)...)
 	}
 	validationErrors, valid = prepareErrors(errList, "RegionsEntryLogicalValidator")

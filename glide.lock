@@ -1,5 +1,5 @@
-hash: 2c6349f8d0fb361c0bb348b667391355b84eaa477e82e25c3073c1cca6779c94
-updated: 2017-12-22T12:55:28.861701937+01:00
+hash: 34de96a6041f767ca0f4b04406bb77097b5cd9020de7d6ec0593a2248e800e5a
+updated: 2018-11-28T14:15:52.038632092+01:00
 imports:
 - name: github.com/alecthomas/kingpin
   version: 947dcec5ba9c011838740e680966fd7087a71d0d
@@ -9,37 +9,61 @@ imports:
   - parse
 - name: github.com/alecthomas/units
   version: 2efee857e7cfd4f3d0138cc3cbb1b4966962b93a
+- name: github.com/armon/go-metrics
+  version: 783273d703149aaeb9897cf58613d5af48861c25
 - name: github.com/bnogas/minio-go
-  version: d006c954a435e51f2050b1a091a03b7084aa1f9c
+  version: 4265a4ee0486f1fe901deb5ae53646a9d749e5d0
   subpackages:
   - pkg/s3signer
   - s3signer
 - name: github.com/cyberdelia/go-metrics-graphite
   version: 39f87cc3b432bbb898d7c643c0e93cac2bc865ad
 - name: github.com/deckarep/golang-set
-  version: 1d4478f51bed434f1dadf96dcd9b43aabac66795
+  version: cbaa98ba5575e67703b32b4b19f73c91f3c4159e
 - name: github.com/docker/go-units
-  version: 0dadbb0345b35ec7ef35e228dabb8de89a65bf52
+  version: 47565b4f722fb6ceae66b95f853feed578a4a51c
+- name: github.com/hashicorp/consul
+  version: 5f3d20c5cfbc2859f0dda44d0c14826f00c4a277
+  subpackages:
+  - api
+- name: github.com/hashicorp/go-cleanhttp
+  version: d5fe4b57a186c716b0e00b8c301cbd9b4182694d
+- name: github.com/hashicorp/go-immutable-radix
+  version: 7f3cd4390caab3250a57f30efdb2a65dd7649ecf
+- name: github.com/hashicorp/go-rootcerts
+  version: 6bb64b370b90e7ef1fa532be9e591a81c3493e00
+- name: github.com/hashicorp/golang-lru
+  version: 0fb14efe8c47ae851c0034ed7a448854d3d34cf3
+  subpackages:
+  - simplelru
+- name: github.com/hashicorp/serf
+  version: 984a73625de3138f44deb38d00878fab39eb6447
+  subpackages:
+  - coordinate
+- name: github.com/jinzhu/gorm
+  version: 472c70caa40267cb89fd8facb07fe6454b578626
 - name: github.com/lib/pq
-  version: 83612a56d3dd153a94a629cd64925371c9adad78
+  version: 2704adc878c21e1329f46f6e56a1c387d788ff94
   subpackages:
   - oid
 - name: github.com/minio/minio-go
-  version: 0306684c438ecbb3aab0532016f25d8aad07dd75
+  version: 8708c2edd7ce1d2bab76e040c5b7ccd7a52e0817
   subpackages:
   - pkg/s3utils
+- name: github.com/mitchellh/go-homedir
+  version: 3864e76763d94a6df2f9960b16a20a33da9f9a66
 - name: github.com/rcrowley/go-metrics
-  version: e181e095bae94582363434144c61a9653aff6e50
+  version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
   subpackages:
   - exp
 - name: github.com/serialx/hashring
-  version: 6a9381c5a83e926b9f1fd907395a581e69747e96
+  version: 88762898094ca9cde396a66046d220daa3ba08a2
 - name: github.com/ShowMax/go-fqdn
   version: 2501cdd51ef4c60dd727c58b2199e1a09466b10f
 - name: github.com/sirupsen/logrus
-  version: d682213848ed68c0a260ca37d6dd5ace8423f5ba
+  version: bcd833dfe83d3cebad139e4a29ed79cb2318bf95
 - name: golang.org/x/crypto
-  version: 94eea52f7b742c7cbe0b03b22f0c4c8631ece122
+  version: ca1fcd4ab4c10bc58852a894bcf195fab2229efe
   subpackages:
   - ssh/terminal
 - name: golang.org/x/sync
@@ -47,7 +71,7 @@ imports:
   subpackages:
   - syncmap
 - name: golang.org/x/sys
-  version: 8b4580aae2a0dd0c231a45d3ccb8434ff533b840
+  version: b90f89a1e7a9c1f6b918820b3daa7f08488c8594
   subpackages:
   - unix
   - windows
@@ -58,12 +82,16 @@ imports:
 - name: gopkg.in/validator.v1
   version: 4379dff89709877fa1b057d23b11bfe0c361dfd3
 - name: gopkg.in/yaml.v2
-  version: 287cf08546ab5e7e37d55a84f7ed3fd1db036de5
+  version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
 testImports:
+- name: github.com/allegro/mesos-executor
+  version: 90f54a18c9b2b4e72dd9b09df57d4bffdf4ccbcb
+  subpackages:
+  - xnet
 - name: github.com/DATA-DOG/go-sqlmock
   version: d76b18b42f285b792bf985118980ce9eacea9d10
 - name: github.com/davecgh/go-spew
-  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
+  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
   subpackages:
   - spew
 - name: github.com/pmezard/go-difflib
@@ -73,13 +101,9 @@ testImports:
 - name: github.com/stretchr/objx
   version: cbeaeb16a013161a98496fad62933b1d21786672
 - name: github.com/stretchr/testify
-  version: 2aa2c176b9dab406a6970f6a55f513e8a8c8b18f
+  version: 12b6f73e6084dad08a7c6e575284b177ecafbc71
   subpackages:
   - assert
   - mock
   - require
   - suite
-- name: github.com/hashicorp/consul
-  version: 44b2b1726b8de96e50eb5d49cd8491577f652d03
-- name: github.com/allegro/mesos-executor
-  version: 93a26d21312e15b14035462d3b9008c985317908

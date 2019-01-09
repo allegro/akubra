@@ -130,7 +130,6 @@ type signAuthServiceRoundTripper struct {
 	rt      http.RoundTripper
 	crd     *crdstore.CredentialsStore
 	backend string
-	region  string
 	host    string
 }
 
@@ -199,7 +198,7 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	case signV2Algorithm:
 		req = s3signer.SignV2(*req, csd.AccessKey, csd.SecretKey)
 	case signV4Algorithm:
-		req = s3signer.SignV4(*req, csd.AccessKey, csd.SecretKey, "", srt.region)
+		req = s3signer.SignV4(*req, csd.AccessKey, csd.SecretKey, "", "")
 	}
 	return srt.rt.RoundTrip(req)
 }
@@ -212,13 +211,13 @@ func SignDecorator(keys Keys, region, host string) httphandler.Decorator {
 }
 
 // SignAuthServiceDecorator will compute
-func SignAuthServiceDecorator(backend, region, endpoint, host string) httphandler.Decorator {
+func SignAuthServiceDecorator(backend, endpoint, host string) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
 		credentialsStore, err := crdstore.GetInstance(endpoint)
 		if err != nil {
 			log.Fatalf("error CredentialsStore `%s` is not defined", endpoint)
 		}
-		return signAuthServiceRoundTripper{rt: rt, backend: backend, region: region, host: host, crd: credentialsStore}
+		return signAuthServiceRoundTripper{rt: rt, backend: backend, host: host, crd: credentialsStore}
 	}
 }
 
@@ -226,7 +225,6 @@ type forceSignRoundTripper struct {
 	rt      http.RoundTripper
 	keys    Keys
 	methods string
-	region  string
 	host    string
 }
 
@@ -251,8 +249,8 @@ func (srt forceSignRoundTripper) shouldBeSigned(request *http.Request) bool {
 }
 
 // ForceSignDecorator will recompute auth headers for new Key
-func ForceSignDecorator(keys Keys, region, host, methods string) httphandler.Decorator {
+func ForceSignDecorator(keys Keys, host, methods string) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
-		return forceSignRoundTripper{rt: rt, region: region, host: host, keys: keys, methods: methods}
+		return forceSignRoundTripper{rt: rt, host: host, keys: keys, methods: methods}
 	}
 }

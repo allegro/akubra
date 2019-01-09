@@ -51,12 +51,12 @@ const (
           MaxIdleConnsPerHost: 500
           IdleConnTimeout: 2s
           ResponseHeaderTimeout: 2s
-Backends:
+Storages:
   dummy:
     Endpoint: "http://127.0.0.1:8080"
     Type: "passthrough"
     Maintenance: false
-Clusters:
+Shards:
   cluster1test:
     Backends:
       - dummy
@@ -77,9 +77,9 @@ type YamlConfigTest struct {
 func (t *YamlConfigTest) NewYamlConfigTest() *YamlConfig {
 	var size httpHandlerConfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	region := regionsConfig.Region{}
+	region := regionsConfig.Policies{}
 	t.YamlConfig = PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", ":81",
-		map[string]regionsConfig.Region{"region": region}, nil)
+		map[string]regionsConfig.Policies{"region": region}, nil)
 	return &t.YamlConfig
 }
 
@@ -157,9 +157,9 @@ func TestShouldValidateConfMaintainedBackendWhenNotEmpty(t *testing.T) {
 	maintainedBackendHost := "127.0.0.1:85"
 	var size httpHandlerConfig.HumanSizeUnits
 	size.SizeInBytes = 2048
-	region := regionsConfig.Region{}
+	region := regionsConfig.Policies{}
 	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", ":81",
-		map[string]regionsConfig.Region{"region": region}, nil)
+		map[string]regionsConfig.Policies{"region": region}, nil)
 
 	result, _ := ValidateConf(testConfData, false)
 
@@ -170,10 +170,10 @@ func TestShouldValidateConfMaintainedBackendWhenEmpty(t *testing.T) {
 	maintainedBackendHost := ""
 	var size httpHandlerConfig.HumanSizeUnits
 	size.SizeInBytes = 4096
-	region := regionsConfig.Region{}
+	region := regionsConfig.Policies{}
 	testConfData := PrepareYamlConfig(size, 22, 33, maintainedBackendHost,
 		":80", ":81",
-		map[string]regionsConfig.Region{"region": region}, nil)
+		map[string]regionsConfig.Policies{"region": region}, nil)
 
 	result, _ := ValidateConf(testConfData, false)
 
@@ -280,10 +280,10 @@ func TestShouldNotValidateBodyMaxSizeWithZero(t *testing.T) {
 
 func TestShouldPassValidateConfigurationHTTPHandler(t *testing.T) {
 	correctYamlData := yamlConfigWithoutRegionsSection +
-		`Regions:
+		`ShardingPolicies:
   testregion:
-    Clusters:
-      - Cluster: cluster1test
+    Shards:
+      - ShardName: cluster1test
         Weight: 1
     Domains:
       - endpoint.dc
@@ -347,7 +347,7 @@ func TestShouldNotPassWhenNoRegionIsDefined(t *testing.T) {
 	var size httpHandlerConfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost,
-		":80", ":81", regionsConfig.Regions{}, nil)
+		":80", ":81", regionsConfig.ShardingPolicies{}, nil)
 
 	result, _ := ValidateConf(testConfData, true)
 
@@ -361,8 +361,7 @@ func PrepareYamlConfig(
 	maintainedBackendHost string,
 	listen string,
 	technicalEndpointListen string,
-	regions regionsConfig.Regions,
-	transports transportConfig.Transports) YamlConfig {
+	policies regionsConfig.ShardingPolicies, transports transportConfig.Transports) YamlConfig {
 
 	url1 := url.URL{Scheme: "http", Host: "127.0.0.1:8080"}
 	yamlURL := shardingconfig.YAMLUrl{URL: &url1}
@@ -373,17 +372,17 @@ func PrepareYamlConfig(
 	maxIdleConns := 1
 	maxIdleConnsPerHost := 2
 	maxConcurrentRequests := int32(200)
-	backendsMap := make(storageconfig.BackendsMap)
-	backendsMap["default"] = storageconfig.Backend{
-		Endpoint: yamlURL,
+	storageMap := make(storageconfig.StoragesMap)
+	storageMap["default"] = storageconfig.Storage{
+		Backend: yamlURL,
 	}
 
-	backendsMap["maintained"] = storageconfig.Backend{
-		Endpoint: maintainedBackends,
+	storageMap["maintained"] = storageconfig.Storage{
+		Backend: maintainedBackends,
 	}
-	clustersMap := make(storageconfig.ClustersMap)
-	clustersMap["cluster1test"] = storageconfig.Cluster{
-		Backends: []string{"default"},
+	shardsMap := make(storageconfig.ShardsMap)
+	shardsMap["cluster1test"] = storageconfig.Shard{
+		Storages: storageconfig.Storages{{Name: "default"}},
 	}
 
 	additionalRequestHeaders := httpHandlerConfig.AdditionalHeaders{
@@ -435,11 +434,11 @@ func PrepareYamlConfig(
 			},
 		},
 
-		Backends: backendsMap,
-		Clusters: clustersMap,
-		Regions:  regions,
-		Logging:  logconfig.LoggingConfig{},
-		Metrics:  metrics.Config{},
+		Storages:         storageMap,
+		Shards:           shardsMap,
+		ShardingPolicies: policies,
+		Logging:          logconfig.LoggingConfig{},
+		Metrics:          metrics.Config{},
 	}
 }
 

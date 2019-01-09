@@ -15,8 +15,8 @@
 Akubra is a simple solution to keep an independent S3 storages in sync - almost
 realtime, eventually consistent.
 
-Keeping synchronized storage clusters, which handles great volume of new objects
-(about 300k obj/h), is the most efficient by feeding them with all incoming data
+Keeping synchronized storage clusters, which handles great volume of new objects,
+is the most efficient by feeding them with all incoming data
 at once. That's what Akubra does, with a minimum memory and cpu footprint.
 
 Synchronizing S3 storages offline is almost impossible with a high volume traffic.
@@ -36,6 +36,11 @@ Based on clusters weights akubra splits all operations between clusters in pool.
 It also backtracks to older cluster when requested for not existing object on
 target cluster. This kind of events are logged, so it's possible to rebalance
 clusters in background.
+
+### Multi cloud cost optimization
+While all objects has to be written in every storage from shard, not all storages
+has to be read. With load balancing and storage prioritization akubra will peak
+cheapest one.
 
 ## Build
 
@@ -152,32 +157,6 @@ Service:
           MaxIdleConnsPerHost: 600
           IdleConnTimeout: 2s
           ResponseHeaderTimeout: 2s
-
-# MaxIdleConns see: https://golang.org/pkg/net/http/#Transport
-# Default 0 (no limit)
-MaxIdleConns: 0
-# MaxIdleConnsPerHost see: https://golang.org/pkg/net/http/#Transport
-# Default 100
-MaxIdleConnsPerHost: 100
-# IdleConnTimeout see: https://golang.org/pkg/net/http/#Transport
-# Default 0 (no limit)
-IdleConnTimeout: 0s
-# ResponseHeaderTimeout see: https://golang.org/pkg/net/http/#Transport
-# Default 5s
-ResponseHeaderTimeout: 5s
-# DisableKeepAlives see: https://golang.org/pkg/net/http/#Transport
-# Default false
-
-DisableKeepAlives: false
-
-# Maximum accepted body size
-BodyMaxSize: "100M"
-# Maximum number of incoming requests to process at once
-MaxConcurrentRequests: 200
-# Backend in maintenance mode. Akubra will skip this endpoint
-
-# MaintainedBackends:
-#  - "http://s3.dc2.internal"
 
 # List request methods to be logged in synclog in case of backend failure
 SyncLogMethods:

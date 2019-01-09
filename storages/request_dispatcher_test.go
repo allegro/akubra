@@ -88,9 +88,9 @@ func TestRequestDispatcherDispatch(t *testing.T) {
 
 }
 
-func clientFactoryMockFactory(mock *replicationClientMock) func(request *http.Request) func([]*Backend) client {
-	return func(request *http.Request) func([]*Backend) client {
-		return func([]*Backend) client {
+func clientFactoryMockFactory(mock *replicationClientMock) func(request *http.Request) func([]*StorageClient) client {
+	return func(request *http.Request) func([]*StorageClient) client {
+		return func([]*StorageClient) client {
 			return mock
 		}
 	}

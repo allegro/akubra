@@ -131,7 +131,7 @@ func (suite *BucketListResponseMergerTestSuite) Send(tup ...BackendResponse) {
 
 }
 func (suite *BucketListResponseMergerTestSuite) SetupTest() {
-	suite.storage = Storages{Clusters: make(map[string]NamedCluster)}
+	suite.storage = Storages{ShardClients: make(map[string]NamedShardClient)}
 	suite.ch = make(chan BackendResponse)
 	merger := &responseMerger{responsesChannel: suite.ch}
 	suite.rHandler = merger

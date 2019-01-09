@@ -13,7 +13,7 @@ import (
 )
 
 func TestReplicationClientCreation(t *testing.T) {
-	backends := []*Backend{}
+	backends := []*StorageClient{}
 	cli := newReplicationClient(backends)
 	require.NotNil(t, cli)
 }
@@ -25,7 +25,7 @@ func TestReplicationClientRequestPassing(t *testing.T) {
 		return nil, nil
 	}
 
-	backends := []*Backend{createDummyBackend(callClountHandler)}
+	backends := []*StorageClient{createDummyBackend(callClountHandler)}
 	cli := newReplicationClient(backends)
 	require.NotNil(t, cli)
 
@@ -71,7 +71,7 @@ func TestHttpCancelContext(t *testing.T) {
 }
 
 func TestReplicationClientCancelRequest(t *testing.T) {
-	backends := []*Backend{createDummyBackend(slowRoundTripper), createDummyBackend(successRoundTripper)}
+	backends := []*StorageClient{createDummyBackend(slowRoundTripper), createDummyBackend(successRoundTripper)}
 
 	cli := newReplicationClient(backends)
 	request := dummyRequest()
@@ -106,9 +106,9 @@ var successRoundTripper = func(req *http.Request) (*http.Response, error) {
 	return &http.Response{Request: req}, nil
 }
 
-func createDummyBackend(handler RequestHandler) *Backend {
+func createDummyBackend(handler RequestHandler) *StorageClient {
 	url, _ := url.Parse("http://some.url")
-	return &Backend{Endpoint: *url, RoundTripper: &testRt{rt: handler}}
+	return &StorageClient{Endpoint: *url, RoundTripper: &testRt{rt: handler}}
 }
 
 type testRt struct {

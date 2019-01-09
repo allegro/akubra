@@ -54,7 +54,7 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 // NewRegions build new region http.RoundTripper
-func NewRegions(conf config.Regions, storages storage.ClusterStorage, syncLogger log.Logger) (http.RoundTripper, error) {
+func NewRegions(conf config.ShardingPolicies, storages storage.ClusterStorage, syncLogger log.Logger) (http.RoundTripper, error) {
 
 	ringFactory := sharding.NewRingFactory(conf, storages, syncLogger)
 	regions := &Regions{
