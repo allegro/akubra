@@ -3,10 +3,10 @@ package watchdog
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/allegro/akubra/database"
 	"github.com/allegro/akubra/log"
 	"github.com/jinzhu/gorm"
 )
@@ -22,9 +22,7 @@ const (
 
 // SQLWatchdogFactory creates instances of SQLWatchdog
 type SQLWatchdogFactory struct {
-	dialect                   string
-	connectionStringFormat    string
-	connectionStringArgsNames []string
+	dbClientFactory *database.DBClientFactory
 }
 
 // SQLWatchdog is a type of ConsistencyWatchdog that uses a SQL database
@@ -49,12 +47,8 @@ type SQLConsistencyRecord struct {
 }
 
 // CreateSQLWatchdogFactory creates instances of SQLWatchdogFactory
-func CreateSQLWatchdogFactory(dialect, connStringFormat string, connStringArgsNames []string) ConsistencyWatchdogFactory {
-	return &SQLWatchdogFactory{
-		dialect:                   dialect,
-		connectionStringFormat:    connStringFormat,
-		connectionStringArgsNames: connStringArgsNames,
-	}
+func CreateSQLWatchdogFactory(dbClientFactory *database.DBClientFactory) ConsistencyWatchdogFactory {
+	return &SQLWatchdogFactory{dbClientFactory: dbClientFactory}
 }
 
 // CreateWatchdogInstance creates instances of SQLWatchdog
@@ -63,52 +57,16 @@ func (factory *SQLWatchdogFactory) CreateWatchdogInstance(config *Config) (Consi
 		return nil, fmt.Errorf("SQLWatchdogFactory can't instantiate watchdog of type '%s'", config.Type)
 	}
 
-	connMaxLifetime, err := time.ParseDuration(config.Props["connmaxlifetime"])
+	db, err := factory.dbClientFactory.CreateConnection(config.Props)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create SQLWatcher, couldn't parse 'connmaxlifetime': %s", err.Error())
+		return nil, err
 	}
 
-	maxOpenConns, err := strconv.Atoi(config.Props["maxopenconns"])
-	if err != nil {
-		return nil, fmt.Errorf("failed to create SQLWatcher, couldn't parse 'maxopenconns': %s", err.Error())
-	}
-
-	maxIdleConns, err := strconv.Atoi(config.Props["maxidleconns"])
-	if err != nil {
-		return nil, fmt.Errorf("failed to create SQLWatcher, couldn't parse 'maxidleconns': %s", err.Error())
-	}
-
-	connString, err := factory.createConnString(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create SQLWatcher, couldn't prepare connection string: %s", err.Error())
-	}
-
-	db, err := gorm.Open(factory.dialect, connString)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create SQLWatcher, couldn't connect to db: %s", err.Error())
-	}
-
-	db.DB().SetConnMaxLifetime(connMaxLifetime)
-	db.DB().SetMaxOpenConns(maxOpenConns)
-	db.DB().SetMaxIdleConns(maxIdleConns)
-
-	log.Printf("SQLWatchdog '%s' watcher setup successful", factory.dialect)
+	log.Printf("SQLWatchdog watcher setup successful")
 
 	return &SQLWatchdog{
 		dbConn:                  db,
 		objectVersionHeaderName: config.ObjectVersionHeaderName}, nil
-}
-
-func (factory *SQLWatchdogFactory) createConnString(config *Config) (string, error) {
-	connString := factory.connectionStringFormat
-	for _, argName := range factory.connectionStringArgsNames {
-		if argValue, isArgProvided := config.Props[argName]; isArgProvided {
-			connString = strings.Replace(connString, fmt.Sprintf(":%s:", argName), argValue, 1)
-		} else {
-			return "", fmt.Errorf("conn argument '%s' missing", argName)
-		}
-	}
-	return connString, nil
 }
 
 // Insert inserts to SQL db

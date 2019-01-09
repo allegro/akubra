@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/allegro/akubra/database"
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/utils"
 )
@@ -73,7 +74,7 @@ type DefaultConsistencyRecordFactory struct {
 
 // CreateSQL creates ConsistencyWatchdog and ConsistencyRecordFactory that make use of a SQL database
 func CreateSQL(dialect, connStringFormat string, params []string, watchdogConfig *Config) (ConsistencyWatchdog, error) {
-	sqlWatchdogFactory := CreateSQLWatchdogFactory(dialect, connStringFormat, params)
+	sqlWatchdogFactory := CreateSQLWatchdogFactory(database.NewDBClientFactory(dialect, connStringFormat, params))
 	watchdog, err := sqlWatchdogFactory.CreateWatchdogInstance(watchdogConfig)
 	if err != nil {
 		return nil, err
