@@ -76,12 +76,12 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 	insertResult := watchdog.dbConn.Table(watchdogTable).Create(sqlRecord)
 
 	if insertResult.Error != nil {
-		metrics.UpdateSince("req.watchdog.insert.err", queryStartTime)
+		metrics.UpdateSince("watchdog.insert.err", queryStartTime)
 		log.Printf("Failed to insert consistency record for object '%s'", sqlRecord.ObjectID)
 		return nil, ErrDataBase
 	}
 
-	metrics.UpdateSince("req.watchdog.insert.ok", queryStartTime)
+	metrics.UpdateSince("watchdog.insert.ok", queryStartTime)
 
 	insertedRecord, _ := insertResult.Value.(*SQLConsistencyRecord)
 	log.Debugf("Successfully inserted consistency record for object '%s'", record.objectID)
@@ -108,7 +108,7 @@ func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 
 
 	if deleteResult.Error != nil {
-		metrics.UpdateSince("req.watchdog.delete.err", queryStartTime)
+		metrics.UpdateSince("watchdog.delete.err", queryStartTime)
 		log.Debugf("Failed to delete records for object '%s' older than %s: %s", marker.objectID, marker.insertionDate, deleteResult.Error)
 		return ErrDataBase
 	}
@@ -131,7 +131,7 @@ func (watchdog *SQLWatchdog) UpdateExecutionDelay(delta *ExecutionDelay) error {
 		Error
 
 	if updateErr != nil {
-		metrics.UpdateSince("req.watchdog.update.err", queryStartTime)
+		metrics.UpdateSince("watchdog.update.err", queryStartTime)
 		log.Printf("Failed to update record for reqId '%s'", delta.RequestID)
 	}
 
