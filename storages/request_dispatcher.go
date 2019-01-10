@@ -15,17 +15,23 @@ type dispatcher interface {
 
 // RequestDispatcher passes requests and responses to matching replicators and response pickers
 type RequestDispatcher struct {
-	Backends                  []*backend.Backend
-	syncLog                   *SyncSender
-	pickClientFactory         func(*http.Request) func([]*backend.Backend, watchdog.ConsistencyWatchdog) client
-	pickResponsePickerFactory func(*Request) func(<-chan BackendResponse) responsePicker
-	watchdog                  watchdog.ConsistencyWatchdog
-	watchdogRecordFactory     watchdog.ConsistencyRecordFactory
+	Backends                        []*backend.Backend
+	syncLog                         *SyncSender
+	pickClientFactory               func(*http.Request) func([]*backend.Backend, watchdog.ConsistencyWatchdog) client
+	pickResponsePickerFactory       func(*Request) func(<-chan BackendResponse) responsePicker
+	watchdog                        watchdog.ConsistencyWatchdog
+	objectWatchdogVersionHeaderName string
+	watchdogRecordFactory           watchdog.ConsistencyRecordFactory
 }
 
 // NewRequestDispatcher creates RequestDispatcher instance
-func NewRequestDispatcher(backends []*backend.Backend, syncLog *SyncSender,
-	watchdog watchdog.ConsistencyWatchdog, watchdogRecordFactory watchdog.ConsistencyRecordFactory) *RequestDispatcher {
+func NewRequestDispatcher(
+	backends []*backend.Backend,
+	syncLog *SyncSender,
+	watchdog watchdog.ConsistencyWatchdog,
+	objectWatchdogVersionHeaderName string,
+	watchdogRecordFactory watchdog.ConsistencyRecordFactory) *RequestDispatcher {
+
 	return &RequestDispatcher{
 		Backends:                  backends,
 		syncLog:                   syncLog,
@@ -33,14 +39,15 @@ func NewRequestDispatcher(backends []*backend.Backend, syncLog *SyncSender,
 		pickClientFactory:         defaultReplicationClientFactory,
 		watchdog:                  watchdog,
 		watchdogRecordFactory:     watchdogRecordFactory,
+		objectWatchdogVersionHeaderName: objectWatchdogVersionHeaderName,
 	}
 }
 
 // Dispatch creates and calls replicators and response pickers
 func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, error) {
 	storageRequest := &Request{
-		Request: request,
-		isMultiPartUploadRequest: utils.IsMultiPartUploadRequest(request),
+		Request:                          request,
+		isMultiPartUploadRequest:         utils.IsMultiPartUploadRequest(request),
 		isInitiateMultipartUploadRequest: utils.IsInitiateMultiPartUploadRequest(request),
 	}
 	var err error
@@ -49,6 +56,7 @@ func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, er
 		if err != nil {
 			return nil, err
 		}
+		storageRequest.Header.Add(rd.objectWatchdogVersionHeaderName, storageRequest.record.GetObjectVersion())
 	}
 
 	clientFactory := rd.pickClientFactory(request)

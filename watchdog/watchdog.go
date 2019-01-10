@@ -41,6 +41,10 @@ type ConsistencyRecord struct {
 	isReflectedOnBackends bool
 }
 
+func (record *ConsistencyRecord) GetObjectVersion() string {
+	return record.objectVersion
+}
+
 // DeleteMarker indicates which ConsistencyRecords for a given object can be deleted
 type DeleteMarker struct {
 	objectID      string

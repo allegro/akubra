@@ -29,7 +29,6 @@ type SQLWatchdogFactory struct {
 // SQLWatchdog is a type of ConsistencyWatchdog that uses a SQL database
 type SQLWatchdog struct {
 	dbConn                  *gorm.DB
-	objectVersionHeaderName string
 }
 
 // ErrDataBase indicates a database errors
@@ -65,9 +64,7 @@ func (factory *SQLWatchdogFactory) CreateWatchdogInstance(config *Config) (Consi
 
 	log.Printf("SQLWatchdog watcher setup successful")
 
-	return &SQLWatchdog{
-		dbConn:                  db,
-		objectVersionHeaderName: config.ObjectVersionHeaderName}, nil
+	return &SQLWatchdog{dbConn: db}, nil
 }
 
 // Insert inserts to SQL db
@@ -88,7 +85,7 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 
 	insertedRecord, _ := insertResult.Value.(*SQLConsistencyRecord)
 	log.Debugf("Successfully inserted consistency record for object '%s'", record.objectID)
-
+	record.objectVersion = insertedRecord.InsertedAt.String()
 	return createDeleteMarkerFor(insertedRecord), nil
 }
 

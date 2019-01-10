@@ -81,6 +81,7 @@ type shardFactory struct {
 	synclog *SyncSender
 	watchdog watchdog.ConsistencyWatchdog
 	watchdogRequestFactory watchdog.ConsistencyRecordFactory
+	watchdogConfig *watchdog.Config
 }
 
 func (factory *shardFactory) newShard(name string, storageNames []string, storages map[string]*StorageClient) (*ShardClient, error) {
@@ -93,7 +94,7 @@ func (factory *shardFactory) newShard(name string, storageNames []string, storag
 		shardStorages = append(shardStorages, backendRT)
 	}
 	log.Debugf("Shard %s storages %v", name, shardStorages)
-	requestDispatcher := NewRequestDispatcher(shardStorages, factory.synclog, factory.watchdog, factory.watchdogRequestFactory)
+	requestDispatcher := NewRequestDispatcher(shardStorages, factory.synclog, factory.watchdog, factory.watchdogConfig.ObjectVersionHeaderName, factory.watchdogRequestFactory)
 	cluster := &ShardClient{backends: shardStorages, name: name, requestDispatcher: requestDispatcher, synclog: factory.synclog}
 	return cluster, nil
 }

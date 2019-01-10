@@ -132,7 +132,7 @@ func (s *service) start() error {
 		log.Printf("Not using consistency watchdog")
 	}
 
-	storagesFactory := storages.NewStoragesFactory(transportMatcher, syncSender, consistencyWatchdog, watchdogRecordFactory)
+	storagesFactory := storages.NewStoragesFactory(transportMatcher, syncSender, &s.config.Watchdog, consistencyWatchdog, watchdogRecordFactory)
 
 	storage, err := storagesFactory.InitStorages(s.config.Shards, s.config.Storages)
 

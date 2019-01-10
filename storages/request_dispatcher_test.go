@@ -58,7 +58,7 @@ func TestRequestDispatcherPicks(t *testing.T) {
 		{"PUT", "http://some.storage/bucket", matchReplicationClient, matchDeletePicker},
 	}
 
-	dispatcher := NewRequestDispatcher(nil, nil, nil, nil)
+	dispatcher := NewRequestDispatcher(nil, nil, nil, "", nil)
 	require.NotNil(t, dispatcher)
 	for _, tc := range testCases {
 		request, _ := http.NewRequest(tc.method, tc.url, nil)
