@@ -27,27 +27,27 @@ func (factory *DBClientFactory) CreateConnection(dbConfig map[string]string) (*g
 
 	connMaxLifetime, err := time.ParseDuration(dbConfig["connmaxlifetime"])
 	if err != nil {
-		return nil, fmt.Errorf("failed to create SQLWatcher, couldn't parse 'connmaxlifetime': %s", err.Error())
+		return nil, fmt.Errorf("failed to create DBClient, couldn't parse 'connmaxlifetime': %s", err.Error())
 	}
 
 	maxOpenConns, err := strconv.Atoi(dbConfig["maxopenconns"])
 	if err != nil {
-		return nil, fmt.Errorf("failed to create SQLWatcher, couldn't parse 'maxopenconns': %s", err.Error())
+		return nil, fmt.Errorf("failed to create DBClient, couldn't parse 'maxopenconns': %s", err.Error())
 	}
 
 	maxIdleConns, err := strconv.Atoi(dbConfig["maxidleconns"])
 	if err != nil {
-		return nil, fmt.Errorf("failed to create SQLWatcher, couldn't parse 'maxidleconns': %s", err.Error())
+		return nil, fmt.Errorf("failed to create DBClient, couldn't parse 'maxidleconns': %s", err.Error())
 	}
 
 	connString, err := factory.createConnString(dbConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create SQLWatcher, couldn't prepare connection string: %s", err.Error())
+		return nil, fmt.Errorf("failed to create DBClient, couldn't prepare connection string: %s", err.Error())
 	}
 
 	db, err := gorm.Open(factory.dialect, connString)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create SQLWatcher, couldn't connect to db: %s", err.Error())
+		return nil, fmt.Errorf("failed to create DBClient, couldn't connect to db: %s", err.Error())
 	}
 
 	db.DB().SetConnMaxLifetime(connMaxLifetime)
