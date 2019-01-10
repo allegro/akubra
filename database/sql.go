@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/allegro/akubra/log"
 	"github.com/jinzhu/gorm"
 )
 
@@ -53,6 +54,7 @@ func (factory *DBClientFactory) CreateConnection(dbConfig map[string]string) (*g
 	db.DB().SetConnMaxLifetime(connMaxLifetime)
 	db.DB().SetMaxOpenConns(maxOpenConns)
 	db.DB().SetMaxIdleConns(maxIdleConns)
+	db.SetLogger(log.DefaultLogger)
 
 	return db, nil
 }

@@ -46,6 +46,11 @@ type SQLConsistencyRecord struct {
 	RequestID      string    `gorm:"column:request_id"`
 }
 
+func (SQLConsistencyRecord) TableName() string {
+	return "consistency_record"
+}
+
+
 // CreateSQLWatchdogFactory creates instances of SQLWatchdogFactory
 func CreateSQLWatchdogFactory(dbClientFactory *database.DBClientFactory) ConsistencyWatchdogFactory {
 	return &SQLWatchdogFactory{dbClientFactory: dbClientFactory}
@@ -57,7 +62,7 @@ func (factory *SQLWatchdogFactory) CreateWatchdogInstance(config *Config) (Consi
 		return nil, fmt.Errorf("SQLWatchdogFactory can't instantiate watchdog of type '%s'", config.Type)
 	}
 
-	db, err := factory.dbClientFactory.CreateConnection(config.Props)
+	db, err := factory.dbClientFactory.CreateConnection(config.Props, )
 	if err != nil {
 		return nil, err
 	}
