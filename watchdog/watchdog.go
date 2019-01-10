@@ -32,17 +32,17 @@ type ConsistencyRecord struct {
 
 	RequestID      string
 	ExecutionDelay time.Duration
-	objectID       string
-	method         Method
-	domain         string
-	accessKey      string
-	objectVersion  string
+	ObjectID       string
+	Method         Method
+	Domain         string
+	AccessKey      string
+	ObjectVersion  string
 
 	isReflectedOnBackends bool
 }
 
 func (record *ConsistencyRecord) GetObjectVersion() string {
-	return record.objectVersion
+	return record.ObjectVersion
 }
 
 // DeleteMarker indicates which ConsistencyRecords for a given object can be deleted
@@ -128,11 +128,11 @@ func (factory *DefaultConsistencyRecordFactory) CreateRecordFor(request *http.Re
 	return &ConsistencyRecord{
 		RequestID:             requestID,
 		ExecutionDelay:        executionDelay,
-		objectID:              fmt.Sprintf("%s/%s", bucket, key),
-		accessKey:             accessKey,
-		domain:                domain,
+		ObjectID:              fmt.Sprintf("%s/%s", bucket, key),
+		AccessKey:             accessKey,
+		Domain:                domain,
 		isReflectedOnBackends: true,
-		method:                method,
+		Method:                method,
 	}, nil
 }
 

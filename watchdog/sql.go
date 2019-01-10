@@ -74,7 +74,7 @@ func (factory *SQLWatchdogFactory) CreateWatchdogInstance(config *Config) (Consi
 
 // Insert inserts to SQL db
 func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, error) {
-	log.Debugf("Inserting consistency record for object '%s'", record.objectID)
+	log.Debugf("Inserting consistency record for object '%s'", record.ObjectID)
 	sqlRecord := createSQLRecord(record)
 
 	queryStartTime := time.Now()
@@ -89,8 +89,8 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 	metrics.UpdateSince("watchdog.insert.ok", queryStartTime)
 
 	insertedRecord, _ := insertResult.Value.(*SQLConsistencyRecord)
-	log.Debugf("Successfully inserted consistency record for object '%s'", record.objectID)
-	record.objectVersion = insertedRecord.InsertedAt.String()
+	log.Debugf("Successfully inserted consistency record for object '%s'", record.ObjectID)
+	record.ObjectVersion = insertedRecord.InsertedAt.String()
 	return createDeleteMarkerFor(insertedRecord), nil
 }
 
@@ -167,7 +167,7 @@ func (watchdog *SQLWatchdog) SupplyRecordWithVersion(record *ConsistencyRecord) 
 		return err
 	}
 
-	record.objectVersion = objectVersion.String()
+	record.ObjectVersion = objectVersion.String()
 	return nil
 }
 
@@ -181,10 +181,10 @@ func createDeleteMarkerFor(record *SQLConsistencyRecord) *DeleteMarker {
 func createSQLRecord(record *ConsistencyRecord) *SQLConsistencyRecord {
 	return &SQLConsistencyRecord{
 		RequestID:      record.RequestID,
-		ObjectID:       record.objectID,
-		Method:         string(record.method),
+		ObjectID:       record.ObjectID,
+		Method:         string(record.Method),
 		ExecutionDelay: fmt.Sprintf("%d minutes", uint64(record.ExecutionDelay.Minutes())),
-		AccessKey:      record.accessKey,
-		Domain:         record.domain,
+		AccessKey:      record.AccessKey,
+		Domain:         record.Domain,
 	}
 }
