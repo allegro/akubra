@@ -13,7 +13,7 @@ CREATE UNIQUE INDEX consistency_record__domain__object_id__inserted_at
   ON consistency_record
   USING btree (domain, object_id, inserted_at);
 
-CREATE INDEX consistency_record__inserted_at
+CREATE INDEX consistency_record__request_id
   ON consistency_record
   USING btree (request_id);
 

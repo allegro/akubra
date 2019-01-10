@@ -8,6 +8,7 @@ import (
 
 	"github.com/allegro/akubra/database"
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/metrics"
 	"github.com/jinzhu/gorm"
 )
 
@@ -73,12 +74,17 @@ func (factory *SQLWatchdogFactory) CreateWatchdogInstance(config *Config) (Consi
 func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, error) {
 	log.Debugf("Inserting consistency record for object '%s'", record.objectID)
 	sqlRecord := createSQLRecord(record)
+
+	queryStartTime := time.Now()
 	insertResult := watchdog.dbConn.Table(watchdogTable).Create(sqlRecord)
 
 	if insertResult.Error != nil {
+		metrics.UpdateSince("req.watchdog.insert.err", queryStartTime)
 		log.Printf("Failed to insert consistency record for object '%s'", sqlRecord.ObjectID)
 		return nil, ErrDataBase
 	}
+
+	metrics.UpdateSince("req.watchdog.insert.ok", queryStartTime)
 
 	insertedRecord, _ := insertResult.Value.(*SQLConsistencyRecord)
 	log.Debugf("Successfully inserted consistency record for object '%s'", record.objectID)
@@ -95,13 +101,17 @@ func (watchdog *SQLWatchdog) InsertWithRequestID(requestID string, record *Consi
 
 // Delete deletes from SQL db
 func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
+
+	queryStartTime := time.Now()
 	deleteResult := watchdog.
 		dbConn.
 		Table(watchdogTable).
 		Where(markersInsertedEalier, marker.domain, marker.objectID, marker.insertionDate).
 		Delete(&ConsistencyRecord{})
 
+
 	if deleteResult.Error != nil {
+		metrics.UpdateSince("req.watchdog.delete.err", queryStartTime)
 		log.Debugf("Failed to delete records for object '%s' older than %s: %s", marker.objectID, marker.insertionDate, deleteResult.Error)
 		return ErrDataBase
 	}
@@ -116,12 +126,15 @@ func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 
 // UpdateExecutionDelay updates execution time of a record in SQL db
 func (watchdog *SQLWatchdog) UpdateExecutionDelay(delta *ExecutionDelay) error {
+
+	queryStartTime := time.Now()
 	updateErr := watchdog.
 		dbConn.
 		Exec(updateRecordExecutionTimeByReqID, fmt.Sprintf("%d minutes", uint64(delta.Delay.Minutes())), delta.RequestID).
 		Error
 
 	if updateErr != nil {
+		metrics.UpdateSince("req.watchdog.update.err", queryStartTime)
 		log.Printf("Failed to update record for reqId '%s'", delta.RequestID)
 	}
 
