@@ -327,7 +327,7 @@ type ObjectMultipartInfo struct {
 	Size int64
 
 	// Upload ID that identifies the multipart upload.
-	UploadID string `xml:"UploadID"`
+	UploadID string `xml:"UploadId"`
 
 	// Error
 	Err error
