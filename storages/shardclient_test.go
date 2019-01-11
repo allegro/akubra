@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/watchdog"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
@@ -25,7 +26,9 @@ func TestClusterTestSuite(t *testing.T) {
 // SetupTest conforms suite interface
 func (suite *ClusterTestSuite) SetupTest() {
 	clusterName := "testCluster"
-	shardFactory := &shardFactory{}
+	shardFactory := &shardFactory{
+		watchdogConfig: &watchdog.Config{},
+	}
 	cluster, err := shardFactory.newShard(
 		clusterName,
 		nil,
