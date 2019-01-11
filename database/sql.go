@@ -10,12 +10,15 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
+
+//DBClientFactory constructs instances of DBClient
 type DBClientFactory struct {
 	dialect                   string
 	connectionStringFormat    string
 	connectionStringArgsNames []string
 }
 
+//NewDBClientFactory creates an instance of NewDBClientFactory
 func NewDBClientFactory(dialect string, connectionStringFormat  string, connectionStringArgsNames []string) *DBClientFactory {
 	return &DBClientFactory{
 		dialect:dialect,
@@ -24,6 +27,7 @@ func NewDBClientFactory(dialect string, connectionStringFormat  string, connecti
 	}
 }
 
+//CreateConnection prepares a database connection
 func (factory *DBClientFactory) CreateConnection(dbConfig map[string]string) (*gorm.DB, error) {
 
 	connMaxLifetime, err := time.ParseDuration(dbConfig["connmaxlifetime"])

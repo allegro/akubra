@@ -41,6 +41,7 @@ type ConsistencyRecord struct {
 	isReflectedOnBackends bool
 }
 
+//GetObjectVersion returns object's version
 func (record *ConsistencyRecord) GetObjectVersion() string {
 	return record.ObjectVersion
 }

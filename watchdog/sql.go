@@ -46,10 +46,10 @@ type SQLConsistencyRecord struct {
 	RequestID      string    `gorm:"column:request_id"`
 }
 
+//TableName provides the table name for consistency_record
 func (SQLConsistencyRecord) TableName() string {
 	return "consistency_record"
 }
-
 
 // CreateSQLWatchdogFactory creates instances of SQLWatchdogFactory
 func CreateSQLWatchdogFactory(dbClientFactory *database.DBClientFactory) ConsistencyWatchdogFactory {
