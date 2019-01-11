@@ -53,6 +53,7 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 		return shardsRing.DoRequest(req)
 	}
 	if rg.defaultRing != nil {
+		log.Printf("Selected default ring for request with reqHost: '%s'", reqHost)
 		return rg.defaultRing.DoRequest(req)
 	}
 	return rg.getNoSuchDomainResponse(req), nil

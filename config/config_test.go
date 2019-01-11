@@ -436,6 +436,7 @@ func PrepareYamlConfig(
 				AdditionalResponseHeaders: additionalResponseHeaders,
 			},
 		},
+
 		Storages:         storageMap,
 		Shards:           shardsMap,
 		ShardingPolicies: policies,

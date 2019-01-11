@@ -117,7 +117,7 @@ func (meter *CallMeter) Calls() float64 {
 
 // CallsInLastPeriod returns number of calls in last duration
 func (meter *CallMeter) CallsInLastPeriod(period time.Duration) float64 {
-	lastPeriodSeries := meter.histogram.pickLastSeries(period)
+	lastPeriodSeries := meter.histogram.PickLastSeries(period)
 	sum := float64(0)
 	now := meter.now()
 	for _, series := range lastPeriodSeries {
@@ -146,7 +146,7 @@ func (meter *CallMeter) SetActive(active bool) {
 
 // TimeSpent returns float64 repesentation of time spent in execution
 func (meter *CallMeter) TimeSpent() float64 {
-	allSeries := meter.histogram.pickLastSeries(meter.resolution)
+	allSeries := meter.histogram.PickLastSeries(meter.resolution)
 	sum := float64(0)
 	now := meter.now()
 
@@ -170,14 +170,12 @@ func (series *dataSeries) Add(value float64, dateTime time.Time) {
 	series.data = append(series.data, &timeValue{dateTime, value})
 }
 
-func (series *dataSeries) ValueRangeFun(timeStart, timeEnd time.Time, fun func(*timeValue)) []float64 {
-	dataRange := []float64{}
+func (series *dataSeries) ValueRangeFun(timeStart, timeEnd time.Time, fun func(*timeValue)) {
 	for _, timeVal := range series.data {
 		if (timeStart == timeVal.date || timeStart.Before(timeVal.date)) && timeEnd.After(timeVal.date) {
 			fun(timeVal)
 		}
 	}
-	return dataRange
 }
 
 func (series *dataSeries) ValueRange(timeStart, timeEnd time.Time) []float64 {
@@ -226,7 +224,8 @@ func (h *histogram) pickSeries(at time.Time) *dataSeries {
 	return h.data[idx]
 }
 
-func (h *histogram) pickLastSeries(period time.Duration) []*dataSeries {
+// PickLastSeries returns slice of dataSeries tracking at least given period of time
+func (h *histogram) PickLastSeries(period time.Duration) []*dataSeries {
 	h.mx.Lock()
 	defer h.mx.Unlock()
 	if period > h.retention {
@@ -317,7 +316,7 @@ type NodeBreaker struct {
 	state               *openStateTracker
 }
 
-// Record collects call data and returns bool if breaker should be open
+// Record collects call data and returns bool if breaker should be opened
 func (breaker *NodeBreaker) Record(duration time.Duration, success bool) bool {
 	breaker.timeData.Add(float64(duration))
 	failValue := float64(1)
@@ -328,7 +327,7 @@ func (breaker *NodeBreaker) Record(duration time.Duration, success bool) bool {
 	return breaker.ShouldOpen()
 }
 
-// ShouldOpen checks if breaker should be open
+// ShouldOpen checks if breaker should be opened
 func (breaker *NodeBreaker) ShouldOpen() bool {
 	exceeded := breaker.limitsExceeded()
 	if breaker.state != nil {
@@ -524,11 +523,11 @@ func (ms *MeasuredStorage) RoundTrip(req *http.Request) (*http.Response, error) 
 	duration := time.Since(start)
 	success := backendSuccess(resp, err)
 	open := ms.Breaker.Record(duration, success)
-	log.Debugf("MeasuredStorage %s: Request %s took %s was successful: %t, opened breaker %t\n", ms.Name, reqID, duration, success, open)
+	log.Debugf("s %s: Request %s took %s was successful: %t, opened breaker %t\n", ms.Name, reqID, duration, success, open)
 
 	ms.Node.UpdateTimeSpent(duration)
 	ms.Node.SetActive(!open)
-	raportMetrics(ms.RoundTripper, start, open)
+	reportMetrics(ms.RoundTripper, start, open)
 	return resp, err
 }
 
@@ -543,7 +542,7 @@ func (ms *MeasuredStorage) IsActive() bool {
 	return ms.Node.IsActive()
 }
 
-func raportMetrics(rt http.RoundTripper, since time.Time, open bool) {
+func reportMetrics(rt http.RoundTripper, since time.Time, open bool) {
 	if b, ok := rt.(*backend.Backend); ok {
 		prefix := fmt.Sprintf("reqs.backend.%s.balancer", b.Name)
 		metrics.UpdateSince(prefix+".duration", since)

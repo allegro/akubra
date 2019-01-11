@@ -63,7 +63,7 @@ func (c *ShardClient) balancerRoundTrip(req *http.Request) (resp *http.Response,
 	return resp, err
 }
 
-// Name get Domain name
+// Name get Cluster name
 func (c *ShardClient) Name() string {
 	return c.name
 }

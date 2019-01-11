@@ -37,6 +37,7 @@ type YamlConfig struct {
 	Logging          logconfig.LoggingConfig            `yaml:"Logging"`
 	Metrics          metrics.Config                     `yaml:"Metrics"`
 	Watchdog         watchdog.Config                    `yaml:"Watchdog"`
+
 }
 
 // Config contains processed YamlConfig data

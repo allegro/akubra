@@ -69,12 +69,12 @@ func Init(cfg Config) (err error) {
 
 	err = collectSystemMetrics(cfg)
 	if err != nil {
-		return err
+		return fmt.Errorf("System metrics collection initialization error: %s", err)
 	}
 
 	err = collectRuntimeMetrics()
 	if err != nil {
-		return err
+		return fmt.Errorf("Runtime metrics collection initialization error: %s", err)
 	}
 
 	switch cfg.Target {
@@ -92,10 +92,10 @@ func Init(cfg Config) (err error) {
 		}
 		return initGraphite(cfg.Addr, cfg.Interval.Duration, percentiles)
 	case "expvar":
+		log.Printf("Sending metrics to ExpVarService on %s", cfg.ExpAddr)
 		handler := exp.ExpHandler(metrics.DefaultRegistry)
 		go startExpvar(cfg, handler)
 		return nil
-
 	case "":
 		log.Printf("Metrics disabled")
 		return nil
