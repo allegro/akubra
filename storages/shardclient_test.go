@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/allegro/akubra/log"
-
+	"github.com/allegro/akubra/watchdog"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
@@ -26,9 +26,11 @@ func TestClusterTestSuite(t *testing.T) {
 // SetupTest conforms suite interface
 func (suite *ClusterTestSuite) SetupTest() {
 	clusterName := "testCluster"
-	cluster, err := newShard(
+	shardFactory := &shardFactory{
+		watchdogConfig: &watchdog.Config{},
+	}
+	cluster, err := shardFactory.newShard(
 		clusterName,
-		nil,
 		nil,
 		nil,
 	)
@@ -51,6 +53,7 @@ func (suite *ClusterTestSuite) TestSuccessObjectRequest() {
 	require.NoError(err)
 
 	okResponse := makeSuccessfulResponse(request, http.StatusOK)
+
 	dispatchMock := suite.dispatcher.(*dispatcherMock)
 	dispatchMock.On("Dispatch", request).Return(okResponse, nil)
 
@@ -65,8 +68,8 @@ func makeGetObjectRequest() (*http.Request, error) {
 	if err != nil {
 		return request, err
 	}
-	valueCtx := context.WithValue(context.Background(), log.ContextreqIDKey, "testid")
-	req := request.WithContext(valueCtx)
+	reqContext := context.WithValue(context.Background(), log.ContextreqIDKey, "testid")
+	req := request.WithContext(reqContext)
 	return req, err
 }
 

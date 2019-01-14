@@ -128,6 +128,39 @@ func (c *YamlConfig) ListenPortsLogicalValidator() (valid bool, validationErrors
 	return valid, errorsList
 }
 
+// WatchdogEntryLogicalValidator validates ConsistencyWatchdog's config depending on the types of watchdogs defined
+func (c YamlConfig) WatchdogEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
+	errList := make([]error, 0)
+	supportedWatchdogs := map[string][]string{
+		"sql": {"dialect", "user", "password", "dbname", "host", "port", "maxopenconns", "maxidleconns", "connmaxlifetime", "conntimeout"},
+	}
+	if c.Watchdog.Type == "" {
+		return true, validationErrors
+	}
+	if strings.TrimSpace(c.Watchdog.ObjectVersionHeaderName) == "" {
+		errList = append(errList, errors.New("ObjectVersionHeaderName can't be empty if watcher is defined"))
+		validationErrors, valid = prepareErrors(errList, "WatchdogEntryLogicalValidator")
+		return
+	}
+	if !strings.HasPrefix(c.Watchdog.ObjectVersionHeaderName, "x-amz-meta") {
+		errList = append(errList, errors.New("ObjectVersionHeaderName has to start with 'x-amz-meta'"))
+		validationErrors, valid = prepareErrors(errList, "WatchdogEntryLogicalValidator")
+		return
+	}
+	if _, watchdogSupported := supportedWatchdogs[strings.ToLower(c.Watchdog.Type)]; !watchdogSupported {
+		errMsg := fmt.Errorf("watchog of type '%s' is not supported", c.Watchdog.Type)
+		errList = append(errList, errMsg)
+	}
+	for _, requiredField := range supportedWatchdogs[c.Watchdog.Type] {
+		if _, paramPresent := c.Watchdog.Props[requiredField]; !paramPresent {
+			errMsg := fmt.Sprintf("param '%s' for watchdog '%s' is missing", requiredField, c.Watchdog.Type)
+			errList = append(errList, errors.New(errMsg))
+		}
+	}
+	validationErrors, valid = prepareErrors(errList, "WatchdogEntryLogicalValidator")
+	return
+}
+
 func mergeErrors(maps ...map[string][]error) (output map[string][]error) {
 	size := len(maps)
 	if size == 0 {

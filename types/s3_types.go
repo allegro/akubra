@@ -11,3 +11,11 @@ type CompleteMultipartUploadResult struct {
 	Key      string
 	ETag     string
 }
+
+//InitiateMultipartUploadResult contains information about an initiated multipart
+type InitiateMultipartUploadResult struct {
+	XMLName  xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ InitiateMultipartUploadResult" json:"-"`
+	Bucket   string
+	Key      string
+	UploadID string
+}

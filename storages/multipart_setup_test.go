@@ -25,7 +25,7 @@ func (mockedRoundTripper *MockedRoundTripper) RoundTrip(request *http.Request) (
 
 func TestShouldReturnEmptyRingWhenProvidedBackendListIsEmpty(testSuite *testing.T) {
 	emptyBackendsList := []*backend.Backend{}
-	multiPartRoundTripper := newMultiPartRoundTripper(emptyBackendsList)
+	multiPartRoundTripper := newMultiPartRoundTripper(emptyBackendsList, nil)
 	mprt, ok := multiPartRoundTripper.(*MultiPartRoundTripper)
 	assert.True(testSuite, ok)
 	assert.Equal(testSuite, mprt.backendsRing.Size(), 0)
@@ -64,7 +64,7 @@ func TestShouldSetupMultiUploadRingAndMigrationEndpoints(testSuite *testing.T) {
 	}
 
 	backends := []*StorageClient{activateBackend, activateBackend2, maintenanceBackend}
-	multiPartRoundTripper := newMultiPartRoundTripper(backends)
+	multiPartRoundTripper := newMultiPartRoundTripper(backends, nil)
 	mprt, ok := multiPartRoundTripper.(*MultiPartRoundTripper)
 	assert.True(testSuite, ok)
 	assert.Len(testSuite, mprt.backendsRoundTrippers, 2)

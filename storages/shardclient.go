@@ -6,6 +6,7 @@ import (
 
 	"github.com/allegro/akubra/balancing"
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/watchdog"
 
 	set "github.com/deckarep/golang-set"
 )
@@ -38,7 +39,7 @@ func (c *ShardClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		return resp, err
 
 	}
-	log.Debug("Request %s processed by dispatcher, reqId")
+	log.Debugf("Request %s processed by dispatcher", reqID)
 	return c.requestDispatcher.Dispatch(req)
 }
 
@@ -50,7 +51,7 @@ func (c *ShardClient) balancerRoundTrip(req *http.Request) (resp *http.Response,
 	for node := c.balancer.GetMostAvailable(notFoundNodes...); node != nil; node = c.balancer.GetMostAvailable(notFoundNodes...) {
 		log.Printf("Balancer roundTrip node loop %s %s", node.Name, reqID)
 		if node == nil {
-			return nil, fmt.Errorf("no available node")
+			return nil, fmt.Errorf("no avialable node")
 		}
 		resp, err = node.RoundTrip(req)
 		if (resp == nil && err != balancing.ErrNoActiveNodes) || resp.StatusCode == http.StatusNotFound {
@@ -74,7 +75,16 @@ func (c *ShardClient) Backends() []*StorageClient {
 	return c.backends
 }
 
-func newShard(name string, storageNames []string, storages map[string]*StorageClient, synclog *SyncSender) (*ShardClient, error) {
+
+// ShardFactory creates shards
+type shardFactory struct {
+	synclog *SyncSender
+	watchdog watchdog.ConsistencyWatchdog
+	watchdogRequestFactory watchdog.ConsistencyRecordFactory
+	watchdogConfig *watchdog.Config
+}
+
+func (factory *shardFactory) newShard(name string, storageNames []string, storages map[string]*StorageClient) (*ShardClient, error) {
 	shardStorages := make([]*StorageClient, 0)
 	for _, storageName := range storageNames {
 		backendRT, ok := storages[storageName]
@@ -84,6 +94,7 @@ func newShard(name string, storageNames []string, storages map[string]*StorageCl
 		shardStorages = append(shardStorages, backendRT)
 	}
 	log.Debugf("Shard %s storages %v", name, shardStorages)
-	cluster := &ShardClient{backends: shardStorages, name: name, requestDispatcher: NewRequestDispatcher(shardStorages, synclog), synclog: synclog}
+	requestDispatcher := NewRequestDispatcher(shardStorages, factory.synclog, factory.watchdog, factory.watchdogConfig.ObjectVersionHeaderName, factory.watchdogRequestFactory)
+	cluster := &ShardClient{backends: shardStorages, name: name, requestDispatcher: requestDispatcher, synclog: factory.synclog}
 	return cluster, nil
 }

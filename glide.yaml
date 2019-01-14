@@ -30,6 +30,7 @@ import:
 - package: github.com/hashicorp/consul
   subpackages:
   - api
+- package: github.com/satori/go.uuid
 - package: github.com/jinzhu/gorm
   version: ^1.9.2
 testImport:
