@@ -23,7 +23,7 @@ const (
 
 // SQLWatchdogFactory creates instances of SQLWatchdog
 type SQLWatchdogFactory struct {
-	dbClientFactory *database.DBClientFactory
+	dbClientFactory database.DBClientFactory
 }
 
 // SQLWatchdog is a type of ConsistencyWatchdog that uses a SQL database
@@ -52,7 +52,7 @@ func (SQLConsistencyRecord) TableName() string {
 }
 
 // CreateSQLWatchdogFactory creates instances of SQLWatchdogFactory
-func CreateSQLWatchdogFactory(dbClientFactory *database.DBClientFactory) ConsistencyWatchdogFactory {
+func CreateSQLWatchdogFactory(dbClientFactory *database.GORMDBClientFactory) ConsistencyWatchdogFactory {
 	return &SQLWatchdogFactory{dbClientFactory: dbClientFactory}
 }
 

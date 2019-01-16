@@ -10,17 +10,21 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-
 //DBClientFactory constructs instances of DBClient
-type DBClientFactory struct {
+type DBClientFactory interface {
+	CreateConnection(dbConfig map[string]string) (*gorm.DB, error)
+}
+
+//GORMDBClientFactory constructs instances of DBClient using GORM
+type GORMDBClientFactory struct {
 	dialect                   string
 	connectionStringFormat    string
 	connectionStringArgsNames []string
 }
 
 //NewDBClientFactory creates an instance of NewDBClientFactory
-func NewDBClientFactory(dialect string, connectionStringFormat  string, connectionStringArgsNames []string) *DBClientFactory {
-	return &DBClientFactory{
+func NewDBClientFactory(dialect string, connectionStringFormat  string, connectionStringArgsNames []string) *GORMDBClientFactory {
+	return &GORMDBClientFactory{
 		dialect:dialect,
 		connectionStringFormat: connectionStringFormat,
 		connectionStringArgsNames: connectionStringArgsNames,
@@ -28,7 +32,7 @@ func NewDBClientFactory(dialect string, connectionStringFormat  string, connecti
 }
 
 //CreateConnection prepares a database connection
-func (factory *DBClientFactory) CreateConnection(dbConfig map[string]string) (*gorm.DB, error) {
+func (factory *GORMDBClientFactory) CreateConnection(dbConfig map[string]string) (*gorm.DB, error) {
 
 	connMaxLifetime, err := time.ParseDuration(dbConfig["connmaxlifetime"])
 	if err != nil {
@@ -64,7 +68,7 @@ func (factory *DBClientFactory) CreateConnection(dbConfig map[string]string) (*g
 }
 
 
-func (factory *DBClientFactory) createConnString(dbConfig map[string]string) (string, error) {
+func (factory *GORMDBClientFactory) createConnString(dbConfig map[string]string) (string, error) {
 	connString := factory.connectionStringFormat
 	for _, argName := range factory.connectionStringArgsNames {
 		if argValue, isArgProvided := dbConfig[argName]; isArgProvided {
