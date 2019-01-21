@@ -77,6 +77,10 @@ func (c *YamlConfig) validateRegionCluster(policyName string, policies confregio
 		}
 	}
 
+	if policies.ConsistencyLevel == confregions.Strong && policies.ReadRepair {
+		errList = append(errList, fmt.Errorf("Policy '%s' has strong consistency level and read-reapir, which is unallowed" , policyName))
+	}
+
 	if len(policies.Domains) == 0 {
 		errList = append(errList, fmt.Errorf("No domain defined for policy \"%s\"", policyName))
 	}
@@ -139,11 +143,6 @@ func (c YamlConfig) WatchdogEntryLogicalValidator() (valid bool, validationError
 	}
 	if strings.TrimSpace(c.Watchdog.ObjectVersionHeaderName) == "" {
 		errList = append(errList, errors.New("ObjectVersionHeaderName can't be empty if watcher is defined"))
-		validationErrors, valid = prepareErrors(errList, "WatchdogEntryLogicalValidator")
-		return
-	}
-	if !strings.HasPrefix(c.Watchdog.ObjectVersionHeaderName, "x-amz-meta") {
-		errList = append(errList, errors.New("ObjectVersionHeaderName has to start with 'x-amz-meta'"))
 		validationErrors, valid = prepareErrors(errList, "WatchdogEntryLogicalValidator")
 		return
 	}
