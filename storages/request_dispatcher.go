@@ -17,11 +17,11 @@ type dispatcher interface {
 
 // RequestDispatcher passes requests and responses to matching replicators and response pickers
 type RequestDispatcher struct {
-	Backends                        []*backend.Backend
-	pickClientFactory               func(*http.Request) func([]*backend.Backend, watchdog.ConsistencyWatchdog) client
-	pickResponsePickerFactory       func(*Request) func(<-chan BackendResponse, watchdog.ConsistencyWatchdog, *watchdog.ConsistencyRecord) responsePicker
-	watchdog                        watchdog.ConsistencyWatchdog
-	watchdogRecordFactory           watchdog.ConsistencyRecordFactory
+	Backends                  []*backend.Backend
+	pickClientFactory         func(*http.Request) func([]*backend.Backend, watchdog.ConsistencyWatchdog) client
+	pickResponsePickerFactory func(*Request) func(<-chan BackendResponse, watchdog.ConsistencyWatchdog, *watchdog.ConsistencyRecord) responsePicker
+	watchdog                  watchdog.ConsistencyWatchdog
+	watchdogRecordFactory     watchdog.ConsistencyRecordFactory
 }
 
 // NewRequestDispatcher creates RequestDispatcher instance
@@ -31,34 +31,19 @@ func NewRequestDispatcher(
 	watchdogRecordFactory watchdog.ConsistencyRecordFactory) *RequestDispatcher {
 
 	return &RequestDispatcher{
-		Backends:                        backends,
-		pickResponsePickerFactory:       defaultResponsePickerFactory,
-		pickClientFactory:               defaultReplicationClientFactory,
-		watchdog:                        watchdog,
-		watchdogRecordFactory:           watchdogRecordFactory,
+		Backends:                  backends,
+		pickResponsePickerFactory: defaultResponsePickerFactory,
+		pickClientFactory:         defaultReplicationClientFactory,
+		watchdog:                  watchdog,
+		watchdogRecordFactory:     watchdogRecordFactory,
 	}
 }
 
 // Dispatch creates and calls replicators and response pickers
 func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, error) {
-	consistencyLevelProp := request.Context().Value(watchdog.ConsistencyLevel)
-	if consistencyLevelProp == nil {
-		return nil, errors.New("'ConsistencyLevel' not present in request's context")
-	}
-	consistencyLevel, castOk := consistencyLevelProp.(config.ConsistencyLevel)
-	if !castOk {
-		return nil, errors.New("couldn't determine consistency level of region")
-
-	}
-
-	readRepairProp := request.Context().Value(watchdog.ReadRepair)
-	if readRepairProp == nil {
-		return nil, errors.New("'ReadRepair' not present in request's context")
-	}
-	readRepair, castOk := readRepairProp.(bool)
-	if !castOk {
-		return nil, errors.New("couldn't if read reapair should be used")
-
+	consistencyLevel, readRepair, err := extractRegionPropsFrom(request)
+	if err != nil {
+		return nil, err
 	}
 
 	storageRequest := &Request{
@@ -67,23 +52,9 @@ func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, er
 		isInitiateMultipartUploadRequest: utils.IsInitiateMultiPartUploadRequest(request),
 	}
 
-	requestNotLogged := true
-	shouldLogRequest := rd.shouldLogRequest(storageRequest, consistencyLevel)
-	if shouldLogRequest {
-
-		consistencyRecord, err := rd.watchdogRecordFactory.CreateRecordFor(request)
-		storageRequest.logRecord = consistencyRecord
-		if err != nil && consistencyLevel == config.Strong {
-			return nil, err
-		}
-
-		if storageRequest.logRecord != nil {
-			storageRequest, err = rd.logRequest(storageRequest)
-			requestNotLogged = err != nil
-			if requestNotLogged && config.Strong == consistencyLevel{
-				return nil, err
-			}
-		}
+	storageRequest, requestNotLogged, err := rd.ensureConsistency(storageRequest, consistencyLevel)
+	if err != nil {
+		return nil, err
 	}
 
 	clientFactory := rd.pickClientFactory(request)
@@ -104,11 +75,32 @@ func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, er
 	}
 	if consistencyLevel != config.None &&
 		storageRequest.isInitiateMultipartUploadRequest &&
-			rd.logMultipart(storageRequest, resp) != nil &&
-				consistencyLevel == config.Strong {
-			return nil, err
+		rd.logMultipart(storageRequest, resp) != nil &&
+		consistencyLevel == config.Strong {
+		return nil, err
 	}
 	return resp, nil
+}
+func extractRegionPropsFrom(request *http.Request) (config.ConsistencyLevel, bool, error) {
+	consistencyLevelProp := request.Context().Value(watchdog.ConsistencyLevel)
+	if consistencyLevelProp == nil {
+		return "", false, errors.New("'ConsistencyLevel' not present in request's context")
+	}
+	consistencyLevel, castOk := consistencyLevelProp.(config.ConsistencyLevel)
+	if !castOk {
+		return "", false, errors.New("couldn't determine consistency level of region")
+
+	}
+	readRepairProp := request.Context().Value(watchdog.ReadRepair)
+	if readRepairProp == nil {
+		return "", false, errors.New("'ReadRepair' not present in request's context")
+	}
+	readRepair, castOk := readRepairProp.(bool)
+	if !castOk {
+		return "", false, errors.New("couldn't if read reapair should be used")
+
+	}
+	return consistencyLevel, readRepair, nil
 }
 func (rd *RequestDispatcher) shouldLogRequest(request *Request, level config.ConsistencyLevel) bool {
 	if rd.watchdog == nil {
@@ -157,6 +149,34 @@ func (rd *RequestDispatcher) logMultipart(storageRequest *Request, resp *http.Re
 		return err
 	}
 	return nil
+}
+
+func (rd *RequestDispatcher) ensureConsistency(storageRequest *Request, consistencyLevel config.ConsistencyLevel) (*Request, bool, error) {
+	if !rd.shouldLogRequest(storageRequest, consistencyLevel) {
+		return storageRequest, false, nil
+	}
+
+	consistencyRecord, err := rd.
+		watchdogRecordFactory.
+		CreateRecordFor(storageRequest.Request)
+	storageRequest.logRecord = consistencyRecord
+
+	if err != nil {
+		if config.Strong == consistencyLevel {
+			return nil, false, err
+		}
+		return storageRequest, false, nil
+	}
+
+	storageRequest, err = rd.logRequest(storageRequest)
+	if err != nil {
+		if config.Strong == consistencyLevel {
+			return nil, false, err
+		}
+		return storageRequest, true, nil
+	}
+
+	return storageRequest, false, nil
 }
 
 type responsePicker interface {

@@ -1,5 +1,7 @@
 package config
 
+
+//ConsistencyLevel specifies how hard should akubra try to ensure consistency inside a region
 type ConsistencyLevel string
 
 const (
