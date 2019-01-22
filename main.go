@@ -93,16 +93,7 @@ func parseConfig(path string) (config.Config, error) {
 	return conf, nil
 }
 
-func mkServiceLogs(logConf logconfig.LoggingConfig) (syncLog, clusterSyncLog, accessLog log.Logger, err error) {
-	syncLog, err = log.NewDefaultLogger(logConf.Synclog, "LOG_LOCAL1", true)
-	if err != nil {
-		return
-	}
-
-	clusterSyncLog, err = log.NewDefaultLogger(logConf.ClusterSyncLog, "LOG_LOCAL1", true)
-	if err != nil {
-		return
-	}
+func mkServiceLogs(logConf logconfig.LoggingConfig) (accessLog log.Logger, err error) {
 	accessLog, err = log.NewDefaultLogger(logConf.Accesslog, "LOG_LOCAL1", true)
 	if err != nil {
 		return
@@ -187,17 +178,12 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't set up client Transports - err: %q", err)
 	}
-	syncLog, clusterSyncLog, accessLog, err := mkServiceLogs(conf.Logging)
+	accessLog, err := mkServiceLogs(conf.Logging)
 	if err != nil {
 		return nil, err
 	}
-	methods := make(map[string]struct{})
-	for _, method := range conf.Logging.SyncLogMethods {
-		methods[method] = struct{}{}
-	}
 
 	crdstore.InitializeCredentialsStore(conf.CredentialsStore)
-	syncSender := &storages.SyncSender{SyncLog: syncLog, AllowedMethods: methods}
 
 	watchdogRecordFactory := &watchdog.DefaultConsistencyRecordFactory{}
 	consistencyWatchdog := setupWatchdog(s.config.Watchdog)
@@ -206,7 +192,7 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 		log.Printf("Not using consistency watchdog")
 	}
 
-	storagesFactory := storages.NewStoragesFactory(transportMatcher, syncSender, &s.config.Watchdog, consistencyWatchdog, watchdogRecordFactory)
+	storagesFactory := storages.NewStoragesFactory(transportMatcher, &s.config.Watchdog, consistencyWatchdog, watchdogRecordFactory)
 	storage, err := storagesFactory.InitStorages(s.config.Shards, s.config.Storages)
 
 	if err != nil {
@@ -214,7 +200,7 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	regionsRT, err := regions.NewRegions(s.config.ShardingPolicies, storage, clusterSyncLog)
+	regionsRT, err := regions.NewRegions(s.config.ShardingPolicies, storage)
 	if err != nil {
 		return nil, err
 	}

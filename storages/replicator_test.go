@@ -84,7 +84,7 @@ func TestWatchdogIntegration(t *testing.T) {
 		}
 
 		cli := newReplicationClient(backends, watchdogMock)
-		respChan := cli.Do(&Request{Request: request, record: record, marker: deleteMarker})
+		respChan := cli.Do(&Request{Request: request, logRecord: record, marker: deleteMarker})
 
 		for range respChan {
 		}

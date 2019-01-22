@@ -24,7 +24,6 @@ type ClusterStorage interface {
 type Storages struct {
 	clustersConf          config.ShardsMap
 	storagesMap           config.StoragesMap
-	syncLog               *SyncSender
 	ShardClients          map[string]NamedShardClient
 	Backends              map[string]*StorageClient
 	watchdog              watchdog.ConsistencyWatchdog
@@ -66,22 +65,19 @@ func (st *Storages) MergeShards(name string, clusters ...NamedShardClient) Named
 // Factory creates storages
 type Factory struct {
 	transport http.RoundTripper
-	syncLog   *SyncSender
 	watchdog  watchdog.ConsistencyWatchdog
 	shardFactory *shardFactory
 }
 
 //NewStoragesFactory creates StoragesFactory
-func NewStoragesFactory(transport http.RoundTripper, syncLog *SyncSender,
-						watchdogConfig *watchdog.Config, watchdog watchdog.ConsistencyWatchdog, watchdogRequestFactory watchdog.ConsistencyRecordFactory) *Factory {
+func NewStoragesFactory(transport http.RoundTripper, watchdogConfig *watchdog.Config,
+					watchdog watchdog.ConsistencyWatchdog, watchdogRequestFactory watchdog.ConsistencyRecordFactory) *Factory {
 	return &Factory{
 		transport: transport,
-		syncLog:   syncLog,
 		watchdog:  watchdog,
 		shardFactory: &shardFactory{
 			watchdog: watchdog,
 			watchdogConfig: watchdogConfig,
-			synclog: syncLog,
 			watchdogRequestFactory: watchdogRequestFactory,
 		},
 	}
@@ -123,7 +119,6 @@ func (factory *Factory) InitStorages(clustersConf config.ShardsMap, storagesMap 
 	return &Storages{
 		clustersConf: clustersConf,
 		storagesMap:  storagesMap,
-		syncLog:      factory.syncLog,
 		ShardClients: shards,
 		Backends:     storageClients,
 		watchdog:     factory.watchdog,

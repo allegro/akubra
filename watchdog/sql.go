@@ -29,6 +29,7 @@ type SQLWatchdogFactory struct {
 // SQLWatchdog is a type of ConsistencyWatchdog that uses a SQL database
 type SQLWatchdog struct {
 	dbConn                  *gorm.DB
+	versionHeaderName 		string
 }
 
 // ErrDataBase indicates a database errors
@@ -54,6 +55,16 @@ func (SQLConsistencyRecord) TableName() string {
 // CreateSQLWatchdogFactory creates instances of SQLWatchdogFactory
 func CreateSQLWatchdogFactory(dbClientFactory *database.GORMDBClientFactory) ConsistencyWatchdogFactory {
 	return &SQLWatchdogFactory{dbClientFactory: dbClientFactory}
+}
+
+// CreateSQL creates ConsistencyWatchdog and ConsistencyRecordFactory that make use of a SQL database
+func CreateSQL(dialect, connStringFormat string, params []string, watchdogConfig *Config) (ConsistencyWatchdog, error) {
+	sqlWatchdogFactory := CreateSQLWatchdogFactory(database.NewDBClientFactory(dialect, connStringFormat, params))
+	watchdog, err := sqlWatchdogFactory.CreateWatchdogInstance(watchdogConfig)
+	if err != nil {
+		return nil, err
+	}
+	return watchdog, nil
 }
 
 // CreateWatchdogInstance creates instances of SQLWatchdog
@@ -169,6 +180,11 @@ func (watchdog *SQLWatchdog) SupplyRecordWithVersion(record *ConsistencyRecord) 
 
 	record.ObjectVersion = objectVersion.String()
 	return nil
+}
+
+//GetVersionHeaderName returns the name of the HTTP header that should hold to object's verison
+func (watchdog *SQLWatchdog) GetVersionHeaderName() string {
+	return watchdog.versionHeaderName
 }
 
 func createDeleteMarkerFor(record *SQLConsistencyRecord) *DeleteMarker {

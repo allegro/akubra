@@ -187,7 +187,7 @@ func testMultipartFlow(statusCode int, xmlResponse string,
 
 	activeBackendRoundTripper1.On("RoundTrip", completeUploadRequest).Return(responseForComplete, nil)
 
-	rChan := multiPartRoundTripper.Do(&Request{Request: completeUploadRequest, record: record, marker: marker})
+	rChan := multiPartRoundTripper.Do(&Request{Request: completeUploadRequest, logRecord: record, marker: marker})
 	for bresp := range rChan {
 		if bresp.Response == nil {
 			continue

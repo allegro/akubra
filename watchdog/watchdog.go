@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/allegro/akubra/database"
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/utils"
 )
@@ -15,8 +14,12 @@ import (
 const (
 	fiveMinutes = time.Minute * 5
 	oneWeek = time.Hour * 24 * 7
-	// Domain is a constant used to put/get domain's name from request's context
+	// Domain is a constant used to put/get domain's name to/from request's context
 	Domain = log.ContextKey("Domain")
+	// ConsistencyLevel is a constant used to put/get policy consistency level to/from request's context
+	ConsistencyLevel = log.ContextKey("ConsistencyLevel")
+	// ReadRepair is a constant used to put/get policy read repair to/from request's context
+	ReadRepair = log.ContextKey("ReadRepair")
 )
 
 const (
@@ -41,11 +44,6 @@ type ConsistencyRecord struct {
 	isReflectedOnBackends bool
 }
 
-//GetObjectVersion returns object's version
-func (record *ConsistencyRecord) GetObjectVersion() string {
-	return record.ObjectVersion
-}
-
 // DeleteMarker indicates which ConsistencyRecords for a given object can be deleted
 type DeleteMarker struct {
 	objectID      string
@@ -66,6 +64,7 @@ type ConsistencyWatchdog interface {
 	Delete(marker *DeleteMarker) error
 	UpdateExecutionDelay(delta *ExecutionDelay) error
 	SupplyRecordWithVersion(record *ConsistencyRecord) error
+	GetVersionHeaderName() string
 }
 
 // ConsistencyRecordFactory creates records from http requests
@@ -75,16 +74,6 @@ type ConsistencyRecordFactory interface {
 
 // DefaultConsistencyRecordFactory is a default implementation of ConsistencyRecordFactory
 type DefaultConsistencyRecordFactory struct {
-}
-
-// CreateSQL creates ConsistencyWatchdog and ConsistencyRecordFactory that make use of a SQL database
-func CreateSQL(dialect, connStringFormat string, params []string, watchdogConfig *Config) (ConsistencyWatchdog, error) {
-	sqlWatchdogFactory := CreateSQLWatchdogFactory(database.NewDBClientFactory(dialect, connStringFormat, params))
-	watchdog, err := sqlWatchdogFactory.CreateWatchdogInstance(watchdogConfig)
-	if err != nil {
-		return nil, err
-	}
-	return watchdog, nil
 }
 
 // CreateRecordFor creates a ConsistencyRecord from a http request

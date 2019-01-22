@@ -69,7 +69,6 @@ func TestShouldNotInitStoragesWithWrongBackendType(t *testing.T) {
 
 	storagesFactory := Factory{
 		transport: http.DefaultTransport,
-		syncLog: nil,
 		watchdog: nil,
 	}
 	_, err := storagesFactory.InitStorages(clustersConf, storagesMap)

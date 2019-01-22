@@ -1,9 +1,11 @@
 package storages
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
+	"github.com/allegro/akubra/regions/config"
 	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/utils"
 	"github.com/allegro/akubra/watchdog"
@@ -16,105 +18,141 @@ type dispatcher interface {
 // RequestDispatcher passes requests and responses to matching replicators and response pickers
 type RequestDispatcher struct {
 	Backends                        []*backend.Backend
-	syncLog                         *SyncSender
 	pickClientFactory               func(*http.Request) func([]*backend.Backend, watchdog.ConsistencyWatchdog) client
-	pickResponsePickerFactory       func(*Request) func(<-chan BackendResponse) responsePicker
+	pickResponsePickerFactory       func(*Request) func(<-chan BackendResponse, watchdog.ConsistencyWatchdog, *watchdog.ConsistencyRecord) responsePicker
 	watchdog                        watchdog.ConsistencyWatchdog
-	objectWatchdogVersionHeaderName string
 	watchdogRecordFactory           watchdog.ConsistencyRecordFactory
 }
 
 // NewRequestDispatcher creates RequestDispatcher instance
 func NewRequestDispatcher(
 	backends []*backend.Backend,
-	syncLog *SyncSender,
 	watchdog watchdog.ConsistencyWatchdog,
-	objectWatchdogVersionHeaderName string,
 	watchdogRecordFactory watchdog.ConsistencyRecordFactory) *RequestDispatcher {
 
 	return &RequestDispatcher{
-		Backends:                  backends,
-		syncLog:                   syncLog,
-		pickResponsePickerFactory: defaultResponsePickerFactory,
-		pickClientFactory:         defaultReplicationClientFactory,
-		watchdog:                  watchdog,
-		watchdogRecordFactory:     watchdogRecordFactory,
-		objectWatchdogVersionHeaderName: objectWatchdogVersionHeaderName,
+		Backends:                        backends,
+		pickResponsePickerFactory:       defaultResponsePickerFactory,
+		pickClientFactory:               defaultReplicationClientFactory,
+		watchdog:                        watchdog,
+		watchdogRecordFactory:           watchdogRecordFactory,
 	}
 }
 
 // Dispatch creates and calls replicators and response pickers
 func (rd *RequestDispatcher) Dispatch(request *http.Request) (*http.Response, error) {
+	consistencyLevelProp := request.Context().Value(watchdog.ConsistencyLevel)
+	if consistencyLevelProp == nil {
+		return nil, errors.New("'ConsistencyLevel' not present in request's context")
+	}
+	consistencyLevel, castOk := consistencyLevelProp.(config.ConsistencyLevel)
+	if !castOk {
+		return nil, errors.New("couldn't determine consistency level of region")
+
+	}
+
+	readRepairProp := request.Context().Value(watchdog.ReadRepair)
+	if readRepairProp == nil {
+		return nil, errors.New("'ReadRepair' not present in request's context")
+	}
+	readRepair, castOk := readRepairProp.(bool)
+	if !castOk {
+		return nil, errors.New("couldn't if read reapair should be used")
+
+	}
+
 	storageRequest := &Request{
 		Request:                          request,
 		isMultiPartUploadRequest:         utils.IsMultiPartUploadRequest(request),
 		isInitiateMultipartUploadRequest: utils.IsInitiateMultiPartUploadRequest(request),
 	}
-	var err error
-	if rd.shouldUseConsistencyWatchdogFor(storageRequest) {
-		storageRequest, err = rd.recordRequest(storageRequest)
-		if err != nil {
+
+	requestNotLogged := true
+	shouldLogRequest := rd.shouldLogRequest(storageRequest, consistencyLevel)
+	if shouldLogRequest {
+
+		consistencyRecord, err := rd.watchdogRecordFactory.CreateRecordFor(request)
+		storageRequest.logRecord = consistencyRecord
+		if err != nil && consistencyLevel == config.Strong {
 			return nil, err
 		}
-		storageRequest.Header.Add(rd.objectWatchdogVersionHeaderName, storageRequest.record.GetObjectVersion())
+
+		if storageRequest.logRecord != nil {
+			storageRequest, err = rd.logRequest(storageRequest)
+			requestNotLogged = err != nil
+			if requestNotLogged && config.Strong == consistencyLevel{
+				return nil, err
+			}
+		}
 	}
 
 	clientFactory := rd.pickClientFactory(request)
 	cli := clientFactory(rd.Backends, rd.watchdog)
+
+	var consistencyRecord *watchdog.ConsistencyRecord
+	if requestNotLogged && readRepair {
+		consistencyRecord = storageRequest.logRecord
+	}
+
 	respChan := cli.Do(storageRequest)
 	pickerFactory := rd.pickResponsePickerFactory(storageRequest)
-	pickr := pickerFactory(respChan)
-	go pickr.SendSyncLog(rd.syncLog)
+	pickr := pickerFactory(respChan, rd.watchdog, consistencyRecord)
+
 	resp, err := pickr.Pick()
 	if err != nil {
 		return nil, err
 	}
-	if storageRequest.record != nil && storageRequest.isInitiateMultipartUploadRequest {
-		if rd.recordMultipart(storageRequest, resp) != nil {
+	if consistencyLevel != config.None &&
+		storageRequest.isInitiateMultipartUploadRequest &&
+			rd.logMultipart(storageRequest, resp) != nil &&
+				consistencyLevel == config.Strong {
 			return nil, err
-		}
 	}
 	return resp, nil
 }
-func (rd *RequestDispatcher) shouldUseConsistencyWatchdogFor(request *Request) bool {
-	consistencyCondition := rd.watchdog != nil && len(rd.Backends) > 1
-
-	methodCondition := (http.MethodPut == request.Method && !request.isMultiPartUploadRequest) ||
-		http.MethodDelete == request.Method ||
+func (rd *RequestDispatcher) shouldLogRequest(request *Request, level config.ConsistencyLevel) bool {
+	if rd.watchdog == nil {
+		return false
+	}
+	if http.MethodDelete == request.Method {
+		return true
+	}
+	if level == config.None {
+		return false
+	}
+	isPutOrInitMultiPart := (http.MethodPut == request.Method && !request.isMultiPartUploadRequest) ||
 		(http.MethodPost == request.Method && request.isInitiateMultipartUploadRequest)
 
-	pathCondition := !utils.IsBucketPath(request.URL.Path)
-
-	return consistencyCondition && methodCondition && pathCondition
+	isObjectPath := !utils.IsBucketPath(request.URL.Path)
+	return isPutOrInitMultiPart && isObjectPath
 }
-func (rd *RequestDispatcher) recordRequest(storageRequest *Request) (*Request, error) {
-	consistencyRecord, err := rd.watchdogRecordFactory.CreateRecordFor(storageRequest.Request)
-	if err != nil {
-		return nil, err
-	}
-	storageRequest.record = consistencyRecord
 
+func (rd *RequestDispatcher) logRequest(storageRequest *Request) (*Request, error) {
 	if storageRequest.isInitiateMultipartUploadRequest {
-		err = rd.watchdog.SupplyRecordWithVersion(consistencyRecord)
+		err := rd.watchdog.SupplyRecordWithVersion(storageRequest.logRecord)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		deleteMarker, err := rd.watchdog.Insert(consistencyRecord)
+		deleteMarker, err := rd.watchdog.Insert(storageRequest.logRecord)
 		if err != nil {
-			return nil, err
+			return storageRequest, err
 		}
 		storageRequest.marker = deleteMarker
 	}
 
+	storageRequest.
+		Header.
+		Add(rd.watchdog.GetVersionHeaderName(), storageRequest.logRecord.ObjectVersion)
+
 	return storageRequest, nil
 }
-func (rd *RequestDispatcher) recordMultipart(storageRequest *Request, resp *http.Response) error {
+func (rd *RequestDispatcher) logMultipart(storageRequest *Request, resp *http.Response) error {
 	multiPartUploadID, err := utils.ExtractMultiPartUploadIDFrom(resp)
 	if err != nil {
 		return fmt.Errorf("failed on extracting multipart upload ID from response: %s", err)
 	}
-	_, err = rd.watchdog.InsertWithRequestID(multiPartUploadID, storageRequest.record)
+	_, err = rd.watchdog.InsertWithRequestID(multiPartUploadID, storageRequest.logRecord)
 	if err != nil {
 		return err
 	}
@@ -123,13 +161,12 @@ func (rd *RequestDispatcher) recordMultipart(storageRequest *Request, resp *http
 
 type responsePicker interface {
 	Pick() (*http.Response, error)
-	SendSyncLog(*SyncSender)
 }
 
 // Request encapsulates the http requests along with the watchdog-data
 type Request struct {
 	*http.Request
-	record                           *watchdog.ConsistencyRecord
+	logRecord                        *watchdog.ConsistencyRecord
 	marker                           *watchdog.DeleteMarker
 	isMultiPartUploadRequest         bool
 	isInitiateMultipartUploadRequest bool
@@ -147,21 +184,15 @@ var defaultReplicationClientFactory = func(request *http.Request) func([]*backen
 	return newReplicationClient
 }
 
-var defaultResponsePickerFactory = func(request *Request) func(<-chan BackendResponse) responsePicker {
+var defaultResponsePickerFactory = func(request *Request) func(<-chan BackendResponse, watchdog.ConsistencyWatchdog, *watchdog.ConsistencyRecord) responsePicker {
 	if utils.IsBucketPath(request.URL.Path) && (request.Method == http.MethodGet) {
 		return newResponseHandler
 	}
-
 	if utils.IsBucketPath(request.URL.Path) && ((request.Method == http.MethodPut) || (request.Method == http.MethodDelete)) {
-		return newDeleteResponsePicker
+		return newAllResponsesSuccessfulPicker
 	}
-
 	if request.Method == http.MethodDelete {
-		if request.record != nil {
-			return newDeleteResponsePickerWatchdog
-		}
-		return newDeleteResponsePicker
+		return newFirstSuccessfulResponsePicker
 	}
-
-	return newObjectResponsePicker
+	return newFirstSuccessfulResponsePicker
 }

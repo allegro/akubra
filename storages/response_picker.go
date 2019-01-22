@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/watchdog"
 )
 
 var emptyBackendResponse = BackendResponse{}
@@ -62,19 +63,19 @@ func (bp *BasePicker) send(out chan<- BackendResponse, bresp BackendResponse) {
 	}
 }
 
-// SendSyncLog implements picker interface
-func (bp *BasePicker) SendSyncLog(*SyncSender) {}
-
 // ObjectResponsePicker chooses first successful or one of failure response from chan of
 // `BackendResponse`s
 type ObjectResponsePicker struct {
 	BasePicker
-	syncLogReady chan struct{}
+	consistencyRecord   *watchdog.ConsistencyRecord
+	consistencyWatchdog watchdog.ConsistencyWatchdog
 }
 
-func newObjectResponsePicker(rch <-chan BackendResponse) responsePicker {
-	ch := make(chan struct{})
-	return &ObjectResponsePicker{BasePicker: BasePicker{responsesChan: rch}, syncLogReady: ch}
+func newFirstSuccessfulResponsePicker(rch <-chan BackendResponse,
+	watchdog watchdog.ConsistencyWatchdog,
+	consistencyRecord *watchdog.ConsistencyRecord) responsePicker {
+	return &ObjectResponsePicker{BasePicker: BasePicker{responsesChan: rch}, consistencyWatchdog: watchdog,
+		consistencyRecord: consistencyRecord}
 }
 
 // Pick returns first successful response, discards others
@@ -85,15 +86,9 @@ func (orp *ObjectResponsePicker) Pick() (*http.Response, error) {
 	return bresp.Response, bresp.Error
 }
 
-// SendSyncLog implements picker interface
-func (orp *ObjectResponsePicker) SendSyncLog(syncLog *SyncSender) {
-	for range orp.syncLogReady {
-		sendSynclogs(syncLog, orp.success, orp.errors)
-	}
-}
-
 func (orp *ObjectResponsePicker) pullResponses(out chan<- BackendResponse) {
 	shouldSend := false
+	defer close(out)
 	for bresp := range orp.responsesChan {
 		success := bresp.IsSuccessful()
 		if success {
@@ -109,16 +104,38 @@ func (orp *ObjectResponsePicker) pullResponses(out chan<- BackendResponse) {
 
 	if !orp.hasSuccessfulResponse() {
 		orp.send(out, orp.failure)
+		return
 	}
-	close(out)
-	orp.syncLogReady <- struct{}{}
-	close(orp.syncLogReady)
+
+	if !orp.hasFailureResponse() || orp.consistencyRecord == nil {
+		return
+	}
+
+	orp.performReadRepair()
+}
+
+func (orp *ObjectResponsePicker) performReadRepair() {
+	objectVersion := orp.
+		success.
+		Request.
+		Header.
+		Get(orp.consistencyWatchdog.GetVersionHeaderName())
+
+	if objectVersion == "" {
+		return
+	}
+
+	orp.consistencyRecord.ObjectVersion = objectVersion
+	_, err := orp.consistencyWatchdog.Insert(orp.consistencyRecord)
+	if err != nil {
+		log.Debugf("Failed to perform read repair for object %s in domain %s: %s",
+			orp.consistencyRecord.ObjectID, orp.consistencyRecord.Domain, err)
+	}
 }
 
 type baseDeleteResponsePicker struct {
 	BasePicker
-	softErrors   []BackendResponse
-	syncLogReady chan struct{}
+	softErrors []BackendResponse
 	respPuller func(drp *baseDeleteResponsePicker, out chan<- BackendResponse)
 }
 
@@ -130,12 +147,8 @@ func (drp *baseDeleteResponsePicker) Pick() (*http.Response, error) {
 	return bresp.Response, bresp.Error
 }
 
-func newDeleteResponsePicker(rch <-chan BackendResponse) responsePicker {
-	return &baseDeleteResponsePicker{BasePicker{responsesChan: rch}, []BackendResponse{}, make(chan struct{}), pullResponses}
-}
-
-func newDeleteResponsePickerWatchdog(rch <-chan BackendResponse) responsePicker {
-	return &baseDeleteResponsePicker{BasePicker{responsesChan: rch}, []BackendResponse{}, make(chan struct{}), pullResponsesWatchdog}
+func newAllResponsesSuccessfulPicker(rch <-chan BackendResponse, _ watchdog.ConsistencyWatchdog, _ *watchdog.ConsistencyRecord) responsePicker {
+	return &baseDeleteResponsePicker{BasePicker{responsesChan: rch}, []BackendResponse{}, pullResponses}
 }
 
 func (drp *baseDeleteResponsePicker) collectFailureResponse(bresp BackendResponse) {
@@ -165,40 +178,4 @@ func pullResponses(drp *baseDeleteResponsePicker, out chan<- BackendResponse) {
 		drp.send(out, drp.success)
 	}
 	close(out)
-	drp.syncLogReady <- struct{}{}
-	close(drp.syncLogReady)
 }
-
-
-func pullResponsesWatchdog(drp *baseDeleteResponsePicker, out chan<- BackendResponse) {
-	shouldSend := false
-	for bresp := range drp.responsesChan {
-		success := bresp.IsSuccessful()
-		if success {
-			shouldSend = true
-
-		} else {
-			drp.collectFailureResponse(bresp)
-			if drp.failure == emptyBackendResponse {
-				drp.failure = bresp
-			}
-		}
-		if shouldSend && drp.success == emptyBackendResponse {
-			drp.success = bresp
-			drp.send(out, bresp)
-		}
-	}
-	if drp.success == emptyBackendResponse {
-		drp.send(out, drp.failure)
-	}
-	close(out)
-	drp.syncLogReady <- struct{}{}
-	close(drp.syncLogReady)
-}
-
-// SendSyncLog implements picker interface
-func (drp *baseDeleteResponsePicker) SendSyncLog(syncLog *SyncSender) {
-	<-drp.syncLogReady
-	sendSynclogs(syncLog, drp.success, drp.softErrors)
-}
-

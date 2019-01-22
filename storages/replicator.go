@@ -48,8 +48,8 @@ func (rc *ReplicationClient) Do(request *Request) <-chan BackendResponse {
 				requestWithContext.Body = resetter.Reset()
 			}
 			isBRespSuccessful := callBackend(requestWithContext, backend, responsesChan)
-			if request.record != nil {
-				request.record.AddBackendResult(isBRespSuccessful)
+			if request.logRecord != nil {
+				request.logRecord.AddBackendResult(isBRespSuccessful)
 			}
 			wg.Done()
 		}(backend)
@@ -58,7 +58,7 @@ func (rc *ReplicationClient) Do(request *Request) <-chan BackendResponse {
 	go func() {
 		wg.Wait()
 
-		if request.record != nil && request.record.IsReflectedOnAllStorages() {
+		if request.logRecord != nil && request.logRecord.IsReflectedOnAllStorages() {
 			log.Debugf("Request '%s' reflected on all storages", reqIDValue)
 			err := rc.watchdog.Delete(request.marker)
 			if err != nil {

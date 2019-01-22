@@ -3,9 +3,12 @@ package config
 type ConsistencyLevel string
 
 const (
-	None = "None"
-	Weak = "Weak"
-	Strong = "Strong"
+	//None says that the request shouldn't be logged at all
+	None   ConsistencyLevel = "None"
+	//Weak says that the request should be logged, but if an error occurs on logging, then the request may continue
+	Weak   ConsistencyLevel = "Weak"
+	//Strong says that the request must be logged and can't proceed without an entry in the log
+	Strong ConsistencyLevel = "Strong"
 )
 
 // Policy defines region cluster

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/regions/config"
 	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/watchdog"
 	"github.com/stretchr/testify/mock"
@@ -25,7 +26,7 @@ func TestRequestDispatcherPicks(t *testing.T) {
 		_, ok := rep.(*ReplicationClient)
 		return ok
 	}
-	matchObjectResponsePicker := func(pic interface{}) bool {
+	firstSuccessfulResponsePicker := func(pic interface{}) bool {
 		_, ok := pic.(*ObjectResponsePicker)
 		return ok
 	}
@@ -33,7 +34,7 @@ func TestRequestDispatcherPicks(t *testing.T) {
 		_, ok := pic.(*responseMerger)
 		return ok
 	}
-	matchDeletePicker := func(pic interface{}) bool {
+	allResponsesSuccessfulPicker := func(pic interface{}) bool {
 		_, ok := pic.(*baseDeleteResponsePicker)
 		return ok
 	}
@@ -47,18 +48,18 @@ func TestRequestDispatcherPicks(t *testing.T) {
 		expectedReplicator func(interface{}) bool
 		expectedPicker     func(interface{}) bool
 	}{
-		{"GET", "http://some.storage/bucket/object", matchReplicationClient, matchObjectResponsePicker},
-		{"PUT", "http://some.storage/bucket/object", matchReplicationClient, matchObjectResponsePicker},
-		{"HEAD", "http://some.storage/bucket/object", matchReplicationClient, matchObjectResponsePicker},
-		{"DELETE", "http://some.storage/bucket/object", matchReplicationClient, matchDeletePicker},
-		{"POST", "http://some.storage/bucket/object?uploads", multipartMultipartReplicator, matchObjectResponsePicker},
-		{"POST", "http://some.storage/bucket/object?uploadId=ssssss", multipartMultipartReplicator, matchObjectResponsePicker},
+		{"GET", "http://some.storage/bucket/object", matchReplicationClient, firstSuccessfulResponsePicker},
+		{"PUT", "http://some.storage/bucket/object", matchReplicationClient, firstSuccessfulResponsePicker},
+		{"HEAD", "http://some.storage/bucket/object", matchReplicationClient, firstSuccessfulResponsePicker},
+		{"DELETE", "http://some.storage/bucket/object", matchReplicationClient, firstSuccessfulResponsePicker},
+		{"POST", "http://some.storage/bucket/object?uploads", multipartMultipartReplicator, firstSuccessfulResponsePicker},
+		{"POST", "http://some.storage/bucket/object?uploadId=ssssss", multipartMultipartReplicator, firstSuccessfulResponsePicker},
 		{"GET", "http://some.storage/bucket", matchReplicationClient, matchResponseMerger},
-		{"HEAD", "http://some.storage/bucket", matchReplicationClient, matchObjectResponsePicker},
-		{"PUT", "http://some.storage/bucket", matchReplicationClient, matchDeletePicker},
+		{"HEAD", "http://some.storage/bucket", matchReplicationClient, firstSuccessfulResponsePicker},
+		{"PUT", "http://some.storage/bucket", matchReplicationClient, allResponsesSuccessfulPicker},
 	}
 
-	dispatcher := NewRequestDispatcher(nil, nil, nil, "", nil)
+	dispatcher := NewRequestDispatcher(nil, nil, nil)
 	require.NotNil(t, dispatcher)
 	for _, tc := range testCases {
 		request, _ := http.NewRequest(tc.method, tc.url, nil)
@@ -67,7 +68,7 @@ func TestRequestDispatcherPicks(t *testing.T) {
 		replicator := replicatorFac(nil, nil)
 		pickerFac := dispatcher.pickResponsePickerFactory(&Request{Request: request})
 		require.NotNil(t, pickerFac)
-		pic := pickerFac(nil)
+		pic := pickerFac(nil, nil, nil)
 		require.True(t, tc.expectedReplicator(replicator))
 		require.True(t, tc.expectedPicker(pic))
 	}
@@ -78,6 +79,10 @@ func TestRequestDispatcherDispatch(t *testing.T) {
 	require.NotNil(t, dispatcher)
 
 	request, err := http.NewRequest("GET", "http://random.domain/bucket/object", nil)
+	request = request.WithContext(context.WithValue(request.Context(), watchdog.Domain, "random.domain"))
+	request = request.WithContext(context.WithValue(request.Context(), watchdog.ConsistencyLevel, config.None))
+	request = request.WithContext(context.WithValue(request.Context(), watchdog.ReadRepair, false))
+
 	require.NoError(t, err)
 	require.NotNil(t, request)
 
@@ -85,6 +90,7 @@ func TestRequestDispatcherDispatch(t *testing.T) {
 	response := &http.Response{}
 	go func() { respChan <- BackendResponse{Response: response, Error: nil} }()
 	require.NotNil(t, clientMock)
+
 	clientMock.On("Do", &Request{Request: request}).Return(respChan)
 	respPickerMock.On("Pick").Return(response, nil)
 	dispatcher.Dispatch(request)
@@ -94,25 +100,27 @@ func TestRequestDispatcherDispatch(t *testing.T) {
 }
 
 type dispatcherRequestScenario struct {
-method                  string
-url                     string
-backends                []*backend.Backend
-shouldTryToInsertRecord bool
-shouldInsertFail        bool
-multiPartUploadID       string
-respBody                io.ReadCloser
+	method                  string
+	url                     string
+	backends                []*backend.Backend
+	consistencyLevel        config.ConsistencyLevel
+	readRepair 				bool
+	shouldInsertFail        bool
+	multiPartUploadID       string
+	respBody                io.ReadCloser
 }
 
 func TestAddingConsistencyRecords(t *testing.T) {
-	var requestScenarios = [] dispatcherRequestScenario {
-		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{}, false, false, "", nil},
-		{"GET", "http://random.domain/bucket/object", []*backend.Backend{{}}, false, false, "", nil},
-		{"GET", "http://random.domain/bucket", []*backend.Backend{{}}, false, false, "", nil},
-		{"PUT", "http://random.domain/bucket", []*backend.Backend{{}}, false, false, "", nil},
-		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{{}, {}}, true, false, "", nil},
-		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{{}, {}}, true, true, "", nil},
-		{"POST", "http://random.domain/bucket/object?uploads", []*backend.Backend{{}, {}}, true, false, "123", ioutil.NopCloser(strings.NewReader(initiateMultiPartResp))},
-		{"POST", "http://random.domain/bucket/object?uploads", []*backend.Backend{{}, {}}, true, true, "123", ioutil.NopCloser(strings.NewReader(initiateMultiPartResp))},
+	var requestScenarios = [] dispatcherRequestScenario{
+		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{}, config.None, false, false, "", nil},
+		{"GET", "http://random.domain/bucket/object", []*backend.Backend{{}}, config.None, false, false, "", nil},
+		{"GET", "http://random.domain/bucket", []*backend.Backend{{}}, config.None, false, false, "", nil},
+		{"PUT", "http://random.domain/bucket", []*backend.Backend{{}}, config.None, false, false, "", nil},
+		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{{}, {}}, config.Strong, false, false, "", nil},
+		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{{}, {}}, config.Strong,false, true, "", nil},
+		{"POST", "http://random.domain/bucket/object?uploads", []*backend.Backend{{}, {}}, config.Strong, false, false, "123", ioutil.NopCloser(strings.NewReader(initiateMultiPartResp))},
+		{"POST", "http://random.domain/bucket/object?uploads", []*backend.Backend{{}, {}}, config.Strong, false, true, "123", ioutil.NopCloser(strings.NewReader(initiateMultiPartResp))},
+		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{{}, {}}, config.Weak,false, true, "", nil},
 	}
 
 	for _, requestScenario := range requestScenarios {
@@ -133,7 +141,7 @@ func prepareTestScenario(t *testing.T,
 	watchdogMock *WatchdogMock,
 	watchdogRecordFactory *ConsistencyRecordFactoryMock,
 	clientMock *replicationClientMock,
-	respPickerMock *responsePickerMock) (*Request, *http.Response){
+	respPickerMock *responsePickerMock) (*Request, *http.Response) {
 
 	isMultiPart := strings.Contains(requestScenario.url, "?uploads")
 
@@ -142,33 +150,37 @@ func prepareTestScenario(t *testing.T,
 	require.NotNil(t, request)
 	request.Header.Add("Authorization", authHeaderV4)
 
-	reqWithContext := supplyRequestWithIDAndClusterName(request)
+	reqWithContext := supplyRequestWithIDAndDomain(request, requestScenario)
 	record := &watchdog.ConsistencyRecord{}
 	watchdogRecordFactory.On("CreateRecordFor", reqWithContext).Return(record, nil)
+	watchdogMock.On("GetVersionHeaderName").Return("x-amz-meta-version")
+
 	respChan := make(chan BackendResponse)
 	response := &http.Response{}
 	response.Body = requestScenario.respBody
 
 	go func() { respChan <- BackendResponse{Response: response, Error: nil} }()
 	require.NotNil(t, clientMock)
-	storageRequest := &Request{Request: reqWithContext, record: record}
+	storageRequest := &Request{Request: reqWithContext, logRecord: record}
 
-	if requestScenario.shouldTryToInsertRecord {
+	if requestScenario.consistencyLevel != config.None {
 		if requestScenario.shouldInsertFail {
+			if requestScenario.consistencyLevel != config.Strong {
+				clientMock.On("Do", storageRequest).Return(respChan)
+			}
 			if isMultiPart {
 				watchdogMock.On("SupplyRecordWithVersion", record).Return(errors.New("db error"))
 			} else {
 				watchdogMock.On("Insert", record).Return(nil, errors.New("db error"))
 			}
+
 		} else {
 			marker := &watchdog.DeleteMarker{}
-
 			if isMultiPart {
 				storageRequest.isInitiateMultipartUploadRequest = true
 				storageRequest.isMultiPartUploadRequest = true
 				watchdogMock.On("SupplyRecordWithVersion", record).Return(nil)
 				watchdogMock.On("InsertWithRequestID", requestScenario.multiPartUploadID, record).Return(marker, nil)
-
 			} else {
 				storageRequest.marker = marker
 				watchdogMock.On("Insert", record).Return(marker, nil)
@@ -179,7 +191,7 @@ func prepareTestScenario(t *testing.T,
 		clientMock.On("Do", &Request{Request: reqWithContext}).Return(respChan)
 	}
 
-	if !requestScenario.shouldInsertFail {
+	if !requestScenario.shouldInsertFail || requestScenario.consistencyLevel != config.Strong {
 		respPickerMock.On("Pick").Return(response, nil)
 	}
 
@@ -194,35 +206,37 @@ func assertTestScenario(
 	respPickerMock *responsePickerMock) {
 	isMultiPart := strings.Contains(requestScenario.url, "?uploads")
 
-	if requestScenario.shouldTryToInsertRecord {
+	if requestScenario.consistencyLevel != config.None {
 
 		if !isMultiPart {
-			watchdogMock.AssertCalled(t, "Insert", storageRequest.record)
+			watchdogMock.AssertCalled(t, "Insert", storageRequest.logRecord)
 		}
-		if requestScenario.shouldInsertFail {
+		if requestScenario.shouldInsertFail && requestScenario.consistencyLevel == config.Strong {
 			respPickerMock.AssertNotCalled(t, "Pick", response)
 			if isMultiPart && requestScenario.multiPartUploadID != "" {
-				watchdogMock.AssertCalled(t, "SupplyRecordWithVersion" , storageRequest.record)
-				watchdogMock.AssertNotCalled(t, "InsertWithRequestID", requestScenario.multiPartUploadID, storageRequest.record)
+				watchdogMock.AssertCalled(t, "SupplyRecordWithVersion", storageRequest.logRecord)
+				watchdogMock.AssertNotCalled(t, "InsertWithRequestID", requestScenario.multiPartUploadID, storageRequest.logRecord)
 			}
 		} else {
 			if isMultiPart && requestScenario.multiPartUploadID != "" {
-				watchdogMock.AssertCalled(t, "InsertWithRequestID", requestScenario.multiPartUploadID, storageRequest.record)
+				watchdogMock.AssertCalled(t, "InsertWithRequestID", requestScenario.multiPartUploadID, storageRequest.logRecord)
 			}
 		}
 
 	} else {
 
-		watchdogMock.AssertNotCalled(t, "Insert", storageRequest.record)
-		watchdogMock.AssertNotCalled(t, "InsertWithRequestID", requestScenario.multiPartUploadID, storageRequest.record)
+		watchdogMock.AssertNotCalled(t, "Insert", storageRequest.logRecord)
+		watchdogMock.AssertNotCalled(t, "InsertWithRequestID", requestScenario.multiPartUploadID, storageRequest.logRecord)
 		respPickerMock.AssertNotCalled(t, "Pick", response)
 
 	}
 }
 
-func supplyRequestWithIDAndClusterName(request *http.Request) *http.Request {
+func supplyRequestWithIDAndDomain(request *http.Request, scenario *dispatcherRequestScenario) *http.Request {
 	recordedReqContext := context.WithValue(request.Context(), log.ContextreqIDKey, "testID")
 	recordedReqContext = context.WithValue(recordedReqContext, watchdog.Domain, "testCluster")
+	recordedReqContext = context.WithValue(recordedReqContext, watchdog.ConsistencyLevel, scenario.consistencyLevel)
+	recordedReqContext = context.WithValue(recordedReqContext, watchdog.ReadRepair, scenario.readRepair)
 	return request.WithContext(recordedReqContext)
 }
 
@@ -265,9 +279,9 @@ func (rcm replicationClientMock) Cancel() error {
 	return nil
 }
 
-func responsePickFactoryMockFactory(mock *responsePickerMock) func(request *Request) func(<-chan BackendResponse) responsePicker {
-	return func(request *Request) func(<-chan BackendResponse) responsePicker {
-		return func(<-chan BackendResponse) responsePicker {
+func responsePickFactoryMockFactory(mock *responsePickerMock) func(request *Request) func(<-chan BackendResponse, watchdog.ConsistencyWatchdog, *watchdog.ConsistencyRecord) responsePicker {
+	return func(request *Request) func(<-chan BackendResponse, watchdog.ConsistencyWatchdog, *watchdog.ConsistencyRecord) responsePicker {
+		return func(<-chan BackendResponse, watchdog.ConsistencyWatchdog, *watchdog.ConsistencyRecord) responsePicker {
 			return mock
 		}
 	}
@@ -283,7 +297,6 @@ func (rpm *responsePickerMock) Pick() (*http.Response, error) {
 	err := args.Error(1)
 	return httpResponse, err
 }
-func (*responsePickerMock) SendSyncLog(*SyncSender) {}
 
 type WatchdogMock struct {
 	*mock.Mock
@@ -324,6 +337,11 @@ func (wm *WatchdogMock) UpdateExecutionDelay(delta *watchdog.ExecutionDelay) err
 func (wm *WatchdogMock) SupplyRecordWithVersion(record *watchdog.ConsistencyRecord) (error) {
 	args := wm.Called(record)
 	return args.Error(0)
+}
+
+func (wm *WatchdogMock) GetVersionHeaderName() string {
+	wm.Called()
+	return "x-amz-meta-version"
 }
 
 type ConsistencyRecordFactoryMock struct {

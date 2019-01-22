@@ -6,15 +6,16 @@ import (
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/merger"
 	"github.com/allegro/akubra/utils"
+	"github.com/allegro/akubra/watchdog"
 )
 
 const listTypeV2 = "2"
 
 type responseMerger struct {
-	responsesChannel <-chan BackendResponse
+	responsesChannel    <-chan BackendResponse
 }
 
-func newResponseHandler(ch <-chan BackendResponse) responsePicker {
+func newResponseHandler(ch <-chan BackendResponse, _ watchdog.ConsistencyWatchdog, _ *watchdog.ConsistencyRecord) responsePicker {
 	return &responseMerger{responsesChannel: ch}
 }
 
@@ -160,6 +161,3 @@ func (rm *responseMerger) Pick() (*http.Response, error) {
 	result := rm.merge(firstTuple, rm.responsesChannel)
 	return result.Response, result.Error
 }
-
-// SendSyncLog implements picker interface
-func (rm *responseMerger) SendSyncLog(*SyncSender) {}
