@@ -23,13 +23,15 @@ import:
 - package: gopkg.in/tylerb/graceful.v1
   version: ^1.2.15
 - package: gopkg.in/yaml.v2
-- package: github.com/bnogas/minio-go
-  version: verify_signature
+- package: github.com/wookie41/minio-go
+  version: service-header-fix
+- package: github.com/aws/aws-sdk-go/aws/signer/v4
   subpackages:
   - s3signer
 - package: github.com/hashicorp/consul
   subpackages:
   - api
+- package: github.com/satori/go.uuid
 - package: github.com/jinzhu/gorm
   version: ^1.9.2
 testImport:

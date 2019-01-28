@@ -82,14 +82,16 @@ func (rf RingFactory) RegionRing(name string, regionCfg config.Policies) (Shards
 		shardClusterMap:         shardClusterMap,
 		allClustersRoundTripper: allBackendsRoundTripper,
 		clusterRegressionMap:    regressionMap,
-		inconsistencyLog:        rf.syncLog}, nil
+	ringProps: &RingProps{
+		ConsistencyLevel: regionCfg.ConsistencyLevel,
+		ReadRepair: regionCfg.ReadRepair,
+	}}, nil
 }
 
 // NewRingFactory creates ring factory
-func NewRingFactory(conf config.ShardingPolicies, storages storages.ClusterStorage, syncLog log.Logger) RingFactory {
+func NewRingFactory(conf config.ShardingPolicies, storages storages.ClusterStorage) RingFactory {
 	return RingFactory{
 		conf:     conf,
 		storages: storages,
-		syncLog:  syncLog,
 	}
 }

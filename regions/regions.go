@@ -2,11 +2,13 @@ package regions
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"net"
 	"net/http"
 
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/watchdog"
 
 	"github.com/allegro/akubra/regions/config"
 	"github.com/allegro/akubra/sharding"
@@ -15,8 +17,8 @@ import (
 
 // Regions container for multiclusters
 type Regions struct {
-	multiCluters map[string]sharding.ShardsRingAPI
-	defaultRing  sharding.ShardsRingAPI
+	multiCluters     map[string]sharding.ShardsRingAPI
+	defaultRing      sharding.ShardsRingAPI
 }
 
 func (rg Regions) assignShardsRing(domain string, shardRing sharding.ShardsRingAPI) {
@@ -42,21 +44,29 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		reqHost = req.Host
 	}
+
 	shardsRing, ok := rg.multiCluters[reqHost]
 	if ok {
+		req = req.WithContext(shardingPolicyContext(req, reqHost, shardsRing.GetRingProps()))
 		return shardsRing.DoRequest(req)
 	}
 	if rg.defaultRing != nil {
+		req = req.WithContext(shardingPolicyContext(req, reqHost, rg.defaultRing.GetRingProps()))
 		log.Printf("Selected default ring for request with reqHost: '%s'", reqHost)
 		return rg.defaultRing.DoRequest(req)
 	}
 	return rg.getNoSuchDomainResponse(req), nil
 }
+func shardingPolicyContext(request *http.Request, reqHost string, shardProps *sharding.RingProps) context.Context {
+	shardingContext := context.WithValue(request.Context(), watchdog.Domain, reqHost)
+	shardingContext = context.WithValue(shardingContext, watchdog.ConsistencyLevel, shardProps.ConsistencyLevel)
+	return context.WithValue(shardingContext, watchdog.ReadRepair, shardProps.ReadRepair)
+}
 
 // NewRegions build new region http.RoundTripper
-func NewRegions(conf config.ShardingPolicies, storages storage.ClusterStorage, syncLogger log.Logger) (http.RoundTripper, error) {
+func NewRegions(conf config.ShardingPolicies, storages storage.ClusterStorage) (http.RoundTripper, error) {
 
-	ringFactory := sharding.NewRingFactory(conf, storages, syncLogger)
+	ringFactory := sharding.NewRingFactory(conf, storages)
 	regions := &Regions{
 		multiCluters: make(map[string]sharding.ShardsRingAPI),
 	}

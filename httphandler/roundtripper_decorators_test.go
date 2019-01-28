@@ -113,3 +113,28 @@ func TestAccessLogging(t *testing.T) {
 	}
 	assert.Equal(t, http.StatusOK, amd.StatusCode)
 }
+
+func TestResponseHeaderStripper(t *testing.T) {
+	srv := mkSimpleServer(t)
+	defer srv.Close()
+	reqHeaders := map[string]string{}
+	respHeaders := map[string]string{"x-akubra-custom-header" : "1",  "x-akubra-custom-header-2" : "1",  "x-resp": "true"}
+	respHeadersToStrip := []string { "x-akubra-custom-header", "x-akubra-custom-header-2"}
+
+	rt := Decorate(http.DefaultTransport, HeadersSuplier(reqHeaders, respHeaders), ResponseHeadersStripper(respHeadersToStrip))
+
+	res := sendReq(t, srv, "GET", nil, rt)
+
+	body, brErr := ioutil.ReadAll(res.Body)
+	if brErr != nil {
+		t.Errorf("Cannot read response: %q", brErr.Error())
+	}
+	receivedReqHeadersMap := make(map[string][]string)
+	unmErr := json.Unmarshal(body, &receivedReqHeadersMap)
+	if unmErr != nil {
+		t.Errorf("Cannot parse response body: %q", unmErr.Error())
+	}
+	assertIncludeHeaders(t, map[string][]string(res.Header), map[string]string{"x-resp" : "true"})
+	assert.Empty(t, res.Header.Get("x-akubra-custom-header"))
+	assert.Empty(t, res.Header.Get("x-akubra-custom-header-2"))
+}

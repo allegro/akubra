@@ -108,6 +108,32 @@ func HeadersSuplier(requestHeaders, responseHeaders config.AdditionalHeaders) De
 	}
 }
 
+type responseHeadersStripper struct {
+	headers 		[]string
+	roundTripper    http.RoundTripper
+}
+
+func (hs *responseHeadersStripper) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	resp, err = hs.roundTripper.RoundTrip(req)
+	if err != nil || resp == nil {
+		return
+	}
+	for _, header := range hs.headers  {
+		resp.Header.Del(header)
+	}
+	return
+}
+
+
+// ResponseHeadersStripper creates Decorator which strips the Akubra specific headers
+func ResponseHeadersStripper(headersToStrip []string) Decorator {
+	return func(roundTripper http.RoundTripper) http.RoundTripper {
+		return &responseHeadersStripper{
+			headers: headersToStrip,
+			roundTripper:    roundTripper}
+	}
+}
+
 type optionsHandler struct {
 	roundTripper http.RoundTripper
 }

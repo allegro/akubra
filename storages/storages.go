@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"github.com/allegro/akubra/balancing"
-
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/watchdog"
 
 	"github.com/allegro/akubra/storages/auth"
 	"github.com/allegro/akubra/storages/config"
@@ -22,11 +22,12 @@ type ClusterStorage interface {
 
 // Storages config
 type Storages struct {
-	clustersConf config.ShardsMap
-	storagesMap  config.StoragesMap
-	syncLog      *SyncSender
-	ShardClients map[string]NamedShardClient
-	Backends     map[string]*StorageClient
+	clustersConf          config.ShardsMap
+	storagesMap           config.StoragesMap
+	ShardClients          map[string]NamedShardClient
+	Backends              map[string]*StorageClient
+	watchdog              watchdog.ConsistencyWatchdog
+	shardFactory 		 *shardFactory
 }
 
 // GetShard gets cluster by name or nil if cluster with given name was not found
@@ -53,7 +54,7 @@ func (st *Storages) MergeShards(name string, clusters ...NamedShardClient) Named
 		}
 	}
 	log.Debugf("Backend names %v\n", backendsNames)
-	sCluster, err := newShard(name, backendsNames, st.Backends, st.syncLog)
+	sCluster, err := st.shardFactory.newShard(name, backendsNames, st.Backends)
 	if err != nil {
 		log.Fatalf("Initialization of region cluster %s failed reason: %s", name, err)
 	}
@@ -61,9 +62,29 @@ func (st *Storages) MergeShards(name string, clusters ...NamedShardClient) Named
 	return sCluster
 }
 
+// Factory creates storages
+type Factory struct {
+	transport http.RoundTripper
+	watchdog  watchdog.ConsistencyWatchdog
+	shardFactory *shardFactory
+}
+
+//NewStoragesFactory creates StoragesFactory
+func NewStoragesFactory(transport http.RoundTripper, watchdogConfig *watchdog.Config,
+					watchdog watchdog.ConsistencyWatchdog, watchdogRequestFactory watchdog.ConsistencyRecordFactory) *Factory {
+	return &Factory{
+		transport: transport,
+		watchdog:  watchdog,
+		shardFactory: &shardFactory{
+			watchdog:                 watchdog,
+			watchdogConfig:           watchdogConfig,
+			consistencyRecordFactory: watchdogRequestFactory,
+		},
+	}
+}
+
 // InitStorages setups storages
-func InitStorages(transport http.RoundTripper, clustersConf config.ShardsMap,
-	storagesMap config.StoragesMap, syncLog *SyncSender) (*Storages, error) {
+func (factory *Factory) InitStorages(clustersConf config.ShardsMap, storagesMap config.StoragesMap) (*Storages, error) {
 	shards := make(map[string]NamedShardClient)
 	storageClients := make(map[string]*StorageClient)
 
@@ -75,7 +96,7 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ShardsMap,
 		if storage.Maintenance {
 			log.Printf("storage %q in maintenance mode", name)
 		}
-		decoratedBackend, err := decorateBackend(transport, name, storage)
+		decoratedBackend, err := decorateBackend(factory.transport, name, storage)
 		if err != nil {
 			return nil, err
 		}
@@ -87,7 +108,7 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ShardsMap,
 	}
 
 	for name, clusterConf := range clustersConf {
-		cluster, err := newShard(name, storageNames(clusterConf), storageClients, syncLog)
+		cluster, err := factory.shardFactory.newShard(name, storageNames(clusterConf), storageClients)
 		cluster.balancer = balancing.NewBalancerPrioritySet(clusterConf.Storages, convertToRoundTrippersMap(storageClients))
 		if err != nil {
 			return nil, err
@@ -98,9 +119,10 @@ func InitStorages(transport http.RoundTripper, clustersConf config.ShardsMap,
 	return &Storages{
 		clustersConf: clustersConf,
 		storagesMap:  storagesMap,
-		syncLog:      syncLog,
 		ShardClients: shards,
 		Backends:     storageClients,
+		watchdog:     factory.watchdog,
+		shardFactory: factory.shardFactory,
 	}, nil
 }
 
