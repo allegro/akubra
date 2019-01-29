@@ -147,6 +147,9 @@ type signAuthServiceRoundTripper struct {
 
 // RoundTrip implements http.RoundTripper interface
 func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if httphandler.IsHealthCheck(req) {
+		return srt.rt.RoundTrip(req)
+	}
 	authHeader, err := ParseAuthorizationHeader(req.Header.Get("Authorization"))
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
@@ -177,6 +180,9 @@ func ParseAuthorizationHeader(authorizationHeader string) (authHeader ParsedAuth
 
 // RoundTrip implements http.RoundTripper interface
 func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if httphandler.IsHealthCheck(req) {
+		return srt.rt.RoundTrip(req)
+	}
 	authHeader, err := ParseAuthorizationHeader(req.Header.Get("Authorization"))
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
@@ -206,6 +212,7 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	}
 	return srt.rt.RoundTrip(req)
 }
+
 func isStreamingRequest(req *http.Request) (bool, uint64, error) {
 	if req.Header.Get("X-Amz-Content-Sha256") != "STREAMING-AWS4-HMAC-SHA256-PAYLOAD" {
 		return false, 0, nil
