@@ -2,23 +2,17 @@ package httphandler
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"io"
 	"net/http"
 	"sync/atomic"
 
 	"github.com/allegro/akubra/httphandler/config"
 	"github.com/allegro/akubra/log"
+	"github.com/gofrs/uuid"
 )
 
 func randomStr(length int) string {
-	randomID := make([]byte, length)
-	_, err := rand.Read(randomID)
-	if err != nil {
-		randomID = []byte("notrandomid")
-	}
-	return hex.EncodeToString(randomID)
+	return uuid.Must(uuid.NewV4()).String()[:length]
 }
 
 // Handler implements http.Handler interface
@@ -44,7 +38,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	randomIDStr := randomStr(12)
+	randomIDStr := randomStr(36)
 	validationCode := h.validateIncomingRequest(req)
 	if validationCode > 0 {
 		log.Printf("Rejected invalid incoming request from %s, code %d", req.RemoteAddr, validationCode)
@@ -54,7 +48,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	randomIDContext := context.WithValue(req.Context(), log.ContextreqIDKey, randomIDStr)
 	log.Debugf("Request id %s", randomIDStr)
-
+	
 	resp, err := h.roundTripper.RoundTrip(req.WithContext(randomIDContext))
 
 	if err != nil || resp == nil {
@@ -106,6 +100,7 @@ func (h *Handler) validateIncomingRequest(req *http.Request) int {
 func DecorateRoundTripper(conf config.Client, accesslog log.Logger, healthCheckEndpoint string, rt http.RoundTripper) http.RoundTripper {
 	return Decorate(
 		rt,
+		ResponseHeadersStripper(conf.ResponseHeadersToStrip),
 		HeadersSuplier(conf.AdditionalRequestHeaders, conf.AdditionalResponseHeaders),
 		AccessLogging(accesslog),
 		OptionsHandler,

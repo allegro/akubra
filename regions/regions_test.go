@@ -1,10 +1,13 @@
 package regions
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
+	"github.com/allegro/akubra/regions/config"
 	"github.com/allegro/akubra/sharding"
+	"github.com/allegro/akubra/watchdog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -17,6 +20,15 @@ func (sro *ShardsRingMock) DoRequest(req *http.Request) (resp *http.Response, re
 	args := sro.Called(req)
 	httpResponse := args.Get(0).(*http.Response)
 	return httpResponse, nil
+}
+
+func (sro *ShardsRingMock) GetRingProps() *sharding.RingProps {
+	args := sro.Called()
+	v := args.Get(0)
+	if v != nil {
+		return v.(*sharding.RingProps)
+	}
+	return nil
 }
 
 func TestCode404OnNotSupportedDomain(t *testing.T) {
@@ -38,26 +50,45 @@ func TestShouldReturnResponseFromShardsRing(t *testing.T) {
 	regions := &Regions{
 		multiCluters: shardsMap,
 	}
-	request := &http.Request{Host: "test1.qxlint"}
+	requestWithHostSpecified := &http.Request{Host: "test1.qxlint"}
 	expectedResponse := &http.Response{
 		Status:     "200 OK",
 		StatusCode: 200,
 	}
+
+	shardProps := &sharding.RingProps{
+		ReadRepair: false,
+		ConsistencyLevel: config.None,
+	}
+
 	shardsRingMock := &ShardsRingMock{}
-	shardsRingMock.On("DoRequest", request).Return(expectedResponse)
+	requestWithHostAndContext := requestWithHostSpecified.WithContext(context.WithValue(requestWithHostSpecified.Context(), watchdog.Domain, requestWithHostSpecified.Host))
+	requestWithHostAndContext = requestWithHostAndContext.WithContext(context.WithValue(requestWithHostAndContext.Context(), watchdog.ConsistencyLevel, shardProps.ConsistencyLevel))
+	requestWithHostAndContext = requestWithHostAndContext.WithContext(context.WithValue(requestWithHostAndContext.Context(), watchdog.ReadRepair, shardProps.ReadRepair))
+
+	shardsRingMock.On("DoRequest", requestWithHostAndContext).Return(expectedResponse)
+	shardsRingMock.On("GetRingProps").Return(shardProps)
+
 	regions.assignShardsRing("test1.qxlint", shardsRingMock)
 	regions.defaultRing = shardsRingMock
-	response, _ := regions.RoundTrip(request)
 
-	request2 := &http.Request{Host: ""}
+	response, _ := regions.RoundTrip(requestWithHostSpecified)
 	assert.Equal(t, 200, response.StatusCode)
-	shardsRingMock.AssertCalled(t, "DoRequest", request)
+	shardsRingMock.AssertCalled(t, "DoRequest", requestWithHostAndContext)
 
-	shardsRingMock.On("DoRequest", request2).Return(expectedResponse)
+	defaultRegionRequest := &http.Request{Host: ""}
 
-	response2, _ := regions.RoundTrip(request2)
-	assert.Equal(t, 200, response2.StatusCode)
-	shardsRingMock.AssertCalled(t, "DoRequest", request2)
+	defaultRequestWithContext := defaultRegionRequest.WithContext(context.WithValue(defaultRegionRequest.Context(), watchdog.Domain, defaultRegionRequest.Host))
+	defaultRequestWithContext = defaultRequestWithContext.WithContext(context.WithValue(defaultRequestWithContext.Context(), watchdog.ConsistencyLevel, shardProps.ConsistencyLevel))
+	defaultRequestWithContext = defaultRequestWithContext.WithContext(context.WithValue(defaultRequestWithContext.Context(), watchdog.ReadRepair, shardProps.ReadRepair))
+
+	shardsRingMock.On("DoRequest", defaultRequestWithContext).Return(expectedResponse)
+
+	defaultRegionResponse, _ := regions.RoundTrip(defaultRegionRequest)
+
+
+	assert.Equal(t, 200, defaultRegionResponse.StatusCode)
+	shardsRingMock.AssertCalled(t, "DoRequest", defaultRequestWithContext)
 }
 
 func TestShouldReturnResponseFromShardsRingOnHostWithPort(t *testing.T) {
@@ -71,10 +102,20 @@ func TestShouldReturnResponseFromShardsRingOnHostWithPort(t *testing.T) {
 		StatusCode: 200,
 	}
 	shardsRingMock := &ShardsRingMock{}
-	shardsRingMock.On("DoRequest", request).Return(expectedResponse)
+	shardProps := &sharding.RingProps{
+		ReadRepair: false,
+		ConsistencyLevel: config.None,
+	}
+
+	requestWithContext := request.WithContext(context.WithValue(request.Context(), watchdog.Domain, "test1.qxlint"))
+	requestWithContext = requestWithContext.WithContext(context.WithValue(requestWithContext.Context(), watchdog.ConsistencyLevel, shardProps.ConsistencyLevel))
+	requestWithContext = requestWithContext.WithContext(context.WithValue(requestWithContext.Context(), watchdog.ReadRepair, shardProps.ReadRepair))
+
+	shardsRingMock.On("DoRequest", requestWithContext).Return(expectedResponse)
+	shardsRingMock.On("GetRingProps").Return(shardProps)
+
 	regions.assignShardsRing("test1.qxlint", shardsRingMock)
 
 	response, _ := regions.RoundTrip(request)
-
 	assert.Equal(t, 200, response.StatusCode)
 }

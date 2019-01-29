@@ -8,9 +8,9 @@ import (
 
 // MultiClusterConfig defines region settings for multicluster
 type MultiClusterConfig struct {
-	// Cluster name
-	Cluster string `yaml:"Cluster"`
-	// Cluster weight
+	// Domain name
+	Cluster string `yaml:"Domain"`
+	// Domain weight
 	Weight float64 `yaml:"Weight"`
 }
 

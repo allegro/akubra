@@ -2,16 +2,16 @@ package storages
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/merger"
+	"github.com/allegro/akubra/utils"
 )
 
 const listTypeV2 = "2"
 
 type responseMerger struct {
-	responsesChannel <-chan BackendResponse
+	responsesChannel    <-chan BackendResponse
 }
 
 func newResponseHandler(ch <-chan BackendResponse) responsePicker {
@@ -112,7 +112,7 @@ func (rm *responseMerger) isMergable(req *http.Request) bool {
 			}
 		}
 	}
-	return !unsupportedQuery && (method == http.MethodGet) && isBucketPath(path)
+	return !unsupportedQuery && (method == http.MethodGet) && utils.IsBucketPath(path)
 }
 
 func (rm *responseMerger) isPartiallyMergable(req *http.Request) bool {
@@ -128,15 +128,7 @@ func (rm *responseMerger) isPartiallyMergable(req *http.Request) bool {
 			}
 		}
 	}
-	return partiallySupportedQuery && (method == http.MethodGet) && isBucketPath(path)
-}
-
-func isBucketPath(path string) bool {
-	trimmedPath := strings.Trim(path, "/")
-	if trimmedPath == "" {
-		return false
-	}
-	return len(strings.Split(trimmedPath, "/")) == 1
+	return partiallySupportedQuery && (method == http.MethodGet) && utils.IsBucketPath(path)
 }
 
 // Pick implements picker interface
@@ -168,6 +160,3 @@ func (rm *responseMerger) Pick() (*http.Response, error) {
 	result := rm.merge(firstTuple, rm.responsesChannel)
 	return result.Response, result.Error
 }
-
-// SendSyncLog implements picker interface
-func (rm *responseMerger) SendSyncLog(*SyncSender) {}

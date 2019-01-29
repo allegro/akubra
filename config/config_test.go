@@ -19,6 +19,7 @@ import (
 	shardingconfig "github.com/allegro/akubra/sharding/config"
 	storageconfig "github.com/allegro/akubra/storages/config"
 	transportConfig "github.com/allegro/akubra/transport/config"
+	"github.com/allegro/akubra/watchdog"
 	"github.com/stretchr/testify/assert"
 
 	"gopkg.in/yaml.v2"
@@ -79,7 +80,7 @@ func (t *YamlConfigTest) NewYamlConfigTest() *YamlConfig {
 	size.SizeInBytes = 2048
 	region := regionsConfig.Policies{}
 	t.YamlConfig = PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", ":81",
-		map[string]regionsConfig.Policies{"region": region}, nil)
+		map[string]regionsConfig.Policies{"region": region}, nil, watchdog.Config{})
 	return &t.YamlConfig
 }
 
@@ -159,7 +160,7 @@ func TestShouldValidateConfMaintainedBackendWhenNotEmpty(t *testing.T) {
 	size.SizeInBytes = 2048
 	region := regionsConfig.Policies{}
 	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", ":81",
-		map[string]regionsConfig.Policies{"region": region}, nil)
+		map[string]regionsConfig.Policies{"region": region}, nil, watchdog.Config{})
 
 	result, _ := ValidateConf(testConfData, false)
 
@@ -173,7 +174,7 @@ func TestShouldValidateConfMaintainedBackendWhenEmpty(t *testing.T) {
 	region := regionsConfig.Policies{}
 	testConfData := PrepareYamlConfig(size, 22, 33, maintainedBackendHost,
 		":80", ":81",
-		map[string]regionsConfig.Policies{"region": region}, nil)
+		map[string]regionsConfig.Policies{"region": region}, nil, watchdog.Config{})
 
 	result, _ := ValidateConf(testConfData, false)
 
@@ -279,15 +280,17 @@ func TestShouldNotValidateBodyMaxSizeWithZero(t *testing.T) {
 }
 
 func TestShouldPassValidateConfigurationHTTPHandler(t *testing.T) {
-	correctYamlData := yamlConfigWithoutRegionsSection +
-		`ShardingPolicies:
+	correctYamlData := yamlConfigWithoutRegionsSection + `
+ShardingPolicies:
   testregion:
     Shards:
       - ShardName: cluster1test
         Weight: 1
     Domains:
       - endpoint.dc
-DisableKeepAlives: false
+    ConsistencyLevel: None
+    ReadRepair: false
+    DisableKeepAlives: false	
 `
 	writer, request := callConfigValidateRequest(correctYamlData)
 
@@ -347,7 +350,7 @@ func TestShouldNotPassWhenNoRegionIsDefined(t *testing.T) {
 	var size httpHandlerConfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost,
-		":80", ":81", regionsConfig.ShardingPolicies{}, nil)
+		":80", ":81", regionsConfig.ShardingPolicies{}, nil, watchdog.Config{})
 
 	result, _ := ValidateConf(testConfData, true)
 
@@ -361,7 +364,9 @@ func PrepareYamlConfig(
 	maintainedBackendHost string,
 	listen string,
 	technicalEndpointListen string,
-	policies regionsConfig.ShardingPolicies, transports transportConfig.Transports) YamlConfig {
+	policies regionsConfig.ShardingPolicies,
+	transports transportConfig.Transports,
+	watchdog watchdog.Config) YamlConfig {
 
 	url1 := url.URL{Scheme: "http", Host: "127.0.0.1:8080"}
 	yamlURL := shardingconfig.YAMLUrl{URL: &url1}
@@ -439,6 +444,7 @@ func PrepareYamlConfig(
 		ShardingPolicies: policies,
 		Logging:          logconfig.LoggingConfig{},
 		Metrics:          metrics.Config{},
+		Watchdog:         watchdog,
 	}
 }
 

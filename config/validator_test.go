@@ -13,6 +13,7 @@ import (
 	"github.com/allegro/akubra/metrics"
 	shardsconfig "github.com/allegro/akubra/regions/config"
 	transportconfig "github.com/allegro/akubra/transport/config"
+	"github.com/allegro/akubra/watchdog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/validator.v1"
@@ -94,7 +95,7 @@ func TestShouldPassListenPortsLogicalValidator(t *testing.T) {
 	regionConfig := shardsconfig.Policies{}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", listen,
 		listenTechnicalEndpoint,
-		map[string]shardsconfig.Policies{"region": regionConfig}, nil)
+		map[string]shardsconfig.Policies{"region": regionConfig}, nil, watchdog.Config{})
 	valid, validationErrors := yamlConfig.ListenPortsLogicalValidator()
 
 	assert.Len(t, validationErrors, 0, "Should not be errors")
@@ -109,7 +110,7 @@ func TestShouldNotPassListenPortsLogicalValidatorWhenPortsAreEqual(t *testing.T)
 	regionConfig := shardsconfig.Policies{}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", listen,
 		listenTechnicalEndpoint,
-		map[string]shardsconfig.Policies{"region": regionConfig}, nil)
+		map[string]shardsconfig.Policies{"region": regionConfig}, nil, watchdog.Config{})
 	valid, validationErrors := yamlConfig.ListenPortsLogicalValidator()
 
 	assert.Len(t, validationErrors, 1, "Should be one error")
@@ -173,6 +174,8 @@ func TestValidatorShouldPassWithValidRegionConfig(t *testing.T) {
 	regionConfig := shardsconfig.Policies{
 		Shards:  []shardsconfig.Policy{multiClusterConfig},
 		Domains: []string{"domain.dc"},
+		ConsistencyLevel: shardsconfig.None,
+		ReadRepair: false,
 	}
 
 	var size httphandlerconfig.HumanSizeUnits
@@ -180,7 +183,7 @@ func TestValidatorShouldPassWithValidRegionConfig(t *testing.T) {
 
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
 		"127.0.0.1:1234", "127.0.0.1:1235",
-		map[string]shardsconfig.Policies{"region": regionConfig}, nil)
+		map[string]shardsconfig.Policies{"region": regionConfig}, nil, watchdog.Config{})
 
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.True(t, valid)
@@ -204,7 +207,7 @@ func TestValidatorShouldFailWithMissingCluster(t *testing.T) {
 
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
 		"127.0.0.1:1234", "127.0.0.1:1235",
-		map[string]shardsconfig.Policies{policyName: regionConfig}, nil)
+		map[string]shardsconfig.Policies{policyName: regionConfig}, nil, watchdog.Config{})
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -227,7 +230,7 @@ func TestValidatorShouldFailWithInvalidWeight(t *testing.T) {
 	size.SizeInBytes = 2048
 	regions := map[string]shardsconfig.Policies{"testregion": regionConfig}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil, watchdog.Config{})
 
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
@@ -244,13 +247,15 @@ func TestValidatorShouldFailWithMissingClusterDomain(t *testing.T) {
 	}
 	regionConfig := shardsconfig.Policies{
 		Shards: []shardsconfig.Policy{multiClusterConfig},
+		ReadRepair: false,
+		ConsistencyLevel:shardsconfig.None,
 	}
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 
 	regions := map[string]shardsconfig.Policies{"testregion": regionConfig}
 	yamlConfig := PrepareYamlConfig(size, 31, 45,
-		"127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
+		"127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions, nil, watchdog.Config{})
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -267,7 +272,7 @@ func TestValidatorShouldFailWithMissingClusterDefinition(t *testing.T) {
 	size.SizeInBytes = 2048
 	regions := map[string]shardsconfig.Policies{"testregion": regionConfig}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil, watchdog.Config{})
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -281,7 +286,7 @@ func TestValidatorShouldFailWithEmptyTransportsDefinition(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, watchdog.Config{})
 	valid, validationErrors := yamlConfig.TransportsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -305,7 +310,7 @@ func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, watchdog.Config{})
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
@@ -323,7 +328,7 @@ func TestValidatorShouldProcessTransportsWithSuccessWithNotDefinedRulesPropertie
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, watchdog.Config{})
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
@@ -343,7 +348,7 @@ func TestShouldValidateWithEmptyPropertiesInRulesDefinition(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 51, 55, "127.0.0.1:82",
-		"127.0.0.1:1235", "127.0.0.1:1236", nil, transports)
+		"127.0.0.1:1235", "127.0.0.1:1236", nil, transports, watchdog.Config{})
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
@@ -370,7 +375,7 @@ func TestValidatorShouldValidateTransportsWithEmptyRules(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, watchdog.Config{})
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
@@ -387,7 +392,7 @@ func TestValidatorShouldFailOnTransportWithoutProperties(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, watchdog.Config{})
 	valid, validationErrors := yamlConfig.TransportsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -402,7 +407,7 @@ func TestShouldPassTransportsEntryLogicalValidatorWhenIdleConnTimeoutDurationIsZ
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, watchdog.Config{})
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
@@ -413,7 +418,7 @@ func TestShouldFailTransportsEntryLogicalValidatorWhenResponseHeaderTimeoutDurat
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, watchdog.Config{})
 	result, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.False(t, result)
 }
@@ -424,7 +429,7 @@ func TestShouldPassTransportsEntryLogicalValidatorWhenMaxIdleConnsIsZero(t *test
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, watchdog.Config{})
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
@@ -435,9 +440,74 @@ func TestShouldPassTransportsEntryLogicalValidatorWhenMaxIdleConnsPerHostIsZero(
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, watchdog.Config{})
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
+}
+
+func TestShouldFailWhenUnsupportedTypeOfWatchdogIsDefined(t *testing.T) {
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	watchdogConfig := watchdog.Config{Type:"unsupportedType", Props:make(map[string]string)}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, watchdogConfig)
+	valid, _ := yamlConfig.WatchdogEntryLogicalValidator()
+	assert.False(t, valid)
+}
+
+func TestShouldPassWhenNoWatchdogIsDefined(t *testing.T) {
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, watchdog.Config{})
+	valid, _ := yamlConfig.WatchdogEntryLogicalValidator()
+	assert.True(t, valid)
+}
+
+func TestShouldNotPassWhenWatchdogIsDefinedAndObjectVersionHeaderNameIsNotDefined(t *testing.T) {
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	watchdogConfig := watchdog.Config{Type: "sql", Props: map[string]string{}}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, watchdogConfig)
+	valid, errList := yamlConfig.WatchdogEntryLogicalValidator()
+	assert.Contains(t, errList["WatchdogEntryLogicalValidator"], errors.New("ObjectVersionHeaderName can't be empty if watcher is defined"))
+	assert.False(t, valid)
+}
+
+func TestShouldNotPassWhenWatchdogIsDefinedAndObjectVersionHeaderNameHasWrongFormat(t *testing.T) {
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	watchdogConfig := watchdog.Config{Type: "sql", ObjectVersionHeaderName: "SomeBadFormat",  Props: map[string]string{}}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, watchdogConfig)
+	valid, errList := yamlConfig.WatchdogEntryLogicalValidator()
+	assert.Contains(t, errList["WatchdogEntryLogicalValidator"], errors.New("ObjectVersionHeaderName has to start with 'x-amz-meta'"))
+	assert.False(t, valid)
+}
+
+func TestShouldFailWhenWatchdogConfigDoesNotHaveAllOfTheFieldsProvided(t *testing.T) {
+	var size httphandlerconfig.HumanSizeUnits
+	size.SizeInBytes = 2048
+	watchdogConfig := watchdog.Config{
+		Type: "sql",
+		ObjectVersionHeaderName: "x-amz-meta-akubra",
+		Props: map[string]string{
+		"dialect": "postgres",
+		"user": "brim",
+		"password": "brim",
+		"dbname": "brim",
+		"host": "localhost",
+		"port": "5432",
+		"maxopenconns": "50",
+		"maxidleconns": "50",
+		"connmaxlifetime": "1h",
+	}}
+	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, watchdogConfig)
+	valid, errList := yamlConfig.WatchdogEntryLogicalValidator()
+	assert.Contains(t, errList["WatchdogEntryLogicalValidator"], errors.New("param 'conntimeout' for watchdog 'sql' is missing"))
+	assert.False(t, valid)
 }
 
 func prepareTransportsForEntryLogicalValidatorTest(maxIdleConns, maxIdleConnsPerHost int,

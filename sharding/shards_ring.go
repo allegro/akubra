@@ -2,7 +2,6 @@ package sharding
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
+	"github.com/allegro/akubra/regions/config"
 	"github.com/allegro/akubra/storages"
 	"github.com/allegro/akubra/types"
 	"github.com/serialx/hashring"
@@ -22,9 +22,17 @@ const (
 	noTimeoutRegressionHeader = "X-Akubra-No-Regression-On-Failure"
 )
 
+
+//RingProps describes the properties of a ring regarding it's consistency level
+type RingProps struct {
+	ConsistencyLevel config.ConsistencyLevel
+	ReadRepair       bool
+}
+
 // ShardsRingAPI interface
 type ShardsRingAPI interface {
 	DoRequest(req *http.Request) (resp *http.Response, rerr error)
+	GetRingProps() *RingProps
 }
 
 // ShardsRing implements http.RoundTripper interface,
@@ -34,7 +42,7 @@ type ShardsRing struct {
 	shardClusterMap         map[string]storages.NamedShardClient
 	allClustersRoundTripper http.RoundTripper
 	clusterRegressionMap    map[string]storages.NamedShardClient
-	inconsistencyLog        log.Logger
+	ringProps               *RingProps
 }
 
 func (sr ShardsRing) isBucketPath(path string) bool {
@@ -163,18 +171,6 @@ func shouldCallRegression(request *http.Request, response *http.Response, err er
 	return false
 }
 
-func (sr *ShardsRing) logInconsistency(key, expectedClusterName, actualClusterName string) {
-	logJSON, err := json.Marshal(
-		struct {
-			Key      string
-			Expected string
-			Actual   string
-		}{key, expectedClusterName, actualClusterName})
-	if err == nil {
-		sr.inconsistencyLog.Printf(fmt.Sprintf("%s", logJSON))
-	}
-}
-
 // DoRequest performs http requests to all backends that should be reached within this shards ring and with given method
 func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr error) {
 	since := time.Now()
@@ -209,10 +205,12 @@ func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr err
 		return nil, err
 	}
 
-	clusterName, resp, err := sr.regressionCall(cl, cl.Name(), reqCopy)
-	if (clusterName != cl.Name()) && (reqCopy.Method == http.MethodPut) {
-		sr.logInconsistency(reqCopy.URL.Path, cl.Name(), clusterName)
-	}
+	_, resp, err = sr.regressionCall(cl, cl.Name(), reqCopy)
 
 	return resp, err
+}
+
+//GetRingProps returns props of the shard
+func (sr ShardsRing) GetRingProps() *RingProps {
+	return sr.ringProps
 }

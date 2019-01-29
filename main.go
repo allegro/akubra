@@ -10,17 +10,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alecthomas/kingpin"
+	"github.com/allegro/akubra/config"
 	"github.com/allegro/akubra/crdstore"
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/log"
 	logconfig "github.com/allegro/akubra/log/config"
+	"github.com/allegro/akubra/watchdog"
+
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/regions"
 	"github.com/allegro/akubra/storages"
 	"github.com/allegro/akubra/transport"
-
-	"github.com/alecthomas/kingpin"
-	"github.com/allegro/akubra/config"
 
 	_ "github.com/lib/pq"
 )
@@ -34,18 +35,21 @@ var (
 
 	// CLI flags
 	configFile = kingpin.
-			Flag("config", "Configuration file path e.g.: \"conf/dev.yaml\"").
-			Short('c').
-			Required().
-			ExistingFile()
+		Flag("config", "Configuration file path e.g.: \"conf/dev.yaml\"").
+		Short('c').
+		Required().
+		ExistingFile()
 	testConfig = kingpin.
-			Flag("test-config", "Testing only configuration file from 'config' arg. (app. not starting).").
-			Short('t').
-			Bool()
+		Flag("test-config", "Testing only configuration file from 'config' arg. (app. not starting).").
+		Short('t').
+		Bool()
+)
+
+const (
+	postgresConnStringFormat = "sslmode=disable dbname=:dbname: user=:user: password=:password: host=:host: port=:port: connect_timeout=:conntimeout:"
 )
 
 func main() {
-
 	versionString := fmt.Sprintf("Akubra (%s version)", version)
 	kingpin.Version(versionString)
 	kingpin.Parse()
@@ -89,16 +93,7 @@ func parseConfig(path string) (config.Config, error) {
 	return conf, nil
 }
 
-func mkServiceLogs(logConf logconfig.LoggingConfig) (syncLog, clusterSyncLog, accessLog log.Logger, err error) {
-	syncLog, err = log.NewDefaultLogger(logConf.Synclog, "LOG_LOCAL1", true)
-	if err != nil {
-		return
-	}
-
-	clusterSyncLog, err = log.NewDefaultLogger(logConf.ClusterSyncLog, "LOG_LOCAL1", true)
-	if err != nil {
-		return
-	}
+func mkServiceLogs(logConf logconfig.LoggingConfig) (accessLog log.Logger, err error) {
 	accessLog, err = log.NewDefaultLogger(logConf.Accesslog, "LOG_LOCAL1", true)
 	if err != nil {
 		return
@@ -183,29 +178,29 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't set up client Transports - err: %q", err)
 	}
-	syncLog, clusterSyncLog, accessLog, err := mkServiceLogs(conf.Logging)
+	accessLog, err := mkServiceLogs(conf.Logging)
 	if err != nil {
 		return nil, err
 	}
-	methods := make(map[string]struct{})
-	for _, method := range conf.Logging.SyncLogMethods {
-		methods[method] = struct{}{}
-	}
 
 	crdstore.InitializeCredentialsStore(conf.CredentialsStore)
-	syncSender := &storages.SyncSender{SyncLog: syncLog, AllowedMethods: methods}
-	storage, err := storages.InitStorages(
-		transportMatcher,
-		s.config.Shards,
-		s.config.Storages,
-		syncSender)
+
+	watchdogRecordFactory := &watchdog.DefaultConsistencyRecordFactory{}
+	consistencyWatchdog := setupWatchdog(s.config.Watchdog)
+
+	if consistencyWatchdog == nil {
+		log.Printf("Not using consistency watchdog")
+	}
+
+	storagesFactory := storages.NewStoragesFactory(transportMatcher, &s.config.Watchdog, consistencyWatchdog, watchdogRecordFactory)
+	storage, err := storagesFactory.InitStorages(s.config.Shards, s.config.Storages)
 
 	if err != nil {
 		log.Fatalf("Storages initialization problem: %q", err)
 		return nil, err
 	}
 
-	regionsRT, err := regions.NewRegions(s.config.ShardingPolicies, storage, clusterSyncLog)
+	regionsRT, err := regions.NewRegions(s.config.ShardingPolicies, storage)
 	if err != nil {
 		return nil, err
 	}
@@ -223,6 +218,23 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 		log.Printf("Metrics initialization error: %s", err)
 	}
 	return handler, nil
+}
+
+func setupWatchdog(watchdogConfig watchdog.Config) (watchdog.ConsistencyWatchdog) {
+	if watchdogConfig.Type == "" {
+		return nil
+	}
+
+	consistencyWatchdog, err := watchdog.CreateSQL("postgres",
+		postgresConnStringFormat,
+		[]string{"user", "password", "dbname", "host", "port", "conntimeout"},
+		&watchdogConfig)
+
+	if err != nil {
+		log.Fatalf("Failed to create consistencyWatchdog %s", err)
+	}
+
+	return consistencyWatchdog
 }
 
 func (s *service) startTechnicalEndpoint() {
