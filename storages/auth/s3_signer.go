@@ -27,7 +27,6 @@ const (
 	ErrUnsupportedSignatureVersion
 	ErrNone
 )
-var ErrNoAuthHeader = fmt.Errorf("cannot find correct authorization header")
 
 const (
 	signV2Algorithm  = "AWS"
@@ -48,6 +47,9 @@ type ParsedAuthorizationHeader struct {
 	Region        string
 	Service       string
 }
+
+//ErrNoAuthHeader indicates that no authorization header was found in the request
+var ErrNoAuthHeader = fmt.Errorf("cannot find correct authorization header")
 
 // DoesSignMatch - Verify authorization header with calculated header
 // returns true if matches, false otherwise. if error is not nil then it is always false
