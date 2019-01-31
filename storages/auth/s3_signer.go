@@ -48,11 +48,17 @@ type ParsedAuthorizationHeader struct {
 	Service       string
 }
 
+//ErrNoAuthHeader indicates that no authorization header was found in the request
+var ErrNoAuthHeader = fmt.Errorf("cannot find correct authorization header")
+
 // DoesSignMatch - Verify authorization header with calculated header
 // returns true if matches, false otherwise. if error is not nil then it is always false
 func DoesSignMatch(r *http.Request, cred Keys) APIErrorCode {
 	authHeader, err := extractAuthHeader(r.Header)
 	if err != ErrNone {
+		if err == ErrAuthHeaderEmpty {
+			return ErrNone
+		}
 		return err
 	}
 
@@ -152,6 +158,9 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 	authHeader, err := ParseAuthorizationHeader(req.Header.Get("Authorization"))
 	if err != nil {
+		if err == ErrNoAuthHeader {
+			return srt.rt.RoundTrip(req)
+		}
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
 	if DoesSignMatch(req, Keys{AccessKeyID: srt.keys.AccessKeyID, SecretAccessKey: srt.keys.SecretAccessKey}) != ErrNone {
@@ -175,7 +184,7 @@ func ParseAuthorizationHeader(authorizationHeader string) (authHeader ParsedAuth
 		return ParsedAuthorizationHeader{AccessKey: match[1], Signature: match[7], Region: match[2], SignedHeaders: match[5],
 			Version: signV4Algorithm, Service: match[3]}, nil
 	}
-	return ParsedAuthorizationHeader{}, fmt.Errorf("cannot find correct authorization header")
+	return ParsedAuthorizationHeader{}, ErrNoAuthHeader
 }
 
 // RoundTrip implements http.RoundTripper interface
@@ -185,6 +194,9 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	}
 	authHeader, err := ParseAuthorizationHeader(req.Header.Get("Authorization"))
 	if err != nil {
+		if err == ErrNoAuthHeader {
+			return srt.rt.RoundTrip(req)
+		}
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
 
