@@ -88,9 +88,9 @@ func (factory *Factory) InitStorages(clustersConf config.ShardsMap, storagesMap 
 	shards := make(map[string]NamedShardClient)
 	storageClients := make(map[string]*StorageClient)
 
-	watchdogHeaderName := factory.watchdog.GetVersionHeaderName()
-	ignoredV2CanonicalizedHeaders := map[string]bool {
-		watchdogHeaderName : true,
+	ignoredV2CanonicalizedHeaders := make(map[string]bool)
+	if factory.watchdog != nil && factory.watchdog.GetVersionHeaderName() != "" {
+		ignoredV2CanonicalizedHeaders[factory.watchdog.GetVersionHeaderName()] = true
 	}
 
 	if len(storagesMap) == 0 {
