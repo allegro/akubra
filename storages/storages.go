@@ -88,6 +88,11 @@ func (factory *Factory) InitStorages(clustersConf config.ShardsMap, storagesMap 
 	shards := make(map[string]NamedShardClient)
 	storageClients := make(map[string]*StorageClient)
 
+	watchdogHeaderName := factory.watchdog.GetVersionHeaderName()
+	ignoredV2CanonicalizedHeaders := map[string]bool {
+		watchdogHeaderName : true,
+	}
+
 	if len(storagesMap) == 0 {
 		return nil, fmt.Errorf("empty map 'storagesMap' in 'InitStorages'")
 	}
@@ -96,7 +101,7 @@ func (factory *Factory) InitStorages(clustersConf config.ShardsMap, storagesMap 
 		if storage.Maintenance {
 			log.Printf("storage %q in maintenance mode", name)
 		}
-		decoratedBackend, err := decorateBackend(factory.transport, name, storage)
+		decoratedBackend, err := decorateBackend(factory.transport, name, storage, ignoredV2CanonicalizedHeaders)
 		if err != nil {
 			return nil, err
 		}
@@ -142,14 +147,14 @@ func storageNames(conf config.Shard) []string {
 	return names
 }
 
-func decorateBackend(transport http.RoundTripper, name string, storageDef config.Storage) (*StorageClient, error) {
+func decorateBackend(transport http.RoundTripper, name string, storageDef config.Storage, ignoredV2CanonicalizedHeaders map[string]bool) (*StorageClient, error) {
 
 	errPrefix := fmt.Sprintf("initialization of backend '%s' resulted with error", name)
 	decoratorFactory, ok := auth.Decorators[storageDef.Type]
 	if !ok {
 		return nil, fmt.Errorf("%s: no decorator defined for type '%s'", errPrefix, storageDef.Type)
 	}
-	decorator, err := decoratorFactory(name, storageDef)
+	decorator, err := decoratorFactory(name, storageDef, ignoredV2CanonicalizedHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %q", errPrefix, err)
 	}

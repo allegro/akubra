@@ -38,6 +38,8 @@ const (
 var reV2 = regexp.MustCompile(regexV2Algorithm)
 var reV4 = regexp.MustCompile(regexV4Algorithm)
 
+var noHeadersIgnored = make(map[string]bool)
+
 //ParsedAuthorizationHeader holds the parsed "Authorization" header content
 type ParsedAuthorizationHeader struct {
 	Version       string
@@ -53,7 +55,7 @@ var ErrNoAuthHeader = fmt.Errorf("cannot find correct authorization header")
 
 // DoesSignMatch - Verify authorization header with calculated header
 // returns true if matches, false otherwise. if error is not nil then it is always false
-func DoesSignMatch(r *http.Request, cred Keys) APIErrorCode {
+func DoesSignMatch(r *http.Request, cred Keys, ignoredV2CanonicalizedHeaders map[string]bool) APIErrorCode {
 	authHeader, err := extractAuthHeader(r.Header)
 	if err != ErrNone {
 		if err == ErrAuthHeaderEmpty {
@@ -64,7 +66,7 @@ func DoesSignMatch(r *http.Request, cred Keys) APIErrorCode {
 
 	switch authHeader.Version {
 	case signV2Algorithm:
-		result, err := s3signer.VerifyV2(*r, cred.SecretAccessKey)
+		result, err := s3signer.VerifyV2(*r, cred.SecretAccessKey, ignoredV2CanonicalizedHeaders)
 		if err != nil {
 			reqID := r.Context().Value(log.ContextreqIDKey)
 			log.Printf("Error while verifying V2 Signature for request %s: %s", reqID, err)
@@ -120,11 +122,12 @@ func responseForbidden(req *http.Request) *http.Response {
 type authRoundTripper struct {
 	rt   http.RoundTripper
 	keys Keys
+	ignoredV2CanonicalizedHeaders map[string]bool
 }
 
 // RoundTrip implements http.RoundTripper interface
 func (art authRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if DoesSignMatch(req, art.keys) == ErrNone {
+	if DoesSignMatch(req, art.keys, art.ignoredV2CanonicalizedHeaders) == ErrNone {
 		return art.rt.RoundTrip(req)
 	}
 	return responseForbidden(req), nil
@@ -142,6 +145,7 @@ type signRoundTripper struct {
 	keys   Keys
 	region string
 	host   string
+	ignoredV2CanonicalizedHeaders map[string]bool
 }
 
 type signAuthServiceRoundTripper struct {
@@ -149,6 +153,7 @@ type signAuthServiceRoundTripper struct {
 	crd     *crdstore.CredentialsStore
 	backend string
 	host    string
+	ignoredV2CanonicalizedHeaders map[string]bool
 }
 
 // RoundTrip implements http.RoundTripper interface
@@ -163,10 +168,10 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 		}
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
-	if DoesSignMatch(req, Keys{AccessKeyID: srt.keys.AccessKeyID, SecretAccessKey: srt.keys.SecretAccessKey}) != ErrNone {
+	if DoesSignMatch(req, Keys{AccessKeyID: srt.keys.AccessKeyID, SecretAccessKey: srt.keys.SecretAccessKey}, srt.ignoredV2CanonicalizedHeaders) != ErrNone {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
 	}
-	req, err = sign(req, authHeader, srt.host, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
+	req, err = sign(req, authHeader, srt.host, srt.keys.AccessKeyID, srt.keys.SecretAccessKey, srt.ignoredV2CanonicalizedHeaders)
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
@@ -207,7 +212,7 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
 	}
-	if DoesSignMatch(req, Keys{AccessKeyID: csd.AccessKey, SecretAccessKey: csd.SecretKey}) != ErrNone {
+	if DoesSignMatch(req, Keys{AccessKeyID: csd.AccessKey, SecretAccessKey: csd.SecretKey}, srt.ignoredV2CanonicalizedHeaders) != ErrNone {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
 	}
 
@@ -218,7 +223,7 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
 	}
-	req, err = sign(req, authHeader, srt.host, csd.AccessKey, csd.SecretKey)
+	req, err = sign(req, authHeader, srt.host, csd.AccessKey, csd.SecretKey, srt.ignoredV2CanonicalizedHeaders)
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
@@ -240,20 +245,22 @@ func isStreamingRequest(req *http.Request) (bool, uint64, error) {
 }
 
 // SignDecorator will recompute auth headers for new Key
-func SignDecorator(keys Keys, region, host string) httphandler.Decorator {
+func SignDecorator(keys Keys, region, host string, ignoredV2CanonicalizedHeaders map[string]bool) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
-		return signRoundTripper{rt: rt, region: region, host: host, keys: keys}
+		return signRoundTripper{rt: rt, region: region, host: host, keys: keys, ignoredV2CanonicalizedHeaders: ignoredV2CanonicalizedHeaders}
 	}
 }
 
 // SignAuthServiceDecorator will compute
-func SignAuthServiceDecorator(backend, endpoint, host string) httphandler.Decorator {
+func SignAuthServiceDecorator(backend, endpoint, host string, ignoredV2CanonicalizedHeaders map[string]bool) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
 		credentialsStore, err := crdstore.GetInstance(endpoint)
 		if err != nil {
 			log.Fatalf("error CredentialsStore `%s` is not defined", endpoint)
 		}
-		return signAuthServiceRoundTripper{rt: rt, backend: backend, host: host, crd: credentialsStore}
+		return signAuthServiceRoundTripper{
+			rt: rt, backend: backend, host: host, crd: credentialsStore,
+			ignoredV2CanonicalizedHeaders: ignoredV2CanonicalizedHeaders}
 	}
 }
 
@@ -262,24 +269,25 @@ type forceSignRoundTripper struct {
 	keys    Keys
 	methods string
 	host    string
+	ignoredV2CanonicalizedHeaders map[string]bool
 }
 
 // RoundTrip implements http.RoundTripper interface
 func (srt forceSignRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if srt.shouldBeSigned(req) {
 		req.Header = copyHeaders(req.Header)
-		req = s3signer.SignV2(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
+		req = s3signer.SignV2(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey, srt.ignoredV2CanonicalizedHeaders)
 	}
 	return srt.rt.RoundTrip(req)
 }
 
-func sign(req *http.Request, authHeader ParsedAuthorizationHeader, newHost, accessKey, secretKey string) (*http.Request, error) {
+func sign(req *http.Request, authHeader ParsedAuthorizationHeader, newHost, accessKey, secretKey string, ignoredV2CanonicalizedHeaders map[string]bool) (*http.Request, error) {
 	req.Header = copyHeaders(req.Header)
 	req.Host = newHost
 	req.URL.Host = newHost
 	switch authHeader.Version {
 	case signV2Algorithm:
-		return s3signer.SignV2(*req, accessKey, secretKey), nil
+		return s3signer.SignV2(*req, accessKey, secretKey, noHeadersIgnored), nil
 	case signV4Algorithm:
 		isStreamingRequest, dataLen, err := isStreamingRequest(req)
 		if isStreamingRequest {
@@ -300,6 +308,7 @@ func copyHeaders(headers http.Header) http.Header {
 	}
 	return header
 }
+
 func (srt forceSignRoundTripper) shouldBeSigned(request *http.Request) bool {
 	if len(srt.methods) == 0 || strings.Contains(srt.methods, request.Method) {
 		return true
@@ -308,8 +317,8 @@ func (srt forceSignRoundTripper) shouldBeSigned(request *http.Request) bool {
 }
 
 // ForceSignDecorator will recompute auth headers for new Key
-func ForceSignDecorator(keys Keys, host, methods string) httphandler.Decorator {
+func ForceSignDecorator(keys Keys, host, methods string, ignoredV2CanonicalizedHeaders map[string]bool) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
-		return forceSignRoundTripper{rt: rt, host: host, keys: keys, methods: methods}
+		return forceSignRoundTripper{rt: rt, host: host, keys: keys, methods: methods, ignoredV2CanonicalizedHeaders: ignoredV2CanonicalizedHeaders}
 	}
 }
