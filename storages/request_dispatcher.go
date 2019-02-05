@@ -86,10 +86,12 @@ func extractRegionPropsFrom(request *Request) (config.ConsistencyLevel, bool, er
 	return consistencyLevel, readRepair, nil
 }
 func (rd *RequestDispatcher) shouldLogRequest(request *Request, level config.ConsistencyLevel) bool {
+	isObjectPath := !utils.IsBucketPath(request.URL.Path)
+
 	if rd.watchdog == nil {
 		return false
 	}
-	if http.MethodDelete == request.Method {
+	if http.MethodDelete == request.Method && isObjectPath{
 		return true
 	}
 	if level == config.None {
@@ -98,7 +100,6 @@ func (rd *RequestDispatcher) shouldLogRequest(request *Request, level config.Con
 	isPutOrInitMultiPart := (http.MethodPut == request.Method && !request.isMultiPartUploadRequest) ||
 		(http.MethodPost == request.Method && request.isInitiateMultipartUploadRequest)
 
-	isObjectPath := !utils.IsBucketPath(request.URL.Path)
 	return isPutOrInitMultiPart && isObjectPath
 }
 
