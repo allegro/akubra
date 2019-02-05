@@ -171,7 +171,7 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	if DoesSignMatch(req, Keys{AccessKeyID: srt.keys.AccessKeyID, SecretAccessKey: srt.keys.SecretAccessKey}, srt.ignoredV2CanonicalizedHeaders) != ErrNone {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
 	}
-	req, err = sign(req, authHeader, srt.host, srt.keys.AccessKeyID, srt.keys.SecretAccessKey, srt.ignoredV2CanonicalizedHeaders)
+	req, err = sign(req, authHeader, srt.host, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
@@ -223,7 +223,7 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
 	}
-	req, err = sign(req, authHeader, srt.host, csd.AccessKey, csd.SecretKey, srt.ignoredV2CanonicalizedHeaders)
+	req, err = sign(req, authHeader, srt.host, csd.AccessKey, csd.SecretKey)
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
@@ -281,7 +281,7 @@ func (srt forceSignRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 	return srt.rt.RoundTrip(req)
 }
 
-func sign(req *http.Request, authHeader ParsedAuthorizationHeader, newHost, accessKey, secretKey string, ignoredV2CanonicalizedHeaders map[string]bool) (*http.Request, error) {
+func sign(req *http.Request, authHeader ParsedAuthorizationHeader, newHost, accessKey, secretKey string) (*http.Request, error) {
 	req.Header = copyHeaders(req.Header)
 	req.Host = newHost
 	req.URL.Host = newHost
