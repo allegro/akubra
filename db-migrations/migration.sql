@@ -6,7 +6,8 @@ CREATE TABLE consistency_record (
   access_key        CHARACTER VARYING(128)  NOT NULL,
   execution_delay   INTERVAL                NOT NULL,
   inserted_at       TIMESTAMP               NOT NULL DEFAULT NOW(),
-  updated_at        TIMESTAMP               NOT NULL DEFAULT NOW()
+  updated_at        TIMESTAMP               NOT NULL DEFAULT NOW(),
+  error 	    CHARACTER VARYING(1024) DEFAULT ''
 );
 
 CREATE UNIQUE INDEX consistency_record__domain__object_id__inserted_at
