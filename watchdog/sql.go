@@ -28,8 +28,8 @@ type SQLWatchdogFactory struct {
 
 // SQLWatchdog is a type of ConsistencyWatchdog that uses a SQL database
 type SQLWatchdog struct {
-	dbConn                  *gorm.DB
-	versionHeaderName 		string
+	dbConn            *gorm.DB
+	versionHeaderName string
 }
 
 // ErrDataBase indicates a database errors
@@ -45,6 +45,7 @@ type SQLConsistencyRecord struct {
 	AccessKey      string    `gorm:"column:access_key"`
 	ExecutionDelay string    `gorm:"column:execution_delay"`
 	RequestID      string    `gorm:"column:request_id"`
+	Error          string    `gorm:"column:error"`
 }
 
 //TableName provides the table name for consistency_record
@@ -105,7 +106,6 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 	return createDeleteMarkerFor(insertedRecord), nil
 }
 
-
 //InsertWithRequestID inserts a record with custom ID
 func (watchdog *SQLWatchdog) InsertWithRequestID(requestID string, record *ConsistencyRecord) (*DeleteMarker, error) {
 	record.RequestID = requestID
@@ -121,7 +121,6 @@ func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 		Table(watchdogTable).
 		Where(markersInsertedEalier, marker.domain, marker.objectID, marker.insertionDate).
 		Delete(&ConsistencyRecord{})
-
 
 	if deleteResult.Error != nil {
 		metrics.UpdateSince("watchdog.delete.err", queryStartTime)
