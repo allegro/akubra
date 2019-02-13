@@ -20,7 +20,6 @@ const (
 		"SET execution_delay = ?" +
 		"WHERE request_id = ?"
 )
-
 // SQLWatchdogFactory creates instances of SQLWatchdog
 type SQLWatchdogFactory struct {
 	dbClientFactory database.DBClientFactory
@@ -102,7 +101,7 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 
 	insertedRecord, _ := insertResult.Value.(*SQLConsistencyRecord)
 	log.Debugf("Successfully inserted consistency record for object '%s'", record.ObjectID)
-	record.ObjectVersion = insertedRecord.InsertedAt.String()
+	record.ObjectVersion = insertedRecord.InsertedAt.Format(VersionDateLayout)
 	return createDeleteMarkerFor(insertedRecord), nil
 }
 

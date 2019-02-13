@@ -13,13 +13,15 @@ import (
 
 const (
 	fiveMinutes = time.Minute * 5
-	oneWeek = time.Hour * 24 * 7
+	oneWeek     = time.Hour * 24 * 7
 	// Domain is a constant used to put/get domain's name to/from request's context
 	Domain = log.ContextKey("Domain")
 	// ConsistencyLevel is a constant used to put/get policy consistency level to/from request's context
 	ConsistencyLevel = log.ContextKey("ConsistencyLevel")
 	// ReadRepair is a constant used to put/get policy read repair to/from request's context
 	ReadRepair = log.ContextKey("ReadRepair")
+	//VersionDateLayout is the layout of object's version header
+	VersionDateLayout = "2006-01-02 15:04:05.000000 +0000 +0000"
 )
 
 const (
