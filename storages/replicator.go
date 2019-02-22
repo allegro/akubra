@@ -45,7 +45,7 @@ func (rc *ReplicationClient) Do(request *Request) <-chan BackendResponse {
 		go func(backend *StorageClient) {
 			defer wg.Done()
 
-			replicatedRequest, err := replicateRequest(request, ctx)
+			replicatedRequest, err := replicateRequest(ctx, request)
 			if err != nil {
 				responsesChan <- BackendResponse{Request: request.Request,
 				Response: nil,
@@ -78,7 +78,7 @@ func (rc *ReplicationClient) Do(request *Request) <-chan BackendResponse {
 	}()
 	return responsesChan
 }
-func replicateRequest(request *Request, ctx context.Context) (*http.Request, error) {
+func replicateRequest(ctx context.Context, request *Request) (*http.Request, error) {
 	replicatedRequest, err := http.NewRequest(request.Method, request.URL.String(), request.Body)
 	if resetter, ok := replicatedRequest.Body.(types.Resetter); ok {
 		replicatedRequest.Body = resetter.Reset()
