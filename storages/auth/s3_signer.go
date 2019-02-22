@@ -171,7 +171,7 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	if DoesSignMatch(req, Keys{AccessKeyID: srt.keys.AccessKeyID, SecretAccessKey: srt.keys.SecretAccessKey}, srt.ignoredV2CanonicalizedHeaders) != ErrNone {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
 	}
-	req, err = sign(*req, authHeader, srt.host, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
+	req, err = sign(req, authHeader, srt.host, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
@@ -223,7 +223,7 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
 	}
-	req, err = sign(*req, authHeader, srt.host, csd.AccessKey, csd.SecretKey)
+	req, err = sign(req, authHeader, srt.host, csd.AccessKey, csd.SecretKey)
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
@@ -281,7 +281,7 @@ func (srt forceSignRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 	return srt.rt.RoundTrip(req)
 }
 
-func sign(req http.Request, authHeader ParsedAuthorizationHeader, newHost, accessKey, secretKey string) (*http.Request, error) {
+func sign(req *http.Request, authHeader ParsedAuthorizationHeader, newHost, accessKey, secretKey string) (*http.Request, error) {
 	req.Header = copyHeaders(req.Header)
 	req.Host = newHost
 	req.URL.Host = newHost
@@ -289,19 +289,19 @@ func sign(req http.Request, authHeader ParsedAuthorizationHeader, newHost, acces
 	switch authHeader.Version {
 	case signV2Algorithm:
 		log.Debugf("signing request %s using v2 algorithm, host = %, access key = %", reqID.(string), newHost, accessKey)
-		return s3signer.SignV2(req, accessKey, secretKey, noHeadersIgnored), nil
+		return s3signer.SignV2(*req, accessKey, secretKey, noHeadersIgnored), nil
 	case signV4Algorithm:
 		log.Debugf("signing request %s using v4 algorithm, host = %, access key = %", reqID.(string), newHost, accessKey)
-		isStreamingRequest, dataLen, err := isStreamingRequest(&req)
+		isStreamingRequest, dataLen, err := isStreamingRequest(req)
 		if isStreamingRequest {
 			if err != nil {
 				return nil, err
 			}
-			return s3signer.StreamingSignV4(&req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, int64(dataLen), time.Now().UTC()), nil
+			return s3signer.StreamingSignV4(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, int64(dataLen), time.Now().UTC()), nil
 		}
-		return s3signer.SignV4(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service), nil
+		return s3signer.SignV4(*req, accessKey, secretKey, "", authHeader.Region, authHeader.Service), nil
 	}
-	return &req, nil
+	return req, nil
 }
 
 func copyHeaders(headers http.Header) http.Header {
