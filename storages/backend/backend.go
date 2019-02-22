@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -40,6 +41,14 @@ func (b *Backend) RoundTrip(req *http.Request) (resp *http.Response, err error) 
 	if oerror != nil {
 		err = &types.BackendError{HostName: b.Endpoint.Host, OrigErr: oerror}
 	} else if resp != nil {
+		if resp.Body != nil {
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil  {
+				return nil, err
+			}
+			log.Debugf("response for req %s: %s", reqID, string(body))
+			resp.Body = ioutil.NopCloser(bytes.NewReader(body))
+		}
 		log.Debugf("Body for req %s from %s%s is nil: %t, status: %d", reqID, req.URL.Host, req.URL.Path, resp.Body == nil, resp.StatusCode)
 	}
 
