@@ -26,7 +26,9 @@ type Handler struct {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	canServe := true
 	log.Printf("handler url %s", req.URL)
-	log.Printf("url host %s, header host %s, req host %s", req.URL.Host, req.Header.Get("Host"), req.Host)
+
+	randomIDStr := randomStr(36)
+	log.Printf("reqid = %s url host %s, header host %s, req host %s", randomIDStr, req.URL.Host, req.Header.Get("Host"), req.Host)
 
 	if atomic.AddInt32(&h.runningRequestCount, 1) > h.maxConcurrentRequests {
 		canServe = false
@@ -38,7 +40,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	randomIDStr := randomStr(36)
 	validationCode := h.validateIncomingRequest(req)
 	if validationCode > 0 {
 		log.Printf("Rejected invalid incoming request from %s, code %d", req.RemoteAddr, validationCode)
