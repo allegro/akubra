@@ -42,9 +42,9 @@ func (b *Backend) RoundTrip(req *http.Request) (resp *http.Response, err error) 
 		err = &types.BackendError{HostName: b.Endpoint.Host, OrigErr: oerror}
 	} else if resp != nil {
 		if resp.Body != nil {
-			body, err := ioutil.ReadAll(resp.Body)
-			if err != nil  {
-				return nil, err
+			body, berr := ioutil.ReadAll(resp.Body)
+			if berr != nil  {
+				return nil, berr
 			}
 			log.Debugf("response for req %s: %s", reqID, string(body))
 			resp.Body = ioutil.NopCloser(bytes.NewReader(body))
