@@ -66,7 +66,7 @@ func DoesSignMatch(r *http.Request, cred Keys, ignoredV2CanonicalizedHeaders map
 
 	switch authHeader.Version {
 	case signV2Algorithm:
-		result, err := s3signer.VerifyV2(*r, cred.SecretAccessKey, ignoredV2CanonicalizedHeaders)
+		result, err := s3signer.VerifyV2(r, cred.SecretAccessKey, ignoredV2CanonicalizedHeaders)
 		if err != nil {
 			reqID := r.Context().Value(log.ContextreqIDKey)
 			log.Printf("Error while verifying V2 Signature for request %s: %s", reqID, err)
@@ -75,7 +75,7 @@ func DoesSignMatch(r *http.Request, cred Keys, ignoredV2CanonicalizedHeaders map
 			return ErrSignatureDoesNotMatch
 		}
 	case signV4Algorithm:
-		result, err := s3signer.VerifyV4(*r, cred.SecretAccessKey)
+		result, err := s3signer.VerifyV4(r, cred.SecretAccessKey)
 		if err != nil {
 			reqID := r.Context().Value(log.ContextreqIDKey)
 			log.Printf("Error while verifying V4 Signature for request %s: %s", reqID, err)
@@ -276,7 +276,7 @@ type forceSignRoundTripper struct {
 func (srt forceSignRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if srt.shouldBeSigned(req) {
 		req.Header = copyHeaders(req.Header)
-		req = s3signer.SignV2(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey, srt.ignoredV2CanonicalizedHeaders)
+		req = s3signer.SignV2(req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey, srt.ignoredV2CanonicalizedHeaders)
 	}
 	return srt.rt.RoundTrip(req)
 }
@@ -289,7 +289,7 @@ func sign(req *http.Request, authHeader ParsedAuthorizationHeader, newHost, acce
 	switch authHeader.Version {
 	case signV2Algorithm:
 		log.Debugf("signing request %s using v2 algorithm, host = %, access key = %", reqID.(string), newHost, accessKey)
-		return s3signer.SignV2(*req, accessKey, secretKey, noHeadersIgnored), nil
+		return s3signer.SignV2(req, accessKey, secretKey, noHeadersIgnored), nil
 	case signV4Algorithm:
 		log.Debugf("signing request %s using v4 algorithm, host = %, access key = %", reqID.(string), newHost, accessKey)
 		isStreamingRequest, dataLen, err := isStreamingRequest(req)
@@ -299,7 +299,7 @@ func sign(req *http.Request, authHeader ParsedAuthorizationHeader, newHost, acce
 			}
 			return s3signer.StreamingSignV4(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, int64(dataLen), time.Now().UTC()), nil
 		}
-		return s3signer.SignV4(*req, accessKey, secretKey, "", authHeader.Region, authHeader.Service), nil
+		return s3signer.SignV4(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service), nil
 	}
 	return req, nil
 }

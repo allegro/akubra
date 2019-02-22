@@ -43,15 +43,20 @@ func (rc *ReplicationClient) Do(request *Request) <-chan BackendResponse {
 	for _, backend := range rc.Backends {
 		wg.Add(1)
 		go func(backend *StorageClient) {
-			requestWithContext := request.WithContext(ctx)
-			if resetter, ok := request.Body.(types.Resetter); ok {
-				requestWithContext.Body = resetter.Reset()
+			defer wg.Done()
+
+			replicatedRequest, err := replicateRequest(request, ctx)
+			if err != nil {
+				responsesChan <- BackendResponse{Request: request.Request,
+				Response: nil,
+				Error: fmt.Errorf("failed to replicate request: %s", err),
+				Backend: backend}
+				return
 			}
-			isBRespSuccessful := callBackend(requestWithContext, backend, responsesChan)
+			isBRespSuccessful := callBackend(replicatedRequest, backend, responsesChan)
 			if request.logRecord != nil {
 				request.logRecord.AddBackendResult(isBRespSuccessful)
 			}
-			wg.Done()
 		}(backend)
 	}
 
@@ -72,6 +77,22 @@ func (rc *ReplicationClient) Do(request *Request) <-chan BackendResponse {
 
 	}()
 	return responsesChan
+}
+func replicateRequest(request *Request, ctx context.Context) (*http.Request, error) {
+	replicatedRequest, err := http.NewRequest(request.Method, request.URL.String(), request.Body)
+	if resetter, ok := replicatedRequest.Body.(types.Resetter); ok {
+		replicatedRequest.Body = resetter.Reset()
+	}
+	if err != nil {
+		return nil, err
+	}
+	replicatedRequest.Header = http.Header{}
+	for headerName, headerValues := range request.Header {
+		for idx := range headerValues {
+			replicatedRequest.Header.Add(headerName, headerValues[idx])
+		}
+	}
+	return replicatedRequest.WithContext(ctx), nil
 }
 
 // Cancel requests in progress

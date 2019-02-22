@@ -28,7 +28,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log.Printf("handler url %s", req.URL)
 
 	randomIDStr := randomStr(36)
-	log.Printf("reqid = %s url host %s, header host %s, req host %s", randomIDStr, req.URL.Host, req.Header.Get("Host"), req.Host)
+	log.Printf("reqid %s url host %s, header host %s, req host %s", randomIDStr, req.URL.Host, req.Header.Get("Host"), req.Host)
 
 	if atomic.AddInt32(&h.runningRequestCount, 1) > h.maxConcurrentRequests {
 		canServe = false
