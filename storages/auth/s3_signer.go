@@ -35,6 +35,15 @@ const (
 	regexV4Algorithm = "AWS4-HMAC-SHA256 +Credential=(?P<access_key>[a-zA-Z0-9_-]+)/[0-9]+/(?P<region>[a-zA-Z0-9-]*)/(?P<service>[a-zA-Z0-9_-]+)/aws4_request,( +)?SignedHeaders=(?P<signed_headers>[a-z0-9-;]+),( +)?Signature=(?P<signature>[a-z0-9]+)"
 )
 
+var ignoredV4Headers = map[string]bool{
+	"Authorization":   true,
+	"Content-Type":    true,
+	"Content-Length":  true,
+	"User-Agent":      true,
+	"Connection":      true,
+	"X-Forwarded-For": true,
+}
+
 var reV2 = regexp.MustCompile(regexV2Algorithm)
 var reV4 = regexp.MustCompile(regexV4Algorithm)
 
@@ -120,8 +129,8 @@ func responseForbidden(req *http.Request) *http.Response {
 }
 
 type authRoundTripper struct {
-	rt   http.RoundTripper
-	keys Keys
+	rt                            http.RoundTripper
+	keys                          Keys
 	ignoredV2CanonicalizedHeaders map[string]bool
 }
 
@@ -141,18 +150,18 @@ func S3Decorator(keys Keys) httphandler.Decorator {
 }
 
 type signRoundTripper struct {
-	rt     http.RoundTripper
-	keys   Keys
-	region string
-	host   string
+	rt                            http.RoundTripper
+	keys                          Keys
+	region                        string
+	host                          string
 	ignoredV2CanonicalizedHeaders map[string]bool
 }
 
 type signAuthServiceRoundTripper struct {
-	rt      http.RoundTripper
-	crd     *crdstore.CredentialsStore
-	backend string
-	host    string
+	rt                            http.RoundTripper
+	crd                           *crdstore.CredentialsStore
+	backend                       string
+	host                          string
 	ignoredV2CanonicalizedHeaders map[string]bool
 }
 
@@ -259,30 +268,28 @@ func SignAuthServiceDecorator(backend, endpoint, host string, ignoredV2Canonical
 			log.Fatalf("error CredentialsStore `%s` is not defined", endpoint)
 		}
 		return signAuthServiceRoundTripper{
-			rt: rt, backend: backend, host: host, crd: credentialsStore,
+			rt:                            rt, backend: backend, host: host, crd: credentialsStore,
 			ignoredV2CanonicalizedHeaders: ignoredV2CanonicalizedHeaders}
 	}
 }
 
 type forceSignRoundTripper struct {
-	rt      http.RoundTripper
-	keys    Keys
-	methods string
-	host    string
+	rt                            http.RoundTripper
+	keys                          Keys
+	methods                       string
+	host                          string
 	ignoredV2CanonicalizedHeaders map[string]bool
 }
 
 // RoundTrip implements http.RoundTripper interface
 func (srt forceSignRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if srt.shouldBeSigned(req) {
-		req.Header = copyHeaders(req.Header)
 		req = s3signer.SignV2(req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey, srt.ignoredV2CanonicalizedHeaders)
 	}
 	return srt.rt.RoundTrip(req)
 }
 
 func sign(req *http.Request, authHeader ParsedAuthorizationHeader, newHost, accessKey, secretKey string) (*http.Request, error) {
-	req.Header = copyHeaders(req.Header)
 	req.Host = newHost
 	req.URL.Host = newHost
 	reqID := req.Context().Value(log.ContextreqIDKey)
@@ -299,17 +306,9 @@ func sign(req *http.Request, authHeader ParsedAuthorizationHeader, newHost, acce
 			}
 			return s3signer.StreamingSignV4(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, int64(dataLen), time.Now().UTC()), nil
 		}
-		return s3signer.SignV4(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service), nil
+		return s3signer.SignV4WithIgnoredHeaders(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, ignoredV4Headers), nil
 	}
 	return req, nil
-}
-
-func copyHeaders(headers http.Header) http.Header {
-	header := make(http.Header, len(headers))
-	for k, v := range headers {
-		header[k] = v
-	}
-	return header
 }
 
 func (srt forceSignRoundTripper) shouldBeSigned(request *http.Request) bool {

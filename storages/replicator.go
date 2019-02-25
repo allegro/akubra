@@ -92,6 +92,7 @@ func replicateRequest(ctx context.Context, request *Request) (*http.Request, err
 			replicatedRequest.Header.Add(headerName, headerValues[idx])
 		}
 	}
+	replicatedRequest.Host = request.Host
 	return replicatedRequest.WithContext(ctx), nil
 }
 
