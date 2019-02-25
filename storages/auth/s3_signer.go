@@ -35,15 +35,6 @@ const (
 	regexV4Algorithm = "AWS4-HMAC-SHA256 +Credential=(?P<access_key>[a-zA-Z0-9_-]+)/[0-9]+/(?P<region>[a-zA-Z0-9-]*)/(?P<service>[a-zA-Z0-9_-]+)/aws4_request,( +)?SignedHeaders=(?P<signed_headers>[a-z0-9-;]+),( +)?Signature=(?P<signature>[a-z0-9]+)"
 )
 
-var ignoredV4Headers = map[string]bool{
-	"Authorization":   true,
-	"Content-Type":    true,
-	"Content-Length":  true,
-	"User-Agent":      true,
-	"Connection":      true,
-	"X-Forwarded-For": true,
-}
-
 var reV2 = regexp.MustCompile(regexV2Algorithm)
 var reV4 = regexp.MustCompile(regexV4Algorithm)
 
@@ -306,7 +297,7 @@ func sign(req *http.Request, authHeader ParsedAuthorizationHeader, newHost, acce
 			}
 			return s3signer.StreamingSignV4(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, int64(dataLen), time.Now().UTC()), nil
 		}
-		return s3signer.SignV4WithIgnoredHeaders(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, ignoredV4Headers), nil
+		return s3signer.SignV4(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service), nil
 	}
 	return req, nil
 }
