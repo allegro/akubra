@@ -50,6 +50,16 @@ type ParsedAuthorizationHeader struct {
 	Service       string
 }
 
+var v4IgnoredHeaders = map[string]bool{
+	"Authorization":  	true,
+	"Content-Type":   	true,
+	"Content-Length": 	true,
+	"User-Agent":     	true,
+	"Connection": 		true,
+	"X-Forwarded-For": true,
+}
+
+
 //ErrNoAuthHeader indicates that no authorization header was found in the request
 var ErrNoAuthHeader = fmt.Errorf("cannot find correct authorization header")
 
@@ -283,21 +293,18 @@ func (srt forceSignRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 func sign(req *http.Request, authHeader ParsedAuthorizationHeader, newHost, accessKey, secretKey string) (*http.Request, error) {
 	req.Host = newHost
 	req.URL.Host = newHost
-	reqID := req.Context().Value(log.ContextreqIDKey)
 	switch authHeader.Version {
 	case signV2Algorithm:
-		log.Debugf("signing request %s using v2 algorithm, host = %, access key = %", reqID.(string), newHost, accessKey)
 		return s3signer.SignV2(req, accessKey, secretKey, noHeadersIgnored), nil
 	case signV4Algorithm:
-		log.Debugf("signing request %s using v4 algorithm, host = %, access key = %", reqID.(string), newHost, accessKey)
 		isStreamingRequest, dataLen, err := isStreamingRequest(req)
 		if isStreamingRequest {
 			if err != nil {
 				return nil, err
 			}
-			return s3signer.StreamingSignV4(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, int64(dataLen), time.Now().UTC()), nil
+			return s3signer.StreamingSignV4WithIgnoredHeaders(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, int64(dataLen), time.Now().UTC(), v4IgnoredHeaders), nil
 		}
-		return s3signer.SignV4(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service), nil
+		return s3signer.SignV4WithIgnoredHeaders(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, v4IgnoredHeaders), nil
 	}
 	return req, nil
 }
