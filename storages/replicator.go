@@ -97,7 +97,6 @@ func replicateRequest(ctx context.Context, request *Request) (*http.Request, err
 	replicatedRequest.Form = request.Form
 	replicatedRequest.PostForm = request.PostForm
 	replicatedRequest.GetBody = request.GetBody
-	replicatedRequest.TLS = request.TLS
 	replicatedRequest.Trailer = request.Trailer
 	replicatedRequest.TransferEncoding = request.TransferEncoding
 	return replicatedRequest.WithContext(ctx), nil
