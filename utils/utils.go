@@ -45,7 +45,7 @@ func ExtractAccessKey(req *http.Request) string {
 	}
 	parsedAuthHeader, parsingErr := auth2.ParseAuthorizationHeader(authHeader)
 	if parsingErr != nil {
-		log.Debugf("failed to extract access key from req %s - %s", req.Context().Value(log.ContextreqIDKey), parsingErr)
+		log.Debugf("failed to extract access key from req %s - %s, auth header = %s", req.Context().Value(log.ContextreqIDKey), parsingErr, authHeader)
 		return ""
 	}
 	return parsedAuthHeader.AccessKey
