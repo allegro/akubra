@@ -35,14 +35,17 @@ func RequestID(req *http.Request) string {
 // ExtractAccessKey extracts s3 auth key from header
 func ExtractAccessKey(req *http.Request) string {
 	if req.Header == nil {
+		log.Debugf("failed to extract access key from req %s - no headers present", req.Context().Value(log.ContextreqIDKey))
 		return ""
 	}
 	authHeader := req.Header.Get("Authorization")
 	if authHeader == "" {
+		log.Debugf("failed to extract access key from req %s - authorization headers is missing", req.Context().Value(log.ContextreqIDKey))
 		return ""
 	}
 	parsedAuthHeader, parsingErr := auth2.ParseAuthorizationHeader(authHeader)
 	if parsingErr != nil {
+		log.Debugf("failed to extract access key from req %s - %s", req.Context().Value(log.ContextreqIDKey), parsingErr)
 		return ""
 	}
 	return parsedAuthHeader.AccessKey
