@@ -46,7 +46,7 @@ type CredentialsStore struct {
 }
 
 type CredentialsBackend interface {
-	FetchSecretKey(accessKey string, storageName string) (string, error)
+	FetchCredentials(accessKey string, storageName string) (*CredentialsStoreData, error)
 }
 
 // GetInstance - Get crdstore instance for endpoint
@@ -90,7 +90,7 @@ func (cs *CredentialsStore) updateCache(accessKey, backend, key string, csd *Cre
 		}
 	}
 
-	secretKey, err := cs.credentialsBackend.FetchSecretKey(accessKey, backend)
+	secretKey, err := cs.credentialsBackend.FetchCredentials(accessKey, backend)
 	if err != nil && err != ErrCredentialsNotFound {
 		log.Printf("Error while updating cache for key `%s`: `%s`", key, err)
 	}

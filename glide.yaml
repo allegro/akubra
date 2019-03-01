@@ -46,3 +46,7 @@ testImport:
 - package: github.com/allegro/mesos-executor
   subpackages:
   - xnet
+- package: github.com/hashicorp/vault
+  subpackages:
+  - api
+  version: 1.0.3

@@ -183,7 +183,7 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	crdstore.InitializeCredentialsStore(conf.CredentialsStore)
+	crdstore.InitializeCredentialsStores(conf.CredentialsStores)
 
 	watchdogRecordFactory := &watchdog.DefaultConsistencyRecordFactory{}
 	consistencyWatchdog := setupWatchdog(s.config.Watchdog)
