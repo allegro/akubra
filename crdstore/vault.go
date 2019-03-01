@@ -14,7 +14,7 @@ import (
 
 const vaultTokenEnvVarFormat = "CREDS_BACKEND_VAULT_%s_token"
 const vaultCredsFormat = "%s-%s-%s"
-var requiredVaultProps = []string{"Endpoint", "Timeout", "MaxRetries", "Path"}
+var requiredVaultProps = []string{"Endpoint", "Timeout", "MaxRetries", "PathPrefix"}
 
 type vaultCredsBackendFactory struct {
 	credentialsBackendFactory
@@ -71,7 +71,7 @@ func (vaultFactory *vaultCredsBackendFactory) create(crdStoreName string, props 
 	vaultClient.SetToken(vaultToken)
 	return &vaultCredsBackend{
 		vaultClient: vaultClient,
-		pathPrefix:  props["Path"],
+		pathPrefix:  props["PathPrefix"],
 	}, nil
 }
 
