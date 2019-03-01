@@ -72,7 +72,7 @@ func initConfig() {
 		"invalid": config.CredentialsStore{Endpoint: types.YAMLUrl{URL: invalidURL}, AuthRefreshInterval: metrics.Interval{Duration: 10 * time.Second}},
 	}
 
-	InitializeCredentialsStore(cfg)
+	InitializeCredentialsStores(cfg)
 }
 
 func TestMain(m *testing.M) {

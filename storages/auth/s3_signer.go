@@ -266,7 +266,7 @@ func SignAuthServiceDecorator(backend, endpoint, host string, ignoredV2Canonical
 	return func(rt http.RoundTripper) http.RoundTripper {
 		credentialsStore, err := crdstore.GetInstance(endpoint)
 		if err != nil {
-			log.Fatalf("error CredentialsStore `%s` is not defined", endpoint)
+			log.Fatalf("error CredentialsStores `%s` is not defined", endpoint)
 		}
 		return signAuthServiceRoundTripper{
 			rt:                            rt, backend: backend, host: host, crd: credentialsStore,
