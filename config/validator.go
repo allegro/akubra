@@ -167,7 +167,7 @@ func (c YamlConfig) WatchdogEntryLogicalValidator() (valid bool, validationError
 
 
 // WatchdogEntryLogicalValidator validates ConsistencyWatchdog's config depending on the types of watchdogs defined
-func (c YamlConfig) CredentialBackendsEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
+func (c YamlConfig) CredentialStoresEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
 	supportedCredentialsStores := map[string][]string{
 		"Vault": {"Endpoint", "Timeout", "MaxRetries", "PathPrefix"},
@@ -175,24 +175,36 @@ func (c YamlConfig) CredentialBackendsEntryLogicalValidator() (valid bool, valid
 	isDefaultCredentialsStoreDefined := false
 	for crdStoreName, crdStore := range c.CredentialsStores {
 		if isDefaultCredentialsStoreDefined && crdStore.Default {
-			errList = append(errList, errors.New("only one CredentialsStore can be specified as default"))
-			validationErrors, valid = prepareErrors(errList, "CredentialBackendsEntryLogicalValidator")
+			errList = append(errList, errors.New("only one CredentialsStore can be marked as default"))
+			validationErrors, valid = prepareErrors(errList, "CredentialStoresEntryLogicalValidator")
 			return
 		}
 		isDefaultCredentialsStoreDefined = isDefaultCredentialsStoreDefined || crdStore.Default
 		if _, isSupported := supportedCredentialsStores[crdStore.Type]; !isSupported {
 			errList = append(errList, fmt.Errorf("CredentialStore of type '%s' is not supported", crdStore.Type))
-			validationErrors, valid = prepareErrors(errList, "CredentialBackendsEntryLogicalValidator")
+			validationErrors, valid = prepareErrors(errList, "CredentialStoresEntryLogicalValidator")
 			return
 		}
 		requiredProps := supportedCredentialsStores[crdStore.Type]
 		for _, propName := range requiredProps {
 			if _, propPresent := crdStore.Properties[propName]; !propPresent {
-				errList = append(errList, fmt.Errorf("CredentialBackend '%s' is missing requried property '%s'", crdStoreName, propName))
+				errList = append(errList, fmt.Errorf("CredentialStore '%s' is missing requried property '%s'", crdStoreName, propName))
 			}
 		}
 	}
-	validationErrors, valid = prepareErrors(errList, "CredentialBackendsEntryLogicalValidator")
+	numberOfStoragesUsingDefaultSignService := 0
+	for idx := range c.Storages {
+		if _,hasCredsBackendSpecified := c.Storages[idx].Properties["CredentialStore"]; c.Storages[idx].Type == "S3AuthService" && !hasCredsBackendSpecified{
+			numberOfStoragesUsingDefaultSignService++
+		}
+	}
+
+	if numberOfStoragesUsingDefaultSignService > 0 && !isDefaultCredentialsStoreDefined {
+		errList = append(errList, fmt.Errorf("you have to define a default CredentialStore when Storages don't have CredentialsBackends specified explicilty"))
+		validationErrors, valid = prepareErrors(errList, "CredentialStoresEntryLogicalValidator")
+	}
+
+	validationErrors, valid = prepareErrors(errList, "CredentialStoresEntryLogicalValidator")
 	return
 }
 

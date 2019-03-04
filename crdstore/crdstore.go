@@ -63,7 +63,7 @@ func InitializeCredentialsStores(storeMap config.CredentialsStoreMap) {
 
 	for name, cfg := range storeMap {
 
-		credsBackend, err := credentialsStoresFactories[cfg.Type].create(cfg.Properties)
+		credsBackend, err := credentialsStoresFactories[cfg.Type].create(name, cfg.Properties)
 		if err != nil {
 			log.Fatalf("failed to initialize CredentialsStore '%s': %s", name, err)
 		}
