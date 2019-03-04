@@ -12,6 +12,7 @@ type CredentialsStoreData struct {
 	AccessKey string    `json:"access"`
 	SecretKey string    `json:"secret"`
 	EOL       time.Time `json:"-"`
+	err       error
 }
 
 // Unmarshal - Unmarshal CredentialsStoreData to json

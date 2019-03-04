@@ -91,20 +91,27 @@ func (cs *CredentialsStore) updateCache(accessKey, backend, key string, csd *Cre
 		}
 	}
 
-	clientCreds, err := cs.credentialsBackend.FetchCredentials(accessKey, backend)
-	if err != nil && err != ErrCredentialsNotFound {
+	credentials, err = cs.credentialsBackend.FetchCredentials(accessKey, backend)
+	switch {
+	case err == nil:
+		credentials.err = nil
+	case err == ErrCredentialsNotFound:
+		credentials = &CredentialsStoreData{EOL: time.Now().Add(cs.TTL), err: ErrCredentialsNotFound}
+	default:
+		if csd == nil {
+			credentials = &CredentialsStoreData{EOL: time.Now().Add(cs.TTL), err: err}
+		} else {
+			credentials = csd
+		}
+		credentials.err = err
 		log.Printf("Error while updating cache for key `%s`: `%s`", key, err)
 	}
-
-	credentials = &CredentialsStoreData{
-		AccessKey: clientCreds.AccessKey,
-		SecretKey: clientCreds.SecretKey,
-		EOL:       time.Now().Add(cs.TTL),
-	}
-
+	credentials.EOL = time.Now().Add(cs.TTL)
 	cs.cache.Store(key, credentials)
 	cs.lock.Unlock()
-
+	if credentials.AccessKey == "" {
+		return nil, credentials.err
+	}
 	return credentials, nil
 }
 
