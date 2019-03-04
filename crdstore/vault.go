@@ -36,7 +36,7 @@ func (vaultFactory *vaultCredsBackendFactory) create(crdStoreName string, props 
 
 	vaultToken := ""
 	isTokenProvided := false
-	if vaultToken, isTokenProvided = props["Token"]; !isTokenProvided {
+	if vaultToken, isTokenProvided = props["Token"]; !isTokenProvided || vaultToken == "" {
 		vaultToken, isTokenProvided = os.LookupEnv(fmt.Sprintf(vaultTokenEnvVarFormat, crdStoreName))
 		if vaultToken == "" || !isTokenProvided {
 			return nil, errors.New("no vault token provided")
@@ -45,7 +45,7 @@ func (vaultFactory *vaultCredsBackendFactory) create(crdStoreName string, props 
 
 	timeout, err := time.ParseDuration(props["Timeout"])
 	if err != nil {
-		return nil, fmt.Errorf("WaitTime is not parsable: %s", err)
+		return nil, fmt.Errorf("Timeout is not parsable: %s", err)
 	}
 
 	maxRetries, err := strconv.ParseInt(props["MaxRetries"], 10, 8)

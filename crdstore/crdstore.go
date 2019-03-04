@@ -24,10 +24,7 @@ const (
 // ErrCredentialsNotFound - Credential for given accessKey and backend haven't been found in yaml file
 var ErrCredentialsNotFound = errors.New("credentials not found")
 
-// CredentialStore instance
 var credentialStores map[string]*CredentialsStore
-var defaultCredentialStore *CredentialsStore
-
 var credentialsStoresFactories = map[credentialsBackendType]credentialsBackendFactory{
 	"Vault": &vaultCredsBackendFactory{},
 }
@@ -62,6 +59,10 @@ func InitializeCredentialsStores(storeMap config.CredentialsStoreMap) {
 	credentialStores = make(map[string]*CredentialsStore)
 
 	for name, cfg := range storeMap {
+
+		if _, supported := credentialsStoresFactories[cfg.Type]; !supported {
+			log.Fatalf("unsupported CredentialsStore '%s'", cfg.Type)
+		}
 
 		credsBackend, err := credentialsStoresFactories[cfg.Type].create(name, cfg.Properties)
 		if err != nil {

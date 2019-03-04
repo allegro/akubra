@@ -1,6 +1,8 @@
 package crdstore
 
 import (
+	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -9,13 +11,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
-	"os"
 
 	"github.com/allegro/akubra/crdstore/config"
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
-	"github.com/allegro/akubra/types"
 )
 
 const (
@@ -68,8 +67,12 @@ func initConfig() {
 	mockURL, _ := url.Parse(httpEndpoint)
 	invalidURL, _ := url.Parse("http://127.255.255.255:50999")
 	cfg := config.CredentialsStoreMap{
-		"default": config.CredentialsStore{Endpoint: types.YAMLUrl{URL: mockURL}, AuthRefreshInterval: metrics.Interval{Duration: 10 * time.Second}},
-		"invalid": config.CredentialsStore{Endpoint: types.YAMLUrl{URL: invalidURL}, AuthRefreshInterval: metrics.Interval{Duration: 10 * time.Second}},
+		"default": config.CredentialsStore{Type: "Vault", Properties: map[string]string{
+			"Endpoint": mockURL.String(), "Timeout": "1000ms", "MaxRetries": "3", "PathPrefix": "/secret", "Token": "123",
+		}, AuthRefreshInterval: metrics.Interval{Duration: 10 * time.Second}},
+		"invalid": config.CredentialsStore{Type: "Vault", Properties: map[string]string{
+			"Endpoint": invalidURL.String(), "Timeout": "1000ms", "MaxRetries": "3", "PathPrefix": "/secret", "Token" : "123",
+		}, AuthRefreshInterval: metrics.Interval{Duration: 10 * time.Second}},
 	}
 
 	InitializeCredentialsStores(cfg)

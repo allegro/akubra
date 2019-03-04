@@ -7,11 +7,11 @@ import (
 // CredentialsStores configuration
 type CredentialsStore struct {
 	// Type specifies which implementation should be used when instating the CredentialStore
-	Type string
+	Type string `yaml:"Type"`
 	// Default tells if the CredentialsStore is a default one
-	Default bool
+	Default bool `yaml:"Default"`
 	// Properties hols the properties needed to use the CredentialsStore
-	Properties map[string]string
+	Properties map[string]string `yaml:"Properties"`
 	// AuthRefreshInterval defines how often CredentialsStores cache will lookup for value changes
 	AuthRefreshInterval metrics.Interval `yaml:"AuthRefreshInterval"`
 }
