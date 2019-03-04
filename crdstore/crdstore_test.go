@@ -10,20 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/syncmap"
 
-	"encoding/json"
-	"fmt"
-	"net/http"
-
-	"github.com/allegro/akubra/log"
 )
 
 const (
-	httpListen      = "127.0.0.1:8091"
-	httpEndpoint    = "http://127.0.0.1:8091"
-	emptyAccess     = "access_empty"
-	emptyStorage    = "storage_empty"
-	invalidAccess   = "access_invalid"
-	invalidStorage  = "storage_invalid"
 	existingAccess  = "access_exists"
 	existingStorage = "storage_exists"
 	errorAccess     = "access_error"
@@ -31,29 +20,6 @@ const (
 )
 
 var existingCredentials = CredentialsStoreData{AccessKey: "access_exists", SecretKey: "secret_exists"}
-
-func httpHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.URL.String() {
-	case fmt.Sprintf("/%s/%s", existingAccess, existingStorage):
-		w.WriteHeader(http.StatusOK)
-		resp, _ := json.Marshal(existingCredentials)
-		_, err := w.Write(resp)
-		if err != nil {
-			log.Printf("Cannot write crdstore OK response %q", err)
-		}
-	case fmt.Sprintf("/%s/%s", errorAccess, errorStorage):
-		w.WriteHeader(http.StatusBadRequest)
-		resp, _ := json.Marshal(existingCredentials)
-		_, err := w.Write(resp)
-		if err != nil {
-			log.Printf("Cannot write crdstore BadRequest response %q", err)
-		}
-	case fmt.Sprintf("/%s/%s", emptyAccess, emptyStorage):
-		w.WriteHeader(http.StatusOK)
-	default:
-		w.WriteHeader(http.StatusNotFound)
-	}
-}
 
 type credentialsBackendMock struct {
 	mock.Mock
@@ -168,7 +134,6 @@ func TestShouldUpdateCacheInBackground(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, existingCredentials.SecretKey, crd.SecretKey)
 }
-
 
 func prepareCredentialsStore(accessKey, storage string, expectedCreds *CredentialsStoreData, err error) *CredentialsStore {
 	credsBackendMock := &credentialsBackendMock{mock.Mock{}}
