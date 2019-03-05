@@ -24,6 +24,7 @@ const (
 // ErrCredentialsNotFound - Credential for given accessKey and backend haven't been found in yaml file
 var ErrCredentialsNotFound = errors.New("credentials not found")
 
+//DefaultCredentialStoreName holds the default CredentialStore name
 var DefaultCredentialStoreName string
 var credentialStores map[string]*CredentialsStore
 var credentialsStoresFactories = map[credentialsBackendType]credentialsBackendFactory{
@@ -35,7 +36,7 @@ type credentialsBackendFactory interface {
 	create(crdStoreName string, backendProps map[string]string) (CredentialsBackend, error)
 }
 
-// CredentialsStores - gets a caches credentials from akubra-crdstore
+// CredentialsStore - gets a caches credentials from akubra-crdstore
 type CredentialsStore struct {
 	cache              *syncmap.Map
 	TTL                time.Duration
@@ -43,6 +44,7 @@ type CredentialsStore struct {
 	credentialsBackend CredentialsBackend
 }
 
+//CredentialsBackend is responsible for holding storage credentials
 type CredentialsBackend interface {
 	FetchCredentials(accessKey string, storageName string) (*CredentialsStoreData, error)
 }
@@ -105,14 +107,15 @@ func (cs *CredentialsStore) updateCache(accessKey, backend, key string, csd *Cre
 		if csd == nil {
 			credentials = &CredentialsStoreData{EOL: time.Now().Add(cs.TTL), err: err}
 		} else {
-			credentials = csd
+			credentials = &CredentialsStoreData{}
+			*credentials = *csd
 		}
 		credentials.err = err
 		log.Printf("Error while updating cache for key `%s`: `%s`", key, err)
 	}
 	credentials.EOL = time.Now().Add(cs.TTL)
 	cs.cache.Store(key, credentials)
-	cs.lock.Unlock()
+	defer cs.lock.Unlock()
 	if credentials.AccessKey == "" {
 		return nil, credentials.err
 	}
@@ -131,16 +134,18 @@ func (cs *CredentialsStore) Get(accessKey, backend string) (csd *CredentialsStor
 	if value, credsPresentInCache := cs.cache.Load(key); credsPresentInCache {
 		csd = value.(*CredentialsStoreData)
 	}
-
 	refreshTimeoutDuration := cs.TTL / 100 * (100 - refreshTTLPercent)
 	switch {
-	case csd == nil:
+	case csd == nil || csd.AccessKey == "":
 		return cs.updateCache(accessKey, backend, key, csd, true)
 	case time.Now().After(csd.EOL):
 		return cs.updateCache(accessKey, backend, key, csd, false)
 	case time.Now().Add(refreshTimeoutDuration).After(csd.EOL):
 		go func() {
-			_, err = cs.updateCache(accessKey, backend, key, csd, false)
+			_, err := cs.updateCache(accessKey, backend, key, csd, false)
+			if err != nil {
+				log.Debugln("Failed to update cache %q", err)
+			}
 		}()
 	}
 

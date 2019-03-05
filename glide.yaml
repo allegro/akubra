@@ -34,6 +34,10 @@ import:
 - package: github.com/satori/go.uuid
 - package: github.com/jinzhu/gorm
   version: ^1.9.2
+- package: github.com/hashicorp/vault
+  subpackages:
+  - api
+  version: 1.0.3
 testImport:
 - package: github.com/DATA-DOG/go-sqlmock
   version: ^1.2.0
@@ -46,7 +50,4 @@ testImport:
 - package: github.com/allegro/mesos-executor
   subpackages:
   - xnet
-- package: github.com/hashicorp/vault
-  subpackages:
-  - api
-  version: 1.0.3
+

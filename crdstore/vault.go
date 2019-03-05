@@ -36,7 +36,7 @@ func (vaultFactory *vaultCredsBackendFactory) create(crdStoreName string, props 
 	}
 
 	vaultToken := ""
-	isTokenProvided := false
+	var isTokenProvided bool
 	if vaultToken, isTokenProvided = props["Token"]; !isTokenProvided || vaultToken == "" {
 		vaultToken, isTokenProvided = os.LookupEnv(fmt.Sprintf(vaultTokenEnvVarFormat, crdStoreName))
 		if vaultToken == "" || !isTokenProvided {
@@ -89,7 +89,7 @@ func (vault *vaultCredsBackend) FetchCredentials(accessKey string, storageName s
 	}
 	responseData := vaultResponse.Data["data"].(map[string]interface{})
 	if _, accessPresent := responseData["access"]; !accessPresent {
-		return nil, fmt.Errorf("access key is missing for %s/%s", accessPresent, storageName)
+		return nil, fmt.Errorf("access key is missing for %s/%s", accessKey, storageName)
 	}
 	if _, secretPresent := responseData["secret"]; !secretPresent {
 		return nil, fmt.Errorf("access key is missing for %s/%s", accessKey, storageName)

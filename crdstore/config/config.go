@@ -4,7 +4,7 @@ import (
 	"github.com/allegro/akubra/metrics"
 )
 
-// CredentialsStores configuration
+// CredentialsStore configuration
 type CredentialsStore struct {
 	// Type specifies which implementation should be used when instating the CredentialStore
 	Type string `yaml:"Type"`

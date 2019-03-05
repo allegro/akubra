@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	confregions "github.com/allegro/akubra/regions/config"
+	"github.com/allegro/akubra/storages/config"
 	set "github.com/deckarep/golang-set"
 )
 
@@ -165,8 +166,7 @@ func (c YamlConfig) WatchdogEntryLogicalValidator() (valid bool, validationError
 	return
 }
 
-
-// WatchdogEntryLogicalValidator validates ConsistencyWatchdog's config depending on the types of watchdogs defined
+// CredentialStoresEntryLogicalValidator validates CredentailStores's config
 func (c YamlConfig) CredentialStoresEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
 	supportedCredentialsStores := map[string][]string{
@@ -192,13 +192,7 @@ func (c YamlConfig) CredentialStoresEntryLogicalValidator() (valid bool, validat
 			}
 		}
 	}
-	numberOfStoragesUsingDefaultSignService := 0
-	for idx := range c.Storages {
-		if _,hasCredsBackendSpecified := c.Storages[idx].Properties["CredentialStore"]; c.Storages[idx].Type == "S3AuthService" && !hasCredsBackendSpecified{
-			numberOfStoragesUsingDefaultSignService++
-		}
-	}
-
+	numberOfStoragesUsingDefaultSignService := countStoragesWithDefaultAuthService(c.Storages)
 	if numberOfStoragesUsingDefaultSignService > 0 && !isDefaultCredentialsStoreDefined {
 		errList = append(errList, fmt.Errorf("you have to define a default CredentialStore when Storages don't have CredentialsBackends specified explicilty"))
 		validationErrors, valid = prepareErrors(errList, "CredentialStoresEntryLogicalValidator")
@@ -206,6 +200,15 @@ func (c YamlConfig) CredentialStoresEntryLogicalValidator() (valid bool, validat
 
 	validationErrors, valid = prepareErrors(errList, "CredentialStoresEntryLogicalValidator")
 	return
+}
+func countStoragesWithDefaultAuthService(storages config.StoragesMap) int {
+	numberOfStoragesUsingDefaultSignService := 0
+	for idx := range storages {
+		if _,hasCredsBackendSpecified := storages[idx].Properties["CredentialStore"]; storages[idx].Type == "S3AuthService" && !hasCredsBackendSpecified{
+			numberOfStoragesUsingDefaultSignService++
+		}
+	}
+	return numberOfStoragesUsingDefaultSignService
 }
 
 

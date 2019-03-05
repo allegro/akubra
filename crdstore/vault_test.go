@@ -13,11 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type path = string
-type creds struct {
-	access, secret string
-}
-
 type testHandler struct {
 	expectedPath string
 	statusToReturn int
@@ -86,13 +81,13 @@ func TestShouldUseTokenFromEnvVariableIfItIsMissingInProps(t *testing.T) {
 	props["PathPrefix"] = "/secret"
 
 	oldEnv := os.Getenv("CREDS_BACKEND_VAULT_test-valut_token")
-	os.Setenv("CREDS_BACKEND_VAULT_test-valut_token", "env-token-123")
+	os.Setenv("CREDS_BACKEND_VAULT_test-vault_token", "env-token-123")
 
 	credsBackend, err := factory.create("test-vault", props)
 	assert.NotNil(t, credsBackend)
 	assert.Nil(t, err)
 
-	os.Setenv("CREDS_BACKEND_VAULT_test-valut_token", oldEnv)
+	os.Setenv("CREDS_BACKEND_VAULT_test-vault_token", oldEnv)
 }
 
 func TestShouldReturnErrorWhenVaultResponseIsInvalid(t *testing.T) {
@@ -112,15 +107,14 @@ func TestShouldReturnErrorWhenVaultResponseIsInvalid(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	vaultCredsBackend := vaultCredsBackend{
+	vault := vaultCredsBackend{
 		vaultClient: vaultClient,
 		pathPrefix:  "secret/data",
 	}
 
-	creds, err := vaultCredsBackend.FetchCredentials("testAccess", "testStorage")
-	assert.Nil(t, err)
-	assert.Equal(t, creds.AccessKey, expectedAccess)
-	assert.Equal(t, creds.SecretKey, expectedSecret)
+	creds, err := vault.FetchCredentials("testAccess", "testStorage")
+	assert.Nil(t, creds)
+	assert.Contains(t, err.Error(), "Error making API request")
 }
 
 func TestShouldReturnErrorWhenResponseIsInvalid(t *testing.T) {
@@ -138,12 +132,12 @@ func TestShouldReturnErrorWhenResponseIsInvalid(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	vaultCredsBackend := vaultCredsBackend{
+	vault := vaultCredsBackend{
 		vaultClient: vaultClient,
 		pathPrefix:  "secret/data",
 	}
 
-	creds, err := vaultCredsBackend.FetchCredentials("testAccess", "testStorage")
+	creds, err := vault.FetchCredentials("testAccess", "testStorage")
 	assert.Nil(t, creds)
 	assert.Equal(t, err.Error(), fmt.Sprintf("invlid response for testAccess/testStorage"))
 }
