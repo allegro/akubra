@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/allegro/akubra/crdstore"
 	"github.com/allegro/akubra/httphandler"
 	"github.com/allegro/akubra/storages/config"
 )
@@ -43,11 +44,11 @@ var Decorators = map[string]func(string, config.Storage, map[string]bool) (httph
 		return ForceSignDecorator(keys, backendConf.Backend.Host, methods, ignoredV2CanHeades), nil
 	},
 	S3AuthService: func(backend string, backendConf config.Storage, ignoredV2CanHeaders map[string]bool) (httphandler.Decorator, error) {
-		endpoint, ok := backendConf.Properties["AuthServiceEndpoint"]
+		credentialStoreName, ok := backendConf.Properties["CredentialStore"]
 		if !ok {
-			endpoint = "default"
+			credentialStoreName = crdstore.DefaultCredentialStoreName
 		}
 
-		return SignAuthServiceDecorator(backend, endpoint, backendConf.Backend.Host, ignoredV2CanHeaders), nil
+		return SignAuthServiceDecorator(backend, credentialStoreName, backendConf.Backend.Host, ignoredV2CanHeaders), nil
 	},
 }

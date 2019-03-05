@@ -24,6 +24,7 @@ const (
 // ErrCredentialsNotFound - Credential for given accessKey and backend haven't been found in yaml file
 var ErrCredentialsNotFound = errors.New("credentials not found")
 
+var DefaultCredentialStoreName string
 var credentialStores map[string]*CredentialsStore
 var credentialsStoresFactories = map[credentialsBackendType]credentialsBackendFactory{
 	"Vault": &vaultCredsBackendFactory{},
@@ -67,6 +68,9 @@ func InitializeCredentialsStores(storeMap config.CredentialsStoreMap) {
 		credsBackend, err := credentialsStoresFactories[cfg.Type].create(name, cfg.Properties)
 		if err != nil {
 			log.Fatalf("failed to initialize CredentialsStore '%s': %s", name, err)
+		}
+		if cfg.Default {
+			DefaultCredentialStoreName = name
 		}
 		credentialStores[name] = &CredentialsStore{
 			cache:              new(syncmap.Map),

@@ -13,7 +13,8 @@ import (
 )
 
 const vaultTokenEnvVarFormat = "CREDS_BACKEND_VAULT_%s_token"
-const vaultCredsFormat = "%s-%s-%s"
+const vaultCredsFormat = "%s/%s/%s"
+
 var requiredVaultProps = []string{"Endpoint", "Timeout", "MaxRetries", "PathPrefix"}
 
 type vaultCredsBackendFactory struct {
@@ -75,26 +76,26 @@ func (vaultFactory *vaultCredsBackendFactory) create(crdStoreName string, props 
 	}, nil
 }
 
-func (vault *vaultCredsBackend) FetchSecretKey(storageName string, accessKey string) (*CredentialsStoreData, error) {
+func (vault *vaultCredsBackend) FetchCredentials(accessKey string, storageName string) (*CredentialsStoreData, error) {
 	vaultResponse, err := vault.
 		vaultClient.
 		Logical().
-		Read(fmt.Sprintf(vaultCredsFormat, vault.pathPrefix, storageName, accessKey))
-
+		Read(fmt.Sprintf(vaultCredsFormat, vault.pathPrefix, accessKey, storageName))
 	if err != nil {
 		return nil, err
 	}
-
-	if _, accessPresent := vaultResponse.Data["access"]; !accessPresent {
+	if vaultResponse == nil || vaultResponse.Data == nil || vaultResponse.Data["data"] == nil {
+		return nil, fmt.Errorf("invlid response for %s/%s", accessKey, storageName)
+	}
+	responseData := vaultResponse.Data["data"].(map[string]interface{})
+	if _, accessPresent := responseData["access"]; !accessPresent {
 		return nil, fmt.Errorf("access key is missing for %s/%s", accessPresent, storageName)
 	}
-
-	if _, secretPresent := vaultResponse.Data["secret"]; !secretPresent {
+	if _, secretPresent := responseData["secret"]; !secretPresent {
 		return nil, fmt.Errorf("access key is missing for %s/%s", accessKey, storageName)
 	}
-
 	return &CredentialsStoreData{
-		AccessKey: vaultResponse.Data["access"].(string),
-		SecretKey: vaultResponse.Data["secret"].(string),
+		AccessKey: responseData["access"].(string),
+		SecretKey: responseData["secret"].(string),
 	}, nil
 }

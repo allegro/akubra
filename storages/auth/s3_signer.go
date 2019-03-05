@@ -262,11 +262,11 @@ func SignDecorator(keys Keys, region, host string, ignoredV2CanonicalizedHeaders
 }
 
 // SignAuthServiceDecorator will compute
-func SignAuthServiceDecorator(backend, endpoint, host string, ignoredV2CanonicalizedHeaders map[string]bool) httphandler.Decorator {
+func SignAuthServiceDecorator(backend, credentialStoreName, host string, ignoredV2CanonicalizedHeaders map[string]bool) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
-		credentialsStore, err := crdstore.GetInstance(endpoint)
+		credentialsStore, err := crdstore.GetInstance(credentialStoreName)
 		if err != nil {
-			log.Fatalf("CredentialsStores `%s` is not defined", endpoint)
+			log.Fatalf("CredentialsStore `%s` is not defined", credentialStoreName)
 		}
 		return signAuthServiceRoundTripper{
 			rt:                            rt, backend: backend, host: host, crd: credentialsStore,
