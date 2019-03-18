@@ -88,14 +88,14 @@ func (vault *vaultCredsBackend) FetchCredentials(accessKey string, storageName s
 		return nil, fmt.Errorf("invlid response for %s/%s", accessKey, storageName)
 	}
 	responseData := vaultResponse.Data["data"].(map[string]interface{})
-	if _, accessPresent := responseData["access"]; !accessPresent {
+	if _, accessPresent := responseData["access_key"]; !accessPresent {
 		return nil, fmt.Errorf("access key is missing for %s/%s", accessKey, storageName)
 	}
-	if _, secretPresent := responseData["secret"]; !secretPresent {
-		return nil, fmt.Errorf("access key is missing for %s/%s", accessKey, storageName)
+	if _, secretPresent := responseData["secret_key"]; !secretPresent {
+		return nil, fmt.Errorf("secret key is missing for %s/%s", accessKey, storageName)
 	}
 	return &CredentialsStoreData{
-		AccessKey: responseData["access"].(string),
-		SecretKey: responseData["secret"].(string),
+		AccessKey: responseData["access_key"].(string),
+		SecretKey: responseData["secret_key"].(string),
 	}, nil
 }

@@ -492,7 +492,7 @@ func TestShouldFailWhenWatchdogConfigDoesNotHaveAllOfTheFieldsProvided(t *testin
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	watchdogConfig := watchdog.Config{
-		Type:                    "sql",
+		Type: "sql",
 		ObjectVersionHeaderName: "x-amz-meta-akubra",
 		Props: map[string]string{
 			"dialect":         "postgres",
@@ -521,30 +521,26 @@ func TestCredentialsStoresValidation(t *testing.T) {
 	}{
 		{"Should fail when unsupported backend type is defined", config.CredentialsStoreMap{
 			"store1": {Default: true, Type: "UnsupportedBackend"}},
-			[]error{errors.New("CredentialStore of type 'UnsupportedBackend' is not supported"),
-			}},
+			[]error{errors.New("CredentialsStore of type 'UnsupportedBackend' is not supported")}},
 
 		{"Should failed when more than one default credentials backend is defined",
 			config.CredentialsStoreMap{
 				"store1": {Default: true, Type: "Vault"},
 				"store2": {Default: true, Type: "Vault"},
 			},
-			[]error{errors.New("only one CredentialsStore can be marked as default"),
-			}},
+			[]error{errors.New("only one CredentialsStore can be marked as default")}},
 		{"Should fail when no default backend is specified and there as Storages that require an auth service",
 			config.CredentialsStoreMap{
 				"store1": {Default: false, Type: "Vault"},
 			},
-			[]error{errors.New("you have to define a default CredentialStore when Storages don't have CredentialsBackends specified explicilty"),
-			}},
-		{"Should fail when a required property is missing in CredentialStoreConfig",
+			[]error{errors.New("you have to define a default CredentialsStore when Storage doesn't have a CredentialsStore specified explicilty")}},
+		{"Should fail when a required property is missing in CredentialsStoreConfig",
 			config.CredentialsStoreMap{
 				"store1": {Default: false, Type: "Vault", Properties: map[string]string{
-					"Timeout": "300", "MaxRetries" : "3",  "PathPrefix": "/secret",
+					"Timeout": "300", "MaxRetries": "3", "PathPrefix": "/secret",
 				}},
 			},
-			[]error{errors.New("CredentialStore 'store1' is missing requried property 'Endpoint'"),
-			}},
+			[]error{errors.New("CredentialsStore 'store1' is missing requried property 'Endpoint'")}},
 	} {
 
 		var size httphandlerconfig.HumanSizeUnits
@@ -554,10 +550,10 @@ func TestCredentialsStoresValidation(t *testing.T) {
 		yamlConfig.Storages = config2.StoragesMap{
 			"test": {Type: "S3AuthService"},
 		}
-		valid, errList := yamlConfig.CredentialStoresEntryLogicalValidator()
+		valid, errList := yamlConfig.CredentialsStoresEntryLogicalValidator()
 		if len(testCase.expectedErrors) > 0 {
 			for idx := range testCase.expectedErrors {
-				assert.Contains(t, errList["CredentialStoresEntryLogicalValidator"], testCase.expectedErrors[idx])
+				assert.Contains(t, errList["CredentialsStoresEntryLogicalValidator"], testCase.expectedErrors[idx])
 			}
 
 			assert.False(t, valid)

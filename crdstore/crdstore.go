@@ -16,17 +16,16 @@ import (
 )
 
 const (
-	keyPattern                   = "%s_____%s"
-	requestOptionsRequestTimeout = 100 * time.Millisecond
-	refreshTTLPercent            = 80 // Background refresh after refreshTTLPercent*TTL
+	keyPattern        = "%s_____%s"
+	refreshTTLPercent = 80 // Background refresh after refreshTTLPercent*TTL
 )
 
 // ErrCredentialsNotFound - Credential for given accessKey and backend haven't been found in yaml file
 var ErrCredentialsNotFound = errors.New("credentials not found")
 
-//DefaultCredentialStoreName holds the default CredentialStore name
-var DefaultCredentialStoreName string
-var credentialStores map[string]*CredentialsStore
+//DefaultCredentialsStoreName holds the default CredentialsStore name
+var DefaultCredentialsStoreName string
+var credentialsStores map[string]*CredentialsStore
 var credentialsStoresFactories = map[credentialsBackendType]credentialsBackendFactory{
 	"Vault": &vaultCredsBackendFactory{},
 }
@@ -49,17 +48,17 @@ type CredentialsBackend interface {
 	FetchCredentials(accessKey string, storageName string) (*CredentialsStoreData, error)
 }
 
-// GetInstance - Get crdstore instance for endpoint
+// GetInstance - Get crdstore instance by store's name
 func GetInstance(crdBackendName string) (instance *CredentialsStore, err error) {
-	if instance, ok := credentialStores[crdBackendName]; ok {
+	if instance, ok := credentialsStores[crdBackendName]; ok {
 		return instance, nil
 	}
-	return nil, fmt.Errorf("error credentialStore `%s` is not defined", crdBackendName)
+	return nil, fmt.Errorf("error credentialsStore `%s` is not defined", crdBackendName)
 }
 
 // InitializeCredentialsStores - Constructor for CredentialsStores
 func InitializeCredentialsStores(storeMap config.CredentialsStoreMap) {
-	credentialStores = make(map[string]*CredentialsStore)
+	credentialsStores = make(map[string]*CredentialsStore)
 
 	for name, cfg := range storeMap {
 
@@ -72,9 +71,9 @@ func InitializeCredentialsStores(storeMap config.CredentialsStoreMap) {
 			log.Fatalf("failed to initialize CredentialsStore '%s': %s", name, err)
 		}
 		if cfg.Default {
-			DefaultCredentialStoreName = name
+			DefaultCredentialsStoreName = name
 		}
-		credentialStores[name] = &CredentialsStore{
+		credentialsStores[name] = &CredentialsStore{
 			cache:              new(syncmap.Map),
 			TTL:                cfg.AuthRefreshInterval.Duration,
 			credentialsBackend: credsBackend,

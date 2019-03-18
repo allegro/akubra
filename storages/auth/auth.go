@@ -44,11 +44,11 @@ var Decorators = map[string]func(string, config.Storage, map[string]bool) (httph
 		return ForceSignDecorator(keys, backendConf.Backend.Host, methods, ignoredV2CanHeades), nil
 	},
 	S3AuthService: func(backend string, backendConf config.Storage, ignoredV2CanHeaders map[string]bool) (httphandler.Decorator, error) {
-		credentialStoreName, ok := backendConf.Properties["CredentialStore"]
+		credentialsStoreName, ok := backendConf.Properties["CredentialsStore"]
 		if !ok {
-			credentialStoreName = crdstore.DefaultCredentialStoreName
+			credentialsStoreName = crdstore.DefaultCredentialsStoreName
 		}
 
-		return SignAuthServiceDecorator(backend, credentialStoreName, backendConf.Backend.Host, ignoredV2CanHeaders), nil
+		return SignAuthServiceDecorator(backend, credentialsStoreName, backendConf.Backend.Host, ignoredV2CanHeaders), nil
 	},
 }

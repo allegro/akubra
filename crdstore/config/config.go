@@ -6,7 +6,7 @@ import (
 
 // CredentialsStore configuration
 type CredentialsStore struct {
-	// Type specifies which implementation should be used when instating the CredentialStore
+	// Type specifies which implementation should be used when instating the CredentialsStore
 	Type string `yaml:"Type"`
 	// Default tells if the CredentialsStore is a default one
 	Default bool `yaml:"Default"`
