@@ -194,7 +194,7 @@ func (c YamlConfig) CredentialsStoresEntryLogicalValidator() (valid bool, valida
 	}
 	numberOfStoragesUsingDefaultSignService := countStoragesWithDefaultAuthService(c.Storages)
 	if numberOfStoragesUsingDefaultSignService > 0 && !isDefaultCredentialsStoreDefined {
-		errList = append(errList, fmt.Errorf("you have to define a default CredentialsStore when Storages don't have CredentialsBackends specified explicilty"))
+		errList = append(errList, fmt.Errorf("you have to define a default CredentialsStore when Storages don't have CredentialsStores specified explicilty"))
 		validationErrors, valid = prepareErrors(errList, "CredentialsStoresEntryLogicalValidator")
 	}
 

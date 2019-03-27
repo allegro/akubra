@@ -533,10 +533,10 @@ func TestCredentialsStoresValidation(t *testing.T) {
 			config.CredentialsStoreMap{
 				"store1": {Default: false, Type: "Vault"},
 			},
-			[]error{errors.New("you have to define a default CredentialsStore when Storage doesn't have a CredentialsStore specified explicilty")}},
-		{"Should fail when a required property is missing in CredentialsStoreConfig",
+			[]error{errors.New("you have to define a default CredentialsStore when Storages don't have CredentialsStores specified explicilty")}},
+		{"Should fail when a required property is missing in CredentialStoresConfig",
 			config.CredentialsStoreMap{
-				"store1": {Default: false, Type: "Vault", Properties: map[string]string{
+				"store1": {Default: true, Type: "Vault", Properties: map[string]string{
 					"Timeout": "300", "MaxRetries": "3", "PathPrefix": "/secret",
 				}},
 			},
