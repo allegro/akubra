@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 const (
 	noTimeoutRegressionHeader = "X-Akubra-No-Regression-On-Failure"
 )
-
 
 //RingProps describes the properties of a ring regarding it's consistency level
 type RingProps struct {
@@ -84,41 +82,6 @@ func (rb *reqBody) Read(b []byte) (int, error) {
 
 func (rb *reqBody) Close() error {
 	return nil
-}
-
-func copyRequest(origReq *http.Request) (*http.Request, error) {
-	newReq := new(http.Request)
-	*newReq = *origReq
-	newReq.URL = &url.URL{}
-	*newReq.URL = *origReq.URL
-	newReq.Header = http.Header{}
-	for k, v := range origReq.Header {
-		for _, vv := range v {
-			newReq.Header.Add(k, vv)
-		}
-	}
-
-	if origReq.Body != nil {
-		buf := &bytes.Buffer{}
-		defer func() {
-			err := origReq.Body.Close()
-			if err != nil {
-				log.Printf("Request body close error: %s", err)
-			}
-		}()
-		n, err := io.Copy(buf, origReq.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		if n > 0 {
-			newReq.Body = &reqBody{bytes: buf.Bytes()}
-		} else {
-			newReq.Body = nil
-		}
-		newReq.ContentLength = int64(buf.Len())
-	}
-	return newReq, nil
 }
 
 func (sr ShardsRing) send(roundTripper http.RoundTripper, req *http.Request) (*http.Response, error) {
@@ -189,23 +152,16 @@ func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr err
 		}
 	}()
 
-	reqCopy, err := copyRequest(req)
+	if req.Method == http.MethodDelete || sr.isBucketPath(req.URL.Path) {
+		return sr.allClustersRoundTripper.RoundTrip(req)
+	}
+
+	cl, err := sr.Pick(req.URL.Path)
 	if err != nil {
 		return nil, err
 	}
 
-	isBucketReq := sr.isBucketPath(reqCopy.URL.Path)
-
-	if reqCopy.Method == http.MethodDelete || isBucketReq {
-		return sr.allClustersRoundTripper.RoundTrip(reqCopy)
-	}
-
-	cl, err := sr.Pick(reqCopy.URL.Path)
-	if err != nil {
-		return nil, err
-	}
-
-	_, resp, err = sr.regressionCall(cl, cl.Name(), reqCopy)
+	_, resp, err = sr.regressionCall(cl, cl.Name(), req)
 
 	return resp, err
 }
