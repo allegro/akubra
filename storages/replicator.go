@@ -3,12 +3,12 @@ package storages
 import (
 	"context"
 	"fmt"
+	"github.com/allegro/akubra/utils"
 	"net/http"
 	"sync"
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/backend"
-	"github.com/allegro/akubra/types"
 	"github.com/allegro/akubra/watchdog"
 )
 
@@ -40,17 +40,24 @@ func (rc *ReplicationClient) Do(request *Request) <-chan BackendResponse {
 	ctx, cancelFunc := context.WithCancel(newContextWithValue)
 	rc.cancelFunc = cancelFunc
 
+	bodyBytes, err := utils.ReadRequestBody(request.Request)
+	if err != nil {
+		responsesChan <- BackendResponse{Request: request.Request, Response: nil, Error: err}
+		close(responsesChan)
+		return responsesChan
+	}
+
 	for _, backend := range rc.Backends {
 		wg.Add(1)
 		go func(backend *StorageClient) {
 			defer wg.Done()
 
-			replicatedRequest, err := replicateRequest(ctx, request)
+			replicatedRequest, err := utils.ReplicateRequest(ctx, request.Request, bodyBytes)
 			if err != nil {
 				responsesChan <- BackendResponse{Request: request.Request,
-				Response: nil,
-				Error: fmt.Errorf("failed to replicate request: %s", err),
-				Backend: backend}
+					Response: nil,
+					Error:    fmt.Errorf("failed to replicate request: %s", err),
+					Backend:  backend}
 				return
 			}
 			isBRespSuccessful := callBackend(replicatedRequest, backend, responsesChan)
@@ -77,29 +84,6 @@ func (rc *ReplicationClient) Do(request *Request) <-chan BackendResponse {
 
 	}()
 	return responsesChan
-}
-func replicateRequest(ctx context.Context, request *Request) (*http.Request, error) {
-	replicatedRequest, err := http.NewRequest(request.Method, request.URL.String(), request.Body)
-	if resetter, ok := replicatedRequest.Body.(types.Resetter); ok {
-		replicatedRequest.Body = resetter.Reset()
-	}
-	if err != nil {
-		return nil, err
-	}
-	replicatedRequest.Header = http.Header{}
-	for headerName, headerValues := range request.Header {
-		for idx := range headerValues {
-			replicatedRequest.Header.Add(headerName, headerValues[idx])
-		}
-	}
-	replicatedRequest.Host = request.Host
-	replicatedRequest.ContentLength = request.ContentLength
-	replicatedRequest.Form = request.Form
-	replicatedRequest.PostForm = request.PostForm
-	replicatedRequest.GetBody = request.GetBody
-	replicatedRequest.Trailer = request.Trailer
-	replicatedRequest.TransferEncoding = request.TransferEncoding
-	return replicatedRequest.WithContext(ctx), nil
 }
 
 // Cancel requests in progress

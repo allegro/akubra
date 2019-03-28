@@ -2,10 +2,13 @@ package utils
 
 import (
 	"bytes"
+	"context"
 	"encoding/xml"
 	"errors"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/allegro/akubra/log"
@@ -58,11 +61,12 @@ func ExtractBucketAndKey(requestPath string) (string, string) {
 		return "", ""
 	}
 	pathParts := strings.Split(trimmedPath, "/")
-	if len(pathParts) < 2 { 
+	if len(pathParts) < 2 {
 		return "", ""
 	}
 	return pathParts[0], pathParts[1]
 }
+
 // IsBucketPath check if a given path is a bucket path
 func IsBucketPath(path string) bool {
 	trimmedPath := strings.Trim(path, "/")
@@ -111,4 +115,46 @@ func ExtractMultiPartUploadIDFrom(response *http.Response) (string, error) {
 		return "", errors.New("upload ID was empty")
 	}
 	return initiateMultipartUploadResult.UploadID, nil
+}
+
+//ReplicateRequest makes a copy of the provided request
+func ReplicateRequest(ctx context.Context, request *http.Request, bodyBytes []byte) (*http.Request, error) {
+
+	replicatedRequest := new(http.Request)
+	*replicatedRequest = *request
+	replicatedRequest.URL = &url.URL{}
+	*replicatedRequest.URL = *request.URL
+	replicatedRequest.Header = http.Header{}
+
+	bodyBuffer := bytes.NewBuffer(bodyBytes)
+	replicatedRequest.Body = ioutil.NopCloser(bodyBuffer)
+
+	replicatedRequest.GetBody = func() (io.ReadCloser, error) {
+		return ioutil.NopCloser(bytes.NewBuffer(bodyBytes)), nil
+	}
+
+	replicatedRequest.Header = http.Header{}
+	for headerName, headerValues := range request.Header {
+		for idx := range headerValues {
+			replicatedRequest.Header.Add(headerName, headerValues[idx])
+		}
+	}
+
+	return replicatedRequest.WithContext(ctx), nil
+}
+
+//ReadRequestBody returns the bytes of the request body or nil of body is not present
+func ReadRequestBody(request *http.Request) ([]byte, error) {
+	if request.Body == nil {
+		return nil, nil
+	}
+	bodyBytes, err := ioutil.ReadAll(request.Body)
+	if err != nil {
+		return nil, err
+	}
+	err = request.Body.Close()
+	if err != nil {
+		return bodyBytes, nil
+	}
+	return bodyBytes, nil
 }
