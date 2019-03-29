@@ -102,7 +102,7 @@ func (factory *shardFactory) newShard(name string, storageNames []string, storag
 		shardStorages = append(shardStorages, backendRT)
 	}
 	log.Debugf("Shard %s storages %v", name, shardStorages)
-	requestDispatcher := NewRequestDispatcher(shardStorages, factory.watchdog, factory.consistencyRecordFactory)
+	requestDispatcher := NewRequestDispatcher(shardStorages)
 	return &ShardClient{backends: shardStorages,
 		name:                      name,
 		requestDispatcher:         requestDispatcher,

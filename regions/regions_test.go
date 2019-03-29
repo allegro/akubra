@@ -57,13 +57,20 @@ func TestShouldReturnResponseFromShardsRing(t *testing.T) {
 	}
 
 	shardProps := &sharding.RingProps{
-		ReadRepair: false,
+		ReadRepair:       false,
 		ConsistencyLevel: config.None,
 	}
 
 	shardsRingMock := &ShardsRingMock{}
+	readRepairVersion := ""
+	multipart := false
+	noErrors := true
+
 	requestWithHostAndContext := requestWithHostSpecified.WithContext(context.WithValue(requestWithHostSpecified.Context(), watchdog.Domain, requestWithHostSpecified.Host))
 	requestWithHostAndContext = requestWithHostAndContext.WithContext(context.WithValue(requestWithHostAndContext.Context(), watchdog.ConsistencyLevel, shardProps.ConsistencyLevel))
+	requestWithHostAndContext = requestWithHostAndContext.WithContext(context.WithValue(requestWithHostAndContext.Context(), watchdog.NoErrorsDuringRequest, &noErrors))
+	requestWithHostAndContext = requestWithHostAndContext.WithContext(context.WithValue(requestWithHostAndContext.Context(), watchdog.ReadRepairObjectVersion, &readRepairVersion))
+	requestWithHostAndContext = requestWithHostAndContext.WithContext(context.WithValue(requestWithHostAndContext.Context(), watchdog.MultiPartUpload, &multipart))
 	requestWithHostAndContext = requestWithHostAndContext.WithContext(context.WithValue(requestWithHostAndContext.Context(), watchdog.ReadRepair, shardProps.ReadRepair))
 
 	shardsRingMock.On("DoRequest", requestWithHostAndContext).Return(expectedResponse)
@@ -80,12 +87,14 @@ func TestShouldReturnResponseFromShardsRing(t *testing.T) {
 
 	defaultRequestWithContext := defaultRegionRequest.WithContext(context.WithValue(defaultRegionRequest.Context(), watchdog.Domain, defaultRegionRequest.Host))
 	defaultRequestWithContext = defaultRequestWithContext.WithContext(context.WithValue(defaultRequestWithContext.Context(), watchdog.ConsistencyLevel, shardProps.ConsistencyLevel))
+	defaultRequestWithContext = defaultRequestWithContext.WithContext(context.WithValue(defaultRequestWithContext.Context(), watchdog.NoErrorsDuringRequest, &noErrors))
+	defaultRequestWithContext = defaultRequestWithContext.WithContext(context.WithValue(defaultRequestWithContext.Context(), watchdog.ReadRepairObjectVersion, &readRepairVersion))
+	defaultRequestWithContext = defaultRequestWithContext.WithContext(context.WithValue(defaultRequestWithContext.Context(), watchdog.MultiPartUpload, &multipart))
 	defaultRequestWithContext = defaultRequestWithContext.WithContext(context.WithValue(defaultRequestWithContext.Context(), watchdog.ReadRepair, shardProps.ReadRepair))
 
 	shardsRingMock.On("DoRequest", defaultRequestWithContext).Return(expectedResponse)
 
 	defaultRegionResponse, _ := regions.RoundTrip(defaultRegionRequest)
-
 
 	assert.Equal(t, 200, defaultRegionResponse.StatusCode)
 	shardsRingMock.AssertCalled(t, "DoRequest", defaultRequestWithContext)
@@ -103,12 +112,18 @@ func TestShouldReturnResponseFromShardsRingOnHostWithPort(t *testing.T) {
 	}
 	shardsRingMock := &ShardsRingMock{}
 	shardProps := &sharding.RingProps{
-		ReadRepair: false,
+		ReadRepair:       false,
 		ConsistencyLevel: config.None,
 	}
+	readRepairVersion := ""
+	multipart := false
+	noErrors := true
 
 	requestWithContext := request.WithContext(context.WithValue(request.Context(), watchdog.Domain, "test1.qxlint"))
 	requestWithContext = requestWithContext.WithContext(context.WithValue(requestWithContext.Context(), watchdog.ConsistencyLevel, shardProps.ConsistencyLevel))
+	requestWithContext = requestWithContext.WithContext(context.WithValue(requestWithContext.Context(), watchdog.NoErrorsDuringRequest, &noErrors))
+	requestWithContext = requestWithContext.WithContext(context.WithValue(requestWithContext.Context(), watchdog.ReadRepairObjectVersion, &readRepairVersion))
+	requestWithContext = requestWithContext.WithContext(context.WithValue(requestWithContext.Context(), watchdog.MultiPartUpload, &multipart))
 	requestWithContext = requestWithContext.WithContext(context.WithValue(requestWithContext.Context(), watchdog.ReadRepair, shardProps.ReadRepair))
 
 	shardsRingMock.On("DoRequest", requestWithContext).Return(expectedResponse)

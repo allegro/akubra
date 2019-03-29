@@ -130,13 +130,16 @@ func ReplicateRequest(request *http.Request) (*http.Request, error) {
 	replicatedRequest.URL = &url.URL{}
 	*replicatedRequest.URL = *request.URL
 	replicatedRequest.Header = http.Header{}
-	bodyReader, err := request.GetBody()
-	if err != nil {
-		return nil, err
-	}
-	replicatedRequest.Body = bodyReader
-	replicatedRequest.GetBody = func() (io.ReadCloser, error) {
-		return request.GetBody()
+
+	if request.Body != nil {
+		bodyReader, err := request.GetBody()
+		if err != nil {
+			return nil, err
+		}
+		replicatedRequest.Body = bodyReader
+		replicatedRequest.GetBody = func() (io.ReadCloser, error) {
+			return request.GetBody()
+		}
 	}
 	replicatedRequest.Header = http.Header{}
 	for headerName, headerValues := range request.Header {

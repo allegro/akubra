@@ -69,9 +69,9 @@ func TestShouldNotInitStoragesWithWrongBackendType(t *testing.T) {
 
 	storagesFactory := Factory{
 		transport: http.DefaultTransport,
-		watchdog: nil,
+		watchdog:  nil,
 	}
-	_, err := storagesFactory.InitStorages(clustersConf, storagesMap)
+	_, err := storagesFactory.InitStorages(clustersConf, storagesMap, nil)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(),

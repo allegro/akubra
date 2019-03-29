@@ -67,6 +67,9 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func prepareRequestBody(request *http.Request) (*http.Request, error) {
+	if request.Body == nil {
+		return request, nil
+	}
 	bodyBytes, err := utils.ReadRequestBody(request)
 	if err != nil {
 		return nil, err

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/allegro/akubra/log"
-	"github.com/allegro/akubra/watchdog"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
@@ -58,24 +57,24 @@ func (suite *ClusterTestSuite) TestSuccessObjectRequest() {
 	dispatchMock := suite.dispatcher.(*dispatcherMock)
 	dispatchMock.On("Dispatch", request).Return(okResponse, nil)
 
-	resp, err := cluster.RoundTrip(request.Request)
+	resp, err := cluster.RoundTrip(request)
 	require.NoError(err)
 	require.NotNil(resp)
 	require.Equal(resp.StatusCode, http.StatusOK)
 }
 
-func makeGetObjectRequest() (*Request, error) {
+func makeGetObjectRequest() (*http.Request, error) {
 	request, err := http.NewRequest("GET", "/testbucket/testkey", nil)
 	if err != nil {
 		return nil, err
 	}
 	reqContext := context.WithValue(context.Background(), log.ContextreqIDKey, "testid")
 	req := request.WithContext(reqContext)
-	return &Request{Request: req}, err
+	return req, err
 }
 
-func makeSuccessfulResponse(request *Request, status int) *http.Response {
-	resp := &http.Response{Request: request.Request, StatusCode: status}
+func makeSuccessfulResponse(request *http.Request, status int) *http.Response {
+	resp := &http.Response{Request: request, StatusCode: status}
 	return resp
 }
 
@@ -83,7 +82,7 @@ type dispatcherMock struct {
 	mock.Mock
 }
 
-func (trt *dispatcherMock) Dispatch(request *Request) (*http.Response, error) {
+func (trt *dispatcherMock) Dispatch(request *http.Request) (*http.Response, error) {
 	args := trt.Called(request)
 	resp := args.Get(0).(*http.Response)
 	return resp, args.Error(1)

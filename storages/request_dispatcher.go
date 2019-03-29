@@ -5,7 +5,6 @@ import (
 
 	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/utils"
-	"github.com/allegro/akubra/watchdog"
 )
 
 type dispatcher interface {
@@ -17,22 +16,16 @@ type RequestDispatcher struct {
 	Backends                  []*backend.Backend
 	pickClientFactory         func(*http.Request) func([]*backend.Backend) client
 	pickResponsePickerFactory func(*http.Request) func(<-chan BackendResponse) responsePicker
-	watchdog                  watchdog.ConsistencyWatchdog
-	watchdogRecordFactory     watchdog.ConsistencyRecordFactory
 }
 
 // NewRequestDispatcher creates RequestDispatcher instance
 func NewRequestDispatcher(
-	backends []*backend.Backend,
-	watchdog watchdog.ConsistencyWatchdog,
-	watchdogRecordFactory watchdog.ConsistencyRecordFactory) *RequestDispatcher {
+	backends []*backend.Backend) *RequestDispatcher {
 
 	return &RequestDispatcher{
 		Backends:                  backends,
 		pickResponsePickerFactory: defaultResponsePickerFactory,
 		pickClientFactory:         defaultReplicationClientFactory,
-		watchdog:                  watchdog,
-		watchdogRecordFactory:     watchdogRecordFactory,
 	}
 }
 

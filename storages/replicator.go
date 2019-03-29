@@ -65,8 +65,10 @@ func (rc *ReplicationClient) Do(request *http.Request) <-chan BackendResponse {
 		ctx := request.Context()
 		wg.Wait()
 		close(responsesChan)
-		abs := ctx.Value(watchdog.NoErrorsDuringRequest).(*bool)
-		*abs = *abs && allBackendsSucces
+		noErrors, ok := ctx.Value(watchdog.NoErrorsDuringRequest).(*bool)
+		if ok && noErrors != nil {
+			*noErrors = *noErrors && allBackendsSucces
+		}
 	}()
 	return responsesChan
 }
