@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/watchdog"
 
 	"github.com/allegro/akubra/config"
@@ -46,24 +45,16 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		reqHost = req.Host
 	}
-
-	shardsRing, ok := rg.multiCluters[reqHost]
-
+	shardsRing := rg.defaultRing
 	req, err = prepareRequestBody(req)
-	if err != nil {
-		return nil, err
+	if ringForRequest, foundRingForRequest := rg.multiCluters[reqHost]; foundRingForRequest {
+		shardsRing = ringForRequest
 	}
-
-	if ok {
-		req = req.WithContext(shardingPolicyContext(req, reqHost, shardsRing.GetRingProps()))
-		return shardsRing.DoRequest(req)
+	if shardsRing == nil {
+		return rg.getNoSuchDomainResponse(req), nil
 	}
-	if rg.defaultRing != nil {
-		req = req.WithContext(shardingPolicyContext(req, reqHost, rg.defaultRing.GetRingProps()))
-		log.Printf("Selected default ring for request with reqHost: '%s'", reqHost)
-		return rg.defaultRing.DoRequest(req)
-	}
-	return rg.getNoSuchDomainResponse(req), nil
+	req = req.WithContext(shardingPolicyContext(req, reqHost, rg.defaultRing.GetRingProps()))
+	return shardsRing.DoRequest(req)
 }
 
 func prepareRequestBody(request *http.Request) (*http.Request, error) {
