@@ -117,7 +117,7 @@ func (rd *RequestDispatcher) logRequest(storageRequest *Request) (*Request, erro
 		storageRequest.marker = deleteMarker
 	}
 
-	if storageRequest.Method != http.MethodDelete {
+	if storageRequest.Method == http.MethodPut {
 		storageRequest.
 			Header.
 			Add(rd.watchdog.GetVersionHeaderName(), storageRequest.logRecord.ObjectVersion)

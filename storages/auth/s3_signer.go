@@ -50,6 +50,16 @@ type ParsedAuthorizationHeader struct {
 	Service       string
 }
 
+var v4IgnoredHeaders = map[string]bool{
+	"Authorization":  	true,
+	"Content-Type":   	true,
+	"Content-Length": 	true,
+	"User-Agent":     	true,
+	"Connection": 		true,
+	"X-Forwarded-For": true,
+}
+
+
 //ErrNoAuthHeader indicates that no authorization header was found in the request
 var ErrNoAuthHeader = fmt.Errorf("cannot find correct authorization header")
 
@@ -66,7 +76,7 @@ func DoesSignMatch(r *http.Request, cred Keys, ignoredV2CanonicalizedHeaders map
 
 	switch authHeader.Version {
 	case signV2Algorithm:
-		result, err := s3signer.VerifyV2(*r, cred.SecretAccessKey, ignoredV2CanonicalizedHeaders)
+		result, err := s3signer.VerifyV2(r, cred.SecretAccessKey, ignoredV2CanonicalizedHeaders)
 		if err != nil {
 			reqID := r.Context().Value(log.ContextreqIDKey)
 			log.Printf("Error while verifying V2 Signature for request %s: %s", reqID, err)
@@ -75,7 +85,7 @@ func DoesSignMatch(r *http.Request, cred Keys, ignoredV2CanonicalizedHeaders map
 			return ErrSignatureDoesNotMatch
 		}
 	case signV4Algorithm:
-		result, err := s3signer.VerifyV4(*r, cred.SecretAccessKey)
+		result, err := s3signer.VerifyV4(r, cred.SecretAccessKey)
 		if err != nil {
 			reqID := r.Context().Value(log.ContextreqIDKey)
 			log.Printf("Error while verifying V4 Signature for request %s: %s", reqID, err)
@@ -120,8 +130,8 @@ func responseForbidden(req *http.Request) *http.Response {
 }
 
 type authRoundTripper struct {
-	rt   http.RoundTripper
-	keys Keys
+	rt                            http.RoundTripper
+	keys                          Keys
 	ignoredV2CanonicalizedHeaders map[string]bool
 }
 
@@ -141,18 +151,18 @@ func S3Decorator(keys Keys) httphandler.Decorator {
 }
 
 type signRoundTripper struct {
-	rt     http.RoundTripper
-	keys   Keys
-	region string
-	host   string
+	rt                            http.RoundTripper
+	keys                          Keys
+	region                        string
+	host                          string
 	ignoredV2CanonicalizedHeaders map[string]bool
 }
 
 type signAuthServiceRoundTripper struct {
-	rt      http.RoundTripper
-	crd     *crdstore.CredentialsStore
-	backend string
-	host    string
+	rt                            http.RoundTripper
+	crd                           *crdstore.CredentialsStore
+	backend                       string
+	host                          string
 	ignoredV2CanonicalizedHeaders map[string]bool
 }
 
@@ -259,54 +269,44 @@ func SignAuthServiceDecorator(backend, endpoint, host string, ignoredV2Canonical
 			log.Fatalf("error CredentialsStore `%s` is not defined", endpoint)
 		}
 		return signAuthServiceRoundTripper{
-			rt: rt, backend: backend, host: host, crd: credentialsStore,
+			rt:                            rt, backend: backend, host: host, crd: credentialsStore,
 			ignoredV2CanonicalizedHeaders: ignoredV2CanonicalizedHeaders}
 	}
 }
 
 type forceSignRoundTripper struct {
-	rt      http.RoundTripper
-	keys    Keys
-	methods string
-	host    string
+	rt                            http.RoundTripper
+	keys                          Keys
+	methods                       string
+	host                          string
 	ignoredV2CanonicalizedHeaders map[string]bool
 }
 
 // RoundTrip implements http.RoundTripper interface
 func (srt forceSignRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if srt.shouldBeSigned(req) {
-		req.Header = copyHeaders(req.Header)
-		req = s3signer.SignV2(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey, srt.ignoredV2CanonicalizedHeaders)
+		req = s3signer.SignV2(req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey, srt.ignoredV2CanonicalizedHeaders)
 	}
 	return srt.rt.RoundTrip(req)
 }
 
 func sign(req *http.Request, authHeader ParsedAuthorizationHeader, newHost, accessKey, secretKey string) (*http.Request, error) {
-	req.Header = copyHeaders(req.Header)
 	req.Host = newHost
 	req.URL.Host = newHost
 	switch authHeader.Version {
 	case signV2Algorithm:
-		return s3signer.SignV2(*req, accessKey, secretKey, noHeadersIgnored), nil
+		return s3signer.SignV2(req, accessKey, secretKey, noHeadersIgnored), nil
 	case signV4Algorithm:
 		isStreamingRequest, dataLen, err := isStreamingRequest(req)
 		if isStreamingRequest {
 			if err != nil {
 				return nil, err
 			}
-			return s3signer.StreamingSignV4(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, int64(dataLen), time.Now().UTC()), nil
+			return s3signer.StreamingSignV4WithIgnoredHeaders(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, int64(dataLen), time.Now().UTC(), v4IgnoredHeaders), nil
 		}
-		return s3signer.SignV4(*req, accessKey, secretKey, "", authHeader.Region, authHeader.Service), nil
+		return s3signer.SignV4WithIgnoredHeaders(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, v4IgnoredHeaders), nil
 	}
 	return req, nil
-}
-
-func copyHeaders(headers http.Header) http.Header {
-	header := make(http.Header, len(headers))
-	for k, v := range headers {
-		header[k] = v
-	}
-	return header
 }
 
 func (srt forceSignRoundTripper) shouldBeSigned(request *http.Request) bool {
