@@ -117,10 +117,10 @@ func ExtractMultiPartUploadIDFrom(response *http.Response) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if strings.TrimSpace(initiateMultipartUploadResult.UploadId) == "" {
+	if strings.TrimSpace(initiateMultipartUploadResult.UploadID) == "" {
 		return "", errors.New("upload ID was empty")
 	}
-	return initiateMultipartUploadResult.UploadId, nil
+	return initiateMultipartUploadResult.UploadID, nil
 }
 
 //ReplicateRequest makes a copy of the provided request
