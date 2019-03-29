@@ -46,7 +46,6 @@ func TestReplicationClientRequestPassing(t *testing.T) {
 	require.Equal(t, len(backends), responsesCount, "Not all responses passed")
 }
 
-//TODO
 func TestWatchdogIntegration(t *testing.T) {
 	var watchdogRequestScenarios = []struct {
 		numOfBackends      int
