@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	config2 "github.com/allegro/akubra/watchdog/config"
+	watchdogConfig "github.com/allegro/akubra/watchdog/config"
 	"net"
 	"net/http"
 	"os"
@@ -220,7 +220,7 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 	return handler, nil
 }
 
-func setupWatchdog(watchdogConfig config2.WatchdogConfig) watchdog.ConsistencyWatchdog {
+func setupWatchdog(watchdogConfig watchdogConfig.WatchdogConfig) watchdog.ConsistencyWatchdog {
 	if watchdogConfig.Type == "" {
 		return nil
 	}

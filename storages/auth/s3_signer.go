@@ -207,7 +207,6 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 		}
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
-
 	csd, err := srt.crd.Get(authHeader.AccessKey, "akubra")
 	if err == crdstore.ErrCredentialsNotFound {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
