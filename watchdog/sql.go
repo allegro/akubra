@@ -20,7 +20,6 @@ const (
 		"SET execution_delay = ?" +
 		"WHERE request_id = ?"
 )
-
 // SQLWatchdogFactory creates instances of SQLWatchdog
 type SQLWatchdogFactory struct {
 	dbClientFactory database.DBClientFactory
@@ -28,8 +27,8 @@ type SQLWatchdogFactory struct {
 
 // SQLWatchdog is a type of ConsistencyWatchdog that uses a SQL database
 type SQLWatchdog struct {
-	dbConn                  *gorm.DB
-	versionHeaderName 		string
+	dbConn            *gorm.DB
+	versionHeaderName string
 }
 
 // ErrDataBase indicates a database errors
@@ -45,6 +44,7 @@ type SQLConsistencyRecord struct {
 	AccessKey      string    `gorm:"column:access_key"`
 	ExecutionDelay string    `gorm:"column:execution_delay"`
 	RequestID      string    `gorm:"column:request_id"`
+	Error          string    `gorm:"column:error"`
 }
 
 //TableName provides the table name for consistency_record
@@ -101,10 +101,9 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 
 	insertedRecord, _ := insertResult.Value.(*SQLConsistencyRecord)
 	log.Debugf("Successfully inserted consistency record for object '%s'", record.ObjectID)
-	record.ObjectVersion = insertedRecord.InsertedAt.String()
+	record.ObjectVersion = insertedRecord.InsertedAt.Format(VersionDateLayout)
 	return createDeleteMarkerFor(insertedRecord), nil
 }
-
 
 //InsertWithRequestID inserts a record with custom ID
 func (watchdog *SQLWatchdog) InsertWithRequestID(requestID string, record *ConsistencyRecord) (*DeleteMarker, error) {
@@ -121,7 +120,6 @@ func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 		Table(watchdogTable).
 		Where(markersInsertedEalier, marker.domain, marker.objectID, marker.insertionDate).
 		Delete(&ConsistencyRecord{})
-
 
 	if deleteResult.Error != nil {
 		metrics.UpdateSince("watchdog.delete.err", queryStartTime)

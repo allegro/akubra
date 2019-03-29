@@ -3,12 +3,12 @@ package storages
 import (
 	"context"
 	"fmt"
+	"github.com/allegro/akubra/utils"
 	"net/http"
 	"sync"
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/backend"
-	"github.com/allegro/akubra/types"
 	"github.com/allegro/akubra/watchdog"
 )
 
@@ -40,18 +40,30 @@ func (rc *ReplicationClient) Do(request *Request) <-chan BackendResponse {
 	ctx, cancelFunc := context.WithCancel(newContextWithValue)
 	rc.cancelFunc = cancelFunc
 
+	bodyBytes, err := utils.ReadRequestBody(request.Request)
+	if err != nil {
+		responsesChan <- BackendResponse{Request: request.Request, Response: nil, Error: err}
+		close(responsesChan)
+		return responsesChan
+	}
+
 	for _, backend := range rc.Backends {
 		wg.Add(1)
 		go func(backend *StorageClient) {
-			requestWithContext := request.WithContext(ctx)
-			if resetter, ok := request.Body.(types.Resetter); ok {
-				requestWithContext.Body = resetter.Reset()
+			defer wg.Done()
+
+			replicatedRequest, err := utils.ReplicateRequest(ctx, request.Request, bodyBytes)
+			if err != nil {
+				responsesChan <- BackendResponse{Request: request.Request,
+					Response: nil,
+					Error:    fmt.Errorf("failed to replicate request: %s", err),
+					Backend:  backend}
+				return
 			}
-			isBRespSuccessful := callBackend(requestWithContext, backend, responsesChan)
+			isBRespSuccessful := callBackend(replicatedRequest, backend, responsesChan)
 			if request.logRecord != nil {
 				request.logRecord.AddBackendResult(isBRespSuccessful)
 			}
-			wg.Done()
 		}(backend)
 	}
 
