@@ -166,7 +166,7 @@ func ReadRequestBody(request *http.Request) ([]byte, error) {
 	return bodyBytes, nil
 }
 
-func PutResponseHeaderToContext(resp *http.Response, headerName string, context context.Context, contextValueName string) {
+func PutResponseHeaderToContext(resp *http.Response, headerName string, context context.Context, contextValueName log.ContextKey) {
 	ctxValue := context.Value(contextValueName).(*string)
 	if ctxValue == nil {
 		return

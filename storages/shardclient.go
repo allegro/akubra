@@ -66,7 +66,7 @@ func (shardClient *ShardClient) balancerRoundTrip(req *http.Request) (resp *http
 			continue
 		}
 		if err == nil && len(notFoundNodes) > 0 {
-			utils.PutResponseHeaderToContext(resp, shardClient.watchdogVersionHeaderName, req.Context(), string(watchdog.ReadRepairObjectVersion))
+			utils.PutResponseHeaderToContext(resp, shardClient.watchdogVersionHeaderName, req.Context(), watchdog.ReadRepairObjectVersion)
 		}
 		return resp, err
 	}
