@@ -111,7 +111,7 @@ type dispatcherRequestScenario struct {
 }
 
 func TestAddingConsistencyRecords(t *testing.T) {
-	var requestScenarios = [] dispatcherRequestScenario{
+	var requestScenarios = []dispatcherRequestScenario{
 		{"PUT", "http://random.domain/bucket/object", []*backend.Backend{}, config.None, false, false, "", nil},
 		{"GET", "http://random.domain/bucket/object", []*backend.Backend{{}}, config.None, false, false, "", nil},
 		{"GET", "http://random.domain/bucket", []*backend.Backend{{}}, config.None, false, false, "", nil},
@@ -161,7 +161,6 @@ func prepareTestScenario(t *testing.T,
 	storageRequest := &Request{Request: reqWithContext}
 	storageRequest.isInitiateMultipartUploadRequest = isMultiPart
 
-
 	if requestScenario.consistencyLevel != config.None {
 
 		record := &watchdog.ConsistencyRecord{}
@@ -189,9 +188,6 @@ func prepareTestScenario(t *testing.T,
 			}
 		}
 	}
-
-
-
 
 	if !requestScenario.shouldInsertFail || (requestScenario.shouldInsertFail && requestScenario.consistencyLevel != config.Strong) {
 		clientMock.On("Do", storageRequest).Return(respChan)
@@ -337,7 +333,7 @@ func (wm *WatchdogMock) UpdateExecutionDelay(delta *watchdog.ExecutionDelay) err
 	return args.Error(0)
 }
 
-func (wm *WatchdogMock) SupplyRecordWithVersion(record *watchdog.ConsistencyRecord) (error) {
+func (wm *WatchdogMock) SupplyRecordWithVersion(record *watchdog.ConsistencyRecord) error {
 	args := wm.Called(record)
 	return args.Error(0)
 }
@@ -361,5 +357,5 @@ func (fm *ConsistencyRecordFactoryMock) CreateRecordFor(request *http.Request) (
 const initiateMultiPartResp = "<InitiateMultipartUploadResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
 	"<Bucket>example-bucket</Bucket>" +
 	"<Key>example-object</Key>" +
-	"<UploadID>123</UploadID>" +
+	"<UploadId>123</UploadId>" +
 	"</InitiateMultipartUploadResult>"

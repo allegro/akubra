@@ -2,6 +2,7 @@ package storages
 
 import (
 	"context"
+	"github.com/allegro/akubra/watchdog/config"
 	"net/http"
 	"testing"
 
@@ -27,7 +28,7 @@ func TestClusterTestSuite(t *testing.T) {
 func (suite *ClusterTestSuite) SetupTest() {
 	clusterName := "testCluster"
 	shardFactory := &shardFactory{
-		watchdogConfig: &watchdog.Config{},
+		watchdogConfig: &config.WatchdogConfig{},
 	}
 	cluster, err := shardFactory.newShard(
 		clusterName,

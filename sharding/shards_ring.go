@@ -3,6 +3,8 @@ package sharding
 import (
 	"bytes"
 	"fmt"
+	"github.com/allegro/akubra/utils"
+	"github.com/allegro/akubra/watchdog"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -13,7 +15,6 @@ import (
 	"github.com/allegro/akubra/metrics"
 	"github.com/allegro/akubra/regions/config"
 	"github.com/allegro/akubra/storages"
-	"github.com/allegro/akubra/types"
 	"github.com/serialx/hashring"
 )
 
@@ -36,11 +37,12 @@ type ShardsRingAPI interface {
 // ShardsRing implements http.RoundTripper interface,
 // and directs requests to determined shard
 type ShardsRing struct {
-	ring                    *hashring.HashRing
-	shardClusterMap         map[string]storages.NamedShardClient
-	allClustersRoundTripper http.RoundTripper
-	clusterRegressionMap    map[string]storages.NamedShardClient
-	ringProps               *RingProps
+	ring                      *hashring.HashRing
+	shardClusterMap           map[string]storages.NamedShardClient
+	allClustersRoundTripper   http.RoundTripper
+	clusterRegressionMap      map[string]storages.NamedShardClient
+	ringProps                 *RingProps
+	watchdogVersionHeaderName string
 }
 
 func (sr ShardsRing) isBucketPath(path string) bool {
@@ -86,11 +88,11 @@ func (rb *reqBody) Close() error {
 
 func (sr ShardsRing) send(roundTripper http.RoundTripper, req *http.Request) (*http.Response, error) {
 	// Rewind request body
-	bodyResetter, ok := req.Body.(types.Resetter)
-
-	if ok {
-		req.Body = bodyResetter.Reset()
+	newBody, err := req.GetBody()
+	if err != nil {
+		return nil, err
 	}
+	req.Body = newBody
 	return roundTripper.RoundTrip(req)
 }
 
@@ -161,7 +163,10 @@ func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr err
 		return nil, err
 	}
 
-	_, resp, err = sr.regressionCall(cl, cl.Name(), req)
+	successClusterName, resp, err := sr.regressionCall(cl, cl.Name(), req)
+	if err == nil && req.Method == http.MethodGet && successClusterName != cl.Name() {
+		utils.PutResponseHeaderToContext(resp, sr.watchdogVersionHeaderName, req.Context(), string(watchdog.ReadRepairObjectVersion))
+	}
 
 	return resp, err
 }

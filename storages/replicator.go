@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/allegro/akubra/utils"
+	"github.com/allegro/akubra/watchdog"
 	"net/http"
 	"sync"
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/storages/backend"
-	"github.com/allegro/akubra/watchdog"
 )
 
 // ErrRequestCanceled is returned if request was canceled
@@ -19,16 +19,15 @@ var ErrRequestCanceled = fmt.Errorf("Request canceled")
 type ReplicationClient struct {
 	Backends   []*backend.Backend
 	cancelFunc context.CancelFunc
-	watchdog   watchdog.ConsistencyWatchdog
 }
 
 // newReplicationClient returns ReplicationClient
-func newReplicationClient(backends []*backend.Backend, watchdog watchdog.ConsistencyWatchdog) client {
-	return &ReplicationClient{Backends: backends, watchdog: watchdog}
+func newReplicationClient(backends []*backend.Backend) client {
+	return &ReplicationClient{Backends: backends}
 }
 
 // Do send request to all given backends
-func (rc *ReplicationClient) Do(request *Request) <-chan BackendResponse {
+func (rc *ReplicationClient) Do(request *http.Request) <-chan BackendResponse {
 	reqIDValue, ok := request.Context().Value(log.ContextreqIDKey).(string)
 	if !ok {
 		reqIDValue = ""
@@ -36,52 +35,38 @@ func (rc *ReplicationClient) Do(request *Request) <-chan BackendResponse {
 	responsesChan := make(chan BackendResponse)
 	wg := sync.WaitGroup{}
 	newContext := context.Background()
-	newContextWithValue := context.WithValue(newContext, log.ContextreqIDKey, reqIDValue)
-	ctx, cancelFunc := context.WithCancel(newContextWithValue)
+
+	replicationContext := context.WithValue(newContext, log.ContextreqIDKey, reqIDValue)
+	replicationContext, cancelFunc := context.WithCancel(replicationContext)
 	rc.cancelFunc = cancelFunc
 
-	bodyBytes, err := utils.ReadRequestBody(request.Request)
-	if err != nil {
-		responsesChan <- BackendResponse{Request: request.Request, Response: nil, Error: err}
-		close(responsesChan)
-		return responsesChan
-	}
-
+	allBackendsSucces := true
+	mx := sync.Mutex{}
 	for _, backend := range rc.Backends {
 		wg.Add(1)
 		go func(backend *StorageClient) {
 			defer wg.Done()
-
-			replicatedRequest, err := utils.ReplicateRequest(ctx, request.Request, bodyBytes)
+			replicatedRequest, err := utils.ReplicateRequest(request.WithContext(replicationContext))
 			if err != nil {
-				responsesChan <- BackendResponse{Request: request.Request,
+				responsesChan <- BackendResponse{Request: request,
 					Response: nil,
 					Error:    fmt.Errorf("failed to replicate request: %s", err),
 					Backend:  backend}
 				return
 			}
-			isBRespSuccessful := callBackend(replicatedRequest, backend, responsesChan)
-			if request.logRecord != nil {
-				request.logRecord.AddBackendResult(isBRespSuccessful)
-			}
+			bRespSuccessfull := callBackend(replicatedRequest, backend, responsesChan)
+			mx.Lock()
+			defer mx.Unlock()
+			allBackendsSucces = allBackendsSucces && bRespSuccessfull
 		}(backend)
 	}
 
 	go func() {
+		ctx := request.Context()
 		wg.Wait()
-		defer close(responsesChan)
-		if request.logRecord == nil {
-			return
-		}
-		if request.logRecord.IsReflectedOnAllStorages() {
-			log.Debugf("Request '%s' reflected on all storages", reqIDValue)
-			err := rc.watchdog.Delete(request.marker)
-			if err != nil {
-				log.Printf("Failed to delete records for request %s: %s", reqIDValue, err.Error())
-			}
-		}
-		log.Debugf("Request '%s' not reflected on all storages", reqIDValue)
-
+		close(responsesChan)
+		abs := ctx.Value(watchdog.NoErrorsDuringRequest).(*bool)
+		*abs = *abs && allBackendsSucces
 	}()
 	return responsesChan
 }

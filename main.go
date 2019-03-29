@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	config2 "github.com/allegro/akubra/watchdog/config"
 	"net"
 	"net/http"
 	"os"
@@ -35,14 +36,14 @@ var (
 
 	// CLI flags
 	configFile = kingpin.
-		Flag("config", "Configuration file path e.g.: \"conf/dev.yaml\"").
-		Short('c').
-		Required().
-		ExistingFile()
+			Flag("config", "Configuration file path e.g.: \"conf/dev.yaml\"").
+			Short('c').
+			Required().
+			ExistingFile()
 	testConfig = kingpin.
-		Flag("test-config", "Testing only configuration file from 'config' arg. (app. not starting).").
-		Short('t').
-		Bool()
+			Flag("test-config", "Testing only configuration file from 'config' arg. (app. not starting).").
+			Short('t').
+			Bool()
 )
 
 const (
@@ -188,19 +189,18 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 	watchdogRecordFactory := &watchdog.DefaultConsistencyRecordFactory{}
 	consistencyWatchdog := setupWatchdog(s.config.Watchdog)
 
-	if consistencyWatchdog == nil {
-		log.Printf("Not using consistency watchdog")
-	}
-
 	storagesFactory := storages.NewStoragesFactory(transportMatcher, &s.config.Watchdog, consistencyWatchdog, watchdogRecordFactory)
-	storage, err := storagesFactory.InitStorages(s.config.Shards, s.config.Storages)
+	storage, err := storagesFactory.InitStorages(s.config.Shards, s.config.Storages, map[string]bool{
+		s.config.Watchdog.ObjectVersionHeaderName: true,
+	})
 
 	if err != nil {
 		log.Fatalf("Storages initialization problem: %q", err)
 		return nil, err
 	}
 
-	regionsRT, err := regions.NewRegions(s.config.ShardingPolicies, storage)
+	regionsRT, err := regions.NewRegions(s.config, storage,
+		consistencyWatchdog, watchdogRecordFactory, conf.Watchdog.ObjectVersionHeaderName)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +220,7 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 	return handler, nil
 }
 
-func setupWatchdog(watchdogConfig watchdog.Config) (watchdog.ConsistencyWatchdog) {
+func setupWatchdog(watchdogConfig config2.WatchdogConfig) watchdog.ConsistencyWatchdog {
 	if watchdogConfig.Type == "" {
 		return nil
 	}

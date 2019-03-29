@@ -167,9 +167,6 @@ type signAuthServiceRoundTripper struct {
 
 // RoundTrip implements http.RoundTripper interface
 func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if httphandler.IsHealthCheck(req) {
-		return srt.rt.RoundTrip(req)
-	}
 	authHeader, err := ParseAuthorizationHeader(req.Header.Get("Authorization"))
 	if err != nil {
 		if err == ErrNoAuthHeader {
@@ -203,9 +200,6 @@ func ParseAuthorizationHeader(authorizationHeader string) (authHeader ParsedAuth
 
 // RoundTrip implements http.RoundTripper interface
 func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if httphandler.IsHealthCheck(req) {
-		return srt.rt.RoundTrip(req)
-	}
 	authHeader, err := ParseAuthorizationHeader(req.Header.Get("Authorization"))
 	if err != nil {
 		if err == ErrNoAuthHeader {

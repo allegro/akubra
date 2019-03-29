@@ -3,6 +3,7 @@ package watchdog
 import (
 	"errors"
 	"fmt"
+	"github.com/allegro/akubra/watchdog/config"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ const (
 		"SET execution_delay = ?" +
 		"WHERE request_id = ?"
 )
+
 // SQLWatchdogFactory creates instances of SQLWatchdog
 type SQLWatchdogFactory struct {
 	dbClientFactory database.DBClientFactory
@@ -58,7 +60,7 @@ func CreateSQLWatchdogFactory(dbClientFactory *database.GORMDBClientFactory) Con
 }
 
 // CreateSQL creates ConsistencyWatchdog and ConsistencyRecordFactory that make use of a SQL database
-func CreateSQL(dialect, connStringFormat string, params []string, watchdogConfig *Config) (ConsistencyWatchdog, error) {
+func CreateSQL(dialect, connStringFormat string, params []string, watchdogConfig *config.WatchdogConfig) (ConsistencyWatchdog, error) {
 	sqlWatchdogFactory := CreateSQLWatchdogFactory(database.NewDBClientFactory(dialect, connStringFormat, params))
 	watchdog, err := sqlWatchdogFactory.CreateWatchdogInstance(watchdogConfig)
 	if err != nil {
@@ -68,12 +70,12 @@ func CreateSQL(dialect, connStringFormat string, params []string, watchdogConfig
 }
 
 // CreateWatchdogInstance creates instances of SQLWatchdog
-func (factory *SQLWatchdogFactory) CreateWatchdogInstance(config *Config) (ConsistencyWatchdog, error) {
+func (factory *SQLWatchdogFactory) CreateWatchdogInstance(config *config.WatchdogConfig) (ConsistencyWatchdog, error) {
 	if strings.ToLower(config.Type) != "sql" {
 		return nil, fmt.Errorf("SQLWatchdogFactory can't instantiate watchdog of type '%s'", config.Type)
 	}
 
-	db, err := factory.dbClientFactory.CreateConnection(config.Props, )
+	db, err := factory.dbClientFactory.CreateConnection(config.Props)
 	if err != nil {
 		return nil, err
 	}
