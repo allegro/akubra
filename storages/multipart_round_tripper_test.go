@@ -2,16 +2,13 @@ package storages
 
 import (
 	"bytes"
-	"context"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"testing"
 
-	"github.com/allegro/akubra/watchdog"
 	"github.com/serialx/hashring"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
 func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenBackendRingIsEmpty(testSuite *testing.T) {
@@ -25,10 +22,9 @@ func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenBackendRingIsEmpty(t
 		activeBackendRoundTrippers,
 		emptyMultiPartUploadHashRing,
 		nil,
-		nil,
 	}
 
-	respChan := multiPartRoundTripper.Do(&Request{Request: multiPartUploadRequest})
+	respChan := multiPartRoundTripper.Do(multiPartUploadRequest)
 	for resp := range respChan {
 		assert.Error(testSuite, resp.Error, "can't handle multi upload")
 	}
@@ -46,10 +42,9 @@ func TestShouldNotBeAbleToServeTheMultiPartUploadRequestWhenAllBackendsAreInMain
 		make(map[string]*StorageClient),
 		hashRingOnlyWithMaitenanceBackend,
 		nil,
-		nil,
 	}
 
-	respChan := multiPartRoundTripper.Do(&Request{Request: multiPartUploadRequest})
+	respChan := multiPartRoundTripper.Do(multiPartUploadRequest)
 	for resp := range respChan {
 		assert.Error(testSuite, resp.Error, "can't handle multi upload")
 	}
@@ -96,18 +91,17 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 		activeBackendRoundTrippers,
 		multiPartUploadHashRing,
 		[]string{activeBackendURL.String(), activeBackendURL2.String()},
-		nil,
 	}
 
 	activeBackendRoundTripper1.On("RoundTrip", initiateMultiPartUploadRequest).Return(responseForInitiate, nil)
 	activeBackendRoundTripper1.On("RoundTrip", uploadPartRequest).Return(responseForPartUpload, nil)
 
-	rChan1 := multiPartRoundTripper.Do(&Request{Request: initiateMultiPartUploadRequest})
+	rChan1 := multiPartRoundTripper.Do(initiateMultiPartUploadRequest)
 	for bresp := range rChan1 {
 		assert.Equal(testSuite, bresp.Response, responseForInitiate)
 		assert.NoError(testSuite, bresp.Error)
 	}
-	rChan2 := multiPartRoundTripper.Do(&Request{Request: uploadPartRequest})
+	rChan2 := multiPartRoundTripper.Do(uploadPartRequest)
 	for bresp := range rChan2 {
 		assert.Equal(testSuite, bresp.Response, responseForPartUpload)
 		assert.NoError(testSuite, bresp.Error)
@@ -118,28 +112,25 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 }
 
 func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorButFailOnParsingTheResponse(testSuite *testing.T) {
-	testMultipartFlow(200, "<InvalidResponse></InvalidResponse>", nil, nil, nil, nil, testSuite)
+	testMultipartFlow(200, "<InvalidResponse></InvalidResponse>", testSuite)
 }
 
 func TestShouldDetectMultiPartCompletionAndTryToNotifyTheMigratorWhenStatusCodeIsWrong(testSuite *testing.T) {
-	testMultipartFlow(500, "<Error>Nope</Error>", nil, nil, nil, nil, testSuite)
+	testMultipartFlow(500, "<Error>Nope</Error>", testSuite)
 }
 
 func TestShouldUpdateExecutionDelayOfTheConsistencyRecordIfMultiPartWasSuccessful(t *testing.T) {
-	testMultipartFlow(200, successfulMultipartResponse, &watchdog.ConsistencyRecord{}, &watchdog.ExecutionDelay{RequestID: "321", Delay: 300000000000}, &watchdog.DeleteMarker{}, &WatchdogMock{&mock.Mock{}}, t)
+	testMultipartFlow(200, successfulMultipartResponse, t)
 }
 
 func TestShouldNotUpdateExecutionTimeIfWatchdogIsNotDefined(t *testing.T) {
-	testMultipartFlow(200, successfulMultipartResponse, nil, nil, nil, nil, t)
+	testMultipartFlow(200, successfulMultipartResponse, t)
 }
 
-func testMultipartFlow(statusCode int, xmlResponse string,
-	record *watchdog.ConsistencyRecord, delta *watchdog.ExecutionDelay, marker *watchdog.DeleteMarker,
-	watchdogMock *WatchdogMock, testSuite *testing.T) {
+func testMultipartFlow(statusCode int, xmlResponse string, testSuite *testing.T) {
 
 	completeUploadRequestURL, _ := url.Parse("http://localhost:3212/someBucket/someObject?uploadId=321")
 	completeUploadRequest := &http.Request{URL: completeUploadRequestURL}
-	completeUploadRequest = completeUploadRequest.WithContext(context.WithValue(completeUploadRequest.Context(), watchdog.Domain, "321"))
 
 	responseForComplete := &http.Response{Request: completeUploadRequest}
 	XMLResponse := xmlResponse
@@ -177,26 +168,16 @@ func testMultipartFlow(statusCode int, xmlResponse string,
 		activeBackendRoundTrippers,
 		multiPartUploadHashRing,
 		[]string{activeBackendURL.String(), activeBackendURL2.String()},
-		nil,
-	}
-
-	if watchdogMock != nil && delta != nil {
-		multiPartRoundTripper.watchdog = watchdogMock
-		watchdogMock.On("UpdateExecutionDelay", delta).Return(nil)
 	}
 
 	activeBackendRoundTripper1.On("RoundTrip", completeUploadRequest).Return(responseForComplete, nil)
 
-	rChan := multiPartRoundTripper.Do(&Request{Request: completeUploadRequest, logRecord: record, marker: marker})
+	rChan := multiPartRoundTripper.Do(completeUploadRequest)
 	for bresp := range rChan {
 		if bresp.Response == nil {
 			continue
 		}
 		assert.Equal(testSuite, bresp.Response, responseForComplete)
-	}
-
-	if watchdogMock != nil {
-		watchdogMock.AssertCalled(testSuite, "UpdateExecutionDelay", delta)
 	}
 
 	activeBackendRoundTripper1.AssertNumberOfCalls(testSuite, "RoundTrip", 1)

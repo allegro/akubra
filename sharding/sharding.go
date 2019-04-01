@@ -2,22 +2,24 @@ package sharding
 
 import (
 	"fmt"
+	"github.com/allegro/akubra/config"
 	"math"
 
 	"github.com/allegro/akubra/log"
-	"github.com/allegro/akubra/regions/config"
+	regionsConfig "github.com/allegro/akubra/regions/config"
 	"github.com/allegro/akubra/storages"
 	"github.com/serialx/hashring"
 )
 
 // RingFactory produces clients ShardsRing
 type RingFactory struct {
-	conf     config.ShardingPolicies
-	storages storages.ClusterStorage
-	syncLog  log.Logger
+	conf      config.Config
+	regConfig regionsConfig.ShardingPolicies
+	storages  storages.ClusterStorage
+	syncLog   log.Logger
 }
 
-func (rf RingFactory) createRegressionMap(config config.Policies) (map[string]storages.NamedShardClient, error) {
+func (rf RingFactory) createRegressionMap(config regionsConfig.Policies) (map[string]storages.NamedShardClient, error) {
 	regressionMap := make(map[string]storages.NamedShardClient)
 	lastClusterName := config.Shards[len(config.Shards)-1].ShardName
 	previousCluster, err := rf.storages.GetShard(lastClusterName)
@@ -35,7 +37,7 @@ func (rf RingFactory) createRegressionMap(config config.Policies) (map[string]st
 	return regressionMap, nil
 }
 
-func (rf RingFactory) getRegionClustersWeights(regionCfg config.Policies) map[string]int {
+func (rf RingFactory) getRegionClustersWeights(regionCfg regionsConfig.Policies) map[string]int {
 	res := make(map[string]int)
 	for _, clusterConfig := range regionCfg.Shards {
 		res[clusterConfig.ShardName] = int(math.Floor(clusterConfig.Weight * 100))
@@ -56,7 +58,7 @@ func (rf RingFactory) makeRegionClusterMap(clientClusters map[string]int) (map[s
 }
 
 // RegionRing returns ShardsRing for region
-func (rf RingFactory) RegionRing(name string, regionCfg config.Policies) (ShardsRing, error) {
+func (rf RingFactory) RegionRing(name string, conf config.Config, regionCfg regionsConfig.Policies) (ShardsRingAPI, error) {
 	clustersWeights := rf.getRegionClustersWeights(regionCfg)
 
 	shardClusterMap, err := rf.makeRegionClusterMap(clustersWeights)
@@ -78,20 +80,22 @@ func (rf RingFactory) RegionRing(name string, regionCfg config.Policies) (Shards
 	}
 
 	return ShardsRing{
-		ring:                    cHashMap,
-		shardClusterMap:         shardClusterMap,
-		allClustersRoundTripper: allBackendsRoundTripper,
-		clusterRegressionMap:    regressionMap,
-	ringProps: &RingProps{
-		ConsistencyLevel: regionCfg.ConsistencyLevel,
-		ReadRepair: regionCfg.ReadRepair,
-	}}, nil
+		ring:                      cHashMap,
+		shardClusterMap:           shardClusterMap,
+		allClustersRoundTripper:   allBackendsRoundTripper,
+		watchdogVersionHeaderName: conf.Watchdog.ObjectVersionHeaderName,
+		clusterRegressionMap:      regressionMap,
+		ringProps: &RingProps{
+			ConsistencyLevel: regionCfg.ConsistencyLevel,
+			ReadRepair:       regionCfg.ReadRepair,
+		}}, nil
 }
 
 // NewRingFactory creates ring factory
-func NewRingFactory(conf config.ShardingPolicies, storages storages.ClusterStorage) RingFactory {
+func NewRingFactory(conf config.Config, rconf regionsConfig.ShardingPolicies, storages storages.ClusterStorage) RingFactory {
 	return RingFactory{
-		conf:     conf,
-		storages: storages,
+		conf:      conf,
+		regConfig: rconf,
+		storages:  storages,
 	}
 }

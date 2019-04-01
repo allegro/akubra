@@ -3,10 +3,10 @@ package storages
 import (
 	"bytes"
 	"encoding/xml"
+	"github.com/allegro/akubra/watchdog"
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"time"
 
 	"errors"
 
@@ -14,7 +14,6 @@ import (
 	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/types"
 	"github.com/allegro/akubra/utils"
-	"github.com/allegro/akubra/watchdog"
 	"github.com/serialx/hashring"
 )
 
@@ -25,14 +24,13 @@ type MultiPartRoundTripper struct {
 	backendsRoundTrippers map[string]*backend.Backend
 	backendsRing          *hashring.HashRing
 	backendsEndpoints     []string
-	watchdog              watchdog.ConsistencyWatchdog
 }
 
 // Cancel Client interface
 func (multiPartRoundTripper MultiPartRoundTripper) Cancel() error { return nil }
 
 // newMultiPartRoundTripper initializes multipart client
-func newMultiPartRoundTripper(backends []*StorageClient, watchdog watchdog.ConsistencyWatchdog) client {
+func newMultiPartRoundTripper(backends []*StorageClient) client {
 	multiPartRoundTripper := &MultiPartRoundTripper{}
 	var backendsEndpoints []string
 	var activeBackendsEndpoints []string
@@ -47,8 +45,6 @@ func newMultiPartRoundTripper(backends []*StorageClient, watchdog watchdog.Consi
 
 		backendsEndpoints = append(backendsEndpoints, backend.Endpoint.Host)
 	}
-
-	multiPartRoundTripper.watchdog = watchdog
 	multiPartRoundTripper.backendsEndpoints = backendsEndpoints
 	multiPartRoundTripper.backendsRing = hashring.New(activeBackendsEndpoints)
 	return multiPartRoundTripper
@@ -63,12 +59,12 @@ var ErrReplicationIndicator = errors.New("replication required")
 var ErrImpossibleMultipart = errors.New("can't handle multi upload")
 
 // Do performs backend request
-func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *Request) <-chan BackendResponse {
+func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *http.Request) <-chan BackendResponse {
 	backendResponseChannel := make(chan BackendResponse)
 	if !multiPartRoundTripper.canHandleMultiUpload() {
 		log.Debugf("Multi upload for %s failed - no backends available.", request.URL.Path)
 		go func() {
-			backendResponseChannel <- BackendResponse{Request: request.Request, Response: nil, Error: ErrImpossibleMultipart}
+			backendResponseChannel <- BackendResponse{Request: request, Response: nil, Error: ErrImpossibleMultipart}
 			close(backendResponseChannel)
 		}()
 		return backendResponseChannel
@@ -79,7 +75,7 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *Request) <-chan 
 	if backendSelectError != nil {
 		log.Debugf("Multi upload failed for %s - %s", backendSelectError, request.URL.Path)
 		go func() {
-			backendResponseChannel <- BackendResponse{Request: request.Request, Response: nil, Error: ErrReplicationIndicator}
+			backendResponseChannel <- BackendResponse{Request: request, Response: nil, Error: ErrReplicationIndicator}
 			close(backendResponseChannel)
 		}()
 		return backendResponseChannel
@@ -90,13 +86,13 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *Request) <-chan 
 		multiUploadBackend.Endpoint,
 		request.Context().Value(log.ContextreqIDKey))
 
-	httpResponse, requestError := multiUploadBackend.RoundTrip(request.Request)
+	httpResponse, requestError := multiUploadBackend.RoundTrip(request)
 
 	if requestError != nil {
 		log.Debugf("Error during multipart upload: %s", requestError)
 		go func() {
 			backendResponseChannel <- BackendResponse{
-				Request:  request.Request,
+				Request:  request,
 				Response: httpResponse,
 				Error:    requestError,
 				Backend:  multiUploadBackend,
@@ -104,17 +100,14 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *Request) <-chan 
 		}()
 	}
 	go func() {
-		if !utils.IsInitiateMultiPartUploadRequest(request.Request) && isCompleteUploadResponseSuccessful(httpResponse) {
-			if multiPartRoundTripper.watchdog != nil {
-				multiPartRoundTripper.updateExecutionDelay(request)
-			}
+		if !utils.IsInitiateMultiPartUploadRequest(request) && isCompleteUploadResponseSuccessful(httpResponse) {
 			for _, backend := range multiPartRoundTripper.backendsRoundTrippers {
 				if backend != multiUploadBackend {
-					backendResponseChannel <- BackendResponse{Request: request.Request, Response: nil, Error: errPushToSyncLog, Backend: backend}
+					backendResponseChannel <- BackendResponse{Request: request, Response: nil, Error: errPushToSyncLog, Backend: backend}
 				}
 			}
 		}
-		backendResponseChannel <- BackendResponse{Request: request.Request, Response: httpResponse, Error: requestError, Backend: multiUploadBackend}
+		backendResponseChannel <- BackendResponse{Request: request, Response: httpResponse, Error: requestError, Backend: multiUploadBackend}
 		close(backendResponseChannel)
 	}()
 
@@ -137,23 +130,6 @@ func (multiPartRoundTripper *MultiPartRoundTripper) pickBackend(objectPath strin
 
 func (multiPartRoundTripper *MultiPartRoundTripper) canHandleMultiUpload() bool {
 	return len(multiPartRoundTripper.backendsRoundTrippers) > 0
-}
-func (multiPartRoundTripper *MultiPartRoundTripper) updateExecutionDelay(request *Request) {
-	reqQuery := request.URL.Query()
-	uploadID, _ := reqQuery["uploadId"]
-
-	delta := &watchdog.ExecutionDelay{
-		RequestID: uploadID[0],
-		Delay:     time.Minute * 5,
-	}
-
-	err := multiPartRoundTripper.watchdog.UpdateExecutionDelay(delta)
-	if err != nil {
-		log.Printf("Failed to update multipart's execution time, reqId = %s, error: %s",
-			request.Context().Value(log.ContextreqIDKey), err)
-		return
-	}
-	log.Debugf("Updated execution time for req '%s'", request.Context().Value(log.ContextreqIDKey))
 }
 
 func isCompleteUploadResponseSuccessful(response *http.Response) bool {
@@ -193,6 +169,10 @@ func responseContainsCompleteUploadString(response *http.Response) bool {
 	}
 
 	log.Debugf("Successfully performed multipart upload to %s", completeMultipartUploadResult.Location)
+	multipartUploadID, ok := response.Request.Context().Value(watchdog.MultiPartUpload).(*bool)
+	if ok && multipartUploadID != nil {
+		*multipartUploadID = true
 
+	}
 	return true
 }

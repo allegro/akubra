@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/allegro/akubra/watchdog/config"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -8,10 +9,8 @@ import (
 
 	"fmt"
 
-	httphandler "github.com/allegro/akubra/httphandler/config"
-	"github.com/allegro/akubra/watchdog"
-
 	crdstoreconfig "github.com/allegro/akubra/crdstore/config"
+	httphandler "github.com/allegro/akubra/httphandler/config"
 	"github.com/allegro/akubra/log"
 	logconfig "github.com/allegro/akubra/log/config"
 	"github.com/allegro/akubra/metrics"
@@ -29,15 +28,14 @@ const TechnicalEndpointHeaderContentType = "application/yaml"
 
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
-	Service          httphandler.Service                `yaml:"Service"`
-	Storages         storages.StoragesMap               `yaml:"Storages"`
-	Shards           storages.ShardsMap                 `yaml:"Shards"`
-	ShardingPolicies confregions.ShardingPolicies       `yaml:"ShardingPolicies"`
-	CredentialsStore crdstoreconfig.CredentialsStoreMap `yaml:"CredentialsStore"`
-	Logging          logconfig.LoggingConfig            `yaml:"Logging"`
-	Metrics          metrics.Config                     `yaml:"Metrics"`
-	Watchdog         watchdog.Config                    `yaml:"Watchdog"`
-
+	Service           httphandler.Service                `yaml:"Service"`
+	Storages          storages.StoragesMap               `yaml:"Storages"`
+	Shards            storages.ShardsMap                 `yaml:"Shards"`
+	ShardingPolicies  confregions.ShardingPolicies       `yaml:"ShardingPolicies"`
+	CredentialsStores crdstoreconfig.CredentialsStoreMap `yaml:"CredentialsStores"`
+	Logging           logconfig.LoggingConfig            `yaml:"Logging"`
+	Metrics           metrics.Config                     `yaml:"Metrics"`
+	Watchdog          config.WatchdogConfig              `yaml:"Watchdog"`
 }
 
 // Config contains processed YamlConfig data

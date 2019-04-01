@@ -1,3 +1,5 @@
+// +build !race
+
 package storages
 
 import (
@@ -14,13 +16,12 @@ import (
 	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/watchdog"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 func TestReplicationClientCreation(t *testing.T) {
 	backends := []*StorageClient{}
-	cli := newReplicationClient(backends, nil)
+	cli := newReplicationClient(backends)
 	require.NotNil(t, cli)
 }
 
@@ -32,11 +33,11 @@ func TestReplicationClientRequestPassing(t *testing.T) {
 	}
 
 	backends := []*StorageClient{createDummyBackend(callClountHandler)}
-	cli := newReplicationClient(backends, nil)
+	cli := newReplicationClient(backends)
 	require.NotNil(t, cli)
 
 	request := dummyRequest()
-	responses := cli.Do(&Request{Request: request})
+	responses := cli.Do(request)
 
 	responsesCount := 0
 	for range responses {
@@ -47,26 +48,19 @@ func TestReplicationClientRequestPassing(t *testing.T) {
 	require.Equal(t, len(backends), responsesCount, "Not all responses passed")
 }
 
+
 func TestWatchdogIntegration(t *testing.T) {
 	var watchdogRequestScenarios = []struct {
 		numOfBackends      int
-		shouldDeleteRecord bool
 		failedBackendIndex int
 	}{
-		{2, true, -1},
-		{2, false, 0},
+		{2, -1},
+		{2, 0},
 	}
 	for _, requestScenario := range watchdogRequestScenarios {
+		noErr := true
 		request := createRequest(t, "PUT", "http://random.domain/bucket/object", "testCluster", "123")
-		record, err := (&watchdog.DefaultConsistencyRecordFactory{}).CreateRecordFor(request)
-		assert.NotNil(t, record)
-		assert.NoError(t, err)
-
-		deleteMarker := &watchdog.DeleteMarker{}
-
-		watchdogMock := &WatchdogMock{&mock.Mock{}}
-		watchdogMock.On("Delete", deleteMarker).Return(nil)
-
+		request = request.WithContext(context.WithValue(request.Context(), watchdog.NoErrorsDuringRequest, &noErr))
 		alwaysSuccessfulHandler := func(r *http.Request) (*http.Response, error) {
 			return &http.Response{Request: r, StatusCode: http.StatusOK}, nil
 		}
@@ -83,16 +77,22 @@ func TestWatchdogIntegration(t *testing.T) {
 			}
 		}
 
-		cli := newReplicationClient(backends, watchdogMock)
-		respChan := cli.Do(&Request{Request: request, logRecord: record, marker: deleteMarker})
+		cli := newReplicationClient(backends)
+		respChan := cli.Do(request)
 
 		for range respChan {
 		}
 
-		if requestScenario.shouldDeleteRecord {
-			watchdogMock.AssertCalled(t, "Delete", deleteMarker)
+		<-request.Context().Done()
+		noErrRes, ok := request.Context().Value(watchdog.NoErrorsDuringRequest).(*bool)
+		if requestScenario.failedBackendIndex >= 0 {
+			assert.True(t, ok)
+			assert.NotNil(t, noErrRes)
+			assert.False(t, *noErrRes)
 		} else {
-			watchdogMock.AssertNotCalled(t, "Delete", deleteMarker)
+			assert.True(t, ok)
+			assert.NotNil(t, noErrRes)
+			assert.True(t, *noErrRes)
 		}
 	}
 }
@@ -144,10 +144,10 @@ func TestHttpCancelContext(t *testing.T) {
 func TestReplicationClientCancelRequest(t *testing.T) {
 	backends := []*StorageClient{createDummyBackend(slowRoundTripper), createDummyBackend(successRoundTripper)}
 
-	cli := newReplicationClient(backends, nil)
+	cli := newReplicationClient(backends)
 	request := dummyRequest()
 
-	responses := cli.Do(&Request{Request: request})
+	responses := cli.Do(request)
 
 	cancelCount := 0
 	for resp := range responses {

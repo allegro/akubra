@@ -2,7 +2,6 @@ package crdstore
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	"errors"
@@ -11,49 +10,73 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"io/ioutil"
-
 	"github.com/allegro/akubra/crdstore/config"
 	"github.com/allegro/akubra/log"
 	"golang.org/x/sync/syncmap"
 )
 
 const (
-	keyPattern                   = "%s_____%s"
-	requestOptionsRequestTimeout = 100 * time.Millisecond
-	refreshTTLPercent            = 80 // Background refresh after refreshTTLPercent*TTL
+	keyPattern        = "%s_____%s"
+	refreshTTLPercent = 80 // Background refresh after refreshTTLPercent*TTL
 )
 
 // ErrCredentialsNotFound - Credential for given accessKey and backend haven't been found in yaml file
 var ErrCredentialsNotFound = errors.New("credentials not found")
 
-// CredentialStore instance
-var instances map[string]*CredentialsStore
+//DefaultCredentialsStoreName holds the default CredentialsStore name
+var DefaultCredentialsStoreName string
+var credentialsStores map[string]*CredentialsStore
+var credentialsStoresFactories = map[credentialsBackendType]credentialsBackendFactory{
+	"Vault": &vaultCredsBackendFactory{},
+}
+
+type credentialsBackendType = string
+type credentialsBackendFactory interface {
+	create(crdStoreName string, backendProps map[string]string) (CredentialsBackend, error)
+}
 
 // CredentialsStore - gets a caches credentials from akubra-crdstore
 type CredentialsStore struct {
-	endpoint string
-	cache    *syncmap.Map
-	TTL      time.Duration
-	lock     sync.Mutex
+	cache              *syncmap.Map
+	TTL                time.Duration
+	lock               sync.Mutex
+	credentialsBackend CredentialsBackend
 }
 
-// GetInstance - Get crdstore instance for endpoint
-func GetInstance(endpointName string) (instance *CredentialsStore, err error) {
-	if instance, ok := instances[endpointName]; ok {
+//CredentialsBackend is responsible for holding storage credentials
+type CredentialsBackend interface {
+	FetchCredentials(accessKey string, storageName string) (*CredentialsStoreData, error)
+}
+
+// GetInstance - Get crdstore instance by store's name
+func GetInstance(crdBackendName string) (instance *CredentialsStore, err error) {
+	if instance, ok := credentialsStores[crdBackendName]; ok {
 		return instance, nil
 	}
-	return nil, fmt.Errorf("error credentialStore `%s` is not defined", endpointName)
+	return nil, fmt.Errorf("error credentialsStore `%s` is not defined", crdBackendName)
 }
 
-// InitializeCredentialsStore - Constructor for CredentialsStore
-func InitializeCredentialsStore(storeMap config.CredentialsStoreMap) {
-	instances = make(map[string]*CredentialsStore)
+// InitializeCredentialsStores - Constructor for CredentialsStores
+func InitializeCredentialsStores(storeMap config.CredentialsStoreMap) {
+	credentialsStores = make(map[string]*CredentialsStore)
+
 	for name, cfg := range storeMap {
-		instances[name] = &CredentialsStore{
-			endpoint: cfg.Endpoint.String(),
-			cache:    new(syncmap.Map),
-			TTL:      cfg.AuthRefreshInterval.Duration,
+
+		if _, supported := credentialsStoresFactories[cfg.Type]; !supported {
+			log.Fatalf("unsupported CredentialsStore '%s'", cfg.Type)
+		}
+
+		credsBackend, err := credentialsStoresFactories[cfg.Type].create(name, cfg.Properties)
+		if err != nil {
+			log.Fatalf("failed to initialize CredentialsStore '%s': %s", name, err)
+		}
+		if cfg.Default {
+			DefaultCredentialsStoreName = name
+		}
+		credentialsStores[name] = &CredentialsStore{
+			cache:              new(syncmap.Map),
+			TTL:                cfg.AuthRefreshInterval.Duration,
+			credentialsBackend: credsBackend,
 		}
 	}
 }
@@ -62,36 +85,40 @@ func (cs *CredentialsStore) prepareKey(accessKey, backend string) string {
 	return fmt.Sprintf(keyPattern, accessKey, backend)
 }
 
-func (cs *CredentialsStore) updateCache(accessKey, backend, key string, csd *CredentialsStoreData, blocking bool) (newCsd *CredentialsStoreData, err error) {
-	if !blocking {
+func (cs *CredentialsStore) updateCache(accessKey, backend, key string, csd *CredentialsStoreData, blocking bool) (credentials *CredentialsStoreData, err error) {
+
+	switch blocking {
+	case true:
+		cs.lock.Lock()
+	case false:
 		if !cs.tryLock() {
 			return csd, nil
 		}
-	} else {
-		cs.lock.Lock()
 	}
-	newCsd, err = cs.GetFromService(cs.endpoint, accessKey, backend)
+
+	credentials, err = cs.credentialsBackend.FetchCredentials(accessKey, backend)
 	switch {
 	case err == nil:
-		newCsd.err = nil
+		credentials.err = nil
 	case err == ErrCredentialsNotFound:
-		newCsd = &CredentialsStoreData{EOL: time.Now().Add(cs.TTL), err: ErrCredentialsNotFound}
+		credentials = &CredentialsStoreData{EOL: time.Now().Add(cs.TTL), err: ErrCredentialsNotFound}
 	default:
 		if csd == nil {
-			newCsd = &CredentialsStoreData{EOL: time.Now().Add(cs.TTL), err: err}
+			credentials = &CredentialsStoreData{EOL: time.Now().Add(cs.TTL), err: err}
 		} else {
-			*newCsd = *csd
+			credentials = &CredentialsStoreData{}
+			*credentials = *csd
 		}
-		newCsd.err = err
+		credentials.err = err
 		log.Printf("Error while updating cache for key `%s`: `%s`", key, err)
 	}
-	newCsd.EOL = time.Now().Add(cs.TTL)
-	cs.cache.Store(key, newCsd)
-	cs.lock.Unlock()
-	if newCsd.AccessKey == "" {
-		return nil, newCsd.err
+	credentials.EOL = time.Now().Add(cs.TTL)
+	cs.cache.Store(key, credentials)
+	defer cs.lock.Unlock()
+	if credentials.AccessKey == "" {
+		return nil, credentials.err
 	}
-	return newCsd, nil
+	return credentials, nil
 }
 
 func (cs *CredentialsStore) tryLock() bool {
@@ -103,7 +130,7 @@ func (cs *CredentialsStore) tryLock() bool {
 func (cs *CredentialsStore) Get(accessKey, backend string) (csd *CredentialsStoreData, err error) {
 	key := cs.prepareKey(accessKey, backend)
 
-	if value, ok := cs.cache.Load(key); ok {
+	if value, credsPresentInCache := cs.cache.Load(key); credsPresentInCache {
 		csd = value.(*CredentialsStoreData)
 	}
 	refreshTimeoutDuration := cs.TTL / 100 * (100 - refreshTTLPercent)
@@ -120,41 +147,6 @@ func (cs *CredentialsStore) Get(accessKey, backend string) (csd *CredentialsStor
 			}
 		}()
 	}
-
-	return
-}
-
-// GetFromService - Get Credential akubra-crdstore service
-func (cs *CredentialsStore) GetFromService(endpoint, accessKey, backend string) (csd *CredentialsStoreData, err error) {
-	csd = &CredentialsStoreData{}
-	client := http.Client{
-		Timeout: requestOptionsRequestTimeout,
-	}
-	resp, err := client.Get(fmt.Sprintf(urlPattern, endpoint, accessKey, backend))
-	switch {
-	case err != nil:
-		return csd, fmt.Errorf("unable to make request to credentials store service - err: %s", err)
-	case resp.StatusCode == http.StatusNotFound:
-		return nil, ErrCredentialsNotFound
-	case resp.StatusCode != http.StatusOK:
-		return csd, fmt.Errorf("unable to get credentials from store service - StatusCode: %d (backend: `%s`, endpoint: `%s`", resp.StatusCode, backend, endpoint)
-	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			log.Printf("Cannot close request body: %q\n", closeErr)
-		}
-	}()
-
-	credentials, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return csd, fmt.Errorf("unable to read response body from credentials store service - err: %s", err)
-	}
-
-	if len(credentials) == 0 {
-		return csd, fmt.Errorf("got empty credentials from store service%s", "")
-	}
-
-	err = csd.Unmarshal(credentials)
 
 	return
 }

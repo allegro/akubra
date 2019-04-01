@@ -21,7 +21,7 @@ type APIErrorCode int
 
 // Error codes, non exhaustive list - http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html
 const (
-	ErrAuthHeaderEmpty             APIErrorCode = iota
+	ErrAuthHeaderEmpty APIErrorCode = iota
 	ErrSignatureDoesNotMatch
 	ErrIncorrectAuthHeader
 	ErrUnsupportedSignatureVersion
@@ -51,14 +51,13 @@ type ParsedAuthorizationHeader struct {
 }
 
 var v4IgnoredHeaders = map[string]bool{
-	"Authorization":  	true,
-	"Content-Type":   	true,
-	"Content-Length": 	true,
-	"User-Agent":     	true,
-	"Connection": 		true,
+	"Authorization":   true,
+	"Content-Type":    true,
+	"Content-Length":  true,
+	"User-Agent":      true,
+	"Connection":      true,
 	"X-Forwarded-For": true,
 }
-
 
 //ErrNoAuthHeader indicates that no authorization header was found in the request
 var ErrNoAuthHeader = fmt.Errorf("cannot find correct authorization header")
@@ -168,9 +167,6 @@ type signAuthServiceRoundTripper struct {
 
 // RoundTrip implements http.RoundTripper interface
 func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if httphandler.IsHealthCheck(req) {
-		return srt.rt.RoundTrip(req)
-	}
 	authHeader, err := ParseAuthorizationHeader(req.Header.Get("Authorization"))
 	if err != nil {
 		if err == ErrNoAuthHeader {
@@ -204,9 +200,6 @@ func ParseAuthorizationHeader(authorizationHeader string) (authHeader ParsedAuth
 
 // RoundTrip implements http.RoundTripper interface
 func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if httphandler.IsHealthCheck(req) {
-		return srt.rt.RoundTrip(req)
-	}
 	authHeader, err := ParseAuthorizationHeader(req.Header.Get("Authorization"))
 	if err != nil {
 		if err == ErrNoAuthHeader {
@@ -214,7 +207,6 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 		}
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
-
 	csd, err := srt.crd.Get(authHeader.AccessKey, "akubra")
 	if err == crdstore.ErrCredentialsNotFound {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
@@ -262,14 +254,14 @@ func SignDecorator(keys Keys, region, host string, ignoredV2CanonicalizedHeaders
 }
 
 // SignAuthServiceDecorator will compute
-func SignAuthServiceDecorator(backend, endpoint, host string, ignoredV2CanonicalizedHeaders map[string]bool) httphandler.Decorator {
+func SignAuthServiceDecorator(backend, credentialsStoreName, host string, ignoredV2CanonicalizedHeaders map[string]bool) httphandler.Decorator {
 	return func(rt http.RoundTripper) http.RoundTripper {
-		credentialsStore, err := crdstore.GetInstance(endpoint)
+		credentialsStore, err := crdstore.GetInstance(credentialsStoreName)
 		if err != nil {
-			log.Fatalf("error CredentialsStore `%s` is not defined", endpoint)
+			log.Fatalf("CredentialsStore `%s` is not defined", credentialsStoreName)
 		}
 		return signAuthServiceRoundTripper{
-			rt:                            rt, backend: backend, host: host, crd: credentialsStore,
+			rt: rt, backend: backend, host: host, crd: credentialsStore,
 			ignoredV2CanonicalizedHeaders: ignoredV2CanonicalizedHeaders}
 	}
 }

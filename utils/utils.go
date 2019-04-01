@@ -76,6 +76,12 @@ func IsBucketPath(path string) bool {
 	return len(strings.Split(trimmedPath, "/")) == 1
 }
 
+//IsObjectPath check if a given path is an object path
+func IsObjectPath(path string) bool {
+	//TODO add support for domain style paths when the domain support is going to be merged
+	return len(strings.Split(path, "/")) == 3
+}
+
 //IsMultiPartUploadRequest checks if a request is a multipart upload request
 func IsMultiPartUploadRequest(request *http.Request) bool {
 	return IsInitiateMultiPartUploadRequest(request) || containsUploadID(request)
@@ -118,29 +124,30 @@ func ExtractMultiPartUploadIDFrom(response *http.Response) (string, error) {
 }
 
 //ReplicateRequest makes a copy of the provided request
-func ReplicateRequest(ctx context.Context, request *http.Request, bodyBytes []byte) (*http.Request, error) {
-
+func ReplicateRequest(request *http.Request) (*http.Request, error) {
 	replicatedRequest := new(http.Request)
 	*replicatedRequest = *request
 	replicatedRequest.URL = &url.URL{}
 	*replicatedRequest.URL = *request.URL
 	replicatedRequest.Header = http.Header{}
 
-	bodyBuffer := bytes.NewBuffer(bodyBytes)
-	replicatedRequest.Body = ioutil.NopCloser(bodyBuffer)
-
-	replicatedRequest.GetBody = func() (io.ReadCloser, error) {
-		return ioutil.NopCloser(bytes.NewBuffer(bodyBytes)), nil
+	if request.Body != nil {
+		bodyReader, err := request.GetBody()
+		if err != nil {
+			return nil, err
+		}
+		replicatedRequest.Body = bodyReader
+		replicatedRequest.GetBody = func() (io.ReadCloser, error) {
+			return request.GetBody()
+		}
 	}
-
 	replicatedRequest.Header = http.Header{}
 	for headerName, headerValues := range request.Header {
 		for idx := range headerValues {
 			replicatedRequest.Header.Add(headerName, headerValues[idx])
 		}
 	}
-
-	return replicatedRequest.WithContext(ctx), nil
+	return replicatedRequest.WithContext(request.Context()), nil
 }
 
 //ReadRequestBody returns the bytes of the request body or nil of body is not present
@@ -157,4 +164,14 @@ func ReadRequestBody(request *http.Request) ([]byte, error) {
 		return bodyBytes, nil
 	}
 	return bodyBytes, nil
+}
+
+//PutResponseHeaderToContext extracts the header value from the response and puts it into the context under the specified key
+func PutResponseHeaderToContext(context context.Context, contextValueName log.ContextKey, resp *http.Response, headerName string) {
+	ctxValue := context.Value(contextValueName).(*string)
+	if ctxValue == nil {
+		return
+	}
+	headerValue := resp.Header.Get(headerName)
+	*ctxValue = headerValue
 }

@@ -3,8 +3,8 @@ package watchdog
 import (
 	"errors"
 	"fmt"
+	"github.com/allegro/akubra/watchdog/config"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/allegro/akubra/log"
@@ -22,6 +22,12 @@ const (
 	ReadRepair = log.ContextKey("ReadRepair")
 	//VersionDateLayout is the layout of object's version header
 	VersionDateLayout = "2006-01-02 15:04:05.000000 +0000 +0000"
+	//ReadRepairObjectVersion tells that watchdog should insert a read-repair record
+	ReadRepairObjectVersion = log.ContextKey("ReadRepairObjectVersion")
+	//NoErrorsDuringRequest indicates that all of the storages requests were successful
+	NoErrorsDuringRequest = log.ContextKey("NoErrorsDuringProcessing")
+	//MultiPartUpload indicates that the request was a finish multipart upload request and the whole multipart was ok
+	MultiPartUpload = log.ContextKey("MultiPartUpload")
 )
 
 const (
@@ -31,10 +37,16 @@ const (
 	DELETE Method = "DELETE"
 )
 
+// Method is the ConsistencyRecord type
+type Method string
+
+// ConsistencyWatchdogFactory creates ConsistencyWatchdogs
+type ConsistencyWatchdogFactory interface {
+	CreateWatchdogInstance(config *config.WatchdogConfig) (ConsistencyWatchdog, error)
+}
+
 // ConsistencyRecord describes the state of an object in domain
 type ConsistencyRecord struct {
-	sync.Mutex
-
 	RequestID      string
 	ExecutionDelay time.Duration
 	ObjectID       string
@@ -42,8 +54,6 @@ type ConsistencyRecord struct {
 	Domain         string
 	AccessKey      string
 	ObjectVersion  string
-
-	isReflectedOnBackends bool
 }
 
 // DeleteMarker indicates which ConsistencyRecords for a given object can be deleted
@@ -62,11 +72,9 @@ type ExecutionDelay struct {
 // ConsistencyWatchdog manages the ConsistencyRecords and DeleteMarkers
 type ConsistencyWatchdog interface {
 	Insert(record *ConsistencyRecord) (*DeleteMarker, error)
-	InsertWithRequestID(requestID string, record *ConsistencyRecord) (*DeleteMarker, error)
 	Delete(marker *DeleteMarker) error
 	UpdateExecutionDelay(delta *ExecutionDelay) error
 	SupplyRecordWithVersion(record *ConsistencyRecord) error
-	GetVersionHeaderName() string
 }
 
 // ConsistencyRecordFactory creates records from http requests
@@ -118,26 +126,11 @@ func (factory *DefaultConsistencyRecordFactory) CreateRecordFor(request *http.Re
 	}
 
 	return &ConsistencyRecord{
-		RequestID:             requestID,
-		ExecutionDelay:        executionDelay,
-		ObjectID:              fmt.Sprintf("%s/%s", bucket, key),
-		AccessKey:             accessKey,
-		Domain:                domain,
-		isReflectedOnBackends: true,
-		Method:                method,
+		RequestID:      requestID,
+		ExecutionDelay: executionDelay,
+		ObjectID:       fmt.Sprintf("%s/%s", bucket, key),
+		AccessKey:      accessKey,
+		Domain:         domain,
+		Method:         method,
 	}, nil
-}
-
-// AddBackendResult combines backend's response with the previous responses
-func (record *ConsistencyRecord) AddBackendResult(wasSuccessfullOnBackend bool) {
-	record.Lock()
-	defer record.Unlock()
-	record.isReflectedOnBackends = record.isReflectedOnBackends && wasSuccessfullOnBackend
-}
-
-// IsReflectedOnAllStorages tell wheter the request was successfull on all backends
-func (record *ConsistencyRecord) IsReflectedOnAllStorages() bool {
-	record.Lock()
-	defer record.Unlock()
-	return record.isReflectedOnBackends
 }

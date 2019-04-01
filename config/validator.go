@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	confregions "github.com/allegro/akubra/regions/config"
+	"github.com/allegro/akubra/storages/config"
 	set "github.com/deckarep/golang-set"
 )
 
@@ -163,6 +164,51 @@ func (c YamlConfig) WatchdogEntryLogicalValidator() (valid bool, validationError
 	}
 	validationErrors, valid = prepareErrors(errList, "WatchdogEntryLogicalValidator")
 	return
+}
+
+// CredentialsStoresEntryLogicalValidator validates CredentailStores's config
+func (c YamlConfig) CredentialsStoresEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
+	errList := make([]error, 0)
+	supportedCredentialsStores := map[string][]string{
+		"Vault": {"Endpoint", "Timeout", "MaxRetries", "PathPrefix"},
+	}
+	isDefaultCredentialsStoreDefined := false
+	for crdStoreName, crdStore := range c.CredentialsStores {
+		if isDefaultCredentialsStoreDefined && crdStore.Default {
+			errList = append(errList, errors.New("only one CredentialsStore can be marked as default"))
+			validationErrors, valid = prepareErrors(errList, "CredentialsStoresEntryLogicalValidator")
+			return
+		}
+		isDefaultCredentialsStoreDefined = isDefaultCredentialsStoreDefined || crdStore.Default
+		if _, isSupported := supportedCredentialsStores[crdStore.Type]; !isSupported {
+			errList = append(errList, fmt.Errorf("CredentialsStore of type '%s' is not supported", crdStore.Type))
+			validationErrors, valid = prepareErrors(errList, "CredentialsStoresEntryLogicalValidator")
+			return
+		}
+		requiredProps := supportedCredentialsStores[crdStore.Type]
+		for _, propName := range requiredProps {
+			if _, propPresent := crdStore.Properties[propName]; !propPresent {
+				errList = append(errList, fmt.Errorf("CredentialsStore '%s' is missing requried property '%s'", crdStoreName, propName))
+			}
+		}
+	}
+	numberOfStoragesUsingDefaultSignService := countStoragesWithDefaultAuthService(c.Storages)
+	if numberOfStoragesUsingDefaultSignService > 0 && !isDefaultCredentialsStoreDefined {
+		errList = append(errList, fmt.Errorf("you have to define a default CredentialsStore when Storages don't have CredentialsStores specified explicilty"))
+		validationErrors, valid = prepareErrors(errList, "CredentialsStoresEntryLogicalValidator")
+	}
+
+	validationErrors, valid = prepareErrors(errList, "CredentialsStoresEntryLogicalValidator")
+	return
+}
+func countStoragesWithDefaultAuthService(storages config.StoragesMap) int {
+	numberOfStoragesUsingDefaultSignService := 0
+	for idx := range storages {
+		if _, hasCredsBackendSpecified := storages[idx].Properties["CredentialsStore"]; storages[idx].Type == "S3AuthService" && !hasCredsBackendSpecified {
+			numberOfStoragesUsingDefaultSignService++
+		}
+	}
+	return numberOfStoragesUsingDefaultSignService
 }
 
 func mergeErrors(maps ...map[string][]error) (output map[string][]error) {

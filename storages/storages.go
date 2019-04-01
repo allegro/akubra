@@ -2,6 +2,7 @@ package storages
 
 import (
 	"fmt"
+	config2 "github.com/allegro/akubra/watchdog/config"
 	"net/http"
 
 	"github.com/allegro/akubra/balancing"
@@ -22,12 +23,12 @@ type ClusterStorage interface {
 
 // Storages config
 type Storages struct {
-	clustersConf          config.ShardsMap
-	storagesMap           config.StoragesMap
-	ShardClients          map[string]NamedShardClient
-	Backends              map[string]*StorageClient
-	watchdog              watchdog.ConsistencyWatchdog
-	shardFactory 		 *shardFactory
+	clustersConf config.ShardsMap
+	storagesMap  config.StoragesMap
+	ShardClients map[string]NamedShardClient
+	Backends     map[string]*StorageClient
+	watchdog     watchdog.ConsistencyWatchdog
+	shardFactory *shardFactory
 }
 
 // GetShard gets cluster by name or nil if cluster with given name was not found
@@ -64,14 +65,14 @@ func (st *Storages) MergeShards(name string, clusters ...NamedShardClient) Named
 
 // Factory creates storages
 type Factory struct {
-	transport http.RoundTripper
-	watchdog  watchdog.ConsistencyWatchdog
+	transport    http.RoundTripper
+	watchdog     watchdog.ConsistencyWatchdog
 	shardFactory *shardFactory
 }
 
 //NewStoragesFactory creates StoragesFactory
-func NewStoragesFactory(transport http.RoundTripper, watchdogConfig *watchdog.Config,
-					watchdog watchdog.ConsistencyWatchdog, watchdogRequestFactory watchdog.ConsistencyRecordFactory) *Factory {
+func NewStoragesFactory(transport http.RoundTripper, watchdogConfig *config2.WatchdogConfig,
+	watchdog watchdog.ConsistencyWatchdog, watchdogRequestFactory watchdog.ConsistencyRecordFactory) *Factory {
 	return &Factory{
 		transport: transport,
 		watchdog:  watchdog,
@@ -84,14 +85,9 @@ func NewStoragesFactory(transport http.RoundTripper, watchdogConfig *watchdog.Co
 }
 
 // InitStorages setups storages
-func (factory *Factory) InitStorages(clustersConf config.ShardsMap, storagesMap config.StoragesMap) (*Storages, error) {
+func (factory *Factory) InitStorages(clustersConf config.ShardsMap, storagesMap config.StoragesMap, ignoredV2Headers map[string]bool) (ClusterStorage, error) {
 	shards := make(map[string]NamedShardClient)
 	storageClients := make(map[string]*StorageClient)
-
-	ignoredV2CanonicalizedHeaders := make(map[string]bool)
-	if factory.watchdog != nil && factory.watchdog.GetVersionHeaderName() != "" {
-		ignoredV2CanonicalizedHeaders[factory.watchdog.GetVersionHeaderName()] = true
-	}
 
 	if len(storagesMap) == 0 {
 		return nil, fmt.Errorf("empty map 'storagesMap' in 'InitStorages'")
@@ -101,7 +97,7 @@ func (factory *Factory) InitStorages(clustersConf config.ShardsMap, storagesMap 
 		if storage.Maintenance {
 			log.Printf("storage %q in maintenance mode", name)
 		}
-		decoratedBackend, err := decorateBackend(factory.transport, name, storage, ignoredV2CanonicalizedHeaders)
+		decoratedBackend, err := decorateBackend(factory.transport, name, storage, ignoredV2Headers)
 		if err != nil {
 			return nil, err
 		}
@@ -126,7 +122,6 @@ func (factory *Factory) InitStorages(clustersConf config.ShardsMap, storagesMap 
 		storagesMap:  storagesMap,
 		ShardClients: shards,
 		Backends:     storageClients,
-		watchdog:     factory.watchdog,
 		shardFactory: factory.shardFactory,
 	}, nil
 }
