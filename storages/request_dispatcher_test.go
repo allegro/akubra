@@ -148,47 +148,6 @@ func (rpm *responsePickerMock) Pick() (*http.Response, error) {
 	return httpResponse, err
 }
 
-type WatchdogMock struct {
-	*mock.Mock
-}
-
-func (wm *WatchdogMock) Insert(record *watchdog.ConsistencyRecord) (*watchdog.DeleteMarker, error) {
-	args := wm.Called(record)
-	arg0 := args.Get(0)
-	var deleteMarker *watchdog.DeleteMarker
-	if arg0 != nil {
-		deleteMarker = arg0.(*watchdog.DeleteMarker)
-	}
-	err := args.Error(1)
-	return deleteMarker, err
-}
-
-func (wm *WatchdogMock) Delete(marker *watchdog.DeleteMarker) error {
-	args := wm.Called(marker)
-	return args.Error(0)
-}
-
-func (wm *WatchdogMock) UpdateExecutionDelay(delta *watchdog.ExecutionDelay) error {
-	args := wm.Called(delta)
-	return args.Error(0)
-}
-
-func (wm *WatchdogMock) SupplyRecordWithVersion(record *watchdog.ConsistencyRecord) error {
-	args := wm.Called(record)
-	return args.Error(0)
-}
-
-type ConsistencyRecordFactoryMock struct {
-	*mock.Mock
-}
-
-func (fm *ConsistencyRecordFactoryMock) CreateRecordFor(request *http.Request) (*watchdog.ConsistencyRecord, error) {
-	args := fm.Called(request)
-	record := args.Get(0).(*watchdog.ConsistencyRecord)
-	err := args.Error(1)
-	return record, err
-}
-
 const initiateMultiPartResp = "<InitiateMultipartUploadResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
 	"<Bucket>example-bucket</Bucket>" +
 	"<Key>example-object</Key>" +

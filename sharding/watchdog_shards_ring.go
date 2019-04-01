@@ -140,24 +140,21 @@ func (consistentShardRing *ConsistentShardsRing) ensureConsistency(consistencyRe
 	}
 
 	consistencyRecord, err := consistentShardRing.recordFactory.CreateRecordFor(consistencyRequest.Request)
-
 	if err != nil {
 		if config.Strong == consistencyRequest.consistencyLevel {
 			return nil, err
 		}
 		return consistencyRequest, nil
 	}
-
 	consistencyRequest.ConsistencyRecord = consistencyRecord
-	loggedRequest, err := consistentShardRing.logRequest(consistencyRequest)
 
+	loggedRequest, err := consistentShardRing.logRequest(consistencyRequest)
 	if err != nil {
 		if config.Strong == consistencyRequest.consistencyLevel {
 			return nil, err
 		}
 		return consistencyRequest, nil
 	}
-
 	return loggedRequest, nil
 }
 
