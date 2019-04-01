@@ -21,10 +21,13 @@ const (
 	// ReadRepair is a constant used to put/get policy read repair to/from request's context
 	ReadRepair = log.ContextKey("ReadRepair")
 	//VersionDateLayout is the layout of object's version header
-	VersionDateLayout       = "2006-01-02 15:04:05.000000 +0000 +0000"
+	VersionDateLayout = "2006-01-02 15:04:05.000000 +0000 +0000"
+	//ReadRepairObjectVersion tells that watchdog should insert a read-repair record
 	ReadRepairObjectVersion = log.ContextKey("ReadRepairObjectVersion")
-	NoErrorsDuringRequest   = log.ContextKey("NoErrorsDuringProcessing")
-	MultiPartUpload         = log.ContextKey("MultiPartUpload")
+	//NoErrorsDuringRequest indicates that all of the storages requests were successful
+	NoErrorsDuringRequest = log.ContextKey("NoErrorsDuringProcessing")
+	//MultiPartUpload indicates that the request was a finish multipart upload request and the whole multipart was ok
+	MultiPartUpload = log.ContextKey("MultiPartUpload")
 )
 
 const (

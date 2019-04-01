@@ -56,8 +56,8 @@ func (rc *ReplicationClient) Do(request *http.Request) <-chan BackendResponse {
 			}
 			bRespSuccessfull := callBackend(replicatedRequest, backend, responsesChan)
 			mx.Lock()
-			defer mx.Unlock()
 			allBackendsSucces = allBackendsSucces && bRespSuccessfull
+			mx.Unlock()
 		}(backend)
 	}
 
@@ -67,7 +67,9 @@ func (rc *ReplicationClient) Do(request *http.Request) <-chan BackendResponse {
 		close(responsesChan)
 		noErrors, ok := ctx.Value(watchdog.NoErrorsDuringRequest).(*bool)
 		if ok && noErrors != nil {
+			mx.Lock()
 			*noErrors = *noErrors && allBackendsSucces
+			mx.Unlock()
 		}
 	}()
 	return responsesChan

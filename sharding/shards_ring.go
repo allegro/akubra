@@ -165,7 +165,7 @@ func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr err
 
 	successClusterName, resp, err := sr.regressionCall(cl, cl.Name(), req)
 	if err == nil && req.Method == http.MethodGet && successClusterName != cl.Name() {
-		utils.PutResponseHeaderToContext(resp, sr.watchdogVersionHeaderName, req.Context(), watchdog.ReadRepairObjectVersion)
+		utils.PutResponseHeaderToContext(req.Context(), watchdog.ReadRepairObjectVersion, resp, sr.watchdogVersionHeaderName)
 	}
 
 	return resp, err

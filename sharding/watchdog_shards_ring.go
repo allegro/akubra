@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+//ConsistentShardsRing is a shard ring that guarantees consistency based on the defined provided consistency level
 type ConsistentShardsRing struct {
 	watchdog          watchdog.ConsistencyWatchdog
 	versionHeaderName string
@@ -33,6 +34,7 @@ func (consistentShardRing *ConsistentShardsRing) GetRingProps() *RingProps {
 	return consistentShardRing.shardsRing.GetRingProps()
 }
 
+//DoRequest performs the request and also records the request if the consistency level requires so
 func (consistentShardRing *ConsistentShardsRing) DoRequest(req *http.Request) (*http.Response, error) {
 	consistencyLevel, isReadRepairOn, err := extractRegionPropsFrom(req)
 	if err != nil {
@@ -207,19 +209,19 @@ func (consistentShardRing *ConsistentShardsRing) awaitCompletion(consistencyRequ
 	<-consistencyRequest.Context().Done()
 
 	reqID := consistencyRequest.Context().Value(log.ContextreqIDKey)
-	readRepairVersion, readRepairPresent := consistencyRequest.Context().Value(watchdog.ReadRepairObjectVersion).(*string)
-	noErrorsDuringRequestProcessing, errorsFlagPresent := consistencyRequest.Context().Value(watchdog.NoErrorsDuringRequest).(*bool)
-	successfulMultiPart, multiPartFlagPresent := consistencyRequest.Context().Value(watchdog.MultiPartUpload).(*bool)
+	readRepairVersion, readRepairCastOk := consistencyRequest.Context().Value(watchdog.ReadRepairObjectVersion).(*string)
+	noErrorsDuringRequestProcessing, errorsFlagCastOk := consistencyRequest.Context().Value(watchdog.NoErrorsDuringRequest).(*bool)
+	successfulMultiPart, multiPartFlagCastOk := consistencyRequest.Context().Value(watchdog.MultiPartUpload).(*bool)
 
-	if readRepairPresent && readRepairVersion != nil && *readRepairVersion != "" {
+	if shouldPerformReadRepair(readRepairVersion, readRepairCastOk) {
 		consistentShardRing.performReadRepair(consistencyRequest)
 		return
 	}
-	if multiPartFlagPresent && successfulMultiPart != nil && *successfulMultiPart {
+	if isSuccessfulMultipart(successfulMultiPart, multiPartFlagCastOk) {
 		consistentShardRing.updateExecutionDelay(consistencyRequest.Request)
 		return
 	}
-	if errorsFlagPresent && noErrorsDuringRequestProcessing != nil && *noErrorsDuringRequestProcessing && consistencyRequest.DeleteMarker != nil {
+	if wasReplicationSuccessful(consistencyRequest, noErrorsDuringRequestProcessing, errorsFlagCastOk) {
 		err := consistentShardRing.watchdog.Delete(consistencyRequest.DeleteMarker)
 		if err != nil {
 			log.Printf("Failed to delete records older than record for request %s: %s", reqID, err)
@@ -227,6 +229,19 @@ func (consistentShardRing *ConsistentShardsRing) awaitCompletion(consistencyRequ
 	}
 }
 
+func wasReplicationSuccessful(request *consistencyRequest, noErrorsDuringRequestProcessing *bool, castOk bool) bool {
+	return castOk && noErrorsDuringRequestProcessing != nil && *noErrorsDuringRequestProcessing && request.DeleteMarker != nil
+}
+
+func isSuccessfulMultipart(successfulMultiPart *bool, castResult bool) bool {
+	return castResult && successfulMultiPart != nil && *successfulMultiPart
+}
+
+func shouldPerformReadRepair(readRepairVersion *string, readRepairPropertyCastSuccessful bool) bool {
+	return readRepairPropertyCastSuccessful && readRepairVersion != nil && *readRepairVersion != ""
+}
+
+//NewShardingAPI wraps the provided sharingAPI with ConsistentShardsRing to ensure consistency
 func NewShardingAPI(shardingAPI ShardsRingAPI,
 	consistencyWatchdgo watchdog.ConsistencyWatchdog,
 	recordFactory watchdog.ConsistencyRecordFactory,

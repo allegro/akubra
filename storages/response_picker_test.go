@@ -1,13 +1,10 @@
 package storages
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"testing"
 
-	"github.com/allegro/akubra/watchdog"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,46 +19,23 @@ func TestObjectResponsePickerAllGood(t *testing.T) {
 }
 
 func TestObjectResponsePickerSomeGood(t *testing.T) {
-	for _, testScenario := range []struct {
-		watchdog             *WatchdogMock
-		consistencyRecord    *watchdog.ConsistencyRecord
-		responses            []bool
-		shouldReadRepairFail bool
-	}{
-		{&WatchdogMock{&mock.Mock{}}, &watchdog.ConsistencyRecord{ObjectVersion: "123"}, []bool{true, true, true}, false},
-		{&WatchdogMock{&mock.Mock{}}, nil, []bool{true, true, false}, false},
-		{&WatchdogMock{&mock.Mock{}}, &watchdog.ConsistencyRecord{ObjectVersion: "123"}, []bool{true, false, true}, false},
-		{nil, nil, []bool{true, false, false}, false},
-		{&WatchdogMock{&mock.Mock{}}, &watchdog.ConsistencyRecord{ObjectVersion: "123"}, []bool{false, true, true}, false},
-		{&WatchdogMock{&mock.Mock{}}, &watchdog.ConsistencyRecord{ObjectVersion: "123"}, []bool{false, true, true}, true},
-		{&WatchdogMock{&mock.Mock{}}, nil, []bool{false, false, true}, false},
-		{&WatchdogMock{&mock.Mock{}}, nil, []bool{false, true, false}, false},
+	for _, responses := range [][]bool{
+		{true, true, true},
+		{true, true, false},
+		{true, false, true},
+		{true, false, false},
+		{false, true, true},
+		{false, true, true},
+		{false, false, true},
+		{false, true, false},
 	} {
-		responsesChan := createChanOfResponses(testScenario.responses...)
-		shouldTryToInsertRecord := hasSuccessResponse(testScenario.responses) && hasFailureResponse(testScenario.responses)
-
-		if testScenario.watchdog != nil && shouldTryToInsertRecord {
-			testScenario.watchdog.On("GetVersionHeaderName").Return("x-amz-meta-version")
-			if testScenario.shouldReadRepairFail {
-				testScenario.watchdog.On("Insert", testScenario.consistencyRecord).Return(nil, errors.New("insert fail"))
-			} else {
-				testScenario.watchdog.On("Insert", testScenario.consistencyRecord).Return(nil, nil)
-			}
-		}
+		responsesChan := createChanOfResponses(responses...)
 
 		objResponsePicker := &ObjectResponsePicker{BasePicker{responsesChan: responsesChan}}
 		resp, err := objResponsePicker.Pick()
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.True(t, resp.StatusCode < 400)
-		if testScenario.watchdog != nil {
-			if shouldTryToInsertRecord {
-				testScenario.watchdog.AssertNotCalled(t, "GetVersionHeaderName")
-				testScenario.watchdog.AssertNotCalled(t, "Insert", testScenario.consistencyRecord)
-			} else {
-				testScenario.watchdog.AssertExpectations(t)
-			}
-		}
 	}
 }
 
@@ -209,7 +183,7 @@ func (*doerB) do() int {
 
 type doerC struct{}
 
-func hasSuccessResponse(responses [] bool) bool {
+func hasSuccessResponse(responses []bool) bool {
 	for _, response := range responses {
 		if response {
 			return true
@@ -218,7 +192,7 @@ func hasSuccessResponse(responses [] bool) bool {
 	return false
 }
 
-func hasFailureResponse(responses [] bool) bool {
+func hasFailureResponse(responses []bool) bool {
 	for _, response := range responses {
 		if !response {
 			return true

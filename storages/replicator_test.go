@@ -1,3 +1,5 @@
+// +build !race
+
 package storages
 
 import (
@@ -46,6 +48,7 @@ func TestReplicationClientRequestPassing(t *testing.T) {
 	require.Equal(t, len(backends), responsesCount, "Not all responses passed")
 }
 
+
 func TestWatchdogIntegration(t *testing.T) {
 	var watchdogRequestScenarios = []struct {
 		numOfBackends      int
@@ -58,7 +61,6 @@ func TestWatchdogIntegration(t *testing.T) {
 		noErr := true
 		request := createRequest(t, "PUT", "http://random.domain/bucket/object", "testCluster", "123")
 		request = request.WithContext(context.WithValue(request.Context(), watchdog.NoErrorsDuringRequest, &noErr))
-
 		alwaysSuccessfulHandler := func(r *http.Request) (*http.Response, error) {
 			return &http.Response{Request: r, StatusCode: http.StatusOK}, nil
 		}
@@ -81,6 +83,7 @@ func TestWatchdogIntegration(t *testing.T) {
 		for range respChan {
 		}
 
+		<-request.Context().Done()
 		noErrRes, ok := request.Context().Value(watchdog.NoErrorsDuringRequest).(*bool)
 		if requestScenario.failedBackendIndex >= 0 {
 			assert.True(t, ok)

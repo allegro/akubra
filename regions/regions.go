@@ -47,13 +47,16 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	shardsRing := rg.defaultRing
 	req, err = prepareRequestBody(req)
+	if err != nil {
+		return nil, err
+	}
 	if ringForRequest, foundRingForRequest := rg.multiCluters[reqHost]; foundRingForRequest {
 		shardsRing = ringForRequest
 	}
 	if shardsRing == nil {
 		return rg.getNoSuchDomainResponse(req), nil
 	}
-	req = req.WithContext(shardingPolicyContext(req, reqHost, rg.defaultRing.GetRingProps()))
+	req = req.WithContext(shardingPolicyContext(req, reqHost, shardsRing.GetRingProps()))
 	return shardsRing.DoRequest(req)
 }
 

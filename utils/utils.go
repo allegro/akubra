@@ -76,7 +76,7 @@ func IsBucketPath(path string) bool {
 	return len(strings.Split(trimmedPath, "/")) == 1
 }
 
-//func IsObjectPath check if a given path is an object path
+//IsObjectPath check if a given path is an object path
 func IsObjectPath(path string) bool {
 	//TODO add support for domain style paths when the domain support is going to be merged
 	return len(strings.Split(path, "/")) == 3
@@ -166,7 +166,8 @@ func ReadRequestBody(request *http.Request) ([]byte, error) {
 	return bodyBytes, nil
 }
 
-func PutResponseHeaderToContext(resp *http.Response, headerName string, context context.Context, contextValueName log.ContextKey) {
+//PutResponseHeaderToContext extracts the header value from the response and puts it into the context under the specified key
+func PutResponseHeaderToContext(context context.Context, contextValueName log.ContextKey, resp *http.Response, headerName string) {
 	ctxValue := context.Value(contextValueName).(*string)
 	if ctxValue == nil {
 		return
