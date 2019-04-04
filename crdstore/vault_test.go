@@ -14,9 +14,9 @@ import (
 )
 
 type testHandler struct {
-	expectedPath string
+	expectedPath   string
 	statusToReturn int
-	body []byte
+	body           []byte
 }
 
 func (handler *testHandler) ServeHTTP(respWriter http.ResponseWriter, request *http.Request) {
@@ -95,8 +95,8 @@ func TestShouldReturnErrorWhenVaultResponseIsInvalid(t *testing.T) {
 	expectedSecret := "secretKeyTestStorage"
 	server := httptest.NewServer(&testHandler{
 		statusToReturn: http.StatusOK,
-		body: []byte(fmt.Sprintf(vaultResponseFormat, expectedAccess, expectedSecret)),
-		expectedPath: "/v1/secret/data/akubra/testAccess/testStorage"})
+		body:           []byte(fmt.Sprintf(vaultResponseFormat, expectedAccess, expectedSecret)),
+		expectedPath:   "/v1/secret/data/akubra/testAccess/testStorage"})
 	defer server.Close()
 
 	vaultClient, err := api.NewClient(&api.Config{
@@ -120,8 +120,8 @@ func TestShouldReturnErrorWhenVaultResponseIsInvalid(t *testing.T) {
 func TestShouldReturnErrorWhenResponseIsInvalid(t *testing.T) {
 	server := httptest.NewServer(&testHandler{
 		statusToReturn: http.StatusOK,
-		body: []byte(`{ "text": "Some invalid json" }`),
-		expectedPath: "/v1/secret/data/testAccess/testStorage"})
+		body:           []byte(`{ "text": "Some invalid json" }`),
+		expectedPath:   "/v1/secret/data/testAccess/testStorage"})
 	defer server.Close()
 
 	vaultClient, err := api.NewClient(&api.Config{
@@ -139,7 +139,7 @@ func TestShouldReturnErrorWhenResponseIsInvalid(t *testing.T) {
 
 	creds, err := vault.FetchCredentials("testAccess", "testStorage")
 	assert.Nil(t, creds)
-	assert.Equal(t, err.Error(), fmt.Sprintf("invlid response for testAccess/testStorage"))
+	assert.Equal(t, err.Error(), fmt.Sprintf("empty response"))
 }
 
 const vaultResponseFormat = `

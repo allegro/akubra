@@ -1,7 +1,6 @@
 package crdstore
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"os"
@@ -58,7 +57,6 @@ func (vaultFactory *vaultCredsBackendFactory) create(crdStoreName string, props 
 	transport := cleanhttp.DefaultPooledTransport()
 	transport.ResponseHeaderTimeout = time.Second * 3
 	transport.TLSHandshakeTimeout = time.Second * 3
-	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	vaultClient, err := api.NewClient(&api.Config{
 		Address:    props["Endpoint"],
