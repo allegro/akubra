@@ -46,7 +46,7 @@ func (vaultFactory *vaultCredsBackendFactory) create(crdStoreName string, props 
 
 	timeout, err := time.ParseDuration(props["Timeout"])
 	if err != nil {
-		return nil, fmt.Errorf("Timeout is not parsable: %s", err)
+		return nil, fmt.Errorf("timeout is not parsable: %s", err)
 	}
 
 	maxRetries, err := strconv.ParseInt(props["MaxRetries"], 10, 8)
@@ -84,18 +84,33 @@ func (vault *vaultCredsBackend) FetchCredentials(accessKey string, storageName s
 	if err != nil {
 		return nil, err
 	}
-	if vaultResponse == nil || vaultResponse.Data == nil || vaultResponse.Data["data"] == nil {
-		return nil, fmt.Errorf("invlid response for %s/%s", accessKey, storageName)
-	}
-	responseData := vaultResponse.Data["data"].(map[string]interface{})
-	if _, accessPresent := responseData["access_key"]; !accessPresent {
-		return nil, fmt.Errorf("access key is missing for %s/%s", accessKey, storageName)
-	}
-	if _, secretPresent := responseData["secret_key"]; !secretPresent {
-		return nil, fmt.Errorf("secret key is missing for %s/%s", accessKey, storageName)
+	access, secret, err := parseVaultResponse(vaultResponse)
+	if err != nil {
+		return nil, err
 	}
 	return &CredentialsStoreData{
-		AccessKey: responseData["access_key"].(string),
-		SecretKey: responseData["secret_key"].(string),
+		AccessKey: access,
+		SecretKey: secret,
 	}, nil
+}
+
+func parseVaultResponse(vaultResponse *api.Secret) (string, string, error) {
+	if vaultResponse == nil || vaultResponse.Data == nil || vaultResponse.Data["data"] == nil {
+		return "", "", errors.New("empty response")
+	}
+	responseData, castOK := vaultResponse.Data["data"].([]interface{})
+	if !castOK || len(responseData) == 0 {
+		return "", "", errors.New("invalid response format")
+	}
+	keys, castOK := responseData[0].(map[string]interface{})
+	if !castOK || len(responseData) == 0 {
+		return "", "", errors.New("invalid response format")
+	}
+	if _, accessPresent := keys["access_key"]; !accessPresent {
+		return "", "", errors.New("access key is missing")
+	}
+	if _, secretPresent := keys["secret_key"]; !secretPresent {
+		return "", "", errors.New("secret key is missing")
+	}
+	return keys["access_key"].(string), keys["secret_key"].(string), nil
 }
