@@ -2,6 +2,7 @@ package regions
 
 import (
 	"context"
+	"github.com/allegro/akubra/storages"
 	"net/http"
 	"testing"
 
@@ -29,6 +30,15 @@ func (sro *ShardsRingMock) GetRingProps() *sharding.RingProps {
 		return v.(*sharding.RingProps)
 	}
 	return nil
+}
+
+func (sro *ShardsRingMock) Pick(key string) (storages.NamedShardClient, error) {
+	args := sro.Called()
+	v := args.Get(0)
+	if v != nil {
+		return v.(storages.NamedShardClient), args.Error(1)
+	}
+	return nil, args.Error(1)
 }
 
 func TestCode404OnNotSupportedDomain(t *testing.T) {
