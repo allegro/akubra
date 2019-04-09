@@ -80,7 +80,7 @@ func IsBucketPath(path string) bool {
 func IsObjectPath(path string) bool {
 	//TODO add support for domain style paths when the domain support is going to be merged
 	parts := strings.Split(path, "/")
-	return len(parts) == 3 && parts[2] != ""
+	return len(parts) >= 3 && parts[2] != ""
 }
 
 //IsMultiPartUploadRequest checks if a request is a multipart upload request
