@@ -129,10 +129,6 @@ func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 		return ErrDataBase
 	}
 
-	if deleteResult.RowsAffected < 1 {
-		return fmt.Errorf("no records for object '%s' older than %s were deleted", marker.objectID, marker.insertionDate)
-	}
-
 	log.Debugf("Successfully deleted records for object '%s' older than %s", marker.objectID, marker.insertionDate.Format(time.RFC3339))
 	return nil
 }

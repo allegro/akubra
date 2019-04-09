@@ -60,7 +60,7 @@ func ExtractBucketAndKey(requestPath string) (string, string) {
 	if trimmedPath == "" {
 		return "", ""
 	}
-	pathParts := strings.Split(trimmedPath, "/")
+	pathParts := strings.SplitN(trimmedPath, "/", 2)
 	if len(pathParts) < 2 {
 		return "", ""
 	}
@@ -79,8 +79,8 @@ func IsBucketPath(path string) bool {
 //IsObjectPath check if a given path is an object path
 func IsObjectPath(path string) bool {
 	//TODO add support for domain style paths when the domain support is going to be merged
-	parts := strings.Split(path, "/")
-	return len(parts) >= 3 && parts[2] != ""
+	parts := strings.SplitN(path, "/", 2)
+	return len(parts) == 2 && parts[1] != ""
 }
 
 //IsMultiPartUploadRequest checks if a request is a multipart upload request
