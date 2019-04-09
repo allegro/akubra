@@ -79,7 +79,7 @@ func IsBucketPath(path string) bool {
 //IsObjectPath check if a given path is an object path
 func IsObjectPath(path string) bool {
 	//TODO add support for domain style paths when the domain support is going to be merged
-	parts := strings.SplitN(path, "/", 2)
+	parts := strings.SplitN(strings.Trim(path, "/"), "/", 2)
 	return len(parts) == 2 && parts[1] != ""
 }
 
