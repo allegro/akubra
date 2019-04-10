@@ -13,10 +13,9 @@ import (
 
 // RingFactory produces clients ShardsRing
 type RingFactory struct {
-	conf      config.Config
-	regConfig regionsConfig.ShardingPolicies
-	storages  storages.ClusterStorage
-	syncLog   log.Logger
+	conf     config.Config
+	storages storages.ClusterStorage
+	syncLog  log.Logger
 }
 
 func (rf RingFactory) createRegressionMap(config regionsConfig.Policies) (map[string]storages.NamedShardClient, error) {
@@ -92,10 +91,9 @@ func (rf RingFactory) RegionRing(name string, conf config.Config, regionCfg regi
 }
 
 // NewRingFactory creates ring factory
-func NewRingFactory(conf config.Config, rconf regionsConfig.ShardingPolicies, storages storages.ClusterStorage) RingFactory {
+func NewRingFactory(conf config.Config, storages storages.ClusterStorage) RingFactory {
 	return RingFactory{
-		conf:      conf,
-		regConfig: rconf,
-		storages:  storages,
+		conf:     conf,
+		storages: storages,
 	}
 }

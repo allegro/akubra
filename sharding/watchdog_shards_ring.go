@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/regions/config"
+	"github.com/allegro/akubra/storages"
 	"github.com/allegro/akubra/utils"
 	"github.com/allegro/akubra/watchdog"
 	"net/http"
@@ -32,6 +33,11 @@ type consistencyRequest struct {
 //GetRingProps returns props of the shard
 func (consistentShardRing *ConsistentShardsRing) GetRingProps() *RingProps {
 	return consistentShardRing.shardsRing.GetRingProps()
+}
+
+//Pick pcik shard for key
+func (consistentShardRing *ConsistentShardsRing) Pick(key string) (storages.NamedShardClient, error) {
+	return consistentShardRing.shardsRing.Pick(key)
 }
 
 //DoRequest performs the request and also records the request if the consistency level requires so

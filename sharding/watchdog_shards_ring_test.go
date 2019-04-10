@@ -3,6 +3,7 @@ package sharding
 import (
 	"context"
 	"github.com/allegro/akubra/regions/config"
+	"github.com/allegro/akubra/storages"
 	"github.com/allegro/akubra/watchdog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -228,6 +229,15 @@ func (shardMock *ShardRingAPIMock) GetRingProps() *RingProps {
 		return props.(*RingProps)
 	}
 	return nil
+}
+
+func (shardMock *ShardRingAPIMock) Pick(key string) (storages.NamedShardClient, error) {
+	args := shardMock.Called()
+	v := args.Get(0)
+	if v != nil {
+		return v.(storages.NamedShardClient), args.Error(1)
+	}
+	return nil, args.Error(1)
 }
 
 func (wm *WatchdogMock) Insert(record *watchdog.ConsistencyRecord) (*watchdog.DeleteMarker, error) {

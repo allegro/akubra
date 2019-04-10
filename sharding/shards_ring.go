@@ -32,6 +32,7 @@ type RingProps struct {
 type ShardsRingAPI interface {
 	DoRequest(req *http.Request) (resp *http.Response, rerr error)
 	GetRingProps() *RingProps
+	Pick(key string) (storages.NamedShardClient, error)
 }
 
 // ShardsRing implements http.RoundTripper interface,

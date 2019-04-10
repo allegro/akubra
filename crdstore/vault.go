@@ -2,6 +2,7 @@ package crdstore
 
 import (
 	"fmt"
+	"github.com/allegro/akubra/metrics"
 	"net/http"
 	"os"
 	"strconv"
@@ -25,6 +26,7 @@ type vaultCredsBackend struct {
 	CredentialsBackend
 	vaultClient *api.Client
 	pathPrefix  string
+	name        string
 }
 
 func (vaultFactory *vaultCredsBackendFactory) create(crdStoreName string, props map[string]string) (CredentialsBackend, error) {
@@ -57,7 +59,6 @@ func (vaultFactory *vaultCredsBackendFactory) create(crdStoreName string, props 
 	transport := cleanhttp.DefaultPooledTransport()
 	transport.ResponseHeaderTimeout = time.Second * 3
 	transport.TLSHandshakeTimeout = time.Second * 3
-
 	vaultClient, err := api.NewClient(&api.Config{
 		Address:    props["Endpoint"],
 		Timeout:    timeout,
@@ -73,19 +74,25 @@ func (vaultFactory *vaultCredsBackendFactory) create(crdStoreName string, props 
 	return &vaultCredsBackend{
 		vaultClient: vaultClient,
 		pathPrefix:  props["PathPrefix"],
+		name:        crdStoreName,
 	}, nil
 }
 
 func (vault *vaultCredsBackend) FetchCredentials(accessKey string, storageName string) (*CredentialsStoreData, error) {
+	fetchStartTime := time.Now()
 	vaultResponse, err := vault.
 		vaultClient.
 		Logical().
 		Read(fmt.Sprintf(vaultCredsFormat, vault.pathPrefix, accessKey, storageName))
+
+	metrics.UpdateSince(fmt.Sprintf("credsStore.%s.read", vault.name), fetchStartTime)
 	if err != nil {
+		metrics.UpdateSince(fmt.Sprintf("credsStore.%s.err", vault.name), fetchStartTime)
 		return nil, err
 	}
 	access, secret, err := parseVaultResponse(vaultResponse)
 	if err != nil {
+		metrics.UpdateSince(fmt.Sprintf("credsStore.%s.invalid", vault.name), fetchStartTime)
 		return nil, err
 	}
 	return &CredentialsStoreData{

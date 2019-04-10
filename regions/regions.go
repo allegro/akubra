@@ -94,7 +94,7 @@ func NewRegions(conf config.Config,
 	recordFactory watchdog.ConsistencyRecordFactory,
 	watchdogVersionHeader string) (http.RoundTripper, error) {
 
-	ringFactory := sharding.NewRingFactory(conf, conf.ShardingPolicies, storages)
+	ringFactory := sharding.NewRingFactory(conf, storages)
 	regions := &Regions{
 		multiCluters: make(map[string]sharding.ShardsRingAPI),
 	}
