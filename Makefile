@@ -2,7 +2,7 @@ VERSION := `git log -n 1 | grep commit | sed 's/commit //g' | head -n 1`
 LDFLAGS := -X main.version=$(VERSION)
 GO := "$(GOROOT)/bin/go"
 
-all: vars formatting lint test build
+all:  build # vars formatting lint test
 
 vars:
 	@echo "====== Makefile internal variables:"
@@ -43,9 +43,9 @@ deps-lint: deps
 	$(GO) get github.com/alecthomas/gometalinter
 	gometalinter --install
 
-build: vars deps lint
+build: # vars deps lint
         # Enable netcgo, then name resolution will use systems dns caches
-	$(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1'.
+	$(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1' ./cmd/akubra
 
 test: deps
 	$(GO) test -v -race -cover $$(go list ./... | grep -v /vendor/)

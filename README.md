@@ -38,7 +38,7 @@ target cluster. This kind of events are logged, so it's possible to rebalance
 clusters in background.
 
 ### Multi cloud cost optimization
-While all objects has to be written in every storage from shard, not all storages
+While all objects has to be stored in each storage within a shard, not all storages
 has to be read. With load balancing and storage prioritization akubra will peak
 cheapest one.
 
