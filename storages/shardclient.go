@@ -56,19 +56,21 @@ func (shardClient *ShardClient) balancerRoundTrip(req *http.Request) (resp *http
 		if node == nil {
 			return nil, fmt.Errorf("no avialable node")
 		}
-		nodeRequest, nodeError := utils.ReplicateRequest(req)
-		if nodeError != nil {
-			return nil, nodeError
+		var nodeRequest *http.Request
+		nodeRequest, err = utils.ReplicateRequest(req)
+		if err != nil {
+			return nil, err
 		}
-		nodeResponse, nodeError := node.RoundTrip(nodeRequest)
-		if (nodeResponse == nil && nodeError != balancing.ErrNoActiveNodes) || http.StatusNotFound == nodeResponse.StatusCode {
+
+		resp, err = node.RoundTrip(nodeRequest)
+		if (resp == nil && err != balancing.ErrNoActiveNodes) || http.StatusNotFound == resp.StatusCode {
 			notFoundNodes = append(notFoundNodes, node)
 			continue
 		}
-		if nodeError == nil && len(notFoundNodes) > 0 {
-			utils.PutResponseHeaderToContext(req.Context(), watchdog.ReadRepairObjectVersion, nodeResponse, shardClient.watchdogVersionHeaderName)
+		if len(notFoundNodes) > 0 {
+			utils.PutResponseHeaderToContext(req.Context(), watchdog.ReadRepairObjectVersion, resp, shardClient.watchdogVersionHeaderName)
 		}
-		return nodeResponse, nodeError
+		return resp, err
 	}
 	return resp, err
 }
