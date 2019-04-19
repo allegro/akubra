@@ -54,6 +54,18 @@ func (SQLConsistencyRecord) TableName() string {
 	return "consistency_record"
 }
 
+var sqlWatchdogWriterParams = map[string]string{
+	"user":            "user",
+	"password":        "password",
+	"dbname":          "dbname",
+	"host":            "host",
+	"port":            "port",
+	"conntimeout":     "conntimeout",
+	"connmaxlifetime": "connmaxlifetime",
+	"maxopenconns":    "writeropenconns",
+	"maxidleconns":    "writeridleconns",
+}
+
 // CreateSQLWatchdogFactory creates instances of SQLWatchdogFactory
 func CreateSQLWatchdogFactory(dbClientFactory *database.GORMDBClientFactory) ConsistencyWatchdogFactory {
 	return &SQLWatchdogFactory{dbClientFactory: dbClientFactory}
@@ -74,8 +86,11 @@ func (factory *SQLWatchdogFactory) CreateWatchdogInstance(config *config.Watchdo
 	if strings.ToLower(config.Type) != "sql" {
 		return nil, fmt.Errorf("SQLWatchdogFactory can't instantiate watchdog of type '%s'", config.Type)
 	}
-
-	db, err := factory.dbClientFactory.CreateConnection(config.Props)
+	dbConfig := make(map[string]string)
+	for watchdogConfigPropName, dbConnPropName := range sqlWatchdogWriterParams {
+		dbConfig[dbConnPropName] = config.Props[watchdogConfigPropName]
+	}
+	db, err := factory.dbClientFactory.CreateConnection(dbConfig)
 	if err != nil {
 		return nil, err
 	}
