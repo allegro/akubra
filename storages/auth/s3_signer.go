@@ -1,11 +1,9 @@
 package auth
 
 import (
-	"fmt"
+	"github.com/allegro/akubra/utils"
 	"net/http"
 	"strings"
-
-	"regexp"
 
 	"github.com/allegro/akubra/crdstore"
 	"github.com/allegro/akubra/httphandler"
@@ -13,73 +11,44 @@ import (
 	"github.com/bnogas/minio-go/pkg/s3signer"
 )
 
-// APIErrorCode type of error status.
-type APIErrorCode int
 
-// Error codes, non exhaustive list - http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html
-const (
-	ErrAuthHeaderEmpty APIErrorCode = iota
-	ErrSignatureDoesNotMatch
-	ErrIncorrectAuthHeader
-	ErrUnsupportedSignatureVersion
-	ErrNone
-)
-
-const (
-	signV2Algorithm  = "AWS"
-	signV4Algorithm  = "AWS4-HMAC-SHA256"
-	regexV2Algorithm = "AWS +(?P<access_key>[a-zA-Z0-9_-]+):(?P<Signature>(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?)"
-	regexV4Algorithm = "AWS4-HMAC-SHA256 +Credential=(?P<access_key>[a-zA-Z0-9_-]+)/[0-9]+/(?P<Region>[a-zA-Z0-9-]*)/[a-zA-Z0-9-]+/aws4_request,( +)?SignedHeaders=(?P<signed_headers>[a-z0-9-;]+),( +)?Signature=(?P<Signature>[a-z0-9]+)"
-)
-
-var reV2 = regexp.MustCompile(regexV2Algorithm)
-var reV4 = regexp.MustCompile(regexV4Algorithm)
-
-//ParsedAuthorizationHeader holds the parsed "Authorization" header content
-type ParsedAuthorizationHeader struct {
-	Version       string
-	AccessKey     string
-	Signature     string
-	SignedHeaders string
-	Region        string
-}
 
 // DoesSignMatch - Verify authorization header with calculated header
 // returns true if matches, false otherwise. if error is not nil then it is always false
-func DoesSignMatch(r *http.Request, cred Keys) APIErrorCode {
+func DoesSignMatch(r *http.Request, cred Keys) utils.APIErrorCode {
 	gotAuth := r.Header.Get("Authorization")
 	if gotAuth == "" {
-		return ErrAuthHeaderEmpty
+		return utils.ErrAuthHeaderEmpty
 	}
-	authHeader, err := ParseAuthorizationHeader(gotAuth)
+	authHeader, err := utils.ParseAuthorizationHeader(gotAuth)
 	if err != nil {
-		return ErrIncorrectAuthHeader
+		return utils.ErrIncorrectAuthHeader
 	}
 
 	switch authHeader.Version {
-	case signV2Algorithm:
+	case utils.SignV2Algorithm:
 		result, err := s3signer.VerifyV2(*r, cred.SecretAccessKey)
 		if err != nil {
 			reqID := r.Context().Value(log.ContextreqIDKey)
 			log.Printf("Error while verifying V2 Signature for request %s: %s", reqID, err)
 		}
 		if !result {
-			return ErrSignatureDoesNotMatch
+			return utils.ErrSignatureDoesNotMatch
 		}
-	case signV4Algorithm:
+	case utils.SignV4Algorithm:
 		result, err := s3signer.VerifyV4(*r, cred.SecretAccessKey)
 		if err != nil {
 			reqID := r.Context().Value(log.ContextreqIDKey)
 			log.Printf("Error while verifying V4 Signature for request %s: %s", reqID, err)
 		}
 		if !result {
-			return ErrSignatureDoesNotMatch
+			return utils.ErrSignatureDoesNotMatch
 		}
 	default:
-		return ErrUnsupportedSignatureVersion
+		return utils.ErrUnsupportedSignatureVersion
 	}
 
-	return ErrNone
+	return utils.ErrNone
 }
 
 // Keys user credentials
@@ -106,7 +75,7 @@ type authRoundTripper struct {
 
 // RoundTrip implements http.RoundTripper interface
 func (art authRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if DoesSignMatch(req, art.keys) == ErrNone {
+	if DoesSignMatch(req, art.keys) == utils.ErrNone {
 		return art.rt.RoundTrip(req)
 	}
 	return responseForbidden(req), nil
@@ -135,40 +104,25 @@ type signAuthServiceRoundTripper struct {
 
 // RoundTrip implements http.RoundTripper interface
 func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	authHeader, err := ParseAuthorizationHeader(req.Header.Get("Authorization"))
+	authHeader, err := utils.ParseAuthorizationHeader(req.Header.Get("Authorization"))
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
 
 	req = s3signer.SignV2(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
 	switch authHeader.Version {
-	case signV2Algorithm:
+	case utils.SignV2Algorithm:
 		req = s3signer.SignV2(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
-	case signV4Algorithm:
+	case utils.SignV4Algorithm:
 		req.URL.Host = srt.host
 		req = s3signer.SignV4(*req, srt.keys.AccessKeyID, srt.keys.SecretAccessKey, "", srt.region)
 	}
 	return srt.rt.RoundTrip(req)
 }
 
-// ParseAuthorizationHeader - extract S3 authorization header details
-func ParseAuthorizationHeader(authorizationHeader string) (authHeader ParsedAuthorizationHeader, err error) {
-	if reV2.MatchString(authorizationHeader) {
-		match := reV2.FindStringSubmatch(authorizationHeader)
-		return ParsedAuthorizationHeader{AccessKey: match[1], Signature: match[2], Version: signV2Algorithm}, nil
-	}
-
-	if reV4.MatchString(authorizationHeader) {
-		match := reV4.FindStringSubmatch(authorizationHeader)
-		return ParsedAuthorizationHeader{AccessKey: match[1], Signature: match[6], Region: match[2], SignedHeaders: match[4], Version: signV4Algorithm}, nil
-	}
-
-	return ParsedAuthorizationHeader{}, fmt.Errorf("cannot find correct authorization header")
-}
-
 // RoundTrip implements http.RoundTripper interface
 func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	authHeader, err := ParseAuthorizationHeader(req.Header.Get("Authorization"))
+	authHeader, err := utils.ParseAuthorizationHeader(req.Header.Get("Authorization"))
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
@@ -180,7 +134,7 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
 	}
-	if DoesSignMatch(req, Keys{AccessKeyID: csd.AccessKey, SecretAccessKey: csd.SecretKey}) != ErrNone {
+	if DoesSignMatch(req, Keys{AccessKeyID: csd.AccessKey, SecretAccessKey: csd.SecretKey}) != utils.ErrNone {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
 	}
 
@@ -195,9 +149,9 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	req.Host = srt.host
 	req.URL.Host = srt.host
 	switch authHeader.Version {
-	case signV2Algorithm:
+	case utils.SignV2Algorithm:
 		req = s3signer.SignV2(*req, csd.AccessKey, csd.SecretKey)
-	case signV4Algorithm:
+	case utils.SignV4Algorithm:
 		req = s3signer.SignV4(*req, csd.AccessKey, csd.SecretKey, "", "")
 	}
 	return srt.rt.RoundTrip(req)

@@ -2,6 +2,7 @@ package httphandler
 
 import (
 	"fmt"
+	"github.com/allegro/akubra/utils"
 	"net/http"
 	"time"
 
@@ -20,6 +21,7 @@ type AccessMessageData struct {
 	RespErr    string  `json:"error"`
 	ReqID      string  `json:"reqID"`
 	Time       string  `json:"ts"`
+	AccessKey  string  `json:"accessKey"`
 }
 
 // String produces data in csv format with fields in following order:
@@ -31,7 +33,7 @@ func (amd AccessMessageData) String() string {
 }
 
 // NewAccessLogMessage creates new AccessMessageData
-func NewAccessLogMessage(req http.Request,
+func NewAccessLogMessage(req *http.Request,
 	statusCode int, duration float64, respErr string) *AccessMessageData {
 	ts := time.Now().Format(time.RFC3339Nano)
 	reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
@@ -41,7 +43,8 @@ func NewAccessLogMessage(req http.Request,
 		req.URL.Path,
 		req.Header.Get("User-Agent"),
 		statusCode, duration, respErr,
-		reqID, ts}
+		reqID, ts,
+		utils.ExtractAccessKey(req)}
 }
 
 // ScanCSVAccessLogMessage will scan csv string and return AccessMessageData.
