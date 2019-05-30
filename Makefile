@@ -36,8 +36,7 @@ lint-slow: deps-lint
 	--vendor
 
 deps:
-	$(GO) get github.com/Masterminds/glide
-	glide install
+	go get
 
 deps-lint: deps
 	$(GO) get github.com/alecthomas/gometalinter
