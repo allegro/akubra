@@ -36,7 +36,7 @@ func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Respons
 	if err != nil {
 		errStr = err.Error()
 	}
-	accessLogMessage := NewAccessLogMessage(*req,
+	accessLogMessage := NewAccessLogMessage(req,
 		statusCode,
 		duration,
 		errStr)
@@ -109,8 +109,8 @@ func HeadersSuplier(requestHeaders, responseHeaders config.AdditionalHeaders) De
 }
 
 type responseHeadersStripper struct {
-	headers 		[]string
-	roundTripper    http.RoundTripper
+	headers      []string
+	roundTripper http.RoundTripper
 }
 
 func (hs *responseHeadersStripper) RoundTrip(req *http.Request) (resp *http.Response, err error) {
@@ -118,19 +118,18 @@ func (hs *responseHeadersStripper) RoundTrip(req *http.Request) (resp *http.Resp
 	if err != nil || resp == nil {
 		return
 	}
-	for _, header := range hs.headers  {
+	for _, header := range hs.headers {
 		resp.Header.Del(header)
 	}
 	return
 }
 
-
 // ResponseHeadersStripper creates Decorator which strips the Akubra specific headers
 func ResponseHeadersStripper(headersToStrip []string) Decorator {
 	return func(roundTripper http.RoundTripper) http.RoundTripper {
 		return &responseHeadersStripper{
-			headers: headersToStrip,
-			roundTripper:    roundTripper}
+			headers:      headersToStrip,
+			roundTripper: roundTripper}
 	}
 }
 

@@ -5,16 +5,44 @@ import (
 	"context"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/allegro/akubra/internal/akubra/log"
-	auth2 "github.com/allegro/akubra/internal/akubra/storages/auth"
 	"github.com/allegro/akubra/internal/akubra/types"
 )
+
+const (
+	//SignV2Algorithm is a prefix for v2 auth header
+	SignV2Algorithm = "AWS"
+	//SignV4Algorithm indicates a v4
+	SignV4Algorithm = "AWS4-HMAC-SHA256"
+	//RegexV2Algorithm is a regexp for parsing v2 auth headers
+	RegexV2Algorithm = "AWS +(?P<access_key>[a-zA-Z0-9_-]+):(?P<Signature>(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?)"
+	//RegexV4Algorithm is a regexp for parsing v4 auth headers
+	RegexV4Algorithm = "AWS4-HMAC-SHA256 +Credential=(?P<access_key>.+)/[0-9]+/(?P<region>[a-zA-Z0-9-]*)/(?P<service>[a-zA-Z0-9_-]+)/aws4_request,( +)?SignedHeaders=(?P<signed_headers>[a-z0-9-;.]+),( +)?Signature=(?P<signature>[a-z0-9]+)"
+)
+
+//ErrNoAuthHeader indicates that no authorization header was found in the request
+var ErrNoAuthHeader = fmt.Errorf("cannot find correct authorization header")
+
+var reV2 = regexp.MustCompile(RegexV2Algorithm)
+var reV4 = regexp.MustCompile(RegexV4Algorithm)
+
+//ParsedAuthorizationHeader holds the parsed "Authorization" header content
+type ParsedAuthorizationHeader struct {
+	Version       string
+	AccessKey     string
+	Signature     string
+	SignedHeaders string
+	Region        string
+	Service       string
+}
 
 // BackendError interface helps logging inconsistencies
 type BackendError interface {
@@ -35,6 +63,20 @@ func RequestID(req *http.Request) string {
 	return reqIDContextValue.(string)
 }
 
+// ParseAuthorizationHeader - extract S3 authorization header details
+func ParseAuthorizationHeader(authorizationHeader string) (authHeader ParsedAuthorizationHeader, err error) {
+	if reV2.MatchString(authorizationHeader) {
+		match := reV2.FindStringSubmatch(authorizationHeader)
+		return ParsedAuthorizationHeader{AccessKey: match[1], Signature: match[2], Version: SignV2Algorithm}, nil
+	}
+	if reV4.MatchString(authorizationHeader) {
+		match := reV4.FindStringSubmatch(authorizationHeader)
+		return ParsedAuthorizationHeader{AccessKey: match[1], Signature: match[7], Region: match[2], SignedHeaders: match[5],
+			Version: SignV4Algorithm, Service: match[3]}, nil
+	}
+	return ParsedAuthorizationHeader{}, ErrNoAuthHeader
+}
+
 // ExtractAccessKey extracts s3 auth key from header
 func ExtractAccessKey(req *http.Request) string {
 	if req.Header == nil {
@@ -46,7 +88,7 @@ func ExtractAccessKey(req *http.Request) string {
 		log.Debugf("failed to extract access key from req %s - authorization headers is missing", req.Context().Value(log.ContextreqIDKey))
 		return ""
 	}
-	parsedAuthHeader, parsingErr := auth2.ParseAuthorizationHeader(authHeader)
+	parsedAuthHeader, parsingErr := ParseAuthorizationHeader(authHeader)
 	if parsingErr != nil {
 		log.Debugf("failed to extract access key from req %s - %s, auth header = %s", req.Context().Value(log.ContextreqIDKey), parsingErr, authHeader)
 		return ""

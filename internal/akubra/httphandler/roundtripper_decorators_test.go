@@ -40,10 +40,13 @@ func assertIncludeHeaders(t *testing.T, actual map[string][]string, required map
 	return true
 }
 
-func sendReq(t *testing.T, srv *httptest.Server, method string, body io.Reader, rt http.RoundTripper) (resp *http.Response) {
+func sendReq(t *testing.T, srv *httptest.Server, method string, headers http.Header, body io.Reader, rt http.RoundTripper) (resp *http.Response) {
 	req, nreqErr := http.NewRequest(method, srv.URL, body)
 	if nreqErr != nil {
 		t.Errorf("Cannot create request: %q", nreqErr.Error())
+	}
+	if headers != nil {
+		req.Header = headers
 	}
 	res, rtErr := rt.RoundTrip(req)
 	if rtErr != nil {
@@ -59,7 +62,7 @@ func TestHeadersSuplier(t *testing.T) {
 
 	rt := Decorate(http.DefaultTransport, HeadersSuplier(reqHeaders, respHeaders))
 
-	res := sendReq(t, srv, "GET", nil, rt)
+	res := sendReq(t, srv, "GET", nil, nil, rt)
 
 	body, brErr := ioutil.ReadAll(res.Body)
 	if brErr != nil {
@@ -84,46 +87,56 @@ func TestOptionsHandler(t *testing.T) {
 		http.Error(w, "Unexpected method", http.StatusMethodNotAllowed)
 	}))
 	rt := Decorate(http.DefaultTransport, OptionsHandler)
-	res := sendReq(t, srv, "OPTIONS", nil, rt)
+	res := sendReq(t, srv, "OPTIONS", nil, nil, rt)
 	assert.Equal(t, http.StatusOK, res.StatusCode, "Should return ok")
 }
 
 func TestAccessLogging(t *testing.T) {
-	var buf bytes.Buffer
-	logger := &logrus.Logger{
-		Out:       &buf,
-		Formatter: log.PlainTextFormatter{},
-		Hooks:     make(logrus.LevelHooks),
-		Level:     logrus.DebugLevel,
+
+	for _, authHeader := range []string{
+		"AWS AKIAIOSFODNN7EXAMPLE:frJIUN8DYpKDtOLCwo//yllqDzg=",
+		"AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request,SignedHeaders=host;range;x-amz-content-sha256;x-amz-date,Signature=f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41",
+		"",
+	} {
+		var buf bytes.Buffer
+		logger := &logrus.Logger{
+			Out:       &buf,
+			Formatter: log.PlainTextFormatter{},
+			Hooks:     make(logrus.LevelHooks),
+			Level:     logrus.DebugLevel,
+		}
+		rt := Decorate(http.DefaultTransport, AccessLogging(logger))
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, err := w.Write([]byte("OK"))
+			assert.Nil(t, err)
+		}))
+
+		header := http.Header{}
+		header.Add("Authorization", authHeader)
+		sendReq(t, srv, "PUT", header, nil, rt)
+
+		amddata := bytes.Trim(buf.Bytes(), "\n")
+		amd := &AccessMessageData{}
+		err := json.Unmarshal(amddata, amd)
+
+		if err != nil {
+			t.Errorf("Cannot read AccessLog message %q, %q", amddata, err)
+		}
+		assert.Equal(t, http.StatusOK, amd.StatusCode)
+
 	}
-	rt := Decorate(http.DefaultTransport, AccessLogging(logger))
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, err := w.Write([]byte("OK"))
-		assert.Nil(t, err)
-	}))
-
-	sendReq(t, srv, "PUT", nil, rt)
-
-	amddata := bytes.Trim(buf.Bytes(), "\n")
-	amd := &AccessMessageData{}
-	err := json.Unmarshal(amddata, amd)
-
-	if err != nil {
-		t.Errorf("Cannot read AccessLog message %q, %q", amddata, err)
-	}
-	assert.Equal(t, http.StatusOK, amd.StatusCode)
 }
 
 func TestResponseHeaderStripper(t *testing.T) {
 	srv := mkSimpleServer(t)
 	defer srv.Close()
 	reqHeaders := map[string]string{}
-	respHeaders := map[string]string{"x-akubra-custom-header" : "1",  "x-akubra-custom-header-2" : "1",  "x-resp": "true"}
-	respHeadersToStrip := []string { "x-akubra-custom-header", "x-akubra-custom-header-2"}
+	respHeaders := map[string]string{"x-akubra-custom-header": "1", "x-akubra-custom-header-2": "1", "x-resp": "true"}
+	respHeadersToStrip := []string{"x-akubra-custom-header", "x-akubra-custom-header-2"}
 
 	rt := Decorate(http.DefaultTransport, HeadersSuplier(reqHeaders, respHeaders), ResponseHeadersStripper(respHeadersToStrip))
 
-	res := sendReq(t, srv, "GET", nil, rt)
+	res := sendReq(t, srv, "GET", nil, nil, rt)
 
 	body, brErr := ioutil.ReadAll(res.Body)
 	if brErr != nil {
@@ -134,7 +147,7 @@ func TestResponseHeaderStripper(t *testing.T) {
 	if unmErr != nil {
 		t.Errorf("Cannot parse response body: %q", unmErr.Error())
 	}
-	assertIncludeHeaders(t, map[string][]string(res.Header), map[string]string{"x-resp" : "true"})
+	assertIncludeHeaders(t, map[string][]string(res.Header), map[string]string{"x-resp": "true"})
 	assert.Empty(t, res.Header.Get("x-akubra-custom-header"))
 	assert.Empty(t, res.Header.Get("x-akubra-custom-header-2"))
 }

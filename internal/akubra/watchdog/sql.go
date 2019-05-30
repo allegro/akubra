@@ -20,6 +20,10 @@ const (
 	updateRecordExecutionTimeByReqID = "UPDATE consistency_record " +
 		"SET execution_delay = ?" +
 		"WHERE request_id = ?"
+	//Reader turns on reader config generation
+	Reader = true
+	//Writer turn on writer config generation
+	Writer = false
 )
 
 // SQLWatchdogFactory creates instances of SQLWatchdog
@@ -54,6 +58,21 @@ func (SQLConsistencyRecord) TableName() string {
 	return "consistency_record"
 }
 
+var sqlParams = map[string]string{
+	"user":            "user",
+	"password":        "password",
+	"dbname":          "dbname",
+	"host":            "host",
+	"port":            "port",
+	"conntimeout":     "conntimeout",
+	"connmaxlifetime": "connmaxlifetime",
+}
+
+var configurableSQLParams = map[string]string{
+	"%sopenconns": "maxopenconns",
+	"%sidleconns": "maxidleconns",
+}
+
 // CreateSQLWatchdogFactory creates instances of SQLWatchdogFactory
 func CreateSQLWatchdogFactory(dbClientFactory *database.GORMDBClientFactory) ConsistencyWatchdogFactory {
 	return &SQLWatchdogFactory{dbClientFactory: dbClientFactory}
@@ -74,8 +93,8 @@ func (factory *SQLWatchdogFactory) CreateWatchdogInstance(config *config.Watchdo
 	if strings.ToLower(config.Type) != "sql" {
 		return nil, fmt.Errorf("SQLWatchdogFactory can't instantiate watchdog of type '%s'", config.Type)
 	}
-
-	db, err := factory.dbClientFactory.CreateConnection(config.Props)
+	dbConfig := CreateWatchdogSQLClientProps(config, Writer)
+	db, err := factory.dbClientFactory.CreateConnection(dbConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -190,6 +209,7 @@ func createDeleteMarkerFor(record *SQLConsistencyRecord) *DeleteMarker {
 		insertionDate: record.InsertedAt,
 	}
 }
+
 func createSQLRecord(record *ConsistencyRecord) *SQLConsistencyRecord {
 	return &SQLConsistencyRecord{
 		RequestID:      record.RequestID,
@@ -199,4 +219,20 @@ func createSQLRecord(record *ConsistencyRecord) *SQLConsistencyRecord {
 		AccessKey:      record.AccessKey,
 		Domain:         record.Domain,
 	}
+}
+
+//CreateWatchdogSQLClientProps creates watchdog reader/writer config
+func CreateWatchdogSQLClientProps(watchdogConfig *config.WatchdogConfig, readerConfig bool) map[string]string {
+	propPrefix := "writer"
+	if readerConfig {
+		propPrefix = "reader"
+	}
+	dbConfig := make(map[string]string)
+	for watchdogConfigPropName, dbConnPropName := range sqlParams {
+		dbConfig[dbConnPropName] = watchdogConfig.Props[watchdogConfigPropName]
+	}
+	for watchdogConfigPropName, dbConnPropName := range configurableSQLParams {
+		dbConfig[dbConnPropName] = watchdogConfig.Props[fmt.Sprintf(watchdogConfigPropName, propPrefix)]
+	}
+	return dbConfig
 }
