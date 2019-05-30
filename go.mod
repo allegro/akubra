@@ -21,7 +21,7 @@ require (
 	github.com/serialx/hashring v0.0.0-20190422032157-8b2912629002
 	github.com/sirupsen/logrus v1.4.1
 	github.com/smartystreets/go-aws-auth v0.0.0-20180515143844-0c1422d1fdb9 // indirect
-	github.com/wookie41/minio-go v3.0.3-0.20190409134230-e7d04f915e81+incompatible
+	github.com/wookie41/minio-go v3.0.3-0.20190510062552-c8863f3b548e+incompatible
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	gopkg.in/gemnasium/logrus-postgresql-hook.v1 v1.1.3
 	gopkg.in/validator.v1 v1.0.0-20140827164146-4379dff89709

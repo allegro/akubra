@@ -229,6 +229,8 @@ github.com/wookie41/minio-go v3.0.2+incompatible h1:4+quytAa+DtbJQetXLkEvDuuit33
 github.com/wookie41/minio-go v3.0.2+incompatible/go.mod h1:/JxqxlnOK8LeT/OzuLROEuS6kT2jb6MHFTcjQGtHcu0=
 github.com/wookie41/minio-go v3.0.3-0.20190409134230-e7d04f915e81+incompatible h1:iReI41GjNLNImnGKmsP+mpitfV721b2+zp6y/BLQlcU=
 github.com/wookie41/minio-go v3.0.3-0.20190409134230-e7d04f915e81+incompatible/go.mod h1:/JxqxlnOK8LeT/OzuLROEuS6kT2jb6MHFTcjQGtHcu0=
+github.com/wookie41/minio-go v3.0.3-0.20190510062552-c8863f3b548e+incompatible h1:wMwH55ouPBVZTID/rIUFmb7nYX274g9f4BCXkc98sWI=
+github.com/wookie41/minio-go v3.0.3-0.20190510062552-c8863f3b548e+incompatible/go.mod h1:/JxqxlnOK8LeT/OzuLROEuS6kT2jb6MHFTcjQGtHcu0=
 go.opencensus.io v0.18.0/go.mod h1:vKdFvxhtzZ9onBp9VKHK8z/sRpBMnKAsufL7wlDrCOA=
 go.opencensus.io v0.19.1/go.mod h1:gug0GbSHa8Pafr0d2urOSgoXHZ6x/RUlaiT0d9pqb4A=
 go.opencensus.io v0.19.2/go.mod h1:NO/8qkisMZLZ1FCsKNqtJPwc8/TaclWyY0B6wcYNg9M=
