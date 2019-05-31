@@ -1,6 +1,7 @@
 VERSION := `git log -n 1 | grep commit | sed 's/commit //g' | head -n 1`
 LDFLAGS := -X main.version=$(VERSION)
 GO := "$(GOROOT)/bin/go"
+GO111MODULE := on
 
 all:  build # vars formatting lint test
 
@@ -42,7 +43,7 @@ deps-lint: deps
 	$(GO) get github.com/alecthomas/gometalinter
 	gometalinter --install
 
-build: # vars deps lint
+build: vars deps lint
         # Enable netcgo, then name resolution will use systems dns caches
 	$(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1' ./cmd/akubra
 
