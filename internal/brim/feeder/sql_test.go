@@ -3,6 +3,7 @@ package feeder
 import (
 	"database/sql"
 	"database/sql/driver"
+	"github.com/allegro/akubra/internal/brim/model"
 	"testing"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/allegro/akubra/internal/akubra/config"
 	"github.com/allegro/akubra/internal/akubra/watchdog"
-	"github.com/allegro/akubra/internal/brim/internal/model"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"github.com/pkg/errors"

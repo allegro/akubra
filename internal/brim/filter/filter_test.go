@@ -2,6 +2,7 @@ package filter
 
 import (
 	"fmt"
+	"github.com/allegro/akubra/internal/brim/model"
 	"net/url"
 	"sync"
 	"testing"
@@ -17,12 +18,11 @@ import (
 	transportConfig "github.com/allegro/akubra/internal/akubra/transport/config"
 	"github.com/allegro/akubra/internal/akubra/types"
 	"github.com/allegro/akubra/internal/akubra/watchdog"
+	"github.com/allegro/akubra/internal/brim/auth"
+	brimS3 "github.com/allegro/akubra/internal/brim/s3"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/allegro/akubra/internal/brim/auth"
-	"github.com/allegro/akubra/internal/brim/internal/model"
-	brimS3 "github.com/allegro/akubra/internal/brim/s3"
 )
 
 type versionFetcherMock struct {

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"github.com/allegro/akubra/internal/brim/model"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -13,7 +14,6 @@ import (
 	"github.com/AdRoll/goamz/s3"
 	"github.com/allegro/akubra/internal/akubra/watchdog"
 	"github.com/stretchr/testify/assert"
-	"github.com/allegro/akubra/internal/brim/internal/model"
 )
 
 func TestShouldPerformNoMigrationIfThereAreNoDestClientsDefined(t *testing.T) {
