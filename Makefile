@@ -1,7 +1,7 @@
 VERSION := `git log -n 1 | grep commit | sed 's/commit //g' | head -n 1`
 LDFLAGS := -X main.version=$(VERSION)
 GO := "$(GOROOT)/bin/go"
-GO111MODULE := on
+GO111MODULE := off
 
 all:  build # vars formatting lint test
 
@@ -24,8 +24,7 @@ lint: deps-lint
 	--disable=dupl \
 	--disable=gosec \
 	--deadline=600s \
-	--disable=goimports \
-	--vendor \
+	--disable=goimports \ \
 	--fast
 
 lint-slow: deps-lint
