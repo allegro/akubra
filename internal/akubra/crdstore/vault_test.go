@@ -22,11 +22,11 @@ type testHandler struct {
 func (handler *testHandler) ServeHTTP(respWriter http.ResponseWriter, request *http.Request) {
 	if request.URL.Path == handler.expectedPath {
 		respWriter.WriteHeader(handler.statusToReturn)
-		respWriter.Write(handler.body)
+		_, _ = respWriter.Write(handler.body)
 		return
 	}
 	respWriter.WriteHeader(http.StatusBadRequest)
-	respWriter.Write([]byte{})
+	_, _ = respWriter.Write([]byte{})
 }
 
 func TestShouldFailWhenAnyOfTheRequriedPropertiesAreMissing(t *testing.T) {

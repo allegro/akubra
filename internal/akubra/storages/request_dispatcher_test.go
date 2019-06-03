@@ -88,7 +88,7 @@ func TestRequestDispatcherDispatch(t *testing.T) {
 
 	clientMock.On("Do", request).Return(respChan)
 	respPickerMock.On("Pick").Return(response, nil)
-	dispatcher.Dispatch(request)
+	_, _ = dispatcher.Dispatch(request)
 	clientMock.AssertExpectations(t)
 	respPickerMock.AssertExpectations(t)
 
@@ -147,9 +147,3 @@ func (rpm *responsePickerMock) Pick() (*http.Response, error) {
 	err := args.Error(1)
 	return httpResponse, err
 }
-
-const initiateMultiPartResp = "<InitiateMultipartUploadResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
-	"<Bucket>example-bucket</Bucket>" +
-	"<Key>example-object</Key>" +
-	"<UploadId>123</UploadId>" +
-	"</InitiateMultipartUploadResult>"

@@ -183,21 +183,3 @@ func (*doerB) do() int {
 
 type doerC struct{}
 
-func hasSuccessResponse(responses []bool) bool {
-	for _, response := range responses {
-		if response {
-			return true
-		}
-	}
-	return false
-}
-
-func hasFailureResponse(responses []bool) bool {
-	for _, response := range responses {
-		if !response {
-			return true
-		}
-	}
-	return false
-
-}

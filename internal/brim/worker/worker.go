@@ -36,14 +36,21 @@ func (walWorker *TaskMigratorWALWorker) Process(walTasksChan <-chan *model.WALTa
 			go func(task *model.WALTask) {
 
 				record := task.WALEntry.Record
+				finish := func(record *watchdog.ConsistencyRecord, taskErr error) {
+					err := task.WALEntry.RecordProcessedHook(record, taskErr)
+					if err != nil {
+						log.Debug(err)
+					}
+				}
+
 				if task.SourceClient == nil && len(task.DestinationsClients) == 0 {
 					log.Debugf("No need to sync object '%s' in domain '%s'", record.ObjectID, record.Domain)
-					task.WALEntry.RecordProcessedHook(record, nil)
+					finish(record, nil)
 					return
 				}
 
 				err := walWorker.processTask(task)
-				task.WALEntry.RecordProcessedHook(record, err)
+				finish(record, err)
 
 			}(walTask)
 		}

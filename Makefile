@@ -26,6 +26,7 @@ lint: vars deps-lint
 	--disable=gosec \
 	--deadline=600s \
 	--disable=goimports \
+	--disable=structcheck \
 	--disable=typecheck \
 	--fast
 
@@ -35,8 +36,9 @@ lint-slow: deps-lint
 	--disable=dupl \
 	--deadline=600s \
 	--disable=typecheck \
-	--fast \
-	--enable=goimports
+	--disable=structcheck \
+	--enable=goimports \
+	--fast
 
 deps:
 	go get
