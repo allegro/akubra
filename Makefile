@@ -14,7 +14,7 @@ vars:
 	@echo "======\n\n"
 
 linux: vars formatting lint test
-	GOOS=linux $(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1'.
+	GOOS=linux $(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1' ./cmd/akubra
 
 formatting:
 	$(GO) get golang.org/x/tools/cmd/goimports
