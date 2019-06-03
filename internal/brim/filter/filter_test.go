@@ -138,7 +138,7 @@ func TestShouldGenerateANoopTaskWhenThereIsANewerVersionOfTheObjectAlreadyUpload
 
 	tasksChannel := filter.Filter(walEntriesChannel)
 	task := <-tasksChannel
-	task.WALEntry.RecordProcessedHook(walEntry.Record, nil)
+	_ = task.WALEntry.RecordProcessedHook(walEntry.Record, nil)
 
 	entryWG.Wait()
 	assert.Nil(t, task.SourceClient)
@@ -183,7 +183,7 @@ func TestShouldGenerateMigrationsForStoragesWithoutObjectInProperVersion(t *test
 
 	tasksChannel := filter.Filter(walEntriesChannel)
 	task := <-tasksChannel
-	task.WALEntry.RecordProcessedHook(entry.Record, nil)
+	_ = task.WALEntry.RecordProcessedHook(entry.Record, nil)
 
 	var dstEndpoints []string
 	for _, cli := range task.DestinationsClients {
@@ -234,7 +234,7 @@ func TestShouldNotGenerateDeleteTasksIfTheObjectIsAlreadyAbsentOnAllStorages(t *
 
 	tasksChannel := filter.Filter(walEntriesChannel)
 	task := <-tasksChannel
-	task.WALEntry.RecordProcessedHook(entry.Record, nil)
+	_ = task.WALEntry.RecordProcessedHook(entry.Record, nil)
 
 	entryWG.Wait()
 	assert.Nil(t, task.SourceClient)
@@ -281,7 +281,7 @@ func TestShouldDeleteObjectsFromStoragesThatSillContainThem(t *testing.T) {
 
 	tasksChannel := filter.Filter(walEntriesChannel)
 	task := <-tasksChannel
-	task.WALEntry.RecordProcessedHook(entry.Record, nil)
+	_ = task.WALEntry.RecordProcessedHook(entry.Record, nil)
 
 	var dstEndpoints []string
 	for _, cli := range task.DestinationsClients {
@@ -331,7 +331,7 @@ func TestShoulKeepTheVersionFromStoragesIfTheVersionHeaderIsMissingOnAllStorages
 
 	tasksChannel := filter.Filter(walEntriesChannel)
 	task := <-tasksChannel
-	task.WALEntry.RecordProcessedHook(entry.Record, nil)
+	_ = task.WALEntry.RecordProcessedHook(entry.Record, nil)
 
 	entryWG.Wait()
 	assert.Nil(t, task.SourceClient)

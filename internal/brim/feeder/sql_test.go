@@ -101,7 +101,7 @@ func TestShouldEmitASingleWALEntryForAGivenObjectInParticularDomain(t *testing.T
 
 	for len(emittedEntries) < 2 {
 		entry := <-entriesFeed
-		entry.RecordProcessedHook(entry.Record, nil)
+		_ = entry.RecordProcessedHook(entry.Record, nil)
 		emittedEntries = append(emittedEntries, entry.Record.ObjectID)
 	}
 
@@ -145,7 +145,7 @@ func TestShouldCommitATransactionEvenWhenSomeOfTheTasksHaveFailed(t *testing.T) 
 		if len(emittedEntries) == 1 {
 			err = taskError
 		}
-		entry.RecordProcessedHook(entry.Record, err)
+		_ = entry.RecordProcessedHook(entry.Record, err)
 		emittedEntries = append(emittedEntries, entry.Record.ObjectID)
 	}
 

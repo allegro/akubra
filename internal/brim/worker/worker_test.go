@@ -139,7 +139,7 @@ func prepareDstServer(expectedMethod string, expectedVersion string,
 
 		}
 		assert.True(t, strings.HasPrefix(req.Header.Get("Authorization"), "AWS 123:"))
-		rw.Write([]byte(`OK`))
+		_, _ = rw.Write([]byte(`OK`))
 		mutex.Lock()
 		defer mutex.Unlock()
 		*numberOfReq++
@@ -151,10 +151,10 @@ func prepareSrcServer(objVersion string, t *testing.T) *httptest.Server {
 		assert.True(t, strings.HasPrefix(req.URL.Path, "/bucket/key"))
 		assert.True(t, strings.HasPrefix(req.Header.Get("Authorization"), "AWS 123:"))
 		if req.URL.RawQuery == "acl=" {
-			rw.Write([]byte(bucketACLResponse))
+			_, _ = rw.Write([]byte(bucketACLResponse))
 		} else {
 			rw.Header().Set("x-amz-meta-obj-version", objVersion)
-			rw.Write([]byte(`CONTENT`))
+			_, _ = rw.Write([]byte(`CONTENT`))
 		}
 	}))
 }
