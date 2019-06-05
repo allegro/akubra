@@ -1,17 +1,12 @@
 package auth
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
 	"github.com/allegro/akubra/internal/akubra/utils"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
-
 
 	"github.com/allegro/akubra/internal/akubra/crdstore"
 	"github.com/allegro/akubra/internal/akubra/httphandler"
@@ -260,32 +255,11 @@ func sign(req *http.Request, authHeader utils.ParsedAuthorizationHeader, newHost
 			if err != nil {
 				return nil, err
 			}
-			req, err = prepareStreamingBody(req, dataLen)
-			if err != nil {
-				return nil, fmt.Errorf("failed to prepare streaming body: %s", err)
-			}
-			return s3signer.StreamingSignV4WithIgnoredHeaders(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, dataLen, time.Now().UTC(), v4IgnoredHeaders), nil
+			return s3signer.StreamingSignV4WithIgnoredHeaders(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, dataLen, time.Now().UTC(), v4IgnoredHeaders, true), nil
 		}
 		return s3signer.SignV4WithIgnoredHeaders(req, accessKey, secretKey, "", authHeader.Region, authHeader.Service, v4IgnoredHeaders), nil
 	}
 	return req, nil
-}
-
-func prepareStreamingBody(request *http.Request, dataLen int64) (*http.Request, error) {
-	_, err := io.CopyN(ioutil.Discard, request.Body, s3signer.GetSignedChunkLength(0))
-	if err != nil {
-		return nil, fmt.Errorf("failed to discard signature pard of the request: %s", err)
-	}
-	bodyBytes := make([]byte, dataLen)
-	numOfByteRead, err := request.Body.Read(bodyBytes)
-	if err != nil || int64(numOfByteRead) != dataLen {
-		return nil, fmt.Errorf("failed to prepare new body: %s", err)
-	}
-	request.GetBody = func() (io.ReadCloser, error) {
-		return ioutil.NopCloser(bytes.NewBuffer(bodyBytes)), nil
-	}
-	request.Body, _ = request.GetBody()
-	return request, nil
 }
 
 func (srt forceSignRoundTripper) shouldBeSigned(request *http.Request) bool {

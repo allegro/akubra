@@ -261,8 +261,10 @@ github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXf
 github.com/stretchr/testify v1.3.0 h1:TivCn/peBQ7UY8ooIcPgZFpTNSz0Q2U6UrFlUfqbe0Q=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07/go.mod h1:kDXzergiv9cbyO7IOYJZWg1U88JhDg3PB6klq9Hg2pA=
-github.com/wookie41/minio-go v3.0.3-0.20190510062552-c8863f3b548e+incompatible h1:wMwH55ouPBVZTID/rIUFmb7nYX274g9f4BCXkc98sWI=
-github.com/wookie41/minio-go v3.0.3-0.20190510062552-c8863f3b548e+incompatible/go.mod h1:/JxqxlnOK8LeT/OzuLROEuS6kT2jb6MHFTcjQGtHcu0=
+github.com/wookie41/minio-go v3.0.3-0.20190604122008-0ae5e47ef1ca+incompatible h1:3sRZ7L96BOtqX0jBjsRBmX5PEgFOjY6L3fWcwJW1A9g=
+github.com/wookie41/minio-go v3.0.3-0.20190604122008-0ae5e47ef1ca+incompatible/go.mod h1:/JxqxlnOK8LeT/OzuLROEuS6kT2jb6MHFTcjQGtHcu0=
+github.com/wookie41/minio-go v3.0.3-0.20190604134330-a8006dc16c16+incompatible h1:QO94ckJanD8Cs1OKBo5JsKmDd2yl5of3IZze0vGS8kU=
+github.com/wookie41/minio-go v3.0.3-0.20190604134330-a8006dc16c16+incompatible/go.mod h1:/JxqxlnOK8LeT/OzuLROEuS6kT2jb6MHFTcjQGtHcu0=
 go.opencensus.io v0.18.0/go.mod h1:vKdFvxhtzZ9onBp9VKHK8z/sRpBMnKAsufL7wlDrCOA=
 go.opencensus.io v0.19.1/go.mod h1:gug0GbSHa8Pafr0d2urOSgoXHZ6x/RUlaiT0d9pqb4A=
 go.opencensus.io v0.19.2/go.mod h1:NO/8qkisMZLZ1FCsKNqtJPwc8/TaclWyY0B6wcYNg9M=
