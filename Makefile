@@ -1,8 +1,10 @@
 VERSION := `git log -n 1 | grep commit | sed 's/commit //g' | head -n 1`
 LDFLAGS := -X main.version=$(VERSION)
 GO := "$(GOROOT)/bin/go"
-
-all: vars formatting lint test build
+GO111MODULE := on
+LINTERVERSION := v1.16.0
+	
+all:  build # vars formatting lint test
 
 vars:
 	@echo "====== Makefile internal variables:"
@@ -12,43 +14,45 @@ vars:
 	@echo "======\n\n"
 
 linux: vars formatting lint test
-	GOOS=linux $(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1'.
+	GOOS=linux $(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1' ./cmd/akubra
 
 formatting:
 	$(GO) get golang.org/x/tools/cmd/goimports
 
-lint: deps-lint
-	gometalinter ./... \
-	--disable=gotype \
+lint: vars deps-lint
+	$(LINTERVERSION)/golangci-lint run internal/akubra/* internal/brim/* \
+	--skip-dirs ./tmp \
 	--disable=dupl \
 	--disable=gosec \
 	--deadline=600s \
 	--disable=goimports \
-	--vendor \
+	--disable=structcheck \
+	--disable=typecheck \
 	--fast
 
 lint-slow: deps-lint
-	gometalinter ./... \
-	--disable=gotype \
+	$(LINTERVERSION)/golangci-lint run internal/akubra/* internal/brim/* \
+	--skip-dirs ./tmp \ 
 	--disable=dupl \
 	--deadline=600s \
+	--disable=typecheck \
+	--disable=structcheck \
 	--enable=goimports \
-	--vendor
+	--fast
 
 deps:
-	$(GO) get github.com/Masterminds/glide
-	glide install
+	go get
 
 deps-lint: deps
-	$(GO) get github.com/alecthomas/gometalinter
-	gometalinter --install
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(LINTERVERSION)
 
 build: vars deps lint
         # Enable netcgo, then name resolution will use systems dns caches
-	$(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1'.
+	$(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1' ./cmd/akubra
 
 test: deps
 	$(GO) test -v -race -cover $$(go list ./... | grep -v /vendor/)
 
 clean:
+	rm -rf $(LINTERVERSION)
 	$(GO) clean .

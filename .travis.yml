@@ -1,8 +1,6 @@
 language: go
 
-go:
-  - 1.9
-  - "1.10"
+go_import_path: github.com/allegro/akubra
 
-install:
-  - go get github.com/Masterminds/glide
+go:
+  - "1.12"
