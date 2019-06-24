@@ -148,6 +148,8 @@ func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 		return ErrDataBase
 	}
 
+	metrics.UpdateSince("watchdog.delete.ok", queryStartTime)
+
 	log.Debugf("Successfully deleted records for object '%s' older than %s", marker.objectID, marker.insertionDate.Format(time.RFC3339))
 	return nil
 }
