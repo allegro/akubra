@@ -121,6 +121,7 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 	metrics.UpdateSince("watchdog.insert.ok", queryStartTime)
 
 	insertedRecord, _ := insertResult.Value.(*SQLConsistencyRecord)
+	insertedRecord.InsertedAt = insertedRecord.InsertedAt.UTC()
 	log.Debugf("Successfully inserted consistency record for object '%s'", record.ObjectID)
 	record.ObjectVersion = insertedRecord.InsertedAt.Format(VersionDateLayout)
 	return createDeleteMarkerFor(insertedRecord), nil
