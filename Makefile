@@ -1,9 +1,10 @@
 VERSION := `git log -n 1 | grep commit | sed 's/commit //g' | head -n 1`
 LDFLAGS := -X main.version=$(VERSION)
 GO := "$(GOROOT)/bin/go"
+GOBIN := $(GOBIN)
 GO111MODULE := on
 LINTERVERSION := v1.16.0
-	
+
 all:  build # vars formatting lint test
 
 vars:
@@ -32,7 +33,7 @@ lint: vars deps-lint
 
 lint-slow: deps-lint
 	$(LINTERVERSION)/golangci-lint run internal/akubra/* internal/brim/* \
-	--skip-dirs ./tmp \ 
+	--skip-dirs ./tmp \
 	--disable=dupl \
 	--deadline=600s \
 	--disable=typecheck \
@@ -50,8 +51,11 @@ build: vars deps lint
         # Enable netcgo, then name resolution will use systems dns caches
 	$(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1' ./cmd/akubra
 
-test: deps
-	$(GO) test -v -race -cover $$(go list ./... | grep -v /vendor/)
+install-junit-report:
+	GOBIN=$(GOBIN) go install github.com/jstemmer/go-junit-report
+
+test: deps install-junit-report
+	$(GO) test -v -race -cover $$(go list ./... | grep -v /vendor/)  | go-junit-report > tests.xml
 
 clean:
 	rm -rf $(LINTERVERSION)
