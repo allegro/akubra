@@ -1,8 +1,6 @@
 package watchdog
 
 import (
-	"time"
-
 	"github.com/allegro/akubra/internal/akubra/config"
 	"github.com/allegro/akubra/internal/akubra/database"
 	"github.com/allegro/akubra/internal/akubra/log"
@@ -43,7 +41,10 @@ func RunWatchdogWorker(akubraConf *config.Config, brimConf *bConf.BrimConf) {
 	}()
 
 	backendResolver := auth.NewConfigBasedBackendResolver(akubraConf, brimConf)
-	throtteledFeedChannel := feederUtils.Throttle(feedProxyChannel, &feederUtils.ThrottledPublisherConfig{BurstEnabled: false, TaskEmissionDuration: time.Second * 1, MaxEmittedTasksCount: 1})
+	throtteledFeedChannel := feederUtils.Throttle(feedProxyChannel, &feederUtils.ThrottledPublisherConfig{
+		BurstEnabled: brimConf.WALConf.BurstFeeder,
+		TaskEmissionDuration: brimConf.WALConf.TaskEmissionDuration,
+		MaxEmittedTasksCount: uint64(brimConf.WALConf.MaxEmittedTasksCount)})
 
 	walFilter := filter.NewDefaultWALFilter(backendResolver, &filter.S3VersionFetcher{VersionHeaderName: akubraConf.Watchdog.ObjectVersionHeaderName})
 	walWorker := worker.NewTaskMigratorWALWorker(2)

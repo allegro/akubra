@@ -121,6 +121,7 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 	metrics.UpdateSince("watchdog.insert.ok", queryStartTime)
 
 	insertedRecord, _ := insertResult.Value.(*SQLConsistencyRecord)
+	insertedRecord.InsertedAt = insertedRecord.InsertedAt.UTC()
 	log.Debugf("Successfully inserted consistency record for object '%s'", record.ObjectID)
 	record.ObjectVersion = insertedRecord.InsertedAt.Format(VersionDateLayout)
 	return createDeleteMarkerFor(insertedRecord), nil
@@ -147,6 +148,8 @@ func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 		log.Debugf("Failed to delete records for object '%s' older than %s: %s", marker.objectID, marker.insertionDate, deleteResult.Error)
 		return ErrDataBase
 	}
+
+	metrics.UpdateSince("watchdog.delete.ok", queryStartTime)
 
 	log.Debugf("Successfully deleted records for object '%s' older than %s", marker.objectID, marker.insertionDate.Format(time.RFC3339))
 	return nil

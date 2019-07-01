@@ -181,7 +181,7 @@ func delayNextExecution(tx *gorm.DB, record *watchdog.ConsistencyRecord, delay t
 	if err != nil {
 		return err
 	}
-	newExecutionDelay := time.Now().Sub(insertionDate) + delay
+	newExecutionDelay := time.Now().UTC().Sub(insertionDate) + delay
 	sqlRecord := &watchdog.SQLConsistencyRecord{RequestID: record.RequestID}
 	tx.Model(sqlRecord).Where("request_id = ?", sqlRecord.RequestID).Update("execution_delay", newExecutionDelay.String())
 	return nil
