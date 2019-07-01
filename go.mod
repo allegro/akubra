@@ -13,6 +13,7 @@ require (
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/hashicorp/consul/api v1.0.1
 	github.com/hashicorp/go-cleanhttp v0.5.1
+	github.com/hashicorp/go-rootcerts v1.0.1 // indirect
 	github.com/hashicorp/serf v0.8.3 // indirect
 	github.com/hashicorp/vault/api v1.0.1
 	github.com/jinzhu/gorm v1.9.4
