@@ -68,7 +68,6 @@ func (c *YamlConfig) validateRegionCluster(policyName string, policies confregio
 	}
 
 	for _, policy := range policies.Shards {
-		fmt.Printf("sharding policies %v\n", c.Shards)
 		_, exists := c.Shards[policy.ShardName]
 		if !exists {
 			errList = append(errList, fmt.Errorf("Shard \"%s\" in policy \"%s\" is not defined", policy.ShardName, policyName))
