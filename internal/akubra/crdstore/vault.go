@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/allegro/akubra/internal/akubra/metrics"
-
+	"github.com/allegro/akubra/internal/akubra/config/vault"
 	cleanhttp "github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/vault/api"
 	"github.com/pkg/errors"
@@ -43,7 +43,11 @@ func (vaultFactory *vaultCredsBackendFactory) create(crdStoreName string, props 
 	if vaultToken, isTokenProvided = props["Token"]; !isTokenProvided || vaultToken == "" {
 		vaultToken, isTokenProvided = os.LookupEnv(fmt.Sprintf(vaultTokenEnvVarFormat, crdStoreName))
 		if vaultToken == "" || !isTokenProvided {
-			return nil, errors.New("no vault token provided")
+			if vault.PrimaryToken != "" {
+				return nil, errors.New("no vault token provided")
+			}
+			vaultToken = vault.PrimaryToken
+			isTokenProvided = true
 		}
 	}
 

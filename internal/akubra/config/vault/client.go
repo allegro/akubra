@@ -31,7 +31,10 @@ type Client interface {
 // : Timeout
 // : MaxRetries
 // : Prefix
-var DefaultClient Client = nil
+var DefaultClient Client
+
+// PrimaryToken is exposed default token obtained by environment variables
+var PrimaryToken string
 
 func init() {
 	configVarName := os.Getenv(vaultConfigVarName)
@@ -44,6 +47,9 @@ func init() {
 	}
 	settings := Settings{}
 	yaml.Unmarshal([]byte(vaultConfigRaw), &settings)
+	if settings.Token != "" {
+		PrimaryToken = settings.Token
+	}
 	DefaultClient = newVault(settings)
 }
 
@@ -59,7 +65,6 @@ func newVault(settings Settings) Client {
 		return nil
 	}
 	client.SetToken(settings.Token)
-
 	return &vaultClient{Client: client, prefix: settings.Prefix}
 }
 
