@@ -47,7 +47,6 @@ func (vaultFactory *vaultCredsBackendFactory) create(crdStoreName string, props 
 				return nil, errors.New("no vault token provided")
 			}
 			vaultToken = vault.PrimaryToken
-			isTokenProvided = true
 		}
 	}
 

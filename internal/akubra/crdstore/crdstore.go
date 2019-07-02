@@ -57,7 +57,7 @@ func GetInstance(crdBackendName string) (instance *CredentialsStore, err error) 
 }
 
 // InitializeCredentialsStores - Constructor for CredentialsStores
-func InitializeCredentialsStores(storeMap config.CredentialsStoreMap, extraProps map[string]string) {
+func InitializeCredentialsStores(storeMap config.CredentialsStoreMap) {
 	credentialsStores = make(map[string]*CredentialsStore)
 
 	for name, cfg := range storeMap {
@@ -65,7 +65,6 @@ func InitializeCredentialsStores(storeMap config.CredentialsStoreMap, extraProps
 		if _, supported := credentialsStoresFactories[cfg.Type]; !supported {
 			log.Fatalf("unsupported CredentialsStore '%s'", cfg.Type)
 		}
-		// add "Token" to cfg.Properties
 		credsBackend, err := credentialsStoresFactories[cfg.Type].create(name, cfg.Properties)
 		if err != nil {
 			log.Fatalf("failed to initialize CredentialsStore '%s': %s", name, err)
