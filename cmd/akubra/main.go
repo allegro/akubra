@@ -90,11 +90,13 @@ func main() {
 func readConfiguration() (config.Config, error) {
 	var configReader io.Reader
 	if vault.DefaultClient != nil {
+		log.Println("Vault client initialized")
 		env := os.Getenv(akubraEnvVarName)
 		version := os.Getenv(akubraVersionVarName)
 		path := fmt.Sprintf("configuration/%s/%s", env, version)
 		v, err := vault.DefaultClient.Read(path)
 		if err == nil {
+			log.Println("Configuration read successful")
 			data, ok := v["secret"].(map[string]interface{})
 			if !ok {
 				log.Fatal("Could not assert secret to string map")
@@ -105,6 +107,7 @@ func readConfiguration() (config.Config, error) {
 		}
 	}
 	configReadCloser, err := config.ReadConfiguration(*configFile)
+	log.Println("Read configuration from file")
 	defer func() {
 		err = configReadCloser.Close()
 		if err != nil {

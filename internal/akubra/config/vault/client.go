@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/allegro/akubra/internal/akubra/metrics"
+	"github.com/allegro/akubra/internal/akubra/log"
+
 	cleanhttp "github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/vault/api"
 
@@ -39,15 +41,18 @@ var PrimaryToken string
 func init() {
 	configVarName := os.Getenv(vaultConfigVarName)
 	if configVarName == "" {
+		log.Println("No config var name")
 		return
 	}
 	vaultConfigRaw := os.Getenv(configVarName)
 	if vaultConfigRaw == "" {
+		log.Printf("No config in %s\n", configVarName)
 		return
 	}
 	settings := Settings{}
 	yaml.Unmarshal([]byte(vaultConfigRaw), &settings)
 	if settings.Token != "" {
+		log.Println("Token provided")
 		PrimaryToken = settings.Token
 	}
 	DefaultClient = newVault(settings)
@@ -99,11 +104,14 @@ func (client *vaultClient) Read(path string) (map[string]interface{}, error) {
 		Logical().
 		Read(secretPath)
 	if err != nil {
+		log.Printf("Unsuccessful key read %s, reason %s\n", secretPath, err)
 		return nil, err
 	}
 	if secret == nil {
+		log.Printf("Unsuccessful key read %v\n", secret)
 		return nil, nil
 	}
+	log.Printf("Successful key read %v\n", secret)
 	return secret.Data, nil
 }
 
