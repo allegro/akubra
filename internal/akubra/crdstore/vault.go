@@ -43,7 +43,7 @@ func (vaultFactory *vaultCredsBackendFactory) create(crdStoreName string, props 
 	if vaultToken, isTokenProvided = props["Token"]; !isTokenProvided || vaultToken == "" {
 		vaultToken, isTokenProvided = os.LookupEnv(fmt.Sprintf(vaultTokenEnvVarFormat, crdStoreName))
 		if vaultToken == "" || !isTokenProvided {
-			if vault.PrimaryToken != "" {
+			if vault.PrimaryToken == "" {
 				return nil, errors.New("no vault token provided")
 			}
 			vaultToken = vault.PrimaryToken
