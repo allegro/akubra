@@ -97,11 +97,10 @@ func readConfiguration() (config.Config, error) {
 		v, err := vault.DefaultClient.Read(path)
 		if err == nil {
 			log.Println("Configuration read successful")
-			data, ok := v["secret"].(map[string]interface{})
+			configString, ok := v["secret"].(string)
 			if !ok {
 				log.Fatal("Could not assert secret to string map")
 			}
-			configString := data["data"].(string)
 			configReader =  bytes.NewReader([]byte(configString))
 			return parseConfig(configReader)
 		}

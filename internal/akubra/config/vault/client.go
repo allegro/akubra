@@ -52,7 +52,6 @@ func init() {
 	settings := Settings{}
 	yaml.Unmarshal([]byte(vaultConfigRaw), &settings)
 	if settings.Token != "" {
-		log.Println("Token provided")
 		PrimaryToken = settings.Token
 	}
 	DefaultClient = newVault(settings)
@@ -104,14 +103,11 @@ func (client *vaultClient) Read(path string) (map[string]interface{}, error) {
 		Logical().
 		Read(secretPath)
 	if err != nil {
-		log.Printf("Unsuccessful key read %s, reason %s\n", secretPath, err)
 		return nil, err
 	}
 	if secret == nil {
-		log.Printf("Unsuccessful key read %v\n", secret)
 		return nil, nil
 	}
-	log.Printf("Successful key read %v\n", secret)
 	return secret.Data, nil
 }
 
