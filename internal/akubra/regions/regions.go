@@ -68,10 +68,10 @@ func prepareRequestBody(request *http.Request) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-	request.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 	request.GetBody = func() (closer io.ReadCloser, e error) {
 		return ioutil.NopCloser(bytes.NewBuffer(bodyBytes)), nil
 	}
+	request.Body, _ = request.GetBody()
 	return request, nil
 }
 

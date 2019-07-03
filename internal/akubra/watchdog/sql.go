@@ -179,6 +179,7 @@ func (watchdog *SQLWatchdog) SupplyRecordWithVersion(record *ConsistencyRecord) 
 		dbConn.
 		Raw(selectNow).
 		Rows()
+	defer rows.Close()
 
 	if err != nil {
 		log.Debugf("Failed to supply object with version: %s", err)
