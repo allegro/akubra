@@ -52,15 +52,15 @@ func TestMigrations(t *testing.T) {
 
 	for _, migrationScenario := range []struct {
 		testName                    string
-		desiredVersion              string
+		desiredVersion              int
 		method                      string
 		numberOfRequests            int
 		shouldAtLeastDstStorageFail bool
 	}{
-		{testName: "Successful PUT", desiredVersion: "987654321", method: "PUT", numberOfRequests: 2},
-		{testName: "Failed PUT", desiredVersion: "987654321", method: "PUT", numberOfRequests: 2, shouldAtLeastDstStorageFail: true},
-		{testName: "Successful DELETE", desiredVersion: "987654321", method: "DELETE", numberOfRequests: 2},
-		{testName: "Failed DELETE", desiredVersion: "987654321", method: "DELETE", numberOfRequests: 2, shouldAtLeastDstStorageFail: true},
+		{testName: "Successful PUT", desiredVersion: 987654321, method: "PUT", numberOfRequests: 2},
+		{testName: "Failed PUT", desiredVersion: 987654321, method: "PUT", numberOfRequests: 2, shouldAtLeastDstStorageFail: true},
+		{testName: "Successful DELETE", desiredVersion: 987654321, method: "DELETE", numberOfRequests: 2},
+		{testName: "Failed DELETE", desiredVersion: 987654321, method: "DELETE", numberOfRequests: 2, shouldAtLeastDstStorageFail: true},
 	} {
 		fmt.Printf("Running '%s' test case", migrationScenario.testName)
 		taskChannel := make(chan *model.WALTask)
@@ -126,7 +126,7 @@ func TestMigrations(t *testing.T) {
 	}
 }
 
-func prepareDstServer(expectedMethod string, expectedVersion string,
+func prepareDstServer(expectedMethod string, expectedVersion int,
 	numberOfReq *int, mutex *sync.Mutex, t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		body, err := ioutil.ReadAll(req.Body)
@@ -135,7 +135,7 @@ func prepareDstServer(expectedMethod string, expectedVersion string,
 		assert.Equal(t, req.URL.Path, "/bucket/key")
 		if expectedMethod == "PUT" {
 			assert.Equal(t, body, []byte("CONTENT"))
-			assert.Equal(t, req.Header.Get("x-amz-meta-obj-version"), expectedVersion)
+			assert.Equal(t, req.Header.Get("x-amz-meta-obj-version"), string(expectedVersion))
 
 		}
 		assert.True(t, strings.HasPrefix(req.Header.Get("Authorization"), "AWS 123:"))
@@ -145,7 +145,7 @@ func prepareDstServer(expectedMethod string, expectedVersion string,
 		*numberOfReq++
 	}))
 }
-func prepareSrcServer(objVersion string, t *testing.T) *httptest.Server {
+func prepareSrcServer(objVersion int, t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		assert.Equal(t, req.Method, "GET")
 		assert.True(t, strings.HasPrefix(req.URL.Path, "/bucket/key"))
@@ -153,7 +153,7 @@ func prepareSrcServer(objVersion string, t *testing.T) *httptest.Server {
 		if req.URL.RawQuery == "acl=" {
 			_, _ = rw.Write([]byte(bucketACLResponse))
 		} else {
-			rw.Header().Set("x-amz-meta-obj-version", objVersion)
+			rw.Header().Set("x-amz-meta-obj-version", string(objVersion))
 			_, _ = rw.Write([]byte(`CONTENT`))
 		}
 	}))

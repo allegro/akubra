@@ -20,8 +20,6 @@ const (
 	ConsistencyLevel = log.ContextKey("ConsistencyLevel")
 	// ReadRepair is a constant used to put/get policy read repair to/from request's context
 	ReadRepair = log.ContextKey("ReadRepair")
-	//VersionDateLayout is the layout of object's version header
-	VersionDateLayout = "2006-01-02 15:04:05.000000 +0000 +0000"
 	//ReadRepairObjectVersion tells that watchdog should insert a read-repair record
 	ReadRepairObjectVersion = log.ContextKey("ReadRepairObjectVersion")
 	//NoErrorsDuringRequest indicates that all of the storages requests were successful
@@ -53,14 +51,14 @@ type ConsistencyRecord struct {
 	Method         Method
 	Domain         string
 	AccessKey      string
-	ObjectVersion  string
+	ObjectVersion  int
 }
 
 // DeleteMarker indicates which ConsistencyRecords for a given object can be deleted
 type DeleteMarker struct {
 	objectID      string
 	domain        string
-	insertionDate time.Time
+	objectVersion int
 }
 
 //ExecutionDelay tells how to change the execution time of a record
