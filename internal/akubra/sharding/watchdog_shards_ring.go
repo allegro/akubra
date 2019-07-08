@@ -124,7 +124,7 @@ func (consistentShardRing *ConsistentShardsRing) logRequest(consistencyRequest *
 	if consistencyRequest.Request.Method == http.MethodPut {
 		consistencyRequest.
 			Header.
-			Add(consistentShardRing.versionHeaderName, string(consistencyRequest.ConsistencyRecord.ObjectVersion))
+			Add(consistentShardRing.versionHeaderName, fmt.Sprintf("%d", consistencyRequest.ConsistencyRecord.ObjectVersion))
 	}
 	return consistencyRequest, nil
 }

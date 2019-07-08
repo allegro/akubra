@@ -126,6 +126,10 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 	defer rows.Close()
 	metrics.UpdateSince("watchdog.insert.ok", queryStartTime)
 
+	if !rows.Next() {
+		return nil, ErrDataBase
+	}
+
 	var objVersion int
 	err = rows.Scan(&objVersion)
 	if err != nil {
