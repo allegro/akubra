@@ -15,7 +15,7 @@ import (
 
 const (
 	insertNew = "INSERT INTO consistency_record (request_id, object_id, domain, access_key, execution_delay, method) VALUES (?, ?, ?, ?, ?, ?) RETURNING object_version"
-	selectNow                        = "SELECT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP at time zone 'utc') * 10^6"
+	selectNow                        = "SELECT CAST(EXTRACT(EPOCH FROM CURRENT_TIMESTAMP at time zone 'utc') * 10^6 AS BIGINT)"
 	watchdogTable                    = "consistency_record"
 	markersInsertedEalier            = "domain = ? AND object_id = ? AND object_version <= ?"
 	updateRecordExecutionTimeByReqID = "UPDATE consistency_record " +
@@ -112,7 +112,6 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 	queryStartTime := time.Now()
 	rows, err := watchdog.
 		dbConn.
-		Table(watchdogTable).
 		Raw(insertNew, record.RequestID, record.ObjectID, record.Domain,
 						record.AccessKey, record.ExecutionDelay.String(), record.Method).
 		Rows()
