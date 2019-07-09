@@ -2,9 +2,6 @@ package filter
 
 import (
 	"fmt"
-	"strings"
-	"time"
-
 	"github.com/AdRoll/goamz/s3"
 	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/sharding"
@@ -13,6 +10,7 @@ import (
 	"github.com/allegro/akubra/internal/brim/auth"
 	"github.com/allegro/akubra/internal/brim/model"
 	brimS3 "github.com/allegro/akubra/internal/brim/s3"
+	"strings"
 )
 
 //WALFilter consults the storages to determine the desired state of an object
@@ -174,18 +172,13 @@ func resolveVersions(record *watchdog.ConsistencyRecord, objectState *objectStat
 
 func checkVersions(record *watchdog.ConsistencyRecord, objectState *objectState) (*storagesEndpoints, error) {
 
-	recordVersion, err := time.Parse(watchdog.VersionDateLayout, record.ObjectVersion)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse version from record '%s'", record.ObjectVersion)
-	}
-
 	var srcStorageEndpoint string
 	var storagesEndpointsToSync []string
 	var numberOfStoragesWithoutVersionHeader = 0
 
 	for _, storage := range objectState.storagesWithObject {
 
-		if storage.version == "" {
+		if storage.version == -1 {
 			if !storage.objectNotFound {
 				numberOfStoragesWithoutVersionHeader++
 			}
@@ -193,26 +186,21 @@ func checkVersions(record *watchdog.ConsistencyRecord, objectState *objectState)
 			continue
 		}
 
-		version, err := time.Parse(watchdog.VersionDateLayout, storage.version)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse version from storage '%s'", storage.version)
-		}
-
 		//There is a newer version of the object on one of the storage, so there also must be record
 		//for that object written to the log, so we can just skip this record an remove it
-		if version.After(recordVersion) {
+		if storage.version > record.ObjectVersion {
 			return nil, nil
 		}
 
 		switch record.Method {
 		case watchdog.PUT:
-			if version.Before(recordVersion) {
+			if storage.version < record.ObjectVersion {
 				storagesEndpointsToSync = append(storagesEndpointsToSync, storage.storageEndpoint)
 			} else {
 				srcStorageEndpoint = storage.storageEndpoint
 			}
 		case watchdog.DELETE:
-			if !version.After(recordVersion) {
+			if record.ObjectVersion <= record.ObjectVersion {
 				storagesEndpointsToSync = append(storagesEndpointsToSync, storage.storageEndpoint)
 			}
 		}

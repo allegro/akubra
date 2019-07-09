@@ -117,7 +117,7 @@ func TestRecordCompaction(t *testing.T) {
 
 func TestReadRepair(t *testing.T) {
 	versionHeaderName := "x-watchdog-version"
-	for _, objectVersionToPerformReadRepairOn := range []string{"", "123"} {
+	for _, objectVersionToPerformReadRepairOn := range []int{-1, 123} {
 		shardMock := &ShardRingAPIMock{&mock.Mock{}}
 		factoryMock := &ConsistencyRecordFactoryMock{&mock.Mock{}}
 		watchdogMock := &WatchdogMock{&mock.Mock{}}
@@ -149,7 +149,7 @@ func TestReadRepair(t *testing.T) {
 
 		consistentShard.awaitCompletion(consistencyRequest)
 
-		if objectVersionToPerformReadRepairOn == "" {
+		if objectVersionToPerformReadRepairOn == -1 {
 			factoryMock.AssertNotCalled(t, "CreateRecordFor", request)
 			watchdogMock.AssertNotCalled(t, "Insert", readRepairRecord)
 		} else {

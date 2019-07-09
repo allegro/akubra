@@ -90,7 +90,7 @@ func TestShouldFailedWhenRingCanNotBeResolved(t *testing.T) {
 	walEntriesChannel <- &model.WALEntry{Record: &watchdog.ConsistencyRecord{
 		Domain:        "test.qxlint",
 		ObjectID:      "some/key1",
-		ObjectVersion: time.Now().UTC().Format(watchdog.VersionDateLayout)},
+		ObjectVersion: 1},
 		RecordProcessedHook: func(_ *watchdog.ConsistencyRecord, err error) error {
 			time.Sleep(2 * time.Second)
 			defer entryWG.Done()
@@ -126,14 +126,14 @@ func TestShouldGenerateANoopTaskWhenThereIsANewerVersionOfTheObjectAlreadyUpload
 		Domain:        "localhost",
 		ObjectID:      "some/key1",
 		AccessKey:     "123",
-		ObjectVersion: time.Now().UTC().Format(watchdog.VersionDateLayout)},
+		ObjectVersion: 1},
 		RecordProcessedHook: func(_ *watchdog.ConsistencyRecord, err error) error { entryWG.Done(); assert.Nil(t, err); return nil }}
 
 	walEntriesChannel <- walEntry
 	prepareVersionMocks("some", "key1", "123", "321", versionFetcher, map[string]*StorageState{
-		"http://localhost:1000": {storageEndpoint: "http://localhost:1000", version: time.Now().Add(-1 * time.Second).Format(watchdog.VersionDateLayout)},
-		"http://localhost:2000": {storageEndpoint: "http://localhost:2000", version: time.Now().Add(-1 * time.Second).Format(watchdog.VersionDateLayout)},
-		"http://localhost:3000": {storageEndpoint: "http://localhost:3000", version: time.Now().Format(watchdog.VersionDateLayout)},
+		"http://localhost:1000": {storageEndpoint: "http://localhost:1000", version: 1},
+		"http://localhost:2000": {storageEndpoint: "http://localhost:2000", version: 1},
+		"http://localhost:3000": {storageEndpoint: "http://localhost:3000", version: 2},
 	})
 
 	tasksChannel := filter.Filter(walEntriesChannel)
@@ -164,7 +164,7 @@ func TestShouldGenerateMigrationsForStoragesWithoutObjectInProperVersion(t *test
 
 	prepareMocksForStorages(resolver, akubraConfig.Storages, "123", "321", "some/key1")
 
-	latestVersion := time.Now().Format(watchdog.VersionDateLayout)
+	latestVersion := 2
 	entry := &model.WALEntry{Record: &watchdog.ConsistencyRecord{
 		Method:        watchdog.PUT,
 		Domain:        "localhost",
@@ -175,9 +175,9 @@ func TestShouldGenerateMigrationsForStoragesWithoutObjectInProperVersion(t *test
 
 	walEntriesChannel <- entry
 	prepareVersionMocks("some", "key1", "123", "321", versionFetcher, map[string]*StorageState{
-		"http://localhost:1000": {storageEndpoint: "http://localhost:1000", version: time.Now().Add(-5 * time.Second).Format(watchdog.VersionDateLayout)},
+		"http://localhost:1000": {storageEndpoint: "http://localhost:1000", version: 1},
 		"http://localhost:2000": {storageEndpoint: "http://localhost:2000", objectNotFound: true},
-		"http://localhost:3000": {storageEndpoint: "http://localhost:3000", version: ""},
+		"http://localhost:3000": {storageEndpoint: "http://localhost:3000", version: -1},
 		"http://localhost:4000": {storageEndpoint: "http://localhost:4000", version: latestVersion},
 	})
 
@@ -215,7 +215,7 @@ func TestShouldNotGenerateDeleteTasksIfTheObjectIsAlreadyAbsentOnAllStorages(t *
 
 	prepareMocksForStorages(resolver, akubraConfig.Storages, "123", "321", "some/key1")
 
-	latestVersion := time.Now().Format(watchdog.VersionDateLayout)
+	latestVersion := 2
 	entry := &model.WALEntry{Record: &watchdog.ConsistencyRecord{
 		Method:        watchdog.DELETE,
 		Domain:        "localhost",
@@ -260,8 +260,8 @@ func TestShouldDeleteObjectsFromStoragesThatSillContainThem(t *testing.T) {
 
 	prepareMocksForStorages(resolver, akubraConfig.Storages, "123", "321", "some/key1")
 
-	latestVersion := time.Now().Format(watchdog.VersionDateLayout)
-	someOtherVersion := time.Now().Add(-5 * time.Minute).Format(watchdog.VersionDateLayout)
+	latestVersion := 2
+	someOtherVersion := 1
 
 	entry := &model.WALEntry{Record: &watchdog.ConsistencyRecord{
 		Method:        watchdog.DELETE,
@@ -273,7 +273,7 @@ func TestShouldDeleteObjectsFromStoragesThatSillContainThem(t *testing.T) {
 
 	walEntriesChannel <- entry
 	prepareVersionMocks("some", "key1", "123", "321", versionFetcher, map[string]*StorageState{
-		"http://localhost:1000": {storageEndpoint: "http://localhost:1000", version: ""},
+		"http://localhost:1000": {storageEndpoint: "http://localhost:1000", version: -1},
 		"http://localhost:2000": {storageEndpoint: "http://localhost:2000", version: latestVersion},
 		"http://localhost:3000": {storageEndpoint: "http://localhost:3000", version: someOtherVersion},
 		"http://localhost:4000": {storageEndpoint: "http://localhost:4000", objectNotFound: true},
@@ -313,7 +313,7 @@ func TestShoulKeepTheVersionFromStoragesIfTheVersionHeaderIsMissingOnAllStorages
 
 	prepareMocksForStorages(resolver, akubraConfig.Storages, "123", "321", "some/key1")
 
-	latestVersion := time.Now().Format(watchdog.VersionDateLayout)
+	latestVersion := 2
 
 	entry := &model.WALEntry{Record: &watchdog.ConsistencyRecord{
 		Method:        watchdog.DELETE,
@@ -325,8 +325,8 @@ func TestShoulKeepTheVersionFromStoragesIfTheVersionHeaderIsMissingOnAllStorages
 
 	walEntriesChannel <- entry
 	prepareVersionMocks("some", "key1", "123", "321", versionFetcher, map[string]*StorageState{
-		"http://localhost:1000": {storageEndpoint: "http://localhost:1000", version: ""},
-		"http://localhost:2000": {storageEndpoint: "http://localhost:2000", version: ""},
+		"http://localhost:1000": {storageEndpoint: "http://localhost:1000", version: -1},
+		"http://localhost:2000": {storageEndpoint: "http://localhost:2000", version: -1},
 	})
 
 	tasksChannel := filter.Filter(walEntriesChannel)

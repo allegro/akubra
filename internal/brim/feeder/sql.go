@@ -66,7 +66,7 @@ func (feeder *SQLWALFeeder) queryDB(walEntriesChannel chan *model.WALEntry) {
 		tx := feeder.db.Begin()
 
 		res := tx.
-			Order("inserted_at desc").
+			Order("object_version DESC").
 			Set("gorm:query_option", "FOR UPDATE SKIP LOCKED").
 			Where("updated_at + execution_delay < NOW()").
 			Limit(feeder.config.MaxRecordsPerQuery).
@@ -145,25 +145,23 @@ func recordProcessedHook(tx *gorm.DB, wg *sync.WaitGroup, failureDelay time.Dura
 
 func updateRecordError(tx *gorm.DB, record *watchdog.ConsistencyRecord, err error) {
 	sqlRecord := &watchdog.SQLConsistencyRecord{RequestID: record.RequestID}
-	tx.Model(sqlRecord).Where("request_id = ?", sqlRecord.RequestID).Update("error", err.Error())
+	tx.
+		Model(sqlRecord).
+		Where("request_id = ?", sqlRecord.RequestID).
+		Update("error", err.Error())
 }
 
 func compactRecord(tx *gorm.DB, record *watchdog.ConsistencyRecord) error {
 	queryStartTime := time.Now()
 
-	syncedVersion, err := time.Parse(watchdog.VersionDateLayout, record.ObjectVersion)
-	if err != nil {
-		return err
-	}
-
 	deleteRes := tx.
-		Where("domain = ? AND object_id = ? AND inserted_at <= ?",
-			record.Domain, record.ObjectID, syncedVersion).
+		Where("domain = ? AND object_id = ? AND object_version <= ?",
+			record.Domain, record.ObjectID, record.ObjectVersion).
 		Delete(watchdog.SQLConsistencyRecord{})
 
 	if deleteRes.Error != nil {
 		metrics.UpdateSince("watchdog.feeder.delete.err", queryStartTime)
-		return fmt.Errorf("failed to remove records for obeject '%s' on domain '%s' older than '%s': %s",
+		return fmt.Errorf("failed to remove records for obeject '%s' on domain '%s' older than '%d': %s",
 			record.ObjectID, record.Domain, record.ObjectVersion, deleteRes.Error)
 	}
 
@@ -177,13 +175,13 @@ func compactRecord(tx *gorm.DB, record *watchdog.ConsistencyRecord) error {
 }
 
 func delayNextExecution(tx *gorm.DB, record *watchdog.ConsistencyRecord, delay time.Duration) error {
-	insertionDate, err := time.Parse(watchdog.VersionDateLayout, record.ObjectVersion)
+	rows, err := tx.
+		Raw("UPDATE consistency_record SET execution_delay = NOW() - updated_at + INTERVAL ? WHERE request_id = ?", delay.String(), record.RequestID).
+		Rows()
+	defer rows.Close()
 	if err != nil {
 		return err
 	}
-	newExecutionDelay := time.Now().UTC().Sub(insertionDate) + delay
-	sqlRecord := &watchdog.SQLConsistencyRecord{RequestID: record.RequestID}
-	tx.Model(sqlRecord).Where("request_id = ?", sqlRecord.RequestID).Update("execution_delay", newExecutionDelay.String())
 	return nil
 }
 
@@ -194,6 +192,6 @@ func mapSQLToRecord(record *watchdog.SQLConsistencyRecord) *watchdog.Consistency
 		RequestID:     record.RequestID,
 		Method:        watchdog.Method(record.Method),
 		AccessKey:     record.AccessKey,
-		ObjectVersion: record.InsertedAt.Format(watchdog.VersionDateLayout),
+		ObjectVersion: record.ObjectVersion,
 	}
 }

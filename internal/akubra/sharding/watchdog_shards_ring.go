@@ -124,7 +124,7 @@ func (consistentShardRing *ConsistentShardsRing) logRequest(consistencyRequest *
 	if consistencyRequest.Request.Method == http.MethodPut {
 		consistencyRequest.
 			Header.
-			Add(consistentShardRing.versionHeaderName, consistencyRequest.ConsistencyRecord.ObjectVersion)
+			Add(consistentShardRing.versionHeaderName, fmt.Sprintf("%d", consistencyRequest.ConsistencyRecord.ObjectVersion))
 	}
 	return consistencyRequest, nil
 }
@@ -193,7 +193,7 @@ func (consistentShardRing *ConsistentShardsRing) updateExecutionDelay(request *h
 }
 
 func (consistentShardRing *ConsistentShardsRing) performReadRepair(consistencyRequest *consistencyRequest) {
-	objectVersion := consistencyRequest.Context().Value(watchdog.ReadRepairObjectVersion).(*string)
+	objectVersion := consistencyRequest.Context().Value(watchdog.ReadRepairObjectVersion).(*int)
 	if objectVersion == nil {
 		log.Debugf("Can't perform read repair, no version header found, reqID %s", consistencyRequest.Context().Value(log.ContextreqIDKey))
 		return
@@ -215,7 +215,7 @@ func (consistentShardRing *ConsistentShardsRing) awaitCompletion(consistencyRequ
 	<-consistencyRequest.Context().Done()
 
 	reqID := consistencyRequest.Context().Value(log.ContextreqIDKey)
-	readRepairVersion, readRepairCastOk := consistencyRequest.Context().Value(watchdog.ReadRepairObjectVersion).(*string)
+	readRepairVersion, readRepairCastOk := consistencyRequest.Context().Value(watchdog.ReadRepairObjectVersion).(*int)
 	noErrorsDuringRequestProcessing, errorsFlagCastOk := consistencyRequest.Context().Value(watchdog.NoErrorsDuringRequest).(*bool)
 	successfulMultiPart, multiPartFlagCastOk := consistencyRequest.Context().Value(watchdog.MultiPartUpload).(*bool)
 
@@ -243,8 +243,8 @@ func isSuccessfulMultipart(successfulMultiPart *bool, castResult bool) bool {
 	return castResult && successfulMultiPart != nil && *successfulMultiPart
 }
 
-func shouldPerformReadRepair(readRepairVersion *string, readRepairPropertyCastSuccessful bool) bool {
-	return readRepairPropertyCastSuccessful && readRepairVersion != nil && *readRepairVersion != ""
+func shouldPerformReadRepair(readRepairVersion *int, readRepairPropertyCastSuccessful bool) bool {
+	return readRepairPropertyCastSuccessful && readRepairVersion != nil && *readRepairVersion != -1
 }
 
 //NewShardingAPI wraps the provided sharingAPI with ConsistentShardsRing to ensure consistency

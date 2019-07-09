@@ -125,6 +125,7 @@ func IsObjectPath(path string) bool {
 	return len(parts) == 2 && parts[1] != ""
 }
 
+//TODO Query() parses the query string every time it's called... this can (and should!) be optimized
 //IsMultiPartUploadRequest checks if a request is a multipart upload request
 func IsMultiPartUploadRequest(request *http.Request) bool {
 	return IsInitiateMultiPartUploadRequest(request) || containsUploadID(request)
@@ -200,11 +201,12 @@ func ReadRequestBody(request *http.Request) ([]byte, error) {
 	}
 	bodyBytes, err := ioutil.ReadAll(request.Body)
 	if err != nil {
+		_ = request.Body.Close()
 		return nil, err
 	}
 	err = request.Body.Close()
 	if err != nil {
-		return bodyBytes, nil
+		return nil, err
 	}
 	return bodyBytes, nil
 }
