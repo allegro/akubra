@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	logEntriesSelect = `SELECT\ \*\ FROM\ \"consistency_record\"\ WHERE\ \(updated_at\ \+\ execution_delay\ \< NOW\(\)\)\ ORDER\ BY\ object_version\ DESC\ LIMIT\ 10\ FOR\ UPDATE\ SKIP\ LOCKED`
+	logEntriesSelect = `SELECT\ \*\ FROM\ \"consistency_record\"\ WHERE\ .+`
 )
 
 type AnyTime struct{}

@@ -27,7 +27,7 @@ require (
 	github.com/smartystreets/go-aws-auth v0.0.0-20180515143844-0c1422d1fdb9 // indirect
 	github.com/smartystreets/gunit v1.0.0 // indirect
 	github.com/stretchr/testify v1.3.0
-	github.com/wookie41/minio-go v3.0.3-0.20190708063915-c3af6b99fa75+incompatible
+	github.com/wookie41/minio-go v3.0.3-0.20190709093208-fd484cca1138+incompatible
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/tools v0.0.0-20190703212419-2214986f1668
 	gopkg.in/gemnasium/logrus-postgresql-hook.v1 v1.1.3
