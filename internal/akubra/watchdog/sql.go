@@ -1,6 +1,7 @@
 package watchdog
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/allegro/akubra/internal/akubra/watchdog/config"
@@ -14,7 +15,8 @@ import (
 )
 
 const (
-	insertNew = "INSERT INTO consistency_record (request_id, object_id, domain, access_key, execution_delay, method) VALUES (?, ?, ?, ?, ?, ?) RETURNING object_version"
+	insertNew                        = "INSERT INTO consistency_record (request_id, object_id, domain, access_key, execution_delay, method) VALUES (?, ?, ?, ?, ?, ?) RETURNING object_version"
+	insertNewWithObjectVersion       = "INSERT INTO consistency_record (object_version, request_id, object_id, domain, access_key, execution_delay, method) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING object_version"
 	selectNow                        = "SELECT CAST(EXTRACT(EPOCH FROM CURRENT_TIMESTAMP at time zone 'utc') * 10^6 AS BIGINT)"
 	watchdogTable                    = "consistency_record"
 	markersInsertedEalier            = "domain = ? AND object_id = ? AND object_version <= ?"
@@ -110,13 +112,27 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 	log.Debugf("[watchdog] INSERT reqID %s, objID %s, domain %s ", record.RequestID, record.ObjectID, record.Domain)
 
 	queryStartTime := time.Now()
-	rows, err := watchdog.
-		dbConn.
-		Raw(insertNew, record.RequestID, record.ObjectID, record.Domain,
-						record.AccessKey, record.ExecutionDelay.String(), record.Method).
-		Rows()
 
-	if err != nil  {
+	var rows *sql.Rows
+	var err error
+	if record.ObjectVersion > 0 {
+
+		rows, err = watchdog.
+			dbConn.
+			Raw(insertNewWithObjectVersion, record.ObjectVersion, record.RequestID, record.ObjectID, record.Domain, record.AccessKey, record.ExecutionDelay.String(), record.Method).
+			Rows()
+
+	} else {
+
+		rows, err = watchdog.
+			dbConn.
+			Raw(insertNew, record.RequestID, record.ObjectID, record.Domain,
+				record.AccessKey, record.ExecutionDelay.String(), record.Method).
+			Rows()
+
+	}
+
+	if err != nil {
 		metrics.UpdateSince("watchdog.insert.err", queryStartTime)
 		log.Debugf("[watchdog] INSERT FAIL reqID %s, objID %s, domain %s: %s", record.RequestID, record.ObjectID, record.Domain, err.Error())
 		return nil, ErrDataBase
@@ -226,7 +242,6 @@ func (watchdog *SQLWatchdog) SupplyRecordWithVersion(record *ConsistencyRecord) 
 func (watchdog *SQLWatchdog) GetVersionHeaderName() string {
 	return watchdog.versionHeaderName
 }
-
 
 //CreateWatchdogSQLClientProps creates watchdog reader/writer config
 func CreateWatchdogSQLClientProps(watchdogConfig *config.WatchdogConfig, readerConfig bool) map[string]string {

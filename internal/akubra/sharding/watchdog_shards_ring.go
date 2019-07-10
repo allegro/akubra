@@ -121,7 +121,7 @@ func (consistentShardRing *ConsistentShardsRing) logRequest(consistencyRequest *
 		}
 		consistencyRequest.DeleteMarker = deleteMarker
 	}
-	if consistencyRequest.Request.Method == http.MethodPut {
+	if consistencyRequest.isInitiateMultipartUploadRequest {
 		consistencyRequest.
 			Header.
 			Add(consistentShardRing.versionHeaderName, fmt.Sprintf("%d", consistencyRequest.ConsistencyRecord.ObjectVersion))
