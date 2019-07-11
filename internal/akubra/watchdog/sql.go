@@ -36,7 +36,7 @@ type SQLWatchdogFactory struct {
 
 // SQLWatchdog is a type of ConsistencyWatchdog that uses a SQL database
 type SQLWatchdog struct {
-	dbConn            *gorm.DB
+			dbConn            *gorm.DB
 	versionHeaderName string
 }
 
@@ -126,8 +126,7 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 
 		rows, err = watchdog.
 			dbConn.
-			Raw(insertNew, record.RequestID, record.ObjectID, record.Domain,
-				record.AccessKey, record.ExecutionDelay.String(), record.Method).
+			Raw(insertNew, record.RequestID, record.ObjectID, record.Domain, record.AccessKey, record.ExecutionDelay.String(), record.Method).
 			Rows()
 
 	}
@@ -164,7 +163,7 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 func (watchdog *SQLWatchdog) InsertWithRequestID(requestID string, record *ConsistencyRecord) (*DeleteMarker, error) {
 	record.RequestID = requestID
 	return watchdog.Insert(record)
-}
+}	
 
 // Delete deletes from SQL db
 func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
