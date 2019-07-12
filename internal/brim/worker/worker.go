@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/allegro/akubra/internal/akubra/log"
@@ -14,19 +15,29 @@ import (
 	"github.com/pkg/errors"
 )
 
+const oneHundredMB = 100000000
+
 //WALWorker performs the migrations
 type WALWorker interface {
 	Process(walTasksChan <-chan *model.WALTask)
+	SetMultiPartThresholdInBytes(numOfBytes int)
 }
 
 //TaskMigratorWALWorker uses TaskMigrator for migrations
 type TaskMigratorWALWorker struct {
-	semaphore chan struct{}
+	semaphore              chan struct{}
+	minMultiPartObjectSize int
+}
+
+func (walWorker *TaskMigratorWALWorker) SetMultiPartThresholdInBytes(numOfBytes int) {
+	walWorker.minMultiPartObjectSize = oneHundredMB
 }
 
 //NewTaskMigratorWALWorker creates an instance of TaskMigratorWALWorker
 func NewTaskMigratorWALWorker(maxConcurrentMigrations int) WALWorker {
-	return &TaskMigratorWALWorker{semaphore: make(chan struct{}, maxConcurrentMigrations)}
+	return &TaskMigratorWALWorker{
+		semaphore:              make(chan struct{}, maxConcurrentMigrations),
+		minMultiPartObjectSize: oneHundredMB}
 }
 
 //Process processes the channel of tasks and performs the migrations themselves
@@ -36,21 +47,14 @@ func (walWorker *TaskMigratorWALWorker) Process(walTasksChan <-chan *model.WALTa
 			go func(task *model.WALTask) {
 
 				record := task.WALEntry.Record
-				finish := func(record *watchdog.ConsistencyRecord, taskErr error) {
-					err := task.WALEntry.RecordProcessedHook(record, taskErr)
-					if err != nil {
-						log.Debug(err)
-					}
-				}
-
 				if task.SourceClient == nil && len(task.DestinationsClients) == 0 {
 					log.Debugf("No need to sync object '%s' in domain '%s'", record.ObjectID, record.Domain)
-					finish(record, nil)
+					task.WALEntry.RecordProcessedHook(record, nil)
 					return
 				}
 
 				err := walWorker.processTask(task)
-				finish(record, err)
+				task.WALEntry.RecordProcessedHook(record, err)
 
 			}(walTask)
 		}
@@ -97,12 +101,18 @@ func (walWorker *TaskMigratorWALWorker) performMigration(task *model.WALTask) er
 	}
 
 	srcBucket := task.SourceClient.Bucket(bucketName)
+
+	resp, err := srcBucket.Head(key, http.Header{})
+	if err != nil {
+		return err
+	}
+
 	for _, dstClient := range task.DestinationsClients {
 		migrator := s3.TaskMigrator{
 			SrcS3Client: task.SourceClient,
 			DstS3Client: dstClient,
 			Task:        copyObjectTask(srcBucket.S3Endpoint, dstClient.S3Endpoint, bucketName, key),
-			Multipart:   task.WALEntry.Record.ExecutionDelay > time.Minute*5,
+			Multipart:   resp.ContentLength >= oneHundredMB,
 		}
 
 		walWorker.semaphore <- struct{}{}
