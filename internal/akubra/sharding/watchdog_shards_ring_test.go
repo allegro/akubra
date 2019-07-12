@@ -2,6 +2,7 @@ package sharding
 
 import (
 	"context"
+	"fmt"
 	"github.com/allegro/akubra/internal/akubra/regions/config"
 	"github.com/allegro/akubra/internal/akubra/storages"
 	"github.com/allegro/akubra/internal/akubra/watchdog"
@@ -133,7 +134,12 @@ func TestReadRepair(t *testing.T) {
 		assert.NotNil(t, request)
 		assert.Nil(t, err)
 
-		request = request.WithContext(context.WithValue(request.Context(), watchdog.ReadRepairObjectVersion, &objectVersionToPerformReadRepairOn))
+
+		objVersion := ""
+		if objectVersionToPerformReadRepairOn > 0 {
+			objVersion = fmt.Sprintf("%d", objectVersionToPerformReadRepairOn)
+		}
+		request = request.WithContext(context.WithValue(request.Context(), watchdog.ReadRepairObjectVersion, &objVersion))
 		ctx, cancel := context.WithCancel(request.Context())
 		request = request.WithContext(ctx)
 		cancel()

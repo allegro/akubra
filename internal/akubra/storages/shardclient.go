@@ -63,7 +63,7 @@ func (shardClient *ShardClient) balancerRoundTrip(req *http.Request) (resp *http
 		}
 
 		resp, err = node.RoundTrip(nodeRequest)
-		if (resp == nil && err != balancing.ErrNoActiveNodes) || http.StatusNotFound == resp.StatusCode {
+		if (resp == nil && err != balancing.ErrNoActiveNodes) || http.StatusNotFound == resp.StatusCode || http.StatusForbidden == resp.StatusCode {
 			notFoundNodes = append(notFoundNodes, node)
 			continue
 		}
