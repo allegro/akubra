@@ -9,6 +9,7 @@ import (
 	"github.com/allegro/akubra/internal/akubra/utils"
 	"github.com/allegro/akubra/internal/akubra/watchdog"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -121,7 +122,7 @@ func (consistentShardRing *ConsistentShardsRing) logRequest(consistencyRequest *
 		}
 		consistencyRequest.DeleteMarker = deleteMarker
 	}
-	if consistencyRequest.Request.Method == http.MethodPut {
+	if consistencyRequest.isInitiateMultipartUploadRequest {
 		consistencyRequest.
 			Header.
 			Add(consistentShardRing.versionHeaderName, fmt.Sprintf("%d", consistencyRequest.ConsistencyRecord.ObjectVersion))
@@ -193,17 +194,25 @@ func (consistentShardRing *ConsistentShardsRing) updateExecutionDelay(request *h
 }
 
 func (consistentShardRing *ConsistentShardsRing) performReadRepair(consistencyRequest *consistencyRequest) {
-	objectVersion := consistencyRequest.Context().Value(watchdog.ReadRepairObjectVersion).(*int)
-	if objectVersion == nil {
+	objectVersionValue := consistencyRequest.Context().Value(watchdog.ReadRepairObjectVersion).(*string)
+
+	if objectVersionValue == nil {
 		log.Debugf("Can't perform read repair, no version header found, reqID %s", consistencyRequest.Context().Value(log.ContextreqIDKey))
 		return
 	}
+
+	objectVersion, err := strconv.ParseInt(*objectVersionValue, 10, 64)
+	if err != nil {
+		log.Debugf("Can't perform read repair, failed to parse objectVersion, reqID %s", consistencyRequest.Context().Value(log.ContextreqIDKey))
+		return
+	}
+
 	record, err := consistentShardRing.recordFactory.CreateRecordFor(consistencyRequest.Request)
 	if err != nil {
 		log.Debugf("Failed to perform read repair, couldn't consistencyRequesteate log record, reqID %s : %s", consistencyRequest.Context().Value(log.ContextreqIDKey), err)
 		return
 	}
-	record.ObjectVersion = *objectVersion
+	record.ObjectVersion = int(objectVersion)
 	_, err = consistentShardRing.watchdog.Insert(record)
 	if err != nil {
 		log.Debugf("Failed to perform read repair for object %s in domain %s: %s", record.ObjectID, record.Domain, err)
@@ -215,7 +224,7 @@ func (consistentShardRing *ConsistentShardsRing) awaitCompletion(consistencyRequ
 	<-consistencyRequest.Context().Done()
 
 	reqID := consistencyRequest.Context().Value(log.ContextreqIDKey)
-	readRepairVersion, readRepairCastOk := consistencyRequest.Context().Value(watchdog.ReadRepairObjectVersion).(*int)
+	readRepairVersion, readRepairCastOk := consistencyRequest.Context().Value(watchdog.ReadRepairObjectVersion).(*string)
 	noErrorsDuringRequestProcessing, errorsFlagCastOk := consistencyRequest.Context().Value(watchdog.NoErrorsDuringRequest).(*bool)
 	successfulMultiPart, multiPartFlagCastOk := consistencyRequest.Context().Value(watchdog.MultiPartUpload).(*bool)
 
@@ -243,8 +252,8 @@ func isSuccessfulMultipart(successfulMultiPart *bool, castResult bool) bool {
 	return castResult && successfulMultiPart != nil && *successfulMultiPart
 }
 
-func shouldPerformReadRepair(readRepairVersion *int, readRepairPropertyCastSuccessful bool) bool {
-	return readRepairPropertyCastSuccessful && readRepairVersion != nil && *readRepairVersion != -1
+func shouldPerformReadRepair(readRepairVersion *string, readRepairPropertyCastSuccessful bool) bool {
+	return readRepairPropertyCastSuccessful && readRepairVersion != nil && *readRepairVersion != ""
 }
 
 //NewShardingAPI wraps the provided sharingAPI with ConsistentShardsRing to ensure consistency

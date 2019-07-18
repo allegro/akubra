@@ -68,7 +68,7 @@ func (feeder *SQLWALFeeder) queryDB(walEntriesChannel chan *model.WALEntry) {
 		res := tx.
 			Order("object_version DESC").
 			Set("gorm:query_option", "FOR UPDATE SKIP LOCKED").
-			Where("updated_at + execution_delay < NOW()").
+			Where("updated_at + execution_delay < NOW() AT TIME ZONE 'UTC").
 			Limit(feeder.config.MaxRecordsPerQuery).
 			Find(&consistencyRecords)
 
@@ -176,13 +176,12 @@ func compactRecord(tx *gorm.DB, record *watchdog.ConsistencyRecord) error {
 
 func delayNextExecution(tx *gorm.DB, record *watchdog.ConsistencyRecord, delay time.Duration) error {
 	rows, err := tx.
-		Raw("UPDATE consistency_record SET execution_delay = NOW() - updated_at + INTERVAL ? WHERE request_id = ?", delay.String(), record.RequestID).
+		Raw("UPDATE consistency_record SET execution_delay = NOW() - updated_at + INTERVAL '5 minutes' WHERE request_id = ?", record.RequestID).
 		Rows()
-	defer rows.Close()
 	if err != nil {
 		return err
 	}
-	return nil
+	return rows.Close()
 }
 
 func mapSQLToRecord(record *watchdog.SQLConsistencyRecord) *watchdog.ConsistencyRecord {

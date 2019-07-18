@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	logEntriesSelect = `SELECT\ \*\ FROM\ \"consistency_record\"\ WHERE\ \(updated_at\ \+\ execution_delay\ \< NOW\(\)\)\ ORDER\ BY\ object_version\ DESC\ LIMIT\ 10\ FOR\ UPDATE\ SKIP\ LOCKED`
+	logEntriesSelect = `SELECT\ \*\ FROM\ \"consistency_record\"\ WHERE\ .+`
 )
 
 type AnyTime struct{}
@@ -188,8 +188,8 @@ func createDBFactoryMock(watchdogProps map[string]string, records []watchdog.SQL
 			WillReturnResult(sqlmock.NewResult(1, 1))
 
 		dbMock.
-			ExpectQuery("UPDATE consistency_record SET execution_delay (.+)").
-			WithArgs("0s", failures[idx].requestID).
+			ExpectQuery("UPDATE consistency_record SET execution_delay .+").
+			WithArgs(failures[idx].requestID).
 			WillReturnRows(dbMock.NewRows([]string{"x"}).AddRow("x")).
 			RowsWillBeClosed()
 	}

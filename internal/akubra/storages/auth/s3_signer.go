@@ -190,6 +190,9 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
+	if req == nil {
+		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
+	}
 	return srt.rt.RoundTrip(req)
 }
 
