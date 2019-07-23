@@ -83,6 +83,14 @@ func TestErrorHandlingDuringViolationChecking(t *testing.T) {
 	}
 }
 
+func TestRejectingRequestWithoutPolicyContext(t *testing.T) {
+	req := requestWithBasicContext("123")
+	basicChain := NewBasicChain([]Filter{})
+	violation, err := basicChain.Filter(req)
+	assert.Equal(t, NoViolation, violation)
+	assert.Error(t, err, ErrPrivacyContextNotPresent)
+}
+
 func TestBasicChainFiltering(t *testing.T) {
 	prvCtx := &Context{}
 	req := requestWithBasicContext("123")
