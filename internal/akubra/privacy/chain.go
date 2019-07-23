@@ -65,7 +65,7 @@ func (chainRT *ChainRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 		return violationDetectedFor(req), nil
 	}
 
-	return chainRT.RoundTrip(req)
+	return chainRT.roundTripper.RoundTrip(req)
 }
 
 func violationDetectedFor(req *http.Request) *http.Response {
@@ -80,7 +80,7 @@ func violationDetectedFor(req *http.Request) *http.Response {
 }
 
 //Filter is a funcion that check requests for a specific violation
-type Filter func(req *http.Request) (ViolationType, error)
+type Filter = func(req *http.Request, prvCtx *Context) (ViolationType, error)
 
 //BasicChain runs each of the filters on the request until the first violation/errror is returned
 type BasicChain struct {
@@ -102,7 +102,7 @@ func (basicChain *BasicChain) Filter(req *http.Request) (ViolationType, error) {
 	}
 
 	for _, filter := range basicChain.filters {
-		violation, err := filter(req)
+		violation, err := filter(req, privacyContext)
 		if violation != NoViolation || err != nil {
 			return violation, err
 		}
