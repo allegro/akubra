@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type SupplierMock struct {
+type supplierMock struct {
 	*mock.Mock
 }
 
-type RoundTripperMock struct {
+type roundTripperMock struct {
 	*mock.Mock
 }
 
@@ -49,11 +49,11 @@ func TestShouldUseTheSupplierToSupplyTheRequestWithPrivacyConfig(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "http://localhost:8080/bucket/object", nil)
 	assert.Nil(t, err)
 
-	supplierMock := &SupplierMock{Mock: &mock.Mock{}}
+	supplierMock := &supplierMock{Mock: &mock.Mock{}}
 	supplierMock.On("Supply", req).Return(req, nil)
 
 	expectedResp := &http.Response{StatusCode: http.StatusOK}
-	rtMock := &RoundTripperMock{Mock: &mock.Mock{}}
+	rtMock := &roundTripperMock{Mock: &mock.Mock{}}
 	rtMock.On("RoundTrip", req).Return(expectedResp, nil)
 
 	supplierRT := NewSupplierRoundTripper(rtMock, supplierMock)
@@ -71,10 +71,10 @@ func TestShouldFailIfTheRequestCannoutBeSuppliedWithPrivacyContext(t *testing.T)
 	req = req.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, "123"))
 	assert.Nil(t, err)
 
-	supplierMock := &SupplierMock{Mock: &mock.Mock{}}
+	supplierMock := &supplierMock{Mock: &mock.Mock{}}
 	supplierMock.On("Supply", req).Return(nil, errors.New("fail"))
 
-	rtMock := &RoundTripperMock{Mock: &mock.Mock{}}
+	rtMock := &roundTripperMock{Mock: &mock.Mock{}}
 
 	supplierRT := NewSupplierRoundTripper(rtMock, supplierMock)
 	resp, err := supplierRT.RoundTrip(req)
@@ -86,7 +86,7 @@ func TestShouldFailIfTheRequestCannoutBeSuppliedWithPrivacyContext(t *testing.T)
 	assert.Equal(t, err.Error(), "failed to supply request 123 with privacy context, reason: fail")
 }
 
-func (sm *SupplierMock) Supply(req *http.Request) (*http.Request, error) {
+func (sm *supplierMock) Supply(req *http.Request) (*http.Request, error) {
 	args := sm.Called(req)
 	var r *http.Request
 	if args.Get(0) != nil {
@@ -95,7 +95,7 @@ func (sm *SupplierMock) Supply(req *http.Request) (*http.Request, error) {
 	return r, args.Error(1)
 }
 
-func (rtm *RoundTripperMock) RoundTrip(req *http.Request) (*http.Response, error) {
+func (rtm *roundTripperMock) RoundTrip(req *http.Request) (*http.Response, error) {
 	args := rtm.Called(req)
 	var resp *http.Response
 	if args.Get(0) != nil {
