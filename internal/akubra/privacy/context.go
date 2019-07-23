@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	//RequestPrivacyContext is the key under which PrivacyContext can be found in context.Context
-	RequestPrivacyContext = log.ContextKey("RequestPrivacyContext")
+	//RequestPrivacyContextKey is the key under which PrivacyContext can be found in context.Context
+	RequestPrivacyContextKey = log.ContextKey("RequestPrivacyContextKey")
 )
 
 //Context holds the privacy settings associated with the request
@@ -44,7 +44,7 @@ func (basicSupplier *BasicPrivacyContextSupplier) Supply(req *http.Request) (*ht
 	privacyContext := &Context{
 		isInternalNetwork: isInternalNetwork,
 	}
-	contextWithPrivacy := context.WithValue(req.Context(), RequestPrivacyContext, privacyContext)
+	contextWithPrivacy := context.WithValue(req.Context(), RequestPrivacyContextKey, privacyContext)
 	return req.WithContext(contextWithPrivacy), nil
 }
 
@@ -66,7 +66,7 @@ func NewSupplierRoundTripper(roundTripper http.RoundTripper, supplier ContextSup
 func (supplierRT *SupplierRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	reqWithPrivacy, err := supplierRT.privacyContextSupplier.Supply(req)
 	if err != nil {
-		reqID := req.Context().Value(log.ContextreqIDKey)
+		reqID := req.Context().Value(log.ContextreqIDKey).(string)
 		return nil, fmt.Errorf("failed to supply request %s with privacy context, reason: %s", reqID, err)
 	}
 	return supplierRT.roundTripper.RoundTrip(reqWithPrivacy)
