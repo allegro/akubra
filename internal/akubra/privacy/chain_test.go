@@ -3,6 +3,7 @@ package privacy
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -18,7 +19,7 @@ type chainMock struct {
 func TestValidationsChecking(t *testing.T) {
 	for _, shouldDropOnViolation := range []bool{false, true} {
 		for _, shouldDetectViolation := range []bool{false, true} {
-			req := requestWithBasicContext("1234")
+			req := requestWithBasicContext("123", "bucket", "obj")
 			expectedResponse := &http.Response{StatusCode: http.StatusOK}
 			if shouldDetectViolation && shouldDropOnViolation {
 				expectedResponse.StatusCode = http.StatusForbidden
@@ -53,7 +54,7 @@ func TestValidationsChecking(t *testing.T) {
 func TestErrorHandlingDuringViolationChecking(t *testing.T) {
 	for _, shouldDrop := range []bool{true, false} {
 		for _, errorOccured := range []bool{true, false} {
-			req := requestWithBasicContext("1234")
+			req := requestWithBasicContext("123", "bucket", "obj")
 
 			var errDuringViolationChecking error
 			expectedResponse := &http.Response{StatusCode: http.StatusOK}
@@ -84,7 +85,7 @@ func TestErrorHandlingDuringViolationChecking(t *testing.T) {
 }
 
 func TestRejectingRequestWithoutPolicyContext(t *testing.T) {
-	req := requestWithBasicContext("123")
+	req := requestWithBasicContext("123", "bucket", "obj")
 	basicChain := NewBasicChain([]Filter{})
 	violation, err := basicChain.Filter(req)
 	assert.Equal(t, NoViolation, violation)
@@ -93,7 +94,7 @@ func TestRejectingRequestWithoutPolicyContext(t *testing.T) {
 
 func TestBasicChainFiltering(t *testing.T) {
 	prvCtx := &Context{}
-	req := requestWithBasicContext("123")
+	req := requestWithBasicContext("123", "bucket", "obj")
 	req = req.WithContext(context.WithValue(req.Context(), RequestPrivacyContextKey, prvCtx))
 
 	alwaysSuccessfulFilter := func(req *http.Request, prvCtx *Context) (ViolationType, error) {
@@ -129,8 +130,8 @@ func TestBasicChainFiltering(t *testing.T) {
 	}
 }
 
-func requestWithBasicContext(reqID string) *http.Request {
-	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8080/bucket/object", nil)
+func requestWithBasicContext(reqID, bucket, object string) *http.Request {
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:8080/%s/%s", bucket, object), nil)
 	return req.WithContext(context.WithValue(context.Background(), log.ContextreqIDKey, reqID))
 }
 

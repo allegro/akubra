@@ -109,6 +109,20 @@ func ExtractBucketAndKey(requestPath string) (string, string) {
 	return pathParts[0], pathParts[1]
 }
 
+//ExtractBucketFrom extract bucket's name from request's path, if no bucket name is found, empty
+//string is returned
+func ExtractBucketFrom(requestPath string) string {
+	trimmedPath := strings.Trim(requestPath, "/")
+	if trimmedPath == "" {
+		return ""
+	}
+	pathParts := strings.SplitN(trimmedPath, "/", 2)
+	if len(pathParts) < 1 {
+		return ""
+	}
+	return pathParts[0]
+}
+
 // IsBucketPath check if a given path is a bucket path
 func IsBucketPath(path string) bool {
 	trimmedPath := strings.Trim(path, "/")
