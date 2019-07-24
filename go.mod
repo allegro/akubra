@@ -3,9 +3,11 @@ module github.com/allegro/akubra
 require (
 	github.com/AdRoll/goamz v0.0.0-20170825154802-2731d20f46f4
 	github.com/DATA-DOG/go-sqlmock v1.3.3
+	github.com/OneOfOne/xxhash v1.2.5 // indirect
 	github.com/QuentinPerez/go-encodeUrl v0.0.0-20160615164728-645a9dbeee15 // indirect
 	github.com/ShowMax/go-fqdn v0.0.0-20180501083314-6f60894d629f
 	github.com/alecthomas/kingpin v2.2.6+incompatible
+	github.com/allegro/bigcache v0.0.0-20190618191010-69ea0af04088
 	github.com/cyberdelia/go-metrics-graphite v0.0.0-20161219230853-39f87cc3b432
 	github.com/deckarep/golang-set v1.7.1
 	github.com/docker/go-units v0.4.0
@@ -26,6 +28,8 @@ require (
 	github.com/sirupsen/logrus v1.4.1
 	github.com/smartystreets/go-aws-auth v0.0.0-20180515143844-0c1422d1fdb9 // indirect
 	github.com/smartystreets/gunit v1.0.0 // indirect
+	github.com/spaolacci/murmur3 v1.1.0 // indirect
+	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.3.0
 	github.com/wookie41/minio-go v3.0.3-0.20190709093208-fd484cca1138+incompatible
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
