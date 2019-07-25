@@ -3,13 +3,18 @@ package metadata
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
+	"hash/fnv"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/bigcache"
 )
+
+var evictKey = fmt.Sprintf("_%s_", strings.Repeat("x", 64))
 
 //BucketMetaData is akubra-specific metadata about the bucket
 type BucketMetaData struct {
@@ -36,8 +41,8 @@ type BucketMetaDataFetcher interface {
 type BucketMetaDataCacheConfig struct {
 	//LifeWindow is time after which entry will be invalidated
 	LifeWindow time.Duration `yaml:"LifeWindow"`
-	//MaxCacheSizeInMb is the hard max that the cache will not exceed
-	MaxCacheSizeInMb int `yaml:"MaxCacheSizeInMB"`
+	//MaxCacheSizeInMB is the hard max that the cache will not exceed
+	MaxCacheSizeInMB int `yaml:"MaxCacheSizeInMB"`
 	//ShardsCount is the number of shards
 	ShardsCount int `yaml:"ShardsCount"`
 	//Hasher is the hash function that will be used to hash the keys
@@ -50,7 +55,7 @@ func NewBucketMetaDataCache(conf *BucketMetaDataCacheConfig, fetcher BucketMetaD
 		Shards:           conf.ShardsCount,
 		LifeWindow:       conf.LifeWindow,
 		Hasher:           conf.Hasher,
-		HardMaxCacheSize: conf.MaxCacheSizeInMb,
+		HardMaxCacheSize: conf.MaxCacheSizeInMB,
 	}
 
 	bigCache, err := bigcache.NewBigCache(bigcacheConf)
@@ -58,14 +63,18 @@ func NewBucketMetaDataCache(conf *BucketMetaDataCacheConfig, fetcher BucketMetaD
 		return nil, err
 	}
 
-	return &BucketMetaDataCache{
+	metaDataCache := &BucketMetaDataCache{
 		bucketMetaDataFetcher:    fetcher,
 		cache:                    bigCache,
 		hasher:                   conf.Hasher,
 		bucketNamePatternMapping: make(map[uint64]*regexp.Regexp),
 		patterns:                 make([]*regexp.Regexp, 0),
 		patternsLock:             sync.Mutex{},
-	}, nil
+		lifeWindow:               conf.LifeWindow,
+	}
+
+	go metaDataCache.evictExpired()
+	return metaDataCache, nil
 }
 
 //BucketMetaDataCache is a wrapper that caches the answers given by the wrapped BucketMetaDataFetcher
@@ -76,11 +85,12 @@ type BucketMetaDataCache struct {
 	patterns                 []*regexp.Regexp
 	bucketNamePatternMapping map[uint64]*regexp.Regexp
 	patternsLock             sync.Mutex
+	lifeWindow               time.Duration
 }
 
 //Fetch first consults the cache for BucketMetaData and only fetches it when it's not in the cache
 func (bucketCache *BucketMetaDataCache) Fetch(bucketLocation *BucketLocation) (*BucketMetaData, error) {
-	bucketMetaData := bucketCache.findByDirectMapping(bucketLocation.Name)
+	bucketMetaData := bucketCache.findByDirectMapping(bucketLocation.Name, false)
 	if bucketMetaData != nil {
 		return bucketMetaData, nil
 	}
@@ -91,7 +101,7 @@ func (bucketCache *BucketMetaDataCache) Fetch(bucketLocation *BucketLocation) (*
 	return bucketCache.fetchAndCache(bucketLocation)
 }
 
-func (bucketCache *BucketMetaDataCache) findByDirectMapping(bucketName string) *BucketMetaData {
+func (bucketCache *BucketMetaDataCache) findByDirectMapping(bucketName string, isPattern bool) *BucketMetaData {
 	bucketMetaDataBytes, err := bucketCache.cache.Get(bucketName)
 	if err != nil {
 		return nil
@@ -101,6 +111,10 @@ func (bucketCache *BucketMetaDataCache) findByDirectMapping(bucketName string) *
 	if err != nil {
 		log.Debugf("failed to decode metadata for bucket %s: %s", bucketName, err)
 		bucketCache.cache.Delete(bucketName)
+		return nil
+	}
+	//hash collision handling
+	if !isPattern && bucketMetaData.Name != bucketName {
 		return nil
 	}
 	return bucketMetaData
@@ -118,7 +132,7 @@ func (bucketCache *BucketMetaDataCache) findByPattern(bucketName string) *Bucket
 func (bucketCache *BucketMetaDataCache) findByBucketNameToPatternMapping(bucketNameHash uint64) *BucketMetaData {
 	pattern, found := bucketCache.bucketNamePatternMapping[bucketNameHash]
 	if found {
-		metadata := bucketCache.findByDirectMapping(pattern.String())
+		metadata := bucketCache.findByDirectMapping(pattern.String(), true)
 		if metadata != nil {
 			return metadata
 		}
@@ -138,7 +152,7 @@ func (bucketCache *BucketMetaDataCache) findPatternThatMatches(bucketName string
 			bucketCache.patternsLock.Lock()
 			defer bucketCache.patternsLock.Unlock()
 			bucketCache.bucketNamePatternMapping[bucketCache.hasher.Sum64(bucketName)] = pattern
-			return bucketCache.findByDirectMapping(pattern.String())
+			return bucketCache.findByDirectMapping(pattern.String(), true)
 		}
 	}
 	return nil
@@ -170,10 +184,20 @@ func (bucketCache *BucketMetaDataCache) cacheResult(metaData *BucketMetaData) {
 	bucketCache.cache.Set(metaData.Name, encodedMetaData.Bytes())
 }
 
+func (bucketCache *BucketMetaDataCache) evictExpired() {
+	if bucketCache.lifeWindow == 0 {
+		return
+	}
+	for {
+		bucketCache.cache.Set(evictKey, []byte{})
+		time.Sleep(bucketCache.lifeWindow)
+	}
+}
+
 func decodeBucketMetaData(metaDataBytes *bytes.Buffer) (*BucketMetaData, error) {
 	var bucketMetaData BucketMetaData
 	decoder := gob.NewDecoder(metaDataBytes)
-	if err := decoder.Decode(bucketMetaData); err != nil {
+	if err := decoder.Decode(&bucketMetaData); err != nil {
 		return nil, err
 	}
 	return &bucketMetaData, nil
@@ -186,4 +210,14 @@ func encodeBucketMetaData(metaData *BucketMetaData) (*bytes.Buffer, error) {
 		return nil, err
 	}
 	return &buffer, nil
+}
+
+//Fnv64Hasher wraps the stdlib hasher to bigcache's Hasher type
+type Fnv64Hasher struct{}
+
+//Sum64 returns a hash for the key
+func (h *Fnv64Hasher) Sum64(key string) uint64 {
+	f := fnv.New64a()
+	f.Sum([]byte(key))
+	return f.Sum64()
 }
