@@ -24,23 +24,27 @@ type ContextSupplier interface {
 	Supply(req *http.Request) (*http.Request, error)
 }
 
+//Config is a configuration for ContextSupplier
+type Config struct {
+	IsInternalNetworkHeaderName  string `yaml:"IsInternalNetworkHeaderName"`
+	IsInternalNetworkHeaderValue string `yaml:"IsInternalNetworkHeaderValue"`
+	ShouldDropRequests           bool   `yaml:"ShouldDropRequests"`
+}
+
 //BasicPrivacyContextSupplier is a basic implemtation of ContextSupplier
 type BasicPrivacyContextSupplier struct {
-	isInternalNetworkHeaderName  string
-	isInternalNetworkHeaderValue string
+	config *Config
 }
 
 //NewBasicPrivacyContextSupplier creates an instance of BasicPrivacyContextSupplier
-func NewBasicPrivacyContextSupplier(isInternalNetworkHeaderName, isInternalNetworkHeaderValue string) ContextSupplier {
-	return &BasicPrivacyContextSupplier{
-		isInternalNetworkHeaderName:  isInternalNetworkHeaderName,
-		isInternalNetworkHeaderValue: isInternalNetworkHeaderValue,
-	}
+func NewBasicPrivacyContextSupplier(config *Config) ContextSupplier {
+	return &BasicPrivacyContextSupplier{config: config}
 }
 
 //Supply supplies the request with basic privacy info
 func (basicSupplier *BasicPrivacyContextSupplier) Supply(req *http.Request) (*http.Request, error) {
-	isInternalNetwork := req.Header.Get(basicSupplier.isInternalNetworkHeaderName) == basicSupplier.isInternalNetworkHeaderValue
+	headerValue := req.Header.Get(basicSupplier.config.IsInternalNetworkHeaderName)
+	isInternalNetwork := headerValue == basicSupplier.config.IsInternalNetworkHeaderValue
 	privacyContext := &Context{
 		isInternalNetwork: isInternalNetwork,
 	}
@@ -54,8 +58,8 @@ type SupplierRoundTripper struct {
 	privacyContextSupplier ContextSupplier
 }
 
-//NewSupplierRoundTripper creates an instance of SupplierRoundTripper
-func NewSupplierRoundTripper(roundTripper http.RoundTripper, supplier ContextSupplier) http.RoundTripper {
+//NewPrivacyContextSupplierRoundTripper creates an instance of SupplierRoundTripper
+func NewPrivacyContextSupplierRoundTripper(roundTripper http.RoundTripper, supplier ContextSupplier) http.RoundTripper {
 	return &SupplierRoundTripper{
 		roundTripper:           roundTripper,
 		privacyContextSupplier: supplier,

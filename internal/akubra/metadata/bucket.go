@@ -110,7 +110,7 @@ func (bucketCache *BucketMetaDataCache) findByDirectMapping(bucketName string, i
 	bucketMetaData, err := decodeBucketMetaData(buffer)
 	if err != nil {
 		log.Debugf("failed to decode metadata for bucket %s: %s", bucketName, err)
-		bucketCache.cache.Delete(bucketName)
+		_ = bucketCache.cache.Delete(bucketName)
 		return nil
 	}
 	//hash collision handling
@@ -177,11 +177,11 @@ func (bucketCache *BucketMetaDataCache) cacheResult(metaData *BucketMetaData) {
 		pattern, err := regexp.Compile(metaData.Pattern)
 		if err == nil {
 			bucketCache.patterns = append(bucketCache.patterns, pattern)
-			bucketCache.cache.Set(metaData.Pattern, encodedMetaData.Bytes())
+			_ = bucketCache.cache.Set(metaData.Pattern, encodedMetaData.Bytes())
 		}
 		return
 	}
-	bucketCache.cache.Set(metaData.Name, encodedMetaData.Bytes())
+	_ = bucketCache.cache.Set(metaData.Name, encodedMetaData.Bytes())
 }
 
 func (bucketCache *BucketMetaDataCache) evictExpired() {
@@ -189,7 +189,7 @@ func (bucketCache *BucketMetaDataCache) evictExpired() {
 		return
 	}
 	for {
-		bucketCache.cache.Set(evictKey, []byte{})
+		_ = bucketCache.cache.Set(evictKey, []byte{})
 		time.Sleep(bucketCache.lifeWindow)
 	}
 }
@@ -220,4 +220,16 @@ func (h *Fnv64Hasher) Sum64(key string) uint64 {
 	f := fnv.New64a()
 	f.Sum([]byte(key))
 	return f.Sum64()
+}
+
+//FakeBucketMetaDataFetcher always reports bucket as non-internal
+type FakeBucketMetaDataFetcher struct{}
+
+//Fetch just returns the BucketMetaData
+func (fetcher *FakeBucketMetaDataFetcher) Fetch(BucketLocation *BucketLocation) (*BucketMetaData, error) {
+	return &BucketMetaData{
+		Pattern:    "",
+		IsInternal: false,
+		Name:       BucketLocation.Name,
+	}, nil
 }

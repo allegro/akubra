@@ -1,11 +1,12 @@
 package config
 
 import (
-	"github.com/allegro/akubra/internal/akubra/watchdog/config"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
+
+	"github.com/allegro/akubra/internal/akubra/watchdog/config"
 
 	"fmt"
 
@@ -13,7 +14,9 @@ import (
 	httphandler "github.com/allegro/akubra/internal/akubra/httphandler/config"
 	"github.com/allegro/akubra/internal/akubra/log"
 	logconfig "github.com/allegro/akubra/internal/akubra/log/config"
+	metadata "github.com/allegro/akubra/internal/akubra/metadata"
 	"github.com/allegro/akubra/internal/akubra/metrics"
+	privacy "github.com/allegro/akubra/internal/akubra/privacy"
 	confregions "github.com/allegro/akubra/internal/akubra/regions/config"
 	storages "github.com/allegro/akubra/internal/akubra/storages/config"
 	"gopkg.in/validator.v1"
@@ -28,14 +31,16 @@ const TechnicalEndpointHeaderContentType = "application/yaml"
 
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
-	Service           httphandler.Service                `yaml:"Service"`
-	Storages          storages.StoragesMap               `yaml:"Storages"`
-	Shards            storages.ShardsMap                 `yaml:"Shards"`
-	ShardingPolicies  confregions.ShardingPolicies       `yaml:"ShardingPolicies"`
-	CredentialsStores crdstoreconfig.CredentialsStoreMap `yaml:"CredentialsStores"`
-	Logging           logconfig.LoggingConfig            `yaml:"Logging"`
-	Metrics           metrics.Config                     `yaml:"Metrics"`
-	Watchdog          config.WatchdogConfig              `yaml:"Watchdog"`
+	Service             httphandler.Service                `yaml:"Service"`
+	Storages            storages.StoragesMap               `yaml:"Storages"`
+	Shards              storages.ShardsMap                 `yaml:"Shards"`
+	ShardingPolicies    confregions.ShardingPolicies       `yaml:"ShardingPolicies"`
+	CredentialsStores   crdstoreconfig.CredentialsStoreMap `yaml:"CredentialsStores"`
+	Logging             logconfig.LoggingConfig            `yaml:"Logging"`
+	Metrics             metrics.Config                     `yaml:"Metrics"`
+	Watchdog            config.WatchdogConfig              `yaml:"Watchdog"`
+	Privacy             privacy.Config                     `yaml:"Privacy"`
+	BucketMetaDataCache metadata.BucketMetaDataCacheConfig `yaml:"BucketMetaDataCache"`
 }
 
 // Config contains processed YamlConfig data

@@ -20,17 +20,16 @@ type roundTripperMock struct {
 }
 
 func TestShouldSupplyRequestWithPrivacyContext(t *testing.T) {
-	isInternalNetworkHeaderName := "X-Internal"
-	isInternalNetworkHeaderValue := "1"
 
-	supplier := NewBasicPrivacyContextSupplier(isInternalNetworkHeaderName, isInternalNetworkHeaderValue)
+	config := prepareConfig()
+	supplier := NewBasicPrivacyContextSupplier(config)
 
 	for _, isInternalNetworkRequest := range []bool{false, true} {
 		req, err := http.NewRequest(http.MethodGet, "http://localhost:8080/bucket/object", nil)
 		assert.Nil(t, err)
 
 		if isInternalNetworkRequest {
-			req.Header.Set(isInternalNetworkHeaderName, isInternalNetworkHeaderValue)
+			req.Header.Set(config.IsInternalNetworkHeaderName, config.IsInternalNetworkHeaderValue)
 		}
 
 		req, err = supplier.Supply(req)
@@ -56,7 +55,7 @@ func TestShouldUseTheSupplierToSupplyTheRequestWithPrivacyConfig(t *testing.T) {
 	rtMock := &roundTripperMock{Mock: &mock.Mock{}}
 	rtMock.On("RoundTrip", req).Return(expectedResp, nil)
 
-	supplierRT := NewSupplierRoundTripper(rtMock, supplierMock)
+	supplierRT := NewPrivacyContextSupplierRoundTripper(rtMock, supplierMock)
 	resp, err := supplierRT.RoundTrip(req)
 
 	supplierMock.AssertCalled(t, "Supply", req)
@@ -76,7 +75,7 @@ func TestShouldFailIfTheRequestCannoutBeSuppliedWithPrivacyContext(t *testing.T)
 
 	rtMock := &roundTripperMock{Mock: &mock.Mock{}}
 
-	supplierRT := NewSupplierRoundTripper(rtMock, supplierMock)
+	supplierRT := NewPrivacyContextSupplierRoundTripper(rtMock, supplierMock)
 	resp, err := supplierRT.RoundTrip(req)
 
 	supplierMock.AssertCalled(t, "Supply", req)
@@ -102,4 +101,11 @@ func (rtm *roundTripperMock) RoundTrip(req *http.Request) (*http.Response, error
 		resp = args.Get(0).(*http.Response)
 	}
 	return resp, args.Error(1)
+}
+
+func prepareConfig() *Config {
+	return &Config{
+		IsInternalNetworkHeaderName:  "X-Internal",
+		IsInternalNetworkHeaderValue: "1",
+	}
 }
