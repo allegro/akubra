@@ -3,9 +3,11 @@ package metadata
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -45,8 +47,34 @@ type BucketMetaDataCacheConfig struct {
 	MaxCacheSizeInMB int `yaml:"MaxCacheSizeInMB"`
 	//ShardsCount is the number of shards
 	ShardsCount int `yaml:"ShardsCount"`
+	//FetcherType is the fetcher that should be used by the cache
+	FetcherType string `yaml:"FetcherType"`
+	//FetcherProps is the configuration for the fetcher
+	FetcherProps map[string]string `yaml:"FetcherProps"`
 	//Hasher is the hash function that will be used to hash the keys
 	Hasher bigcache.Hasher
+}
+
+//BucketMetaDataFetcherFactory creates an instance of fecher given using the given config
+type BucketMetaDataFetcherFactory interface {
+	Create(config map[string]string) (BucketMetaDataFetcher, error)
+}
+
+var fetcherFactories = map[string]BucketMetaDataFetcherFactory{
+	"fake": &FakeBucketMetaDataFetcherFactory{},
+}
+
+//NewBucketMetaDataCacheWithFactory uses the factory to create a fetcher
+func NewBucketMetaDataCacheWithFactory(conf *BucketMetaDataCacheConfig) (BucketMetaDataFetcher, error) {
+	fetcherFactory, supported := fetcherFactories[conf.FetcherType]
+	if !supported {
+		return nil, fmt.Errorf("fetcher of type %s is unsupported", conf.FetcherType)
+	}
+	fetcher, err := fetcherFactory.Create(conf.FetcherProps)
+	if err != nil {
+		return nil, err
+	}
+	return NewBucketMetaDataCache(conf, fetcher)
 }
 
 //NewBucketMetaDataCache wraps the supplies fetcher with a cache layer
@@ -223,13 +251,29 @@ func (h *Fnv64Hasher) Sum64(key string) uint64 {
 }
 
 //FakeBucketMetaDataFetcher always reports bucket as non-internal
-type FakeBucketMetaDataFetcher struct{}
+type FakeBucketMetaDataFetcher struct {
+	areBucketsInternal bool
+}
 
 //Fetch just returns the BucketMetaData
 func (fetcher *FakeBucketMetaDataFetcher) Fetch(BucketLocation *BucketLocation) (*BucketMetaData, error) {
 	return &BucketMetaData{
 		Pattern:    "",
-		IsInternal: false,
+		IsInternal: fetcher.areBucketsInternal,
 		Name:       BucketLocation.Name,
 	}, nil
+}
+
+type FakeBucketMetaDataFetcherFactory struct{}
+
+func (factory *FakeBucketMetaDataFetcherFactory) Create(config map[string]string) (BucketMetaDataFetcher, error) {
+	allInternalValue, present := config["AllInternal"]
+	if !present {
+		return nil, errors.New("failed to create FakeBucketMetaDataFetcher, 'AllInternal' missing")
+	}
+	allInternal, err := strconv.ParseBool(allInternalValue)
+	if err != nil {
+		return nil, fmt.Errorf("failed create FakeBucketMetaDataFetcher: %q", err)
+	}
+	return &FakeBucketMetaDataFetcher{areBucketsInternal: allInternal}, nil
 }

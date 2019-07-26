@@ -160,6 +160,30 @@ func TestCacheInvalidation(t *testing.T) {
 	fetcherMock.AssertNumberOfCalls(t, "Fetch", 3)
 }
 
+func TestCreatingFakeFetcherUsingFactory(t *testing.T) {
+	conf := BucketMetaDataCacheConfig{
+		FetcherType: "fake",
+		FetcherProps: map[string]string{
+			"AllInternal": "true",
+		},
+	}
+	cache, err := NewBucketMetaDataCacheWithFactory(&conf)
+	assert.Nil(t, err)
+	assert.NotNil(t, cache)
+}
+
+func TestInvalidFetcherConfig(t *testing.T) {
+	conf := BucketMetaDataCacheConfig{
+		FetcherType: "fake",
+		FetcherProps: map[string]string{
+			"AllInternal": "xxx",
+		},
+	}
+	cache, err := NewBucketMetaDataCacheWithFactory(&conf)
+	assert.NotNil(t, err)
+	assert.Nil(t, cache)
+}
+
 func prepareCacheConfig(entryLifeWindow time.Duration, hasher bigcache.Hasher) *BucketMetaDataCacheConfig {
 	return &BucketMetaDataCacheConfig{
 		LifeWindow:       entryLifeWindow,

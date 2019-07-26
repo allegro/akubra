@@ -204,10 +204,9 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 
 	privacyContextSupplier := privacy.NewBasicPrivacyContextSupplier(&conf.Privacy)
 
-	bucketMetaDataFetcher := &metadata.FakeBucketMetaDataFetcher{}
 	hasher := &metadata.Fnv64Hasher{}
 	conf.BucketMetaDataCache.Hasher = hasher
-	bucketMetaDataCache, err := metadata.NewBucketMetaDataCache(&conf.BucketMetaDataCache, bucketMetaDataFetcher)
+	bucketMetaDataCache, err := metadata.NewBucketMetaDataCacheWithFactory(&conf.BucketMetaDataCache)
 	if err != nil {
 		log.Fatalf("Failed to initialize bucket cache: %q", err)
 		return nil, err

@@ -201,6 +201,37 @@ func (c YamlConfig) CredentialsStoresEntryLogicalValidator() (valid bool, valida
 	validationErrors, valid = prepareErrors(errList, "CredentialsStoresEntryLogicalValidator")
 	return
 }
+
+//PrivacyEntryLogicalValidator validates privacy config
+func (c YamlConfig) PrivacyEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
+	errList := make([]error, 0)
+	requiredProperties := map[string]*string{
+		"IsInternalNetworkHeaderName":  &c.Privacy.IsInternalNetworkHeaderName,
+		"IsInternalNetworkHeaderValue": &c.Privacy.IsInternalNetworkHeaderValue}
+	for name, val := range requiredProperties {
+		if *val == "" {
+			errList = append(errList, fmt.Errorf("'%s' cant be empty", name))
+		}
+	}
+	validationErrors, valid = prepareErrors(errList, "PrivacyEntryLogicalValidator")
+	return
+}
+
+//BucketMetaDataCacheEntryLogicalValidator validates bucket metadata cache config
+func (c YamlConfig) BucketMetaDataCacheEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
+	errList := make([]error, 0)
+	greaterThanZero := map[string]int{
+		"ShardsCount":      c.BucketMetaDataCache.ShardsCount,
+		"MaxCacheSizeInMB": c.BucketMetaDataCache.MaxCacheSizeInMB}
+	for name, val := range greaterThanZero {
+		if val <= 0 {
+			errList = append(errList, fmt.Errorf("'%s' cant be smaller or equal to zero", name))
+		}
+	}
+	validationErrors, valid = prepareErrors(errList, "BucketMetaDataCacheEntryLogicalValidator")
+	return
+}
+
 func countStoragesWithDefaultAuthService(storages config.StoragesMap) int {
 	numberOfStoragesUsingDefaultSignService := 0
 	for idx := range storages {
