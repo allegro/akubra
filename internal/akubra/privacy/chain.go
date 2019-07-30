@@ -6,13 +6,13 @@ import (
 	"net/http"
 
 	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/internal/akubra/metrics"
 )
 
 //ViolationType is an code indiciating which (if any) privacy policy has been violated
 type ViolationType int
 
 const (
-
 	//NoViolation means that no violations have been deteced
 	NoViolation ViolationType = iota
 	//InternalNetworkBucket means that access to internal-network-only bucket has been requested
@@ -61,6 +61,7 @@ func (chainRT *ChainRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 	}
 
 	log.Debugf("detected violation of type %d on req %s", violation, reqID)
+	metrics.UpdateGauge("privacy.violation", 1)
 	if chainRT.shouldDropOnViolation {
 		return violationDetectedFor(req), nil
 	}

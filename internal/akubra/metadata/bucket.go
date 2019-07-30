@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/internal/akubra/metrics"
 	"github.com/allegro/bigcache"
 )
 
@@ -102,6 +103,7 @@ func NewBucketMetaDataCache(conf *BucketMetaDataCacheConfig, fetcher BucketMetaD
 	}
 
 	go metaDataCache.evictExpired()
+	go metaDataCache.sendStats()
 	return metaDataCache, nil
 }
 
@@ -114,10 +116,15 @@ type BucketMetaDataCache struct {
 	bucketNamePatternMapping map[uint64]*regexp.Regexp
 	patternsLock             sync.Mutex
 	lifeWindow               time.Duration
+	statsLock                sync.Mutex
+	queriesCount             uint
+	hitsCount                uint
 }
 
 //Fetch first consults the cache for BucketMetaData and only fetches it when it's not in the cache
 func (bucketCache *BucketMetaDataCache) Fetch(bucketLocation *BucketLocation) (*BucketMetaData, error) {
+	isHit := true
+	defer bucketCache.updateStats(&isHit)
 	bucketMetaData := bucketCache.findByDirectMapping(bucketLocation.Name, false)
 	if bucketMetaData != nil {
 		return bucketMetaData, nil
@@ -126,7 +133,16 @@ func (bucketCache *BucketMetaDataCache) Fetch(bucketLocation *BucketLocation) (*
 	if bucketMetaData != nil {
 		return bucketMetaData, nil
 	}
-	return bucketCache.fetchAndCache(bucketLocation)
+	isHit = false
+
+	fetchStartTime := time.Now()
+	metaData, err := bucketCache.fetchAndCache(bucketLocation)
+	if err == nil {
+		metrics.UpdateSince("metadata.bucket.fetch.ok", fetchStartTime)
+		return metaData, nil
+	}
+	metrics.UpdateSince("metadata.bucket.fetch.err", fetchStartTime)
+	return nil, err
 }
 
 func (bucketCache *BucketMetaDataCache) findByDirectMapping(bucketName string, isPattern bool) *BucketMetaData {
@@ -222,6 +238,33 @@ func (bucketCache *BucketMetaDataCache) evictExpired() {
 	}
 }
 
+func (bucketCache *BucketMetaDataCache) updateStats(isHit *bool) {
+	bucketCache.statsLock.Lock()
+	defer bucketCache.statsLock.Unlock()
+	bucketCache.queriesCount++
+	if *isHit {
+		bucketCache.hitsCount++
+	}
+}
+
+func (bucketCache *BucketMetaDataCache) sendStats() {
+	for {
+		bucketCache.statsLock.Lock()
+		queriesCount := bucketCache.queriesCount
+		hitsCount := bucketCache.hitsCount
+		bucketCache.queriesCount = 0
+		bucketCache.hitsCount = 0
+		bucketCache.statsLock.Unlock()
+		var hitPercentage float64
+		if queriesCount > 0 {
+			hitPercentage = (float64(hitsCount) * 100) / float64(queriesCount)
+		}
+		metrics.UpdateGauge("metadata.bucket.cache.queries", int64(queriesCount))
+		metrics.UpdateGauge("metadata.bucket.cache.hit-ratio", int64(hitPercentage))
+		time.Sleep(time.Second * 15)
+	}
+}
+
 func decodeBucketMetaData(metaDataBytes *bytes.Buffer) (*BucketMetaData, error) {
 	var bucketMetaData BucketMetaData
 	decoder := gob.NewDecoder(metaDataBytes)
@@ -264,8 +307,10 @@ func (fetcher *FakeBucketMetaDataFetcher) Fetch(BucketLocation *BucketLocation) 
 	}, nil
 }
 
+//FakeBucketMetaDataFetcherFactory is a fake implementation of BucketMetaDataFetcher that always returns the privacy specified in config
 type FakeBucketMetaDataFetcherFactory struct{}
 
+//Create creates an instance of FakeBucketMetaDataFetcher
 func (factory *FakeBucketMetaDataFetcherFactory) Create(config map[string]string) (BucketMetaDataFetcher, error) {
 	allInternalValue, present := config["AllInternal"]
 	if !present {
