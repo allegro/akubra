@@ -109,6 +109,20 @@ func ExtractBucketAndKey(requestPath string) (string, string) {
 	return pathParts[0], pathParts[1]
 }
 
+//ExtractBucketFrom extract bucket's name from request's path, if no bucket name is found, empty
+//string is returned
+func ExtractBucketFrom(requestPath string) string {
+	trimmedPath := strings.Trim(requestPath, "/")
+	if trimmedPath == "" {
+		return ""
+	}
+	pathParts := strings.SplitN(trimmedPath, "/", 2)
+	if len(pathParts) < 1 {
+		return ""
+	}
+	return pathParts[0]
+}
+
 // IsBucketPath check if a given path is a bucket path
 func IsBucketPath(path string) bool {
 	trimmedPath := strings.Trim(path, "/")
@@ -125,6 +139,7 @@ func IsObjectPath(path string) bool {
 	return len(parts) == 2 && parts[1] != ""
 }
 
+//TODO Query() parses the query string every time it's called... this can (and should!) be optimized
 //IsMultiPartUploadRequest checks if a request is a multipart upload request
 func IsMultiPartUploadRequest(request *http.Request) bool {
 	return IsInitiateMultiPartUploadRequest(request) || containsUploadID(request)
@@ -200,11 +215,12 @@ func ReadRequestBody(request *http.Request) ([]byte, error) {
 	}
 	bodyBytes, err := ioutil.ReadAll(request.Body)
 	if err != nil {
+		_ = request.Body.Close()
 		return nil, err
 	}
 	err = request.Body.Close()
 	if err != nil {
-		return bodyBytes, nil
+		return nil, err
 	}
 	return bodyBytes, nil
 }

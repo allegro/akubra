@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	logEntriesSelect = `SELECT\ \*\ FROM\ \"consistency_record\"\ WHERE\ \(updated_at\ \+\ execution_delay\ \< NOW\(\)\)\ ORDER\ BY\ inserted_at\ desc\ LIMIT\ 10\ FOR\ UPDATE\ SKIP\ LOCKED`
+	logEntriesSelect = `SELECT\ \*\ FROM\ \"consistency_record\"\ WHERE\ .+`
 )
 
 type AnyTime struct{}
@@ -56,8 +56,8 @@ func (filter *walFilterMock) Filter(walEntriesChannel <-chan *model.WALEntry) <-
 }
 
 type compaction struct {
-	domain, obejctID string
-	timestamp        time.Time
+	domain, objectID string
+	objectVersion    int
 	rowsAffected     int64
 }
 
@@ -75,20 +75,20 @@ func TestShouldEmitASingleWALEntryForAGivenObjectInParticularDomain(t *testing.T
 			Props: watchdogProps,
 		}}
 
-	feederConfig := WALFeederConfig{NoRecordsSleepDuration: 10 * time.Second, MaxRecordsPerQuery: 10, FailureDelay: time.Minute * 10}
+	feederConfig := WALFeederConfig{NoRecordsSleepDuration: 10 * time.Second, MaxRecordsPerQuery: 10, FailureDelay: time.Minute * 5}
 
 	records := []watchdog.SQLConsistencyRecord{
-		{RequestID: "1", ObjectID: "some/object1", Domain: "test1.qxlint", InsertedAt: time.Now().Add(-6 * time.Minute).UTC().Truncate(time.Microsecond), ExecutionDelay: (5 * time.Minute).String()},
-		{RequestID: "2", ObjectID: "some/object1", Domain: "test1.qxlint", InsertedAt: time.Now().Add(-12 * time.Minute).UTC().Truncate(time.Microsecond), ExecutionDelay: (5 * time.Minute).String()},
-		{RequestID: "3", ObjectID: "some/object1", Domain: "test1.qxlint", InsertedAt: time.Now().Add(-18 * time.Minute).UTC().Truncate(time.Microsecond), ExecutionDelay: (5 * time.Minute).String()},
-		{RequestID: "4", ObjectID: "some/object2", Domain: "test2.qxlint", InsertedAt: time.Now().Add(-6 * time.Minute).UTC().Truncate(time.Microsecond), ExecutionDelay: (5 * time.Minute).String()},
-		{RequestID: "5", ObjectID: "some/object2", Domain: "test2.qxlint", InsertedAt: time.Now().Add(-12 * time.Minute).UTC().Truncate(time.Microsecond), ExecutionDelay: (5 * time.Minute).String()},
-		{RequestID: "6", ObjectID: "some/object2", Domain: "test2.qxlint", InsertedAt: time.Now().Add(-16 * time.Minute).UTC().Truncate(time.Microsecond), ExecutionDelay: (5 * time.Minute).String()},
+		{ObjectVersion: 1, RequestID: "1", ObjectID: "some/object1", Domain: "test1.qxlint", InsertedAt: time.Now().Add(-6 * time.Minute).UTC(), ExecutionDelay: (5 * time.Minute).String()},
+		{ObjectVersion: 2, RequestID: "2", ObjectID: "some/object1", Domain: "test1.qxlint", InsertedAt: time.Now().Add(-12 * time.Minute).UTC(), ExecutionDelay: (5 * time.Minute).String()},
+		{ObjectVersion: 3, RequestID: "3", ObjectID: "some/object1", Domain: "test1.qxlint", InsertedAt: time.Now().Add(-18 * time.Minute).UTC(), ExecutionDelay: (5 * time.Minute).String()},
+		{ObjectVersion: 1, RequestID: "4", ObjectID: "some/object2", Domain: "test2.qxlint", InsertedAt: time.Now().Add(-6 * time.Minute).UTC(), ExecutionDelay: (5 * time.Minute).String()},
+		{ObjectVersion: 2, RequestID: "5", ObjectID: "some/object2", Domain: "test2.qxlint", InsertedAt: time.Now().Add(-12 * time.Minute).UTC(), ExecutionDelay: (5 * time.Minute).String()},
+		{ObjectVersion: 3, RequestID: "6", ObjectID: "some/object2", Domain: "test2.qxlint", InsertedAt: time.Now().Add(-16 * time.Minute).UTC(), ExecutionDelay: (5 * time.Minute).String()},
 	}
 
 	deleteParams := []compaction{
-		{domain: records[0].Domain, obejctID: records[0].ObjectID, timestamp: records[0].InsertedAt, rowsAffected: 3},
-		{domain: records[3].Domain, obejctID: records[3].ObjectID, timestamp: records[3].InsertedAt, rowsAffected: 3},
+		{domain: records[0].Domain, objectID: records[0].ObjectID, objectVersion: records[0].ObjectVersion, rowsAffected: 3},
+		{domain: records[3].Domain, objectID: records[3].ObjectID, objectVersion: records[3].ObjectVersion, rowsAffected: 3},
 	}
 
 	dbFactoryMock, db, _ := createDBFactoryMock(watchdogProps, records, deleteParams, []failure{}, t)
@@ -124,11 +124,11 @@ func TestShouldCommitATransactionEvenWhenSomeOfTheTasksHaveFailed(t *testing.T) 
 	feederConfig := WALFeederConfig{NoRecordsSleepDuration: 10 * time.Second, MaxRecordsPerQuery: 10}
 
 	records := []watchdog.SQLConsistencyRecord{
-		{RequestID: "1", ObjectID: "some/object1", Domain: "test1.qxlint", InsertedAt: time.Now().Add(-6 * time.Minute).UTC().Truncate(time.Microsecond), ExecutionDelay: (5 * time.Minute).String()},
-		{RequestID: "2", ObjectID: "some/object2", Domain: "test2.qxlint", InsertedAt: time.Now().Add(-12 * time.Minute).UTC().Truncate(time.Microsecond), ExecutionDelay: (5 * time.Minute).String()},
+		{ObjectVersion: 1, RequestID: "1", ObjectID: "some/object1", Domain: "test1.qxlint", InsertedAt: time.Now().UTC(), ExecutionDelay: (5 * time.Minute).String()},
+		{ObjectVersion: 1, RequestID: "2", ObjectID: "some/object2", Domain: "test2.qxlint", InsertedAt: time.Now().UTC(), ExecutionDelay: (5 * time.Minute).String()},
 	}
 
-	compactions := []compaction{{domain: records[0].Domain, obejctID: records[0].ObjectID, timestamp: records[0].InsertedAt, rowsAffected: 1}}
+	compactions := []compaction{{domain: records[0].Domain, objectID: records[0].ObjectID, objectVersion: records[0].ObjectVersion, rowsAffected: 1}}
 	failures := []failure{{requestID: records[1].RequestID, err: taskError}}
 
 	dbFactoryMock, db, _ := createDBFactoryMock(watchdogProps, records, compactions, failures, t)
@@ -161,29 +161,37 @@ func createDBFactoryMock(watchdogProps map[string]string, records []watchdog.SQL
 	assert.NoError(t, err)
 	gormDB, err := gorm.Open("postgres", db)
 	assert.NoError(t, err)
-	queryRows := sqlmock.NewRows([]string{"request_id", "object_id", "domain", "inserted_at", "execution_delay"})
+	queryRows := sqlmock.NewRows([]string{"request_id", "object_id", "domain", "object_version", "execution_delay", "updated_at"})
 
 	for idx := range records {
-		queryRows.AddRow(records[idx].RequestID, records[idx].ObjectID, records[idx].Domain, records[idx].InsertedAt, records[idx].ExecutionDelay)
+		queryRows.AddRow(records[idx].RequestID, records[idx].ObjectID, records[idx].Domain, records[idx].ObjectVersion, records[idx].ExecutionDelay, records[idx].UpdatedAt)
 	}
 
 	dbMock.ExpectBegin()
+
 	dbMock.
 		ExpectQuery(logEntriesSelect).
 		WillReturnRows(queryRows)
 
 	for idx := range deleteParams {
 		dbMock.
-			ExpectExec(`DELETE\ FROM\ \"consistency_record\"\ WHERE\ \(domain\ \=\ \$1\ AND\ object_id\ \=\ \$2\ AND\ inserted_at\ \<\=\ \$3\)`).
-			WithArgs(deleteParams[idx].domain, deleteParams[idx].obejctID, deleteParams[idx].timestamp).
+			ExpectExec(`DELETE\ FROM\ \"consistency_record\"\ WHERE\ \(domain\ \=\ \$1\ AND\ object_id\ \=\ \$2\ AND\ object_version\ \<\=\ \$3\)`).
+			WithArgs(deleteParams[idx].domain, deleteParams[idx].objectID, deleteParams[idx].objectVersion).
 			WillReturnResult(sqlmock.NewResult(1, deleteParams[idx].rowsAffected))
 	}
 
 	for idx := range failures {
+
 		dbMock.
 			ExpectExec(`UPDATE\ \"consistency_record\"\ SET\ \"error\"\ \=\ .+\,\ \"updated_at\"\ \=\ .+\ WHERE\ \(request_id\ \=\ .+\)`).
 			WithArgs(failures[idx].err.Error(), AnyTime{}, failures[idx].requestID).
 			WillReturnResult(sqlmock.NewResult(1, 1))
+
+		dbMock.
+			ExpectQuery("UPDATE consistency_record SET execution_delay .+").
+			WithArgs(failures[idx].requestID).
+			WillReturnRows(dbMock.NewRows([]string{"x"}).AddRow("x")).
+			RowsWillBeClosed()
 	}
 
 	dbMock.ExpectCommit()

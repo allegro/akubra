@@ -1,6 +1,7 @@
 package watchdog
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/allegro/akubra/internal/akubra/watchdog/config"
@@ -14,9 +15,11 @@ import (
 )
 
 const (
-	selectNow                        = "SELECT NOW()"
+	insertNew                        = "INSERT INTO consistency_record (request_id, object_id, domain, access_key, execution_delay, method) VALUES (?, ?, ?, ?, ?, ?) RETURNING object_version"
+	insertNewWithObjectVersion       = "INSERT INTO consistency_record (object_version, request_id, object_id, domain, access_key, execution_delay, method) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING object_version"
+	selectNow                        = "SELECT CAST(EXTRACT(EPOCH FROM CURRENT_TIMESTAMP at time zone 'utc') * 10^6 AS BIGINT)"
 	watchdogTable                    = "consistency_record"
-	markersInsertedEalier            = "domain = ? AND object_id = ? AND inserted_at <= ?"
+	markersInsertedEalier            = "domain = ? AND object_id = ? AND object_version <= ?"
 	updateRecordExecutionTimeByReqID = "UPDATE consistency_record " +
 		"SET execution_delay = ?" +
 		"WHERE request_id = ?"
@@ -33,7 +36,7 @@ type SQLWatchdogFactory struct {
 
 // SQLWatchdog is a type of ConsistencyWatchdog that uses a SQL database
 type SQLWatchdog struct {
-	dbConn            *gorm.DB
+			dbConn            *gorm.DB
 	versionHeaderName string
 }
 
@@ -42,7 +45,8 @@ var ErrDataBase = errors.New("database error")
 
 // SQLConsistencyRecord is a SQL representation of ConsistencyRecord
 type SQLConsistencyRecord struct {
-	InsertedAt     time.Time `gorm:"column:inserted_at;default:NOW()"`
+	ObjectVersion  int       `gorm:"column:object_version;default:EXTRACT(EPOCH FROM CURRENT_TIMESTAMP at time zone 'utc') * 10^6"`
+	InsertedAt     time.Time `gorm:"column:inserted_at"`
 	UpdatedAt      time.Time `gorm:"column:updated_at"`
 	ObjectID       string    `gorm:"column:object_id"`
 	Method         string    `gorm:"column:method"`
@@ -98,7 +102,6 @@ func (factory *SQLWatchdogFactory) CreateWatchdogInstance(config *config.Watchdo
 	if err != nil {
 		return nil, err
 	}
-
 	log.Printf("SQLWatchdog watcher setup successful")
 
 	return &SQLWatchdog{dbConn: db, versionHeaderName: config.ObjectVersionHeaderName}, nil
@@ -106,49 +109,82 @@ func (factory *SQLWatchdogFactory) CreateWatchdogInstance(config *config.Watchdo
 
 // Insert inserts to SQL db
 func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, error) {
-	log.Debugf("Inserting consistency record for object '%s'", record.ObjectID)
-	sqlRecord := createSQLRecord(record)
+	log.Debugf("[watchdog] INSERT reqID %s, objID %s, domain %s ", record.RequestID, record.ObjectID, record.Domain)
 
 	queryStartTime := time.Now()
-	insertResult := watchdog.dbConn.Table(watchdogTable).Create(sqlRecord)
 
-	if insertResult.Error != nil {
+	var rows *sql.Rows
+	var err error
+	if record.ObjectVersion > 0 {
+
+		rows, err = watchdog.
+			dbConn.
+			Raw(insertNewWithObjectVersion, record.ObjectVersion, record.RequestID, record.ObjectID, record.Domain, record.AccessKey, record.ExecutionDelay.String(), record.Method).
+			Rows()
+
+	} else {
+
+		rows, err = watchdog.
+			dbConn.
+			Raw(insertNew, record.RequestID, record.ObjectID, record.Domain, record.AccessKey, record.ExecutionDelay.String(), record.Method).
+			Rows()
+
+	}
+
+	if err != nil {
 		metrics.UpdateSince("watchdog.insert.err", queryStartTime)
-		log.Printf("Failed to insert consistency record for object '%s'", sqlRecord.ObjectID)
+		log.Debugf("[watchdog] INSERT FAIL reqID %s, objID %s, domain %s: %s", record.RequestID, record.ObjectID, record.Domain, err.Error())
 		return nil, ErrDataBase
 	}
 
+	defer rows.Close()
 	metrics.UpdateSince("watchdog.insert.ok", queryStartTime)
 
-	insertedRecord, _ := insertResult.Value.(*SQLConsistencyRecord)
-	log.Debugf("Successfully inserted consistency record for object '%s'", record.ObjectID)
-	record.ObjectVersion = insertedRecord.InsertedAt.Format(VersionDateLayout)
-	return createDeleteMarkerFor(insertedRecord), nil
+	if !rows.Next() {
+		return nil, ErrDataBase
+	}
+
+	var objVersion int
+	err = rows.Scan(&objVersion)
+	if err != nil {
+		return nil, ErrDataBase
+	}
+
+	log.Debugf("[watchdog] INSERT OK reqID %s, objID %s, domain %s, version %d", record.RequestID, record.ObjectID, record.Domain, objVersion)
+	record.ObjectVersion = objVersion
+	return &DeleteMarker{
+		objectID:      record.ObjectID,
+		domain:        record.Domain,
+		objectVersion: objVersion,
+	}, nil
 }
 
 //InsertWithRequestID inserts a record with custom ID
 func (watchdog *SQLWatchdog) InsertWithRequestID(requestID string, record *ConsistencyRecord) (*DeleteMarker, error) {
 	record.RequestID = requestID
 	return watchdog.Insert(record)
-}
+}	
 
 // Delete deletes from SQL db
 func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
+	log.Debugf("[watchdog] DELETE objID %s, version %d", marker.objectID, marker.objectVersion)
 
 	queryStartTime := time.Now()
 	deleteResult := watchdog.
 		dbConn.
 		Table(watchdogTable).
-		Where(markersInsertedEalier, marker.domain, marker.objectID, marker.insertionDate).
-		Delete(&ConsistencyRecord{})
+		Where(markersInsertedEalier, marker.domain, marker.objectID, marker.objectVersion).
+		Delete(&SQLConsistencyRecord{})
 
 	if deleteResult.Error != nil {
 		metrics.UpdateSince("watchdog.delete.err", queryStartTime)
-		log.Debugf("Failed to delete records for object '%s' older than %s: %s", marker.objectID, marker.insertionDate, deleteResult.Error)
+		log.Debugf("[watchdog] DELETE FAIL objID %s, version <= %d: %s", marker.objectID, marker.objectVersion, deleteResult.Error.Error())
 		return ErrDataBase
 	}
 
-	log.Debugf("Successfully deleted records for object '%s' older than %s", marker.objectID, marker.insertionDate.Format(time.RFC3339))
+	metrics.UpdateSince("watchdog.delete.ok", queryStartTime)
+
+	log.Debugf("[watchdog] DELETE OK objID, version <= %d", marker.objectID, marker.objectVersion)
 	return nil
 }
 
@@ -163,10 +199,10 @@ func (watchdog *SQLWatchdog) UpdateExecutionDelay(delta *ExecutionDelay) error {
 
 	if updateErr != nil {
 		metrics.UpdateSince("watchdog.update.err", queryStartTime)
-		log.Printf("Failed to update record for reqId '%s'", delta.RequestID)
+		log.Printf("[watchdog] UPDATE EXEC FAIL delay reqID: %s", delta.RequestID, updateErr.Error())
 	}
 
-	log.Debugf("Successfully updated record for reqId '%s'", delta.RequestID)
+	log.Printf("[watchdog] UPDATE EXEC OK delay reqID ", delta.RequestID)
 	return nil
 }
 
@@ -178,47 +214,32 @@ func (watchdog *SQLWatchdog) SupplyRecordWithVersion(record *ConsistencyRecord) 
 		Rows()
 
 	if err != nil {
-		log.Debugf("Failed to supply object with version: %s", err)
-		return ErrDataBase
-	}
-	if !rows.Next() {
-		log.Debugf("Empty response from database")
+		log.Debugf("[watchdog] VERSION SUPPLY ERR reqID %s: %s", record.RequestID, err.Error())
 		return ErrDataBase
 	}
 
-	var objectVersion time.Time
+	defer rows.Close()
+
+	if !rows.Next() {
+		log.Debugf("[watchdog] VERSION SUPPLY FAIL %s: Empty response from database", record.RequestID)
+		return ErrDataBase
+	}
+
+	var objectVersion int
 
 	err = rows.Scan(&objectVersion)
 	if err != nil {
 		return err
 	}
 
-	record.ObjectVersion = objectVersion.String()
+	record.ObjectVersion = objectVersion
+	log.Debugf("[watchdog] VERSION SUPPLY OK reqID %s", record.RequestID)
 	return nil
 }
 
 //GetVersionHeaderName returns the name of the HTTP header that should hold to object's verison
 func (watchdog *SQLWatchdog) GetVersionHeaderName() string {
 	return watchdog.versionHeaderName
-}
-
-func createDeleteMarkerFor(record *SQLConsistencyRecord) *DeleteMarker {
-	return &DeleteMarker{
-		objectID:      record.ObjectID,
-		domain:        record.Domain,
-		insertionDate: record.InsertedAt,
-	}
-}
-
-func createSQLRecord(record *ConsistencyRecord) *SQLConsistencyRecord {
-	return &SQLConsistencyRecord{
-		RequestID:      record.RequestID,
-		ObjectID:       record.ObjectID,
-		Method:         string(record.Method),
-		ExecutionDelay: fmt.Sprintf("%d minutes", uint64(record.ExecutionDelay.Minutes())),
-		AccessKey:      record.AccessKey,
-		Domain:         record.Domain,
-	}
 }
 
 //CreateWatchdogSQLClientProps creates watchdog reader/writer config

@@ -2,6 +2,7 @@ package filter
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/allegro/akubra/internal/brim/s3"
 )
@@ -20,7 +21,7 @@ type S3VersionFetcher struct {
 //StorageState describes if an object is present on o storage and if so, in which version
 type StorageState struct {
 	storageEndpoint string
-	version         string
+	version         int
 	objectNotFound  bool
 }
 
@@ -33,7 +34,7 @@ func (s3VersionFetcher *S3VersionFetcher) Fetch(auth *s3.MigrationAuth, bucketNa
 		if err.Error() == "404 Not Found" {
 			return &StorageState{
 				objectNotFound:  true,
-				version:         "",
+				version:         -1,
 				storageEndpoint: s3Client.S3Endpoint,
 			}, nil
 		}
@@ -43,10 +44,11 @@ func (s3VersionFetcher *S3VersionFetcher) Fetch(auth *s3.MigrationAuth, bucketNa
 		return nil, fmt.Errorf("bad response, status code = %d, message = %s",
 			headResponse.StatusCode, headResponse.Status)
 	}
-	objectVersion := headResponse.Header.Get(s3VersionFetcher.VersionHeaderName)
+	objectVersionHeader := headResponse.Header.Get(s3VersionFetcher.VersionHeaderName)
+	objectVersion, err := strconv.ParseInt(objectVersionHeader, 10, 64)
 	return &StorageState{
 		objectNotFound:  false,
-		version:         objectVersion,
+		version:         int(objectVersion),
 		storageEndpoint: s3Client.S3Endpoint,
 	}, nil
 }

@@ -2,6 +2,7 @@ package sharding
 
 import (
 	"context"
+	"fmt"
 	"github.com/allegro/akubra/internal/akubra/regions/config"
 	"github.com/allegro/akubra/internal/akubra/storages"
 	"github.com/allegro/akubra/internal/akubra/watchdog"
@@ -117,7 +118,7 @@ func TestRecordCompaction(t *testing.T) {
 
 func TestReadRepair(t *testing.T) {
 	versionHeaderName := "x-watchdog-version"
-	for _, objectVersionToPerformReadRepairOn := range []string{"", "123"} {
+	for _, objectVersionToPerformReadRepairOn := range []int{-1, 123} {
 		shardMock := &ShardRingAPIMock{&mock.Mock{}}
 		factoryMock := &ConsistencyRecordFactoryMock{&mock.Mock{}}
 		watchdogMock := &WatchdogMock{&mock.Mock{}}
@@ -133,7 +134,12 @@ func TestReadRepair(t *testing.T) {
 		assert.NotNil(t, request)
 		assert.Nil(t, err)
 
-		request = request.WithContext(context.WithValue(request.Context(), watchdog.ReadRepairObjectVersion, &objectVersionToPerformReadRepairOn))
+
+		objVersion := ""
+		if objectVersionToPerformReadRepairOn > 0 {
+			objVersion = fmt.Sprintf("%d", objectVersionToPerformReadRepairOn)
+		}
+		request = request.WithContext(context.WithValue(request.Context(), watchdog.ReadRepairObjectVersion, &objVersion))
 		ctx, cancel := context.WithCancel(request.Context())
 		request = request.WithContext(ctx)
 		cancel()
@@ -149,7 +155,7 @@ func TestReadRepair(t *testing.T) {
 
 		consistentShard.awaitCompletion(consistencyRequest)
 
-		if objectVersionToPerformReadRepairOn == "" {
+		if objectVersionToPerformReadRepairOn == -1 {
 			factoryMock.AssertNotCalled(t, "CreateRecordFor", request)
 			watchdogMock.AssertNotCalled(t, "Insert", readRepairRecord)
 		} else {

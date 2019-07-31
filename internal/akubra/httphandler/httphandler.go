@@ -101,7 +101,6 @@ func (h *Handler) validateIncomingRequest(req *http.Request) int {
 func DecorateRoundTripper(conf config.Client, accesslog log.Logger, healthCheckEndpoint string, rt http.RoundTripper) http.RoundTripper {
 	return Decorate(
 		rt,
-		ResponseHeadersStripper(conf.ResponseHeadersToStrip),
 		HeadersSuplier(conf.AdditionalRequestHeaders, conf.AdditionalResponseHeaders),
 		AccessLogging(accesslog),
 		OptionsHandler,

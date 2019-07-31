@@ -52,17 +52,19 @@ func TestMigrations(t *testing.T) {
 
 	for _, migrationScenario := range []struct {
 		testName                    string
-		desiredVersion              string
+		desiredVersion              int
 		method                      string
 		numberOfRequests            int
 		shouldAtLeastDstStorageFail bool
+		expectMultipart             bool
 	}{
-		{testName: "Successful PUT", desiredVersion: "987654321", method: "PUT", numberOfRequests: 2},
-		{testName: "Failed PUT", desiredVersion: "987654321", method: "PUT", numberOfRequests: 2, shouldAtLeastDstStorageFail: true},
-		{testName: "Successful DELETE", desiredVersion: "987654321", method: "DELETE", numberOfRequests: 2},
-		{testName: "Failed DELETE", desiredVersion: "987654321", method: "DELETE", numberOfRequests: 2, shouldAtLeastDstStorageFail: true},
+		{testName: "Successful PUT", desiredVersion: 987654321, method: "PUT", numberOfRequests: 2},
+		{testName: "Failed PUT", desiredVersion: 987654321, method: "PUT", numberOfRequests: 2, shouldAtLeastDstStorageFail: true},
+		{testName: "Successful DELETE", desiredVersion: 987654321, method: "DELETE", numberOfRequests: 2},
+		{testName: "Failed DELETE", desiredVersion: 987654321, method: "DELETE", numberOfRequests: 2, shouldAtLeastDstStorageFail: true},
+		{testName: "Success Multipart", desiredVersion: 987654321, method: "PUT", numberOfRequests: 2, expectMultipart: true},
 	} {
-		fmt.Printf("Running '%s' test case", migrationScenario.testName)
+		fmt.Printf("Running '%s' test case\n", migrationScenario.testName)
 		taskChannel := make(chan *model.WALTask)
 
 		tasksWG := sync.WaitGroup{}
@@ -72,8 +74,14 @@ func TestMigrations(t *testing.T) {
 
 		var srcCli *s3.S3
 		var srcStorage *httptest.Server
+
+		objSize := 4
+		if migrationScenario.expectMultipart {
+			objSize = 20
+		}
+
 		if migrationScenario.method == "PUT" {
-			srcStorage = prepareSrcServer(migrationScenario.desiredVersion, t)
+			srcStorage = prepareSrcServer(migrationScenario.desiredVersion, objSize, t)
 			srcCli = s3.New(aws.Auth{AccessKey: "123", SecretKey: "321"},
 				aws.Region{Name: "generic", S3Endpoint: srcStorage.URL})
 		}
@@ -81,7 +89,7 @@ func TestMigrations(t *testing.T) {
 		var dstClients []*s3.S3
 		var dstStorages []*httptest.Server
 		for i := 0; i < migrationScenario.numberOfRequests; i++ {
-			dstStorage := prepareDstServer(migrationScenario.method, migrationScenario.desiredVersion, &numberOfReq, mutex, t)
+			dstStorage := prepareDstServer(migrationScenario.method, objSize, migrationScenario.expectMultipart, migrationScenario.desiredVersion, &numberOfReq, mutex, t)
 			dstStorages = append(dstStorages, dstStorage)
 
 			dstClient := s3.New(aws.Auth{AccessKey: "123", SecretKey: "321"},
@@ -112,6 +120,7 @@ func TestMigrations(t *testing.T) {
 				}}}
 
 		worker := NewTaskMigratorWALWorker(1)
+		worker.SetMultiPartThresholdInBytes(10)
 		worker.Process(taskChannel)
 
 		taskChannel <- migration
@@ -126,35 +135,59 @@ func TestMigrations(t *testing.T) {
 	}
 }
 
-func prepareDstServer(expectedMethod string, expectedVersion string,
+func prepareDstServer(expectedMethod string, objSize int, expectMultiPart bool, expectedVersion int,
 	numberOfReq *int, mutex *sync.Mutex, t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		body, err := ioutil.ReadAll(req.Body)
 		assert.NoError(t, err)
-		assert.Equal(t, req.Method, expectedMethod)
-		assert.Equal(t, req.URL.Path, "/bucket/key")
+
 		if expectedMethod == "PUT" {
-			assert.Equal(t, body, []byte("CONTENT"))
-			assert.Equal(t, req.Header.Get("x-amz-meta-obj-version"), expectedVersion)
+			assert.Equal(t, body, []byte(strings.Repeat("X", objSize)))
+			if !expectMultiPart {
+				assert.Equal(t, req.Method, expectedMethod)
+				assert.Equal(t, req.URL.Path, "/bucket/key")
+				assert.Equal(t, req.Header.Get("x-amz-meta-obj-version"), string(expectedVersion))
+
+			}
+		}
+
+		if expectMultiPart {
+			assert.True(t, (req.Method == http.MethodPost && req.Header.Get("x-amz-meta-obj-version") == string(expectedVersion)) ||
+				req.Method == http.MethodPut ||
+				req.Method == http.MethodHead)
 
 		}
+
 		assert.True(t, strings.HasPrefix(req.Header.Get("Authorization"), "AWS 123:"))
-		_, _ = rw.Write([]byte(`OK`))
+
+		if http.MethodHead == req.Method {
+			_, _ = rw.Write([]byte(""))
+		} else {
+			_, _ = rw.Write([]byte("OK"))
+		}
+
 		mutex.Lock()
 		defer mutex.Unlock()
 		*numberOfReq++
 	}))
 }
-func prepareSrcServer(objVersion string, t *testing.T) *httptest.Server {
+func prepareSrcServer(objVersion int, objSize int, t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		assert.Equal(t, req.Method, "GET")
+		assert.True(t, http.MethodGet == req.Method || http.MethodHead == req.Method)
 		assert.True(t, strings.HasPrefix(req.URL.Path, "/bucket/key"))
 		assert.True(t, strings.HasPrefix(req.Header.Get("Authorization"), "AWS 123:"))
 		if req.URL.RawQuery == "acl=" {
 			_, _ = rw.Write([]byte(bucketACLResponse))
 		} else {
-			rw.Header().Set("x-amz-meta-obj-version", objVersion)
-			_, _ = rw.Write([]byte(`CONTENT`))
+			rw.Header().Set("x-amz-meta-obj-version", string(objVersion))
+			rw.WriteHeader(200)
+			if http.MethodGet == req.Method {
+				rw.Header().Set("Content-Length", fmt.Sprintf("%d", objSize))
+				_, _ = rw.Write([]byte(strings.Repeat("X", objSize)))
+			} else {
+				_, _ = rw.Write([]byte(""))
+
+			}
 		}
 	}))
 }

@@ -23,7 +23,9 @@ import (
 	logconfig "github.com/allegro/akubra/internal/akubra/log/config"
 	"github.com/allegro/akubra/internal/akubra/watchdog"
 
+	"github.com/allegro/akubra/internal/akubra/metadata"
 	"github.com/allegro/akubra/internal/akubra/metrics"
+	"github.com/allegro/akubra/internal/akubra/privacy"
 	"github.com/allegro/akubra/internal/akubra/regions"
 	"github.com/allegro/akubra/internal/akubra/storages"
 	"github.com/allegro/akubra/internal/akubra/transport"
@@ -241,6 +243,19 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 		return nil, err
 	}
 
+	privacyContextSupplier := privacy.NewBasicPrivacyContextSupplier(&conf.Privacy)
+
+	hasher := &metadata.Fnv64Hasher{}
+	conf.BucketMetaDataCache.Hasher = hasher
+	bucketMetaDataCache, err := metadata.NewBucketMetaDataCacheWithFactory(&conf.BucketMetaDataCache)
+	if err != nil {
+		log.Fatalf("Failed to initialize bucket cache: %q", err)
+		return nil, err
+	}
+
+	privacyFilters := []privacy.Filter{privacy.NewBucketPrivacyFilterFunc(bucketMetaDataCache)}
+	basicChain := privacy.NewBasicChain(privacyFilters)
+
 	regionsRT, err := regions.NewRegions(s.config, storage,
 		consistencyWatchdog, watchdogRecordFactory, conf.Watchdog.ObjectVersionHeaderName)
 	if err != nil {
@@ -249,6 +264,11 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 
 	regionsDecoratedRT := httphandler.DecorateRoundTripper(conf.Service.Client,
 		accessLog, conf.Service.Server.HealthCheckEndpoint, regionsRT)
+
+	regionsDecoratedRT = httphandler.Decorate(regionsDecoratedRT,
+		httphandler.ResponseHeadersStripper(conf.Service.Client.ResponseHeadersToStrip),
+		httphandler.PrivacyFilterChain(conf.Privacy.ShouldDropRequests, basicChain),
+		httphandler.PrivacyContextSupplier(privacyContextSupplier))
 
 	handler, err := httphandler.NewHandlerWithRoundTripper(regionsDecoratedRT, conf.Service.Server)
 	if err != nil {
