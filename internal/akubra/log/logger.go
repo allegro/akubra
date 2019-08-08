@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/allegro/akubra/internal/akubra/log/sql"
 	"github.com/sirupsen/logrus"
 )
 
@@ -74,14 +73,12 @@ type Logger interface {
 
 // LoggerConfig holds oprions
 type LoggerConfig struct {
-	Stderr    bool         `yaml:"stderr,omitempty"`
-	PlainText bool         `yaml:"plaintext,omitempty"`
-	Stdout    bool         `yaml:"stdout,omitempty"`
-	File      string       `yaml:"file"`
-	Syslog    string       `yaml:"syslog"`
-	Database  sql.DBConfig `yaml:"database"`
-	BrimAPI   BrimLogHook  `yaml:"brim"`
-	Level     string       `yaml:"level"`
+	Stderr    bool   `yaml:"stderr,omitempty"`
+	PlainText bool   `yaml:"plaintext,omitempty"`
+	Stdout    bool   `yaml:"stdout,omitempty"`
+	File      string `yaml:"file"`
+	Syslog    string `yaml:"syslog"`
+	Level     string `yaml:"level"`
 }
 
 func createLogWriter(config LoggerConfig) (io.Writer, error) {
@@ -129,31 +126,7 @@ func (f stripMessageNewLineFormatter) Format(entry *logrus.Entry) ([]byte, error
 }
 
 func createHooks(config LoggerConfig) (lh logrus.LevelHooks, err error) {
-	emptyConf := sql.DBConfig{}
 	lh = make(logrus.LevelHooks)
-	if config.Database != emptyConf {
-		hook, nserr := sql.NewSyncLogPsqlHook(config.Database)
-		if nserr != nil {
-			return lh, nserr
-		}
-		hooks, ok := lh[logrus.InfoLevel]
-		if !ok {
-			lh[logrus.InfoLevel] = []logrus.Hook{hook}
-		} else {
-			lh[logrus.InfoLevel] = append(hooks, hook)
-		}
-	}
-	emptyBrimAPIHook := BrimLogHook{}
-	if config.BrimAPI != emptyBrimAPIHook {
-		for _, level := range config.BrimAPI.Levels() {
-			_, ok := lh[level]
-			if !ok {
-				lh[level] = []logrus.Hook{&config.BrimAPI}
-			} else {
-				lh[level] = append(lh[level], &config.BrimAPI)
-			}
-		}
-	}
 	return
 }
 

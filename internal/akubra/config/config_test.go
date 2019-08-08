@@ -1,11 +1,12 @@
 package config
 
 import (
-	"github.com/allegro/akubra/internal/akubra/watchdog/config"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/allegro/akubra/internal/akubra/watchdog/config"
 
 	"bytes"
 	"fmt"
@@ -181,32 +182,6 @@ func TestShouldValidateConfMaintainedBackendWhenEmpty(t *testing.T) {
 
 	assert.True(t, result, "Should be true")
 }
-
-func TestShouldValidateAllPossibleSyncLogMethods(t *testing.T) {
-	data := `
-- GET
-- POST
-- PUT
-- DELETE
-- HEAD
-- OPTIONS
-`
-	syncLogMethodsTestData := []shardingconfig.SyncLogMethod{}
-	errors := yaml.Unmarshal([]byte(data), &syncLogMethodsTestData)
-
-	assert.Nil(t, errors)
-}
-
-func TestShouldNotValidateWrongSyncLogMethod(t *testing.T) {
-	data := `
-- WRONG
-`
-	syncLogMethodsTestData := []shardingconfig.SyncLogMethod{}
-	errors := yaml.Unmarshal([]byte(data), &syncLogMethodsTestData)
-
-	assert.NotNil(t, errors)
-}
-
 func TestAdditionalHeadersYamlParsingSuccessful(t *testing.T) {
 	correct := `
 'Access-Control-Allow-Credentials': "true"
