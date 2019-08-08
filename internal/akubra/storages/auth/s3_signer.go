@@ -2,11 +2,12 @@ package auth
 
 import (
 	"errors"
-	"github.com/allegro/akubra/internal/akubra/utils"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/allegro/akubra/internal/akubra/utils"
 
 	"github.com/allegro/akubra/internal/akubra/crdstore"
 	"github.com/allegro/akubra/internal/akubra/httphandler"
