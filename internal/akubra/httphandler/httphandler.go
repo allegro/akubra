@@ -50,6 +50,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	randomIDContext := context.WithValue(req.Context(), log.ContextreqIDKey, randomIDStr)
 	log.Debugf("Request id %s", randomIDStr)
 
+	req.Header.Del("Expect")
 	resp, err := h.roundTripper.RoundTrip(req.WithContext(randomIDContext))
 
 	if err != nil || resp == nil {
