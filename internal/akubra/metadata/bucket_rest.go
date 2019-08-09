@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	restEndpointPattern     = "service://%s/%s"
+	restEndpointPattern     = "%s/%s"
 	responseStatusErrFormat = "unexpected response status %d"
 	unmarshallError         = "failed to unmarshall response"
 	internal                = "INTERNAL"
@@ -21,8 +21,8 @@ const (
 //BucketIndexRestService is an implementation of BucketMetaDataFetcher that talks to a rest service
 //assuming it's supporint the requried protocol, meaning `/bucket/{bucketName}` returns the bucket metadta
 type BucketIndexRestService struct {
-	httpClient        akubraHttp.Client
-	bucketServiceName string
+	httpClient akubraHttp.Client
+	endpoint   string
 }
 
 type bucketMataDataJSON struct {
@@ -65,8 +65,9 @@ func (service *BucketIndexRestService) Fetch(bucketLocation *BucketLocation) (*B
 func (service *BucketIndexRestService) createBucketMetaDataRequest(bucketLocation *BucketLocation) (*http.Request, error) {
 	bucketMetaDataURL := fmt.Sprintf(
 		restEndpointPattern,
-		service.bucketServiceName,
+		service.endpoint,
 		bucketLocation.Name)
+
 	return http.NewRequest(http.MethodGet, bucketMetaDataURL, nil)
 }
 
