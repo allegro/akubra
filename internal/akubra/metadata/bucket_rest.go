@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -22,6 +23,27 @@ const (
 type BucketIndexRestService struct {
 	httpClient akubraHttp.Client
 	endpoint   string
+}
+
+//BucketIndexRestServiceFactory creates instances of BucketIndexRestService
+type BucketIndexRestServiceFactory struct {
+	httpClient akubraHttp.Client
+}
+
+//NewBucketIndexRestServiceFactory creates an instance of BucketIndexRestServiceFactory
+func NewBucketIndexRestServiceFactory(httpClient akubraHttp.Client) BucketMetaDataFetcherFactory {
+	return &BucketIndexRestServiceFactory{httpClient: httpClient}
+}
+
+//Create creates an instance of FakeBucketMetaDataFetcher
+func (factory *BucketIndexRestServiceFactory) Create(config map[string]string) (BucketMetaDataFetcher, error) {
+	httpEndpoint, present := config["HTTPEndpoint"]
+	if !present {
+		return nil, errors.New("failed to create BucketIndexRestServiceFactory, 'HTTPEndpoint' missing")
+	}
+	return &BucketIndexRestService{
+		httpClient: factory.httpClient,
+		endpoint:   httpEndpoint}, nil
 }
 
 type bucketMataDataJSON struct {

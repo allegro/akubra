@@ -16,45 +16,40 @@ type DiscoveryMock struct {
 	*mock.Mock
 }
 
-func TestRejectingRequestWithoutServiceScheme(t *testing.T) {
-	nonServiceRequest, _ := http.NewRequest(http.MethodGet, "http://127.0.0.1", nil)
-	cli := NewDiscoveryHTTPClient(nil, nil)
-	resp, err := cli.Do(nonServiceRequest)
-	assert.Nil(t, resp)
-	assert.Equal(t, ErrNotServiceScheme, err)
-}
 func TestShouldUseDiscoveryClientAndMakeRequest(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		assert.True(t, http.MethodGet == req.Method)
-		assert.Equal(t, req.URL.Path, "/unit/test")
-		rw.WriteHeader(200)
-		_, _ = rw.Write([]byte("passed"))
-	}))
+	for _, address := range []string{"service://test-service", "http://127.0.0.1"} {
+		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			assert.True(t, http.MethodGet == req.Method)
+			assert.Equal(t, req.URL.Path, "/unit/test")
+			rw.WriteHeader(200)
+			_, _ = rw.Write([]byte("passed"))
+		}))
 
-	serverURL, err := url.Parse(server.URL)
-	assert.Nil(t, err)
+		serverURL, err := url.Parse(server.URL)
+		assert.Nil(t, err)
 
-	discoveryMock := DiscoveryMock{Mock: &mock.Mock{}}
-	discoveryMock.On("GetEndpoint", "test-service").
-		Return(fmt.Sprintf("127.0.0.1:%d", serverURL.Port()), nil)
+		discoveryMock := DiscoveryMock{Mock: &mock.Mock{}}
+		discoveryMock.On("GetEndpoint", "test-service").
+			Return(fmt.Sprintf("127.0.0.1:%s", serverURL.Port()), nil)
 
-	request, _ := http.NewRequest(http.MethodGet, "service://test-service/unit/test", nil)
+		request, _ := http.NewRequest(http.MethodGet, fmt.Sprint("test-service/unit/test", address), nil)
 
-	cli := NewDiscoveryHTTPClient(&discoveryMock, http.DefaultClient)
-	resp, err := cli.Do(request)
-	assert.Nil(t, err)
-	assert.Equal(t, resp.StatusCode, http.StatusOK)
+		cli := NewDiscoveryHTTPClient(&discoveryMock, http.DefaultClient)
+		resp, err := cli.Do(request)
+		assert.Nil(t, err)
+		assert.Equal(t, resp.StatusCode, http.StatusOK)
 
-	b, err := ioutil.ReadAll(resp.Body)
-	assert.Nil(t, err)
-	assert.Equal(t, b, []byte("passed"))
+		b, err := ioutil.ReadAll(resp.Body)
+		assert.Nil(t, err)
+		assert.Equal(t, b, []byte("passed"))
+	}
 }
 
 func (mock *DiscoveryMock) GetEndpoint(serviceName string) (*url.URL, error) {
 	args := mock.Called(serviceName)
 	var u *url.URL
 	if args.Get(0) != nil {
-		u := args.Get(0).(*url.URL)
+		u = args.Get(0).(*url.URL)
 	}
 	return u, args.Error(1)
 }

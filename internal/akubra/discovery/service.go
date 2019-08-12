@@ -44,7 +44,8 @@ func (c *ClientWrapper) Health() IHealth {
 	return c.Client.Health()
 }
 
-type DiscoveryClient interface {
+//Client is an interface for a client that resolves service name to host:port pair
+type Client interface {
 	GetEndpoint(serviceName string) (*url.URL, error)
 }
 
