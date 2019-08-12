@@ -12,12 +12,26 @@ import (
 	"sync"
 	"time"
 
+	"github.com/allegro/akubra/internal/akubra/discovery"
 	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/metrics"
 	"github.com/allegro/bigcache"
 )
 
 var evictKey = fmt.Sprintf("_%s_", strings.Repeat("x", 64))
+
+var (
+	discoveryClient  discovery.Client
+	fetcherFactories map[string]BucketMetaDataFetcherFactory
+)
+
+func init() {
+	discoveryClient = discovery.NewDefaultServices()
+	fetcherFactories = map[string]BucketMetaDataFetcherFactory{
+		"fake": &FakeBucketMetaDataFetcherFactory{},
+		"http": NewBucketIndexRestServiceFactory(discoveryClient),
+	}
+}
 
 //BucketMetaData is akubra-specific metadata about the bucket
 type BucketMetaData struct {
@@ -59,10 +73,6 @@ type BucketMetaDataCacheConfig struct {
 //BucketMetaDataFetcherFactory creates an instance of fecher given using the given config
 type BucketMetaDataFetcherFactory interface {
 	Create(config map[string]string) (BucketMetaDataFetcher, error)
-}
-
-var fetcherFactories = map[string]BucketMetaDataFetcherFactory{
-	"fake": &FakeBucketMetaDataFetcherFactory{},
 }
 
 //NewBucketMetaDataCacheWithFactory uses the factory to create a fetcher

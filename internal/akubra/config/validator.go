@@ -4,14 +4,22 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
+	"time"
 
 	"net/http"
+	"net/url"
 
 	confregions "github.com/allegro/akubra/internal/akubra/regions/config"
 	"github.com/allegro/akubra/internal/akubra/storages/config"
 	set "github.com/deckarep/golang-set"
 )
+
+var fetcherConfigValidators = map[string]func(conf map[string]string) []error{
+	"fake": fakeFetcherConfigValidator,
+	"http": httpFetcherConfigValidator,
+}
 
 // NoEmptyValuesInSliceValidator for strings in slice
 func NoEmptyValuesInSliceValidator(v interface{}, param string) error {
@@ -228,6 +236,11 @@ func (c YamlConfig) BucketMetaDataCacheEntryLogicalValidator() (valid bool, vali
 			errList = append(errList, fmt.Errorf("'%s' cant be smaller or equal to zero", name))
 		}
 	}
+	validator, present := fetcherConfigValidators[c.BucketMetaDataCache.FetcherType]
+	if !present {
+		panic(fmt.Sprintf("not fetcher valdiator found for validator of type %s", c.BucketMetaDataCache.FetcherType))
+	}
+	errList = append(validator((c.BucketMetaDataCache.FetcherProps)))
 	validationErrors, valid = prepareErrors(errList, "BucketMetaDataCacheEntryLogicalValidator")
 	return
 }
@@ -279,4 +292,36 @@ func RequestHeaderContentTypeValidator(req http.Request, requiredContentType str
 		return http.StatusUnsupportedMediaType
 	}
 	return 0
+}
+
+func fakeFetcherConfigValidator(conf map[string]string) []error {
+	value, present := conf["AllInternal"]
+	if !present {
+		return []error{errors.New("'AllIntenral' property is missing")}
+	}
+	_, e := strconv.ParseBool(value)
+	if e == nil {
+		return nil
+	}
+	return []error{e}
+}
+
+func httpFetcherConfigValidator(conf map[string]string) []error {
+	value, present := conf["HTTPEndpoint"]
+	if !present {
+		return []error{errors.New("'HTTPEndpoint' property is missing")}
+	}
+	_, e := url.Parse(value)
+	if e != nil {
+		return []error{e}
+	}
+	valueD, present := conf["HTTPTimeout"]
+	if !present {
+		return []error{errors.New("'HTTPTimeout' property is missing")}
+	}
+	_, e := time.ParseDuration(valueD)
+	if e != nil {
+		return []error{e}
+	}
+	return nil
 }

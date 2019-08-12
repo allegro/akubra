@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
-
-	"net"
 
 	"github.com/hashicorp/consul/api"
 )
@@ -22,7 +21,7 @@ const (
 )
 
 var (
-	discoveryServices *Services
+	discoveryServices Client
 	httpClient        *http.Client
 )
 
@@ -30,6 +29,11 @@ func init() {
 	httpClient = &http.Client{
 		Timeout: httpRequestTimeout,
 	}
+	discoveryServices = NewDefaultServices()
+}
+
+//NewDefaultServices creates an instance of Services to use for discovery, using the default cfg
+func NewDefaultServices() Client {
 	consulConfig := api.DefaultConfig()
 	consulConfig.Transport = &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
@@ -42,8 +46,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-
-	discoveryServices = NewServices(consulClient, DefaultCacheInvalidationTimeout)
+	return NewServices(consulClient, DefaultCacheInvalidationTimeout)
 }
 
 // NewClientWrapper returns a new Consul client wrapper

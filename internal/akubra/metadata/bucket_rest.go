@@ -7,7 +7,9 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"time"
 
+	"github.com/allegro/akubra/internal/akubra/discovery"
 	akubraHttp "github.com/allegro/akubra/internal/akubra/http"
 	"github.com/allegro/akubra/internal/akubra/log"
 )
@@ -27,12 +29,12 @@ type BucketIndexRestService struct {
 
 //BucketIndexRestServiceFactory creates instances of BucketIndexRestService
 type BucketIndexRestServiceFactory struct {
-	httpClient akubraHttp.Client
+	discoveryClient discovery.Client
 }
 
 //NewBucketIndexRestServiceFactory creates an instance of BucketIndexRestServiceFactory
-func NewBucketIndexRestServiceFactory(httpClient akubraHttp.Client) BucketMetaDataFetcherFactory {
-	return &BucketIndexRestServiceFactory{httpClient: httpClient}
+func NewBucketIndexRestServiceFactory(discoveryClient discovery.Client) BucketMetaDataFetcherFactory {
+	return &BucketIndexRestServiceFactory{discoveryClient: discoveryClient}
 }
 
 //Create creates an instance of FakeBucketMetaDataFetcher
@@ -41,8 +43,18 @@ func (factory *BucketIndexRestServiceFactory) Create(config map[string]string) (
 	if !present {
 		return nil, errors.New("failed to create BucketIndexRestServiceFactory, 'HTTPEndpoint' missing")
 	}
+	httpTimeout, present := config["HTTPTimeout"]
+	if !present {
+		return nil, errors.New("failed to create BucketIndexRestServiceFactory, 'HTTPTimeout' missing")
+	}
+	timeout, err := time.ParseDuration(httpTimeout)
+	if err != nil {
+		return nil, errors.New("failed to create BucketIndexRestServiceFactory, 'HTTPTimeout' not parsable")
+	}
+	httpCli := &http.Client{Timeout: timeout}
+	akubraHTTPCli := akubraHttp.NewDiscoveryHTTPClient(factory.discoveryClient, httpCli)
 	return &BucketIndexRestService{
-		httpClient: factory.httpClient,
+		httpClient: akubraHTTPCli,
 		endpoint:   httpEndpoint}, nil
 }
 
