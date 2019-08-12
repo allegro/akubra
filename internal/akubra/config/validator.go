@@ -16,7 +16,9 @@ import (
 	set "github.com/deckarep/golang-set"
 )
 
-var fetcherConfigValidators = map[string]func(conf map[string]string) []error{
+type fetcherValidator = func(conf map[string]string) error
+
+var fetcherConfigValidators = map[string]fetcherValidator{
 	"fake": fakeFetcherConfigValidator,
 	"http": httpFetcherConfigValidator,
 }
@@ -228,6 +230,12 @@ func (c YamlConfig) PrivacyEntryLogicalValidator() (valid bool, validationErrors
 //BucketMetaDataCacheEntryLogicalValidator validates bucket metadata cache config
 func (c YamlConfig) BucketMetaDataCacheEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
+	validator, present := fetcherConfigValidators[c.BucketMetaDataCache.FetcherType]
+	if !present {
+		errList = append(errList, fmt.Errorf("not fetcher valdiator found for validator of type %s", c.BucketMetaDataCache.FetcherType))
+		validationErrors, valid = prepareErrors(errList, "BucketMetaDataCacheEntryLogicalValidator")
+		return
+	}
 	greaterThanZero := map[string]int{
 		"ShardsCount":      c.BucketMetaDataCache.ShardsCount,
 		"MaxCacheSizeInMB": c.BucketMetaDataCache.MaxCacheSizeInMB}
@@ -236,11 +244,10 @@ func (c YamlConfig) BucketMetaDataCacheEntryLogicalValidator() (valid bool, vali
 			errList = append(errList, fmt.Errorf("'%s' cant be smaller or equal to zero", name))
 		}
 	}
-	validator, present := fetcherConfigValidators[c.BucketMetaDataCache.FetcherType]
-	if !present {
-		panic(fmt.Sprintf("not fetcher valdiator found for validator of type %s", c.BucketMetaDataCache.FetcherType))
+	validatorErrors := validator(c.BucketMetaDataCache.FetcherProps)
+	if validatorErrors != nil {
+		errList = append(errList, validatorErrors)
 	}
-	errList = append(validator((c.BucketMetaDataCache.FetcherProps)))
 	validationErrors, valid = prepareErrors(errList, "BucketMetaDataCacheEntryLogicalValidator")
 	return
 }
@@ -294,34 +301,34 @@ func RequestHeaderContentTypeValidator(req http.Request, requiredContentType str
 	return 0
 }
 
-func fakeFetcherConfigValidator(conf map[string]string) []error {
+func fakeFetcherConfigValidator(conf map[string]string) error {
 	value, present := conf["AllInternal"]
 	if !present {
-		return []error{errors.New("'AllIntenral' property is missing")}
+		return errors.New("'AllInternal' property is missing")
 	}
 	_, e := strconv.ParseBool(value)
-	if e == nil {
-		return nil
+	if e != nil {
+		return errors.New("'AllInternal' property not parsable")
 	}
-	return []error{e}
+	return nil
 }
 
-func httpFetcherConfigValidator(conf map[string]string) []error {
+func httpFetcherConfigValidator(conf map[string]string) error {
 	value, present := conf["HTTPEndpoint"]
 	if !present {
-		return []error{errors.New("'HTTPEndpoint' property is missing")}
+		return errors.New("'HTTPEndpoint' property is missing")
 	}
 	_, e := url.Parse(value)
-	if e != nil {
-		return []error{e}
+	if value == "" || e != nil {
+		return errors.New("'HTTPEndpoint' not parsable")
 	}
 	valueD, present := conf["HTTPTimeout"]
 	if !present {
-		return []error{errors.New("'HTTPTimeout' property is missing")}
+		return errors.New("'HTTPTimeout' property is missing")
 	}
-	_, e := time.ParseDuration(valueD)
+	_, e = time.ParseDuration(valueD)
 	if e != nil {
-		return []error{e}
+		return errors.New("'HTTPTimeout' not parsable")
 	}
 	return nil
 }
