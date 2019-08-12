@@ -12,9 +12,8 @@ import (
 )
 
 const (
-	restEndpointPattern     = "%s/%s"
+	restEndpointPattern     = "%s/bucket/%s"
 	responseStatusErrFormat = "unexpected response status %d"
-	unmarshallError         = "failed to unmarshall response"
 	internal                = "INTERNAL"
 )
 
@@ -30,6 +29,14 @@ type bucketMataDataJSON struct {
 	Visibility string `json:"visibility"`
 }
 
+//NewBucketIndexRestService creates an instance of BucketIndexRestService
+func NewBucketIndexRestService(httpClient akubraHttp.Client, endpoint string) BucketMetaDataFetcher {
+	return &BucketIndexRestService{
+		httpClient: httpClient,
+		endpoint:   endpoint,
+	}
+}
+
 //Fetch fetches the bucket metadata via rest API
 func (service *BucketIndexRestService) Fetch(bucketLocation *BucketLocation) (*BucketMetaData, error) {
 	bucketMetaDataRequest, err := service.createBucketMetaDataRequest(bucketLocation)
@@ -41,16 +48,10 @@ func (service *BucketIndexRestService) Fetch(bucketLocation *BucketLocation) (*B
 		return nil, err
 	}
 	if httpResponse.StatusCode == http.StatusNotFound {
-		return nil, &FetchError{
-			Message: bucketLocation.Name,
-			Code:    NotFound,
-		}
+		return nil, nil
 	}
 	if httpResponse.StatusCode != http.StatusOK || httpResponse.Body == nil {
-		return nil, &FetchError{
-			Message: fmt.Sprintf(responseStatusErrFormat, httpResponse.StatusCode),
-			Code:    BadResponse,
-		}
+		return nil, fmt.Errorf(responseStatusErrFormat, httpResponse.StatusCode)
 	}
 	metaDataJSON, err := unmarshallMetaData(httpResponse.Body)
 
@@ -74,23 +75,15 @@ func (service *BucketIndexRestService) createBucketMetaDataRequest(bucketLocatio
 func unmarshallMetaData(reader io.ReadCloser) (*bucketMataDataJSON, error) {
 	bytes, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return nil, &FetchError{
-			Message:     unmarshallError,
-			Code:        BadResponse,
-			ParentError: err}
+		return nil, err
 	}
 	if err := reader.Close(); err != nil {
 		log.Debugf("failed to close reader: %q", err)
 	}
-
 	var metaData bucketMataDataJSON
 	err = json.Unmarshal(bytes, &metaData)
 	if err != nil {
-		return nil, &FetchError{
-			Message:     unmarshallError,
-			Code:        BadResponse,
-			ParentError: err}
+		return nil, err
 	}
-
 	return &metaData, nil
 }

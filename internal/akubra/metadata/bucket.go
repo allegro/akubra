@@ -19,29 +19,6 @@ import (
 
 var evictKey = fmt.Sprintf("_%s_", strings.Repeat("x", 64))
 
-//ErrorCode type of error status
-type ErrorCode int
-
-//Error codes
-const (
-	NotFound ErrorCode = iota
-	BadResponse
-)
-
-//FetchError describes what went wrong during metadata fetching
-type FetchError struct {
-	//Message is the human readable explanation of what went wront
-	Message string
-	//Code defines the type of error
-	Code ErrorCode
-	//Parent error is the error that this error is wrapping
-	ParentError error
-}
-
-func (e *FetchError) Error() string {
-	return fmt.Sprintf("[%d] %s - %s", e.Code, e.Message, e.ParentError.Error())
-}
-
 //BucketMetaData is akubra-specific metadata about the bucket
 type BucketMetaData struct {
 	//Name is the name of the bucket
