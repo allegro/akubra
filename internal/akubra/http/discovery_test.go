@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,10 +30,17 @@ func TestShouldUseDiscoveryClientAndMakeRequest(t *testing.T) {
 		assert.Nil(t, err)
 
 		discoveryMock := DiscoveryMock{Mock: &mock.Mock{}}
-		discoveryMock.On("GetEndpoint", "test-service").
-			Return(fmt.Sprintf("127.0.0.1:%s", serverURL.Port()), nil)
 
-		request, _ := http.NewRequest(http.MethodGet, fmt.Sprint("test-service/unit/test", address), nil)
+		if strings.HasPrefix(address, "http") {
+			address = fmt.Sprintf("%s:%s", address, serverURL.Port())
+		} else {
+			endpoint, err := url.Parse(fmt.Sprintf("http://127.0.0.1:%s", serverURL.Port()))
+			assert.Nil(t, err)
+
+			discoveryMock.On("GetEndpoint", "test-service").Return(endpoint, nil)
+		}
+
+		request, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/unit/test", address), nil)
 
 		cli := NewDiscoveryHTTPClient(&discoveryMock, http.DefaultClient)
 		resp, err := cli.Do(request)

@@ -33,7 +33,7 @@ require (
 	github.com/stretchr/testify v1.3.0
 	github.com/wookie41/minio-go v3.0.3-0.20190709093208-fd484cca1138+incompatible
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/tools v0.0.0-20190725161231-2e34cfcb95cb
+	golang.org/x/tools v0.0.0-20190813034749-528a2984e271
 	gopkg.in/gemnasium/logrus-postgresql-hook.v1 v1.1.3
 	gopkg.in/validator.v1 v1.0.0-20140827164146-4379dff89709
 	gopkg.in/yaml.v2 v2.2.2

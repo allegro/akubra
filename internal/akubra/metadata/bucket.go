@@ -19,6 +19,7 @@ import (
 )
 
 var evictKey = fmt.Sprintf("_%s_", strings.Repeat("x", 64))
+var metaDataNotFound = &BucketMetaData{}
 
 var (
 	discoveryClient  discovery.Client
@@ -137,14 +138,21 @@ func (bucketCache *BucketMetaDataCache) Fetch(bucketLocation *BucketLocation) (*
 	defer bucketCache.updateStats(&isHit)
 	bucketMetaData := bucketCache.findByDirectMapping(bucketLocation.Name, false)
 	if bucketMetaData != nil {
+		if bucketMetaData == metaDataNotFound {
+			return nil, nil
+		}
 		return bucketMetaData, nil
 	}
+
 	bucketMetaData = bucketCache.findByPattern(bucketLocation.Name)
 	if bucketMetaData != nil {
+		if bucketMetaData == metaDataNotFound {
+			return nil, nil
+		}
 		return bucketMetaData, nil
 	}
-	isHit = false
 
+	isHit = false
 	fetchStartTime := time.Now()
 	metaData, err := bucketCache.fetchAndCache(bucketLocation)
 	if err == nil {
@@ -160,15 +168,14 @@ func (bucketCache *BucketMetaDataCache) findByDirectMapping(bucketName string, i
 	if err != nil {
 		return nil
 	}
-	buffer := bytes.NewBuffer(bucketMetaDataBytes)
-	bucketMetaData, err := decodeBucketMetaData(buffer)
+	bucketMetaData, err := decodeBucketMetaData(bucketMetaDataBytes)
 	if err != nil {
 		log.Debugf("failed to decode metadata for bucket %s: %s", bucketName, err)
 		_ = bucketCache.cache.Delete(bucketName)
 		return nil
 	}
 	//hash collision handling
-	if !isPattern && bucketMetaData.Name != bucketName {
+	if bucketMetaData != metaDataNotFound && !isPattern && bucketMetaData.Name != bucketName {
 		return nil
 	}
 	return bucketMetaData
@@ -217,11 +224,15 @@ func (bucketCache *BucketMetaDataCache) fetchAndCache(bucketLocation *BucketLoca
 	if err != nil {
 		return nil, err
 	}
-	bucketCache.cacheResult(metaData)
+	bucketCache.cacheResult(bucketLocation.Name, metaData)
 	return metaData, nil
 }
 
-func (bucketCache *BucketMetaDataCache) cacheResult(metaData *BucketMetaData) {
+func (bucketCache *BucketMetaDataCache) cacheResult(bucketName string, metaData *BucketMetaData) {
+	if metaData == nil {
+		_ = bucketCache.cache.Set(bucketName, []byte{})
+		return
+	}
 	encodedMetaData, err := encodeBucketMetaData(metaData)
 	if err != nil {
 		log.Debugf("failed to cache result for bucket %s: %s", metaData.Name, err)
@@ -275,9 +286,12 @@ func (bucketCache *BucketMetaDataCache) sendStats() {
 	}
 }
 
-func decodeBucketMetaData(metaDataBytes *bytes.Buffer) (*BucketMetaData, error) {
+func decodeBucketMetaData(metaDataBytes []byte) (*BucketMetaData, error) {
+	if len(metaDataBytes) == 0 {
+		return metaDataNotFound, nil
+	}
 	var bucketMetaData BucketMetaData
-	decoder := gob.NewDecoder(metaDataBytes)
+	decoder := gob.NewDecoder(bytes.NewBuffer(metaDataBytes))
 	if err := decoder.Decode(&bucketMetaData); err != nil {
 		return nil, err
 	}

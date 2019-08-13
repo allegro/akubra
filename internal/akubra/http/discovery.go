@@ -45,6 +45,7 @@ func (httpClient *DiscoveryHTTPClient) resolveAddress(request *http.Request) err
 	request.Host = serviceEndpoint.Host
 	request.Header.Set("Host", serviceEndpoint.Host)
 	request.URL.Host = serviceEndpoint.Host
+	request.URL.Scheme = serviceEndpoint.Scheme
 
 	return nil
 }
