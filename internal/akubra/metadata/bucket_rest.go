@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	restEndpointPattern     = "%s/bucket/%s"
+	restEndpointPattern     = "%s/buckets/%s"
 	responseStatusErrFormat = "unexpected response status %d"
 	internal                = "INTERNAL"
 )

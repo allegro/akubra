@@ -22,7 +22,7 @@ func TestIndexServiceFailure(t *testing.T) {
 
 	expectedHTTPRequest, _ := http.NewRequest(
 		http.MethodGet,
-		fmt.Sprintf("service://mock/bucket/%s", bucketName),
+		fmt.Sprintf("service://mock/buckets/%s", bucketName),
 		nil)
 
 	indexServiceErr := errors.New("failure")
@@ -43,7 +43,7 @@ func TestNotExistingBucketMetaDataFetching(t *testing.T) {
 
 	expectedHTTPRequest, _ := http.NewRequest(
 		http.MethodGet,
-		fmt.Sprintf("service://mock/bucket/%s", bucketName),
+		fmt.Sprintf("service://mock/buckets/%s", bucketName),
 		nil)
 
 	indexServiceResp := http.Response{
@@ -76,7 +76,7 @@ func TestUnexpectedHTTPResponse(t *testing.T) {
 
 		expectedHTTPRequest, _ := http.NewRequest(
 			http.MethodGet,
-			fmt.Sprintf("service://mock/bucket/%s", bucketName),
+			fmt.Sprintf("service://mock/buckets/%s", bucketName),
 			nil)
 
 		indexServiceResp := http.Response{
@@ -109,7 +109,7 @@ func TestBucketMetaDataFetching(t *testing.T) {
 
 		expectedHTTPRequest, _ := http.NewRequest(
 			http.MethodGet,
-			fmt.Sprintf("service://mock/bucket/%s", testCase.bucketName),
+			fmt.Sprintf("service://mock/buckets/%s", testCase.bucketName),
 			nil)
 
 		metaDataJSON := fmt.Sprintf(`{"name": "%s", "visibility": "%s"}`, testCase.bucketName, testCase.visibility)
