@@ -2,11 +2,12 @@ package crdstore
 
 import (
 	"fmt"
-	"github.com/allegro/akubra/internal/akubra/metrics"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/allegro/akubra/internal/akubra/metrics"
 
 	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/vault/api"
