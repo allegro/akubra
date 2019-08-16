@@ -139,7 +139,7 @@ func TestShouldReturnErrorWhenResponseIsInvalid(t *testing.T) {
 
 	creds, err := vault.FetchCredentials("testAccess", "testStorage")
 	assert.Nil(t, creds)
-	assert.Equal(t, err.Error(), fmt.Sprintf("empty response"))
+	assert.Equal(t, err, errNoCredentialsFound)
 }
 
 const vaultResponseFormat = `
