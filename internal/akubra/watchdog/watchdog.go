@@ -3,6 +3,7 @@ package watchdog
 import (
 	"errors"
 	"fmt"
+	"github.com/allegro/akubra/internal/akubra/httphandler"
 	"github.com/allegro/akubra/internal/akubra/watchdog/config"
 	"net/http"
 	"time"
@@ -14,8 +15,6 @@ import (
 const (
 	fiveMinutes = time.Minute * 5
 	oneWeek     = time.Hour * 24 * 7
-	// Domain is a constant used to put/get domain's name to/from request's context
-	Domain = log.ContextKey("Domain")
 	// ConsistencyLevel is a constant used to put/get policy consistency level to/from request's context
 	ConsistencyLevel = log.ContextKey("ConsistencyLevel")
 	// ReadRepair is a constant used to put/get policy read repair to/from request's context
@@ -108,7 +107,7 @@ func (factory *DefaultConsistencyRecordFactory) CreateRecordFor(request *http.Re
 		return nil, errors.New("failed to extract access key")
 	}
 
-	domain, domainPresent := request.Context().Value(Domain).(string)
+	domain, domainPresent := request.Context().Value(httphandler.Domain).(string)
 	if !domainPresent {
 		return nil, errors.New("domain name is not present in context")
 	}

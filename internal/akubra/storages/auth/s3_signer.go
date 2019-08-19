@@ -20,9 +20,7 @@ type APIErrorCode int
 
 // Error codes, non exhaustive list - http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html
 const (
-	ErrAuthHeaderEmpty APIErrorCode = iota
-	ErrSignatureDoesNotMatch
-	ErrIncorrectAuthHeader
+	ErrSignatureDoesNotMatch APIErrorCode = iota
 	ErrUnsupportedSignatureVersion
 	ErrNone
 )
@@ -41,14 +39,11 @@ var noHeadersIgnored = make(map[string]bool)
 // DoesSignMatch - Verify authorization header with calculated header
 // returns true if matches, false otherwise. if error is not nil then it is always false
 func DoesSignMatch(r *http.Request, cred Keys, ignoredV2CanonicalizedHeaders map[string]bool) APIErrorCode {
-	authHeader, err := extractAuthHeader(r.Header)
-	if err != ErrNone {
-		if err == ErrAuthHeaderEmpty {
-			return ErrNone
-		}
-		return err
+	authHeaderVal := r.Context().Value(httphandler.AuthHeader)
+	if authHeaderVal == nil {
+		return ErrNone
 	}
-
+	authHeader := authHeaderVal.(*utils.ParsedAuthorizationHeader)
 	switch authHeader.Version {
 	case utils.SignV2Algorithm:
 		result, err := s3signer.VerifyV2(r, cred.SecretAccessKey, ignoredV2CanonicalizedHeaders)
@@ -73,18 +68,6 @@ func DoesSignMatch(r *http.Request, cred Keys, ignoredV2CanonicalizedHeaders map
 	}
 
 	return ErrNone
-}
-
-func extractAuthHeader(headers http.Header) (*utils.ParsedAuthorizationHeader, APIErrorCode) {
-	gotAuth := headers.Get("Authorization")
-	if gotAuth == "" {
-		return nil, ErrAuthHeaderEmpty
-	}
-	authHeader, err := utils.ParseAuthorizationHeader(gotAuth)
-	if err != nil {
-		return nil, ErrIncorrectAuthHeader
-	}
-	return &authHeader, ErrNone
 }
 
 // Keys user credentials
