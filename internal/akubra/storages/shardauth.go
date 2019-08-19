@@ -3,13 +3,21 @@ package storages
 import (
 	"github.com/allegro/akubra/internal/akubra/crdstore"
 	"github.com/allegro/akubra/internal/akubra/httphandler"
+	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/storages/auth"
 	"github.com/allegro/akubra/internal/akubra/utils"
 	"net/http"
 )
 
+//ShardAuthenticator is a delegating NamedSharedClient that checks the requests authorization
 type ShardAuthenticator struct {
-	shardClient ShardClient
+	shardClient NamedShardClient
+}
+
+
+//NewShardAuthenticator creates an instance of ShardAuthenticator
+func NewShardAuthenticator(shardClient NamedShardClient) NamedShardClient {
+	return &ShardAuthenticator{shardClient:shardClient}
 }
 
 //Name returns then of the shard
@@ -30,7 +38,7 @@ func (shardAuth *ShardAuthenticator) RoundTrip(req *http.Request) (*http.Respons
 		return shardAuth .shardClient.RoundTrip(req)
 	}
 
-	authHeader := authHeaderVal.(utils.ParsedAuthorizationHeader)
+	authHeader := authHeaderVal.(*utils.ParsedAuthorizationHeader)
 	backends := shardAuth.shardClient.Backends()
 
 	var backendsCredentials []auth.Keys
@@ -51,6 +59,8 @@ func (shardAuth *ShardAuthenticator) RoundTrip(req *http.Request) (*http.Respons
 
 	for idx := range backendsCredentials {
 		if auth.ErrNone != auth.DoesSignMatch(req, backendsCredentials[idx], nil) {
+			log.Debugf("authorization check failed for req %s, signature mismatch on storage '%s' using access '%s'",
+				req.Context().Value(log.ContextreqIDKey).(string), backends[idx].Name, backendsCredentials[idx].AccessKeyID)
 			return utils.ResponseForbidden(req), nil
 		}
 	}

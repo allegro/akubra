@@ -70,6 +70,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if httpAuthHeader != "" {
 		authHeader, err := utils.ParseAuthorizationHeader(httpAuthHeader)
 		if err != nil {
+			log.Debugf("failed to parse auth header for req %s: %q", randomIDStr, err)
 			w.WriteHeader(http.StatusBadRequest)
 			_, err := w.Write(incorrectAuthHeader)
 			if err != nil {
@@ -77,7 +78,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 			return
 		}
-		reqCtx = context.WithValue(reqCtx, AuthHeader, authHeader)
+		reqCtx = context.WithValue(reqCtx, AuthHeader, &authHeader)
 	}
 
 

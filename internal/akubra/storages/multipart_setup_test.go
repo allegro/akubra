@@ -1,6 +1,7 @@
 package storages
 
 import (
+	"github.com/allegro/akubra/internal/akubra/storages/config"
 	"net/http"
 	"net/url"
 	"testing"
@@ -43,14 +44,14 @@ func TestShouldSetupMultiUploadRingAndMigrationEndpoints(testSuite *testing.T) {
 	activateBackend := &StorageClient{
 		RoundTripper: activeBackendRoundTripper,
 		Endpoint:     *activeBackendURL,
-		Maintenance:  false,
+		Storage:      config.Storage{Maintenance: false,},
 		Name:         "activateBackend",
 	}
 
 	activateBackend2 := &StorageClient{
 		RoundTripper: activeBackendRoundTripper2,
 		Endpoint:     *activeBackendURL2,
-		Maintenance:  false,
+		Storage:      config.Storage{Maintenance: false,},
 		Name:         "activateBackend2",
 	}
 
@@ -59,7 +60,7 @@ func TestShouldSetupMultiUploadRingAndMigrationEndpoints(testSuite *testing.T) {
 	maintenanceBackend := &StorageClient{
 		RoundTripper: nil,
 		Endpoint:     *maintenanceBackendURL,
-		Maintenance:  true,
+		Storage:      config.Storage{Maintenance: false,},
 		Name:         "maintenanceBackend",
 	}
 
