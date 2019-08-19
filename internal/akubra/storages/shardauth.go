@@ -89,7 +89,7 @@ func fetchKeysFor(clientAccessKey string, backend *StorageClient) (auth.Keys, er
 
 func extractKeysFrom(backendProps map[string]string) auth.Keys {
 	accessKey := backendProps["AccessKey"]
-	secretKey := backendProps["secret"]
+	secretKey := backendProps["Secret"]
 	return auth.Keys{
 		AccessKeyID:     accessKey,
 		SecretAccessKey: secretKey,
