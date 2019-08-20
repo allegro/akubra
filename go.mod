@@ -7,7 +7,7 @@ require (
 	github.com/QuentinPerez/go-encodeUrl v0.0.0-20160615164728-645a9dbeee15 // indirect
 	github.com/ShowMax/go-fqdn v0.0.0-20180501083314-6f60894d629f
 	github.com/alecthomas/kingpin v2.2.6+incompatible
-	github.com/allegro/bigcache v1.2.1 // indirect
+	github.com/allegro/bigcache v1.2.1
 	github.com/cyberdelia/go-metrics-graphite v0.0.0-20161219230853-39f87cc3b432
 	github.com/deckarep/golang-set v1.7.1
 	github.com/docker/go-units v0.4.0
@@ -32,6 +32,7 @@ require (
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.3.0
 	github.com/wookie41/minio-go v3.0.3-0.20190709093208-fd484cca1138+incompatible
+	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/tools v0.0.0-20190813034749-528a2984e271
 	gopkg.in/gemnasium/logrus-postgresql-hook.v1 v1.1.3
