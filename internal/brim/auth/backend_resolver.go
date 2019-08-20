@@ -158,7 +158,7 @@ func Ring(conf *akubraconfig.Config, policy string) (sharding.ShardsRingAPI, str
 		return sharding.ShardsRing{}, " ", err
 	}
 
-	ringFactory := sharding.NewRingFactory(*conf, ringStorages)
+	ringFactory := sharding.NewRingFactory(*conf, ringStorages, nil, nil, "")
 
 	regionCfg, exists := conf.ShardingPolicies[policy]
 
