@@ -60,7 +60,7 @@ func TestShouldSetupMultiUploadRingAndMigrationEndpoints(testSuite *testing.T) {
 	maintenanceBackend := &StorageClient{
 		RoundTripper: nil,
 		Endpoint:     *maintenanceBackendURL,
-		Storage:      config.Storage{Maintenance: false,},
+		Storage:      config.Storage{Maintenance: true,},
 		Name:         "maintenanceBackend",
 	}
 
@@ -69,6 +69,6 @@ func TestShouldSetupMultiUploadRingAndMigrationEndpoints(testSuite *testing.T) {
 	mprt, ok := multiPartRoundTripper.(*MultiPartRoundTripper)
 	assert.True(testSuite, ok)
 	assert.Len(testSuite, mprt.backendsRoundTrippers, 2)
-	assert.Equal(testSuite, mprt.backendsRing.Size(), 2)
+	assert.Equal(testSuite, 2, mprt.backendsRing.Size())
 	assert.Len(testSuite, mprt.backendsEndpoints, 3)
 }
