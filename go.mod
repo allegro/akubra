@@ -19,7 +19,7 @@ require (
 	github.com/jinzhu/now v1.0.0 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.1.0
-	github.com/minio/minio-go v0.0.0-20190410214627-80c2fe34f1a5 // indirect
+	github.com/minio/minio-go v0.0.0-20190410214627-80c2fe34f1a5
 	github.com/mjarco/go-radosgw v0.0.0-20170530132933-03a8ba201fbb
 	github.com/pkg/errors v0.8.1
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
