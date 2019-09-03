@@ -47,7 +47,7 @@ deps-lint: deps
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(LINTERVERSION)
 
 build: vars deps lint
-        # Enable netcgo, then name resolution will use systems dns caches
+        # Enable netcgo, then name resolution will use systems dns  caches
 	$(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1' ./cmd/akubra
 
 test: deps
