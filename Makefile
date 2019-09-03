@@ -4,7 +4,7 @@ GO := "$(GOROOT)/bin/go"
 GO111MODULE := on
 LINTERVERSION := v1.16.0
 	
-all:  build # vars formatting lint test
+all:  build  # vars formatting lint test
 
 vars:
 	@echo "====== Makefile internal variables:"
