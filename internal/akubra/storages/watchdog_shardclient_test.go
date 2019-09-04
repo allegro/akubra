@@ -1,10 +1,9 @@
-package sharding
+package storages
 
 import (
 	"context"
 	"fmt"
 	"github.com/allegro/akubra/internal/akubra/regions/config"
-	"github.com/allegro/akubra/internal/akubra/storages"
 	"github.com/allegro/akubra/internal/akubra/watchdog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -17,7 +16,7 @@ type WatchdogMock struct {
 	*mock.Mock
 }
 
-type ShardRingAPIMock struct {
+type ShardClientMock struct {
 	*mock.Mock
 }
 
@@ -39,13 +38,13 @@ func TestInsertingRecordsBasedOnTheRequest(t *testing.T) {
 		{method: http.MethodGet, url: "http://localhost/newBucket/objectg?acl", consistencyLevel: config.Strong, shouldInsertRecord: false},
 		{method: http.MethodPut, url: "http://localhost/newBucket/objectg?acl", consistencyLevel: config.Strong, shouldInsertRecord: true},
 	} {
-		shardMock := &ShardRingAPIMock{&mock.Mock{}}
+		shardMock := &ShardClientMock{&mock.Mock{}}
 		factoryMock := &ConsistencyRecordFactoryMock{&mock.Mock{}}
 		watchdogMock := &WatchdogMock{&mock.Mock{}}
 
-		consistentShard := ConsistentShardsRing{
+		consistentShard := ConsistencyShardClient{
 			watchdog:          watchdogMock,
-			shardsRing:        shardMock,
+			shard:             shardMock,
 			recordFactory:     factoryMock,
 			versionHeaderName: versionHeaderName,
 		}
@@ -57,18 +56,18 @@ func TestInsertingRecordsBasedOnTheRequest(t *testing.T) {
 		assert.Nil(t, err)
 
 		response := &http.Response{Request: request, StatusCode: http.StatusOK}
-		shardMock.On("DoRequest", request).Return(response, nil)
+		shardMock.On("RoundTrip", request).Return(response, nil)
 
 		consistencyRecord := &watchdog.ConsistencyRecord{}
 		factoryMock.On("CreateRecordFor", request).Return(consistencyRecord, nil)
 
 		watchdogMock.On("Insert", consistencyRecord).Return(nil, nil)
 
-		resp, err := consistentShard.DoRequest(request)
+		resp, err := consistentShard.RoundTrip(request)
 		assert.Nil(t, err)
 		assert.NotNil(t, resp)
 
-		shardMock.AssertCalled(t, "DoRequest", request)
+		shardMock.AssertCalled(t, "RoundTrip", request)
 		if testCase.shouldInsertRecord {
 			factoryMock.AssertCalled(t, "CreateRecordFor", request)
 			watchdogMock.AssertCalled(t, "Insert", consistencyRecord)
@@ -82,13 +81,13 @@ func TestInsertingRecordsBasedOnTheRequest(t *testing.T) {
 func TestRecordCompaction(t *testing.T) {
 	versionHeaderName := "x-watchdog-version"
 	for _, noErrorsOccurredDuringRequestProcessing := range []bool{true, false} {
-		shardMock := &ShardRingAPIMock{&mock.Mock{}}
+		shardMock := &ShardClientMock{&mock.Mock{}}
 		factoryMock := &ConsistencyRecordFactoryMock{&mock.Mock{}}
 		watchdogMock := &WatchdogMock{&mock.Mock{}}
 
-		consistentShard := ConsistentShardsRing{
+		consistentShard := ConsistencyShardClient{
 			watchdog:          watchdogMock,
-			shardsRing:        shardMock,
+			shard:             shardMock,
 			recordFactory:     factoryMock,
 			versionHeaderName: versionHeaderName,
 		}
@@ -119,13 +118,13 @@ func TestRecordCompaction(t *testing.T) {
 func TestReadRepair(t *testing.T) {
 	versionHeaderName := "x-watchdog-version"
 	for _, objectVersionToPerformReadRepairOn := range []int{-1, 123} {
-		shardMock := &ShardRingAPIMock{&mock.Mock{}}
+		shardMock := &ShardClientMock{&mock.Mock{}}
 		factoryMock := &ConsistencyRecordFactoryMock{&mock.Mock{}}
 		watchdogMock := &WatchdogMock{&mock.Mock{}}
 
-		consistentShard := ConsistentShardsRing{
+		consistentShard := ConsistencyShardClient{
 			watchdog:          watchdogMock,
-			shardsRing:        shardMock,
+			shard:             shardMock,
 			recordFactory:     factoryMock,
 			versionHeaderName: versionHeaderName,
 		}
@@ -133,7 +132,6 @@ func TestReadRepair(t *testing.T) {
 		request, err := http.NewRequest(http.MethodGet, "http:/localhost:8080/bukcet/obj", nil)
 		assert.NotNil(t, request)
 		assert.Nil(t, err)
-
 
 		objVersion := ""
 		if objectVersionToPerformReadRepairOn > 0 {
@@ -177,13 +175,13 @@ func TestConsistencyLevels(t *testing.T) {
 		{consistencyLevel: config.Weak, shouldInsertFail: true, shouldRequestFail: false},
 		{consistencyLevel: config.Weak, shouldInsertFail: true, shouldRequestFail: false},
 	} {
-		shardMock := &ShardRingAPIMock{&mock.Mock{}}
+		shardMock := &ShardClientMock{&mock.Mock{}}
 		factoryMock := &ConsistencyRecordFactoryMock{&mock.Mock{}}
 		watchdogMock := &WatchdogMock{&mock.Mock{}}
 
-		consistentShard := ConsistentShardsRing{
+		consistentShard := ConsistencyShardClient{
 			watchdog:          watchdogMock,
-			shardsRing:        shardMock,
+			shard:             shardMock,
 			recordFactory:     factoryMock,
 			versionHeaderName: versionHeaderName,
 		}
@@ -195,7 +193,7 @@ func TestConsistencyLevels(t *testing.T) {
 		assert.Nil(t, err)
 
 		response := &http.Response{Request: request, StatusCode: http.StatusOK}
-		shardMock.On("DoRequest", request).Return(response, nil)
+		shardMock.On("RoundTrip", request).Return(response, nil)
 
 		consistencyRecord := &watchdog.ConsistencyRecord{}
 		factoryMock.On("CreateRecordFor", request).Return(consistencyRecord, nil)
@@ -206,7 +204,7 @@ func TestConsistencyLevels(t *testing.T) {
 			watchdogMock.On("Insert", consistencyRecord).Return(nil, nil)
 		}
 
-		_, err = consistentShard.DoRequest(request)
+		_, err = consistentShard.RoundTrip(request)
 
 		factoryMock.AssertCalled(t, "CreateRecordFor", request)
 		watchdogMock.AssertCalled(t, "Insert", consistencyRecord)
@@ -214,13 +212,13 @@ func TestConsistencyLevels(t *testing.T) {
 		if testCase.shouldRequestFail {
 			assert.Equal(t, err.Error(), "error")
 		} else {
-			shardMock.AssertCalled(t, "DoRequest", request)
+			shardMock.AssertCalled(t, "RoundTrip", request)
 			assert.Nil(t, err)
 		}
 	}
 }
 
-func (shardMock *ShardRingAPIMock) DoRequest(req *http.Request) (resp *http.Response, rerr error) {
+func (shardMock *ShardClientMock) RoundTrip(req *http.Request) (resp *http.Response, rerr error) {
 	args := shardMock.Called(req)
 	r := args.Get(0)
 	if r != nil {
@@ -229,21 +227,16 @@ func (shardMock *ShardRingAPIMock) DoRequest(req *http.Request) (resp *http.Resp
 	return nil, args.Error(1)
 }
 
-func (shardMock *ShardRingAPIMock) GetRingProps() *RingProps {
-	props := shardMock.Called().Get(0)
-	if props != nil {
-		return props.(*RingProps)
+func (shardMock *ShardClientMock) Backends() []*StorageClient {
+	backends := shardMock.Called().Get(0)
+	if backends != nil {
+		return backends.([]*StorageClient)
 	}
 	return nil
 }
 
-func (shardMock *ShardRingAPIMock) Pick(key string) (storages.NamedShardClient, error) {
-	args := shardMock.Called()
-	v := args.Get(0)
-	if v != nil {
-		return v.(storages.NamedShardClient), args.Error(1)
-	}
-	return nil, args.Error(1)
+func (shardMock *ShardClientMock) Name() string {
+	return shardMock.Called().Get(0).(string)
 }
 
 func (wm *WatchdogMock) Insert(record *watchdog.ConsistencyRecord) (*watchdog.DeleteMarker, error) {

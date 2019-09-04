@@ -234,3 +234,15 @@ func PutResponseHeaderToContext(context context.Context, contextValueName log.Co
 	headerValue := resp.Header.Get(headerName)
 	*ctxValue = headerValue
 }
+
+
+func ResponseForbidden(req *http.Request) *http.Response {
+	return &http.Response{
+		Status:     "403 Forbidden",
+		StatusCode: http.StatusForbidden,
+		Proto:      req.Proto,
+		ProtoMajor: req.ProtoMajor,
+		ProtoMinor: req.ProtoMinor,
+		Request:    req,
+	}
+}
