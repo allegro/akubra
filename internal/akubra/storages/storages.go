@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	config2 "github.com/allegro/akubra/internal/akubra/watchdog/config"
+	watchdogConfig "github.com/allegro/akubra/internal/akubra/watchdog/config"
 
 	"github.com/allegro/akubra/internal/akubra/balancing"
 	"github.com/allegro/akubra/internal/akubra/httphandler"
@@ -72,7 +72,7 @@ type Factory struct {
 }
 
 //NewStoragesFactory creates StoragesFactory
-func NewStoragesFactory(transport http.RoundTripper, watchdogConfig *config2.WatchdogConfig,
+func NewStoragesFactory(transport http.RoundTripper, watchdogConfig *watchdogConfig.WatchdogConfig,
 	watchdog watchdog.ConsistencyWatchdog, watchdogRequestFactory watchdog.ConsistencyRecordFactory) *Factory {
 	return &Factory{
 		transport: transport,
