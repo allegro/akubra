@@ -43,6 +43,23 @@ func TestBucketFetcherFailure(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
+func TestBucketMetaDataNotFound(t *testing.T) {
+	bucketName := "bucket"
+	bucketLocation := &metadata.BucketLocation{Name: bucketName}
+
+	fetcherMock := &BucketMetaDataFetcherMock{Mock: &mock.Mock{}}
+	fetcherMock.On("Fetch", bucketLocation).Return(nil, nil)
+
+	req := requestWithBasicContext("123", bucketName, "obj")
+	prvContext := &Context{}
+
+	filter := NewBucketPrivacyFilter(fetcherMock)
+	violation, err := filter.Filter(req, prvContext)
+
+	assert.Equal(t, NoViolation, violation)
+	assert.Nil(t, err)
+}
+
 func TestRestrictingAccessToInternalBucket(t *testing.T) {
 	bucketName := "bucket"
 	bucketLocation := &metadata.BucketLocation{Name: bucketName}

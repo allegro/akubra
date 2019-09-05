@@ -2,11 +2,12 @@ package auth
 
 import (
 	"errors"
-	"github.com/allegro/akubra/internal/akubra/utils"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/allegro/akubra/internal/akubra/utils"
 
 	"github.com/allegro/akubra/internal/akubra/crdstore"
 	"github.com/allegro/akubra/internal/akubra/httphandler"
@@ -19,9 +20,7 @@ type APIErrorCode int
 
 // Error codes, non exhaustive list - http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html
 const (
-	ErrAuthHeaderEmpty APIErrorCode = iota
-	ErrSignatureDoesNotMatch
-	ErrIncorrectAuthHeader
+	ErrSignatureDoesNotMatch APIErrorCode = iota
 	ErrUnsupportedSignatureVersion
 	ErrNone
 )
@@ -37,17 +36,14 @@ var v4IgnoredHeaders = map[string]bool{
 
 var noHeadersIgnored = make(map[string]bool)
 
-// DoesSignMatch - Verify authorization header with calculated header
-// returns true if matches, false otherwise. if error is not nil then it is always false
+//DoesSignMatch - Verify authorization header with calculated header
+//returns true if matches, false otherwise. if error is not nil then it is always false
 func DoesSignMatch(r *http.Request, cred Keys, ignoredV2CanonicalizedHeaders map[string]bool) APIErrorCode {
-	authHeader, err := extractAuthHeader(r.Header)
-	if err != ErrNone {
-		if err == ErrAuthHeaderEmpty {
-			return ErrNone
-		}
-		return err
+	authHeaderVal := r.Context().Value(httphandler.AuthHeader)
+	if authHeaderVal == nil {
+		return ErrNone
 	}
-
+	authHeader := authHeaderVal.(*utils.ParsedAuthorizationHeader)
 	switch authHeader.Version {
 	case utils.SignV2Algorithm:
 		result, err := s3signer.VerifyV2(r, cred.SecretAccessKey, ignoredV2CanonicalizedHeaders)
@@ -74,54 +70,10 @@ func DoesSignMatch(r *http.Request, cred Keys, ignoredV2CanonicalizedHeaders map
 	return ErrNone
 }
 
-func extractAuthHeader(headers http.Header) (*utils.ParsedAuthorizationHeader, APIErrorCode) {
-	gotAuth := headers.Get("Authorization")
-	if gotAuth == "" {
-		return nil, ErrAuthHeaderEmpty
-	}
-	authHeader, err := utils.ParseAuthorizationHeader(gotAuth)
-	if err != nil {
-		return nil, ErrIncorrectAuthHeader
-	}
-	return &authHeader, ErrNone
-}
-
 // Keys user credentials
 type Keys struct {
 	AccessKeyID     string `json:"access-key" yaml:"AccessKey"`
 	SecretAccessKey string `json:"secret-key" yaml:"Secret"`
-}
-
-func responseForbidden(req *http.Request) *http.Response {
-	return &http.Response{
-		Status:     "403 Forbidden",
-		StatusCode: http.StatusForbidden,
-		Proto:      req.Proto,
-		ProtoMajor: req.ProtoMajor,
-		ProtoMinor: req.ProtoMinor,
-		Request:    req,
-	}
-}
-
-type authRoundTripper struct {
-	rt                            http.RoundTripper
-	keys                          Keys
-	ignoredV2CanonicalizedHeaders map[string]bool
-}
-
-// RoundTrip implements http.RoundTripper interface
-func (art authRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if DoesSignMatch(req, art.keys, art.ignoredV2CanonicalizedHeaders) == ErrNone {
-		return art.rt.RoundTrip(req)
-	}
-	return responseForbidden(req), nil
-}
-
-// S3Decorator checks if request Signature matches s3 keys
-func S3Decorator(keys Keys) httphandler.Decorator {
-	return func(rt http.RoundTripper) http.RoundTripper {
-		return authRoundTripper{keys: keys}
-	}
 }
 
 type signRoundTripper struct {
@@ -149,9 +101,6 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 		}
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
-	if DoesSignMatch(req, Keys{AccessKeyID: srt.keys.AccessKeyID, SecretAccessKey: srt.keys.SecretAccessKey}, srt.ignoredV2CanonicalizedHeaders) != ErrNone {
-		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
-	}
 	req, err = sign(req, authHeader, srt.host, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
@@ -175,10 +124,6 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
 	}
-	if DoesSignMatch(req, Keys{AccessKeyID: csd.AccessKey, SecretAccessKey: csd.SecretKey}, srt.ignoredV2CanonicalizedHeaders) != ErrNone {
-		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
-	}
-
 	csd, err = srt.crd.Get(authHeader.AccessKey, srt.backend)
 	if err == crdstore.ErrCredentialsNotFound {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err

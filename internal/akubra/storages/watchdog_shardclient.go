@@ -1,11 +1,10 @@
-package sharding
+package storages
 
 import (
 	"errors"
 	"fmt"
 	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/regions/config"
-	"github.com/allegro/akubra/internal/akubra/storages"
 	"github.com/allegro/akubra/internal/akubra/utils"
 	"github.com/allegro/akubra/internal/akubra/watchdog"
 	"net/http"
@@ -13,12 +12,12 @@ import (
 	"time"
 )
 
-//ConsistentShardsRing is a shard ring that guarantees consistency based on the defined provided consistency level
-type ConsistentShardsRing struct {
+//ConsistencyShardClient is a shard that guarantees consistency based on the defined provided consistency level
+type ConsistencyShardClient struct {
 	watchdog          watchdog.ConsistencyWatchdog
 	versionHeaderName string
 	recordFactory     watchdog.ConsistencyRecordFactory
-	shardsRing        ShardsRingAPI
+	shard             NamedShardClient
 }
 
 type consistencyRequest struct {
@@ -31,18 +30,18 @@ type consistencyRequest struct {
 	isReadRepairOn                   bool
 }
 
-//GetRingProps returns props of the shard
-func (consistentShardRing *ConsistentShardsRing) GetRingProps() *RingProps {
-	return consistentShardRing.shardsRing.GetRingProps()
+//Name returns the name of the shard
+func (consistencyShard *ConsistencyShardClient) Name() string {
+	return consistencyShard.shard.Name()
 }
 
-//Pick pcik shard for key
-func (consistentShardRing *ConsistentShardsRing) Pick(key string) (storages.NamedShardClient, error) {
-	return consistentShardRing.shardsRing.Pick(key)
+//Backends returns the backends of a shard
+func (consistencyShard *ConsistencyShardClient) Backends() []*StorageClient {
+	return consistencyShard.shard.Backends()
 }
 
-//DoRequest performs the request and also records the request if the consistency level requires so
-func (consistentShardRing *ConsistentShardsRing) DoRequest(req *http.Request) (*http.Response, error) {
+//RoundTrip performs the request and also records the request if the consistency level requires so
+func (consistencyShard *ConsistencyShardClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	consistencyLevel, isReadRepairOn, err := extractRegionPropsFrom(req)
 	if err != nil {
 		return nil, err
@@ -54,19 +53,19 @@ func (consistentShardRing *ConsistentShardsRing) DoRequest(req *http.Request) (*
 		isMultiPartUploadRequest:         utils.IsMultiPartUploadRequest(req),
 		isInitiateMultipartUploadRequest: utils.IsInitiateMultiPartUploadRequest(req),
 	}
-	consistencyRequest, err = consistentShardRing.ensureConsistency(consistencyRequest)
+	consistencyRequest, err = consistencyShard.ensureConsistency(consistencyRequest)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := consistentShardRing.shardsRing.DoRequest(consistencyRequest.Request)
+	resp, err := consistencyShard.shard.RoundTrip(consistencyRequest.Request)
 	if err != nil {
 		return nil, err
 	}
-	go consistentShardRing.awaitCompletion(consistencyRequest)
+	go consistencyShard.awaitCompletion(consistencyRequest)
 
 	if consistencyRequest.isInitiateMultipartUploadRequest {
-		return consistentShardRing.logIfInitMultiPart(consistencyRequest, resp)
+		return consistencyShard.logIfInitMultiPart(consistencyRequest, resp)
 	}
 	return resp, err
 }
@@ -92,8 +91,8 @@ func extractRegionPropsFrom(request *http.Request) (config.ConsistencyLevel, boo
 	}
 	return consistencyLevel, readRepair, nil
 }
-func (consistentShardRing *ConsistentShardsRing) shouldLogRequest(consistencyRequest *consistencyRequest) bool {
-	if consistentShardRing.watchdog == nil {
+func (consistencyShard *ConsistencyShardClient) shouldLogRequest(consistencyRequest *consistencyRequest) bool {
+	if consistencyShard.watchdog == nil {
 		return false
 	}
 	if consistencyRequest.consistencyLevel == config.None {
@@ -109,14 +108,14 @@ func (consistentShardRing *ConsistentShardsRing) shouldLogRequest(consistencyReq
 	return isPutOrInitMultiPart && isObjectPath
 }
 
-func (consistentShardRing *ConsistentShardsRing) logRequest(consistencyRequest *consistencyRequest) (*consistencyRequest, error) {
+func (consistencyShard *ConsistencyShardClient) logRequest(consistencyRequest *consistencyRequest) (*consistencyRequest, error) {
 	if consistencyRequest.isInitiateMultipartUploadRequest {
-		err := consistentShardRing.watchdog.SupplyRecordWithVersion(consistencyRequest.ConsistencyRecord)
+		err := consistencyShard.watchdog.SupplyRecordWithVersion(consistencyRequest.ConsistencyRecord)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		deleteMarker, err := consistentShardRing.watchdog.Insert(consistencyRequest.ConsistencyRecord)
+		deleteMarker, err := consistencyShard.watchdog.Insert(consistencyRequest.ConsistencyRecord)
 		if err != nil {
 			return consistencyRequest, err
 		}
@@ -125,30 +124,30 @@ func (consistentShardRing *ConsistentShardsRing) logRequest(consistencyRequest *
 	if consistencyRequest.isInitiateMultipartUploadRequest {
 		consistencyRequest.
 			Header.
-			Add(consistentShardRing.versionHeaderName, fmt.Sprintf("%d", consistencyRequest.ConsistencyRecord.ObjectVersion))
+			Add(consistencyShard.versionHeaderName, fmt.Sprintf("%d", consistencyRequest.ConsistencyRecord.ObjectVersion))
 	}
 	return consistencyRequest, nil
 }
 
-func (consistentShardRing *ConsistentShardsRing) logMultipart(consistencyRequest *consistencyRequest, resp *http.Response) error {
+func (consistencyShard *ConsistencyShardClient) logMultipart(consistencyRequest *consistencyRequest, resp *http.Response) error {
 	multiPartUploadID, err := utils.ExtractMultiPartUploadIDFrom(resp)
 	if err != nil {
 		return fmt.Errorf("failed on extracting multipart upload ID from response: %s", err)
 	}
 	consistencyRequest.ConsistencyRecord.RequestID = multiPartUploadID
-	_, err = consistentShardRing.watchdog.Insert(consistencyRequest.ConsistencyRecord)
+	_, err = consistencyShard.watchdog.Insert(consistencyRequest.ConsistencyRecord)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (consistentShardRing *ConsistentShardsRing) ensureConsistency(consistencyRequest *consistencyRequest) (*consistencyRequest, error) {
-	if !consistentShardRing.shouldLogRequest(consistencyRequest) {
+func (consistencyShard *ConsistencyShardClient) ensureConsistency(consistencyRequest *consistencyRequest) (*consistencyRequest, error) {
+	if !consistencyShard.shouldLogRequest(consistencyRequest) {
 		return consistencyRequest, nil
 	}
 
-	consistencyRecord, err := consistentShardRing.recordFactory.CreateRecordFor(consistencyRequest.Request)
+	consistencyRecord, err := consistencyShard.recordFactory.CreateRecordFor(consistencyRequest.Request)
 	if err != nil {
 		if config.Strong == consistencyRequest.consistencyLevel {
 			return nil, err
@@ -157,7 +156,7 @@ func (consistentShardRing *ConsistentShardsRing) ensureConsistency(consistencyRe
 	}
 	consistencyRequest.ConsistencyRecord = consistencyRecord
 
-	loggedRequest, err := consistentShardRing.logRequest(consistencyRequest)
+	loggedRequest, err := consistencyShard.logRequest(consistencyRequest)
 	if err != nil {
 		if config.Strong == consistencyRequest.consistencyLevel {
 			return nil, err
@@ -167,9 +166,9 @@ func (consistentShardRing *ConsistentShardsRing) ensureConsistency(consistencyRe
 	return loggedRequest, nil
 }
 
-func (consistentShardRing *ConsistentShardsRing) logIfInitMultiPart(consistencyRequest *consistencyRequest, response *http.Response) (*http.Response, error) {
+func (consistencyShard *ConsistencyShardClient) logIfInitMultiPart(consistencyRequest *consistencyRequest, response *http.Response) (*http.Response, error) {
 	if consistencyRequest.consistencyLevel != config.None {
-		err := consistentShardRing.logMultipart(consistencyRequest, response)
+		err := consistencyShard.logMultipart(consistencyRequest, response)
 		if err != nil && consistencyRequest.consistencyLevel == config.Strong {
 			return nil, err
 		}
@@ -177,14 +176,14 @@ func (consistentShardRing *ConsistentShardsRing) logIfInitMultiPart(consistencyR
 	return response, nil
 }
 
-func (consistentShardRing *ConsistentShardsRing) updateExecutionDelay(request *http.Request) {
+func (consistencyShard *ConsistencyShardClient) updateExecutionDelay(request *http.Request) {
 	reqQuery := request.URL.Query()
 	uploadID, _ := reqQuery["uploadId"]
 	delta := &watchdog.ExecutionDelay{
 		RequestID: uploadID[0],
 		Delay:     time.Minute * 5,
 	}
-	err := consistentShardRing.watchdog.UpdateExecutionDelay(delta)
+	err := consistencyShard.watchdog.UpdateExecutionDelay(delta)
 	if err != nil {
 		log.Printf("Failed to update multipart's execution time, reqId = %s, error: %s",
 			request.Context().Value(log.ContextreqIDKey), err)
@@ -193,7 +192,7 @@ func (consistentShardRing *ConsistentShardsRing) updateExecutionDelay(request *h
 	log.Debugf("Updated execution time for req '%s'", request.Context().Value(log.ContextreqIDKey))
 }
 
-func (consistentShardRing *ConsistentShardsRing) performReadRepair(consistencyRequest *consistencyRequest) {
+func (consistencyShard *ConsistencyShardClient) performReadRepair(consistencyRequest *consistencyRequest) {
 	objectVersionValue := consistencyRequest.Context().Value(watchdog.ReadRepairObjectVersion).(*string)
 
 	if objectVersionValue == nil {
@@ -207,20 +206,20 @@ func (consistentShardRing *ConsistentShardsRing) performReadRepair(consistencyRe
 		return
 	}
 
-	record, err := consistentShardRing.recordFactory.CreateRecordFor(consistencyRequest.Request)
+	record, err := consistencyShard.recordFactory.CreateRecordFor(consistencyRequest.Request)
 	if err != nil {
 		log.Debugf("Failed to perform read repair, couldn't consistencyRequesteate log record, reqID %s : %s", consistencyRequest.Context().Value(log.ContextreqIDKey), err)
 		return
 	}
 	record.ObjectVersion = int(objectVersion)
-	_, err = consistentShardRing.watchdog.Insert(record)
+	_, err = consistencyShard.watchdog.Insert(record)
 	if err != nil {
 		log.Debugf("Failed to perform read repair for object %s in domain %s: %s", record.ObjectID, record.Domain, err)
 	}
 	log.Debugf("Performed read repair for object %s in domain %s: %s", record.ObjectID, record.Domain, err)
 }
 
-func (consistentShardRing *ConsistentShardsRing) awaitCompletion(consistencyRequest *consistencyRequest) {
+func (consistencyShard *ConsistencyShardClient) awaitCompletion(consistencyRequest *consistencyRequest) {
 	<-consistencyRequest.Context().Done()
 
 	reqID := consistencyRequest.Context().Value(log.ContextreqIDKey)
@@ -229,15 +228,15 @@ func (consistentShardRing *ConsistentShardsRing) awaitCompletion(consistencyRequ
 	successfulMultiPart, multiPartFlagCastOk := consistencyRequest.Context().Value(watchdog.MultiPartUpload).(*bool)
 
 	if shouldPerformReadRepair(readRepairVersion, readRepairCastOk) {
-		consistentShardRing.performReadRepair(consistencyRequest)
+		consistencyShard.performReadRepair(consistencyRequest)
 		return
 	}
 	if isSuccessfulMultipart(successfulMultiPart, multiPartFlagCastOk) {
-		consistentShardRing.updateExecutionDelay(consistencyRequest.Request)
+		consistencyShard.updateExecutionDelay(consistencyRequest.Request)
 		return
 	}
 	if wasReplicationSuccessful(consistencyRequest, noErrorsDuringRequestProcessing, errorsFlagCastOk) {
-		err := consistentShardRing.watchdog.Delete(consistencyRequest.DeleteMarker)
+		err := consistencyShard.watchdog.Delete(consistencyRequest.DeleteMarker)
 		if err != nil {
 			log.Printf("Failed to delete records older than record for request %s: %s", reqID, err)
 		}
@@ -256,16 +255,16 @@ func shouldPerformReadRepair(readRepairVersion *string, readRepairPropertyCastSu
 	return readRepairPropertyCastSuccessful && readRepairVersion != nil && *readRepairVersion != ""
 }
 
-//NewShardingAPI wraps the provided sharingAPI with ConsistentShardsRing to ensure consistency
-func NewShardingAPI(shardingAPI ShardsRingAPI,
+//NewConsistentShard wraps the provided shard with ConsistencyShardClient to ensure consistency
+func NewConsistentShard(shardClient NamedShardClient,
 	consistencyWatchdgo watchdog.ConsistencyWatchdog,
 	recordFactory watchdog.ConsistencyRecordFactory,
-	versionHeaderName string) ShardsRingAPI {
+	versionHeaderName string) NamedShardClient {
 
-	return &ConsistentShardsRing{
+	return &ConsistencyShardClient{
 		watchdog:          consistencyWatchdgo,
 		recordFactory:     recordFactory,
-		shardsRing:        shardingAPI,
+		shard:             shardClient,
 		versionHeaderName: versionHeaderName,
 	}
 }

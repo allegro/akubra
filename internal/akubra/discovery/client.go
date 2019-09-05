@@ -1,28 +1,23 @@
 package discovery
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
-	"net/url"
-	"strings"
-	"time"
-
 	"net"
+	"net/http"
+	"time"
 
 	"github.com/hashicorp/consul/api"
 )
 
 const (
-	serviceDiscoverySchemeName = "service"
-	httpRequestTimeout         = time.Second * 3
-	httpConsulRequestTimeout   = time.Second * 2
+	httpRequestTimeout       = time.Second * 3
+	httpConsulRequestTimeout = time.Second * 2
 )
 
 var (
-	discoveryServices *Services
+	discoveryServices Client
 	httpClient        *http.Client
 )
 
@@ -30,6 +25,11 @@ func init() {
 	httpClient = &http.Client{
 		Timeout: httpRequestTimeout,
 	}
+	discoveryServices = NewDefaultServices()
+}
+
+//NewDefaultServices creates an instance of Services to use for discovery, using the default cfg
+func NewDefaultServices() Client {
 	consulConfig := api.DefaultConfig()
 	consulConfig.Transport = &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
@@ -42,8 +42,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-
-	discoveryServices = NewServices(consulClient, DefaultCacheInvalidationTimeout)
+	return NewServices(consulClient, DefaultCacheInvalidationTimeout)
 }
 
 // NewClientWrapper returns a new Consul client wrapper
@@ -63,27 +62,6 @@ func GetHTTPClient() *http.Client {
 	return httpClient
 }
 
-// DoRequestWithDiscoveryService with hostname (username + password) and payload
-func DoRequestWithDiscoveryService(httpClient *http.Client, host, path, username, password, payload string) (resp *http.Response, endpoint string, err error) {
-	serviceInstanceAddress, discoveryServiceErr := getServiceURIFromDiscoveryService(host)
-	if discoveryServiceErr != nil {
-		return nil, "", discoveryServiceErr
-	}
-	serviceInstanceAddress.Path = path
-	endpoint = serviceInstanceAddress.String()
-
-	req, requestErr := http.NewRequest(
-		http.MethodPut,
-		endpoint,
-		bytes.NewBuffer([]byte(payload)))
-	if requestErr != nil {
-		return nil, endpoint, requestErr
-	}
-	req.SetBasicAuth(username, password)
-	resp, err = httpClient.Do(req)
-	return
-}
-
 // DiscardBody from response
 func DiscardBody(resp *http.Response) error {
 	if resp != nil && resp.Body != nil {
@@ -97,16 +75,4 @@ func DiscardBody(resp *http.Response) error {
 		}
 	}
 	return nil
-}
-
-func getServiceURIFromDiscoveryService(URI string) (*url.URL, error) {
-	parsedURI, err := url.Parse(URI)
-	if err != nil {
-		return nil, err
-	}
-	if !strings.HasPrefix(parsedURI.Scheme, serviceDiscoverySchemeName) {
-		return parsedURI, nil
-	}
-	url, err := discoveryServices.GetEndpoint(parsedURI.Host)
-	return url, err
 }
