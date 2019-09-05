@@ -76,8 +76,7 @@ func TestShouldReturnResponseFromShardsRing(t *testing.T) {
 	multipart := false
 	noErrors := true
 
-	requestWithHostAndContext := requestWithHostSpecified.WithContext(context.WithValue(requestWithHostSpecified.Context(), watchdog.Domain, requestWithHostSpecified.Host))
-	requestWithHostAndContext = requestWithHostAndContext.WithContext(context.WithValue(requestWithHostAndContext.Context(), watchdog.ConsistencyLevel, shardProps.ConsistencyLevel))
+	requestWithHostAndContext := requestWithHostSpecified.WithContext(context.WithValue(requestWithHostSpecified.Context(), watchdog.ConsistencyLevel, shardProps.ConsistencyLevel))
 	requestWithHostAndContext = requestWithHostAndContext.WithContext(context.WithValue(requestWithHostAndContext.Context(), watchdog.NoErrorsDuringRequest, &noErrors))
 	requestWithHostAndContext = requestWithHostAndContext.WithContext(context.WithValue(requestWithHostAndContext.Context(), watchdog.ReadRepairObjectVersion, &readRepairVersion))
 	requestWithHostAndContext = requestWithHostAndContext.WithContext(context.WithValue(requestWithHostAndContext.Context(), watchdog.MultiPartUpload, &multipart))
@@ -95,8 +94,7 @@ func TestShouldReturnResponseFromShardsRing(t *testing.T) {
 
 	defaultRegionRequest := &http.Request{Host: ""}
 
-	defaultRequestWithContext := defaultRegionRequest.WithContext(context.WithValue(defaultRegionRequest.Context(), watchdog.Domain, defaultRegionRequest.Host))
-	defaultRequestWithContext = defaultRequestWithContext.WithContext(context.WithValue(defaultRequestWithContext.Context(), watchdog.ConsistencyLevel, shardProps.ConsistencyLevel))
+	defaultRequestWithContext := defaultRegionRequest.WithContext(context.WithValue(defaultRegionRequest.Context(), watchdog.ConsistencyLevel, shardProps.ConsistencyLevel))
 	defaultRequestWithContext = defaultRequestWithContext.WithContext(context.WithValue(defaultRequestWithContext.Context(), watchdog.NoErrorsDuringRequest, &noErrors))
 	defaultRequestWithContext = defaultRequestWithContext.WithContext(context.WithValue(defaultRequestWithContext.Context(), watchdog.ReadRepairObjectVersion, &readRepairVersion))
 	defaultRequestWithContext = defaultRequestWithContext.WithContext(context.WithValue(defaultRequestWithContext.Context(), watchdog.MultiPartUpload, &multipart))
@@ -129,8 +127,7 @@ func TestShouldReturnResponseFromShardsRingOnHostWithPort(t *testing.T) {
 	multipart := false
 	noErrors := true
 
-	requestWithContext := request.WithContext(context.WithValue(request.Context(), watchdog.Domain, "test1.qxlint"))
-	requestWithContext = requestWithContext.WithContext(context.WithValue(requestWithContext.Context(), watchdog.ConsistencyLevel, shardProps.ConsistencyLevel))
+	requestWithContext := request.WithContext(context.WithValue(request.Context(), watchdog.ConsistencyLevel, shardProps.ConsistencyLevel))
 	requestWithContext = requestWithContext.WithContext(context.WithValue(requestWithContext.Context(), watchdog.NoErrorsDuringRequest, &noErrors))
 	requestWithContext = requestWithContext.WithContext(context.WithValue(requestWithContext.Context(), watchdog.ReadRepairObjectVersion, &readRepairVersion))
 	requestWithContext = requestWithContext.WithContext(context.WithValue(requestWithContext.Context(), watchdog.MultiPartUpload, &multipart))

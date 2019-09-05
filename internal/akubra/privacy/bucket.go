@@ -39,6 +39,10 @@ func (filter *BucketPrivacyFilter) Filter(req *http.Request, prvCtx *Context) (V
 		return NoViolation, fmt.Errorf("failed to verify bucket privacy, could't fetch meta data: %s", err)
 	}
 
+	if bucketMetaData == nil {
+		return NoViolation, nil
+	}
+
 	if bucketMetaData.IsInternal && !prvCtx.isInternalNetwork {
 		return InternalNetworkBucket, nil
 	}

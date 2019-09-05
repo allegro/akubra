@@ -2,7 +2,9 @@ package httphandler
 
 import (
 	"context"
+	"github.com/allegro/akubra/internal/akubra/utils"
 	"io"
+	"net"
 	"net/http"
 	"sync/atomic"
 
@@ -10,6 +12,15 @@ import (
 	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/gofrs/uuid"
 )
+
+const (
+	//Domain is a constant used to put/get domain's name to/from request's context
+	Domain = log.ContextKey("Domain")
+	//AuthHeader is a constant used to put/get domain's name to/from request's context
+	AuthHeader = log.ContextKey("AuthHeader")
+)
+
+var incorrectAuthHeader = []byte("Incorrect auth header")
 
 func randomStr(length int) string {
 	return uuid.Must(uuid.NewV4()).String()[:length]
@@ -47,10 +58,34 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	randomIDContext := context.WithValue(req.Context(), log.ContextreqIDKey, randomIDStr)
-	log.Debugf("Request id %s", randomIDStr)
+	reqHost, _, err := net.SplitHostPort(req.Host)
+	if err != nil {
+		reqHost = req.Host
+	}
 
-	resp, err := h.roundTripper.RoundTrip(req.WithContext(randomIDContext))
+	reqCtx := context.WithValue(req.Context(), log.ContextreqIDKey, randomIDStr)
+	reqCtx = context.WithValue(reqCtx, Domain, reqHost)
+
+	httpAuthHeader := req.Header.Get("Authorization")
+	if httpAuthHeader != "" {
+		authHeader, err := utils.ParseAuthorizationHeader(httpAuthHeader)
+		if err != nil {
+			log.Debugf("failed to parse auth header for req %s: %q", randomIDStr, err)
+			w.WriteHeader(http.StatusBadRequest)
+			_, err := w.Write(incorrectAuthHeader)
+			if err != nil {
+				log.Debug(err)
+			}
+			return
+		}
+		reqCtx = context.WithValue(reqCtx, AuthHeader, &authHeader)
+	}
+
+
+	log.Debugf("Request id %s, domain %s", randomIDStr, reqHost)
+
+	req.Header.Del("Expect")
+	resp, err := h.roundTripper.RoundTrip(req.WithContext(reqCtx))
 
 	if err != nil || resp == nil {
 		w.WriteHeader(http.StatusInternalServerError)
