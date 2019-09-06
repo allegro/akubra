@@ -152,7 +152,7 @@ func Ring(conf *akubraconfig.Config, policy string) (sharding.ShardsRingAPI, str
 	}
 
 	storagesFactory := storages.NewStoragesFactory(transportMatcher, &wc.WatchdogConfig{}, nil, nil)
-	ringStorages, err := storagesFactory.InitStorages(conf.Shards, conf.Storages, nil)
+	ringStorages, err := storagesFactory.InitStorages(conf.Shards, conf.Storages, conf.IgnoredCanonicalizedHeaders)
 
 	if err != nil {
 		return sharding.ShardsRing{}, " ", err

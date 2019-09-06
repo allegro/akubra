@@ -18,7 +18,7 @@ require (
 	github.com/jinzhu/gorm v1.9.9
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.1.1
-	github.com/minio/minio-go v0.0.0-20190410214627-80c2fe34f1a5 // indirect
+	github.com/minio/minio-go v0.0.0-20190410214627-80c2fe34f1a5
 	github.com/mjarco/go-radosgw v0.0.0-20170530132933-03a8ba201fbb
 	github.com/pkg/errors v0.8.1
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
@@ -29,7 +29,7 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.3.0
-	github.com/wookie41/minio-go v3.0.3-0.20190709093208-fd484cca1138+incompatible
+	github.com/wookie41/minio-go v3.0.2+incompatible
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/tools v0.0.0-20190813034749-528a2984e271

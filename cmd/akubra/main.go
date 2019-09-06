@@ -193,9 +193,11 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 	consistencyWatchdog := setupWatchdog(s.config.Watchdog)
 
 	storagesFactory := storages.NewStoragesFactory(transportMatcher, &s.config.Watchdog, consistencyWatchdog, watchdogRecordFactory)
-	storage, err := storagesFactory.InitStorages(s.config.Shards, s.config.Storages, map[string]bool{
-		s.config.Watchdog.ObjectVersionHeaderName: true,
-	})
+	ignoredSignHeaders := map[string]bool{s.config.Watchdog.ObjectVersionHeaderName: true}
+	for k, v := range conf.IgnoredCanonicalizedHeaders {
+		ignoredSignHeaders[k] = v
+	}
+	storage, err := storagesFactory.InitStorages(s.config.Shards, s.config.Storages, ignoredSignHeaders)
 
 	if err != nil {
 		log.Fatalf("Storages initialization problem: %q", err)
