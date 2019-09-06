@@ -10,6 +10,7 @@ import (
 
 	"github.com/allegro/akubra/internal/akubra/httphandler/config"
 	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/internal/akubra/privacy"
 )
 
 // Decorator is http.RoundTripper interface wrapper
@@ -130,6 +131,20 @@ func ResponseHeadersStripper(headersToStrip []string) Decorator {
 		return &responseHeadersStripper{
 			headers:      headersToStrip,
 			roundTripper: roundTripper}
+	}
+}
+
+//PrivacyContextSupplier creates Decorator which supplies the request with security context
+func PrivacyContextSupplier(supplier privacy.ContextSupplier) Decorator {
+	return func(roundTripper http.RoundTripper) http.RoundTripper {
+		return privacy.NewPrivacyContextSupplierRoundTripper(roundTripper, supplier)
+	}
+}
+
+//PrivacyFilterChain creates Decorator checks for any privacy violations
+func PrivacyFilterChain(shouldDrop bool, chain privacy.Chain) Decorator {
+	return func(roundTripper http.RoundTripper) http.RoundTripper {
+		return privacy.NewChainRoundTripper(shouldDrop, chain, roundTripper)
 	}
 }
 

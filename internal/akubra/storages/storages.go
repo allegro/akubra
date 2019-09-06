@@ -157,8 +157,8 @@ func decorateBackend(transport http.RoundTripper, name string, storageDef config
 	backend := &StorageClient{
 		RoundTripper: httphandler.Decorate(transport, decorator, merger.ListV2Interceptor),
 		Endpoint:     *storageDef.Backend.URL,
+		Storage:      storageDef,
 		Name:         name,
-		Maintenance:  storageDef.Maintenance,
 	}
 	return backend, nil
 }
