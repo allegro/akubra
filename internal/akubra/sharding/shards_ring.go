@@ -70,7 +70,7 @@ func (sr ShardsRing) Pick(key string) (storages.NamedShardClient, error) {
 }
 
 // GetShards returns all shards for the ring
-func (sr ShardsRing) GetShards(key string) map[string]storages.NamedShardClient {
+func (sr ShardsRing) GetShards() map[string]storages.NamedShardClient {
 	return sr.shardClusterMap
 }
 

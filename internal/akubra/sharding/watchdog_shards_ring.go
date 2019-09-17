@@ -3,14 +3,15 @@ package sharding
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/regions/config"
 	"github.com/allegro/akubra/internal/akubra/storages"
 	"github.com/allegro/akubra/internal/akubra/utils"
 	"github.com/allegro/akubra/internal/akubra/watchdog"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 //ConsistentShardsRing is a shard ring that guarantees consistency based on the defined provided consistency level
@@ -39,6 +40,10 @@ func (consistentShardRing *ConsistentShardsRing) GetRingProps() *RingProps {
 //Pick pcik shard for key
 func (consistentShardRing *ConsistentShardsRing) Pick(key string) (storages.NamedShardClient, error) {
 	return consistentShardRing.shardsRing.Pick(key)
+}
+
+func (consistentShardRing *ConsistentShardsRing) GetShards() map[string]storages.NamedShardClient {
+	return consistentShardRing.GetShards()
 }
 
 //DoRequest performs the request and also records the request if the consistency level requires so
