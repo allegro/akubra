@@ -19,7 +19,7 @@ const (
 	insertNewWithObjectVersion       = "INSERT INTO consistency_record (object_version, request_id, object_id, domain, access_key, execution_delay, method) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING object_version"
 	selectNow                        = "SELECT CAST(EXTRACT(EPOCH FROM CURRENT_TIMESTAMP at time zone 'utc') * 10^6 AS BIGINT)"
 	watchdogTable                    = "consistency_record"
-	markersInsertedEalier            = "domain = ? AND object_id = ? AND object_version <= ?"
+	deleteMarkersInsertedEalier      = "DELETE FROM consistency_record WHERE domain = ? AND object_id = ? AND object_version <= ?"
 	updateRecordExecutionTimeByReqID = "UPDATE consistency_record " +
 		"SET execution_delay = ?" +
 		"WHERE request_id = ?"
@@ -172,9 +172,7 @@ func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 	queryStartTime := time.Now()
 	deleteResult := watchdog.
 		dbConn.
-		Table(watchdogTable).
-		Where(markersInsertedEalier, marker.domain, marker.objectID, marker.objectVersion).
-		Delete(&SQLConsistencyRecord{})
+		Raw(deleteMarkersInsertedEalier, marker.domain, marker.objectID, marker.objectVersion)
 
 	if deleteResult.Error != nil {
 		metrics.UpdateSince("watchdog.delete.err", queryStartTime)

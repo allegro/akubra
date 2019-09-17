@@ -44,6 +44,11 @@ func (c *ClientWrapper) Health() IHealth {
 	return c.Client.Health()
 }
 
+//Client is an interface for a client that resolves service name to host:port pair
+type Client interface {
+	GetEndpoint(serviceName string) (*url.URL, error)
+}
+
 // Services for discovery service
 type Services struct {
 	ConsulClient IClient
@@ -53,7 +58,7 @@ type Services struct {
 
 // GetEndpoint by service name
 func (s *Services) GetEndpoint(serviceName string) (url *url.URL, err error) {
-	resolver := s.UpdateInstances(serviceName)
+	resolver := s.updateInstances(serviceName)
 	if resolver != nil && len(resolver.endpoints) > 0 {
 		url = resolver.getHealthyInstanceEndpoint()
 	} else {
@@ -63,7 +68,7 @@ func (s *Services) GetEndpoint(serviceName string) (url *url.URL, err error) {
 }
 
 // UpdateInstances get service instances from service discovery
-func (s *Services) UpdateInstances(serviceName string) (resolver *Resolver) {
+func (s *Services) updateInstances(serviceName string) (resolver *Resolver) {
 	value, instancesExists := s.Instances.Load(serviceName)
 	if instancesExists {
 		resolver = value.(*Resolver)

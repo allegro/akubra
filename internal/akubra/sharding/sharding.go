@@ -3,6 +3,7 @@ package sharding
 import (
 	"fmt"
 	"github.com/allegro/akubra/internal/akubra/config"
+	"github.com/allegro/akubra/internal/akubra/watchdog"
 	"math"
 
 	"github.com/allegro/akubra/internal/akubra/log"
@@ -13,9 +14,12 @@ import (
 
 // RingFactory produces clients ShardsRing
 type RingFactory struct {
-	conf     config.Config
-	storages storages.ClusterStorage
-	syncLog  log.Logger
+	conf                  config.Config
+	storages              storages.ClusterStorage
+	syncLog               log.Logger
+	consistencyWatchdog   watchdog.ConsistencyWatchdog
+	recordFactory         watchdog.ConsistencyRecordFactory
+	consistencyHeaderName string
 }
 
 func (rf RingFactory) createRegressionMap(config regionsConfig.Policies) (map[string]storages.NamedShardClient, error) {
@@ -61,6 +65,14 @@ func (rf RingFactory) RegionRing(name string, conf config.Config, regionCfg regi
 	clustersWeights := rf.getRegionClustersWeights(regionCfg)
 
 	shardClusterMap, err := rf.makeRegionClusterMap(clustersWeights)
+	for name, shard := range shardClusterMap {
+		s := shard
+		if rf.consistencyWatchdog != nil {
+			s = storages.NewConsistentShard(s, rf.consistencyWatchdog, rf.recordFactory, rf.consistencyHeaderName)
+		}
+		s = storages.NewShardAuthenticator(s)
+		shardClusterMap[name] = s
+	}
 	if err != nil {
 		log.Debugf("cluster map creation error %s\n", err)
 		return ShardsRing{}, err
@@ -73,6 +85,12 @@ func (rf RingFactory) RegionRing(name string, conf config.Config, regionCfg regi
 	cHashMap := hashring.NewWithWeights(clustersWeights)
 
 	allBackendsRoundTripper := rf.storages.MergeShards(fmt.Sprintf("region-%s", name), regionShards...)
+	if rf.consistencyWatchdog != nil {
+		allBackendsRoundTripper = storages.NewConsistentShard(
+			allBackendsRoundTripper, rf.consistencyWatchdog,
+			rf.recordFactory, rf.consistencyHeaderName)
+	}
+	allBackendsRoundTripper = storages.NewShardAuthenticator(allBackendsRoundTripper)
 	regressionMap, err := rf.createRegressionMap(regionCfg)
 	if err != nil {
 		return ShardsRing{}, err
@@ -91,9 +109,15 @@ func (rf RingFactory) RegionRing(name string, conf config.Config, regionCfg regi
 }
 
 // NewRingFactory creates ring factory
-func NewRingFactory(conf config.Config, storages storages.ClusterStorage) RingFactory {
+func NewRingFactory(conf config.Config, storages storages.ClusterStorage,
+	consistencyWatchdog watchdog.ConsistencyWatchdog,
+	recordFactory watchdog.ConsistencyRecordFactory,
+	consistencyHeaderName string) RingFactory {
 	return RingFactory{
-		conf:     conf,
-		storages: storages,
+		conf:                  conf,
+		storages:              storages,
+		consistencyWatchdog:   consistencyWatchdog,
+		recordFactory:         recordFactory,
+		consistencyHeaderName: consistencyHeaderName,
 	}
 }
