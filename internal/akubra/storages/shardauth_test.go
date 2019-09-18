@@ -43,7 +43,7 @@ func TestShouldReturnAccessDeniedWhenCredentialsDoNotMatch(t *testing.T) {
 		Properties: map[string]string{"AccessKey": access, "Secret": secret}},}
 
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8080/bucket/obj", nil)
-	req = s3signer.SignV2(req, access, "1234", nil)
+	req = s3signer.SignV2(*req, access, "1234")
 
 	authHeader, err := utils.ParseAuthorizationHeader(req.Header.Get("Authorization"))
 	assert.Nil(t, err)
@@ -73,7 +73,7 @@ func TestShouldValidateRequestCredentialsBasedOnBackendType(t *testing.T) {
 		Properties: map[string]string{"AccessKey": access, "Secret": secret}},}
 
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8080/bucket/obj", nil)
-	req = s3signer.SignV2(req, access, secret, nil)
+	req = s3signer.SignV2(*req, access, secret)
 
 	authHeader, err := utils.ParseAuthorizationHeader(req.Header.Get("Authorization"))
 	assert.Nil(t, err)
