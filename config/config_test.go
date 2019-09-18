@@ -15,7 +15,9 @@ import (
 	crdStoreConfig "github.com/allegro/akubra/crdstore/config"
 	httpHandlerConfig "github.com/allegro/akubra/httphandler/config"
 	logconfig "github.com/allegro/akubra/log/config"
+	metadata "github.com/allegro/akubra/metadata"
 	"github.com/allegro/akubra/metrics"
+	privacy "github.com/allegro/akubra/privacy"
 	regionsConfig "github.com/allegro/akubra/regions/config"
 	shardingconfig "github.com/allegro/akubra/sharding/config"
 	storageconfig "github.com/allegro/akubra/storages/config"
@@ -80,7 +82,8 @@ func (t *YamlConfigTest) NewYamlConfigTest() *YamlConfig {
 	size.SizeInBytes = 2048
 	region := regionsConfig.Policies{}
 	t.YamlConfig = PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", ":80", ":81",
-		map[string]regionsConfig.Policies{"region": region}, nil, config.WatchdogConfig{}, nil)
+		map[string]regionsConfig.Policies{"region": region}, nil, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	return &t.YamlConfig
 }
 
@@ -161,7 +164,8 @@ func TestShouldValidateConfMaintainedBackendWhenNotEmpty(t *testing.T) {
 	size.SizeInBytes = 2048
 	region := regionsConfig.Policies{}
 	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost, ":80", ":81",
-		map[string]regionsConfig.Policies{"region": region}, nil, config.WatchdogConfig{}, nil)
+		map[string]regionsConfig.Policies{"region": region}, nil, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 
 	result, _ := ValidateConf(testConfData, false)
 
@@ -175,38 +179,13 @@ func TestShouldValidateConfMaintainedBackendWhenEmpty(t *testing.T) {
 	region := regionsConfig.Policies{}
 	testConfData := PrepareYamlConfig(size, 22, 33, maintainedBackendHost,
 		":80", ":81",
-		map[string]regionsConfig.Policies{"region": region}, nil, config.WatchdogConfig{}, nil)
+		map[string]regionsConfig.Policies{"region": region}, nil, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 
 	result, _ := ValidateConf(testConfData, false)
 
 	assert.True(t, result, "Should be true")
 }
-
-func TestShouldValidateAllPossibleSyncLogMethods(t *testing.T) {
-	data := `
-- GET
-- POST
-- PUT
-- DELETE
-- HEAD
-- OPTIONS
-`
-	syncLogMethodsTestData := []shardingconfig.SyncLogMethod{}
-	errors := yaml.Unmarshal([]byte(data), &syncLogMethodsTestData)
-
-	assert.Nil(t, errors)
-}
-
-func TestShouldNotValidateWrongSyncLogMethod(t *testing.T) {
-	data := `
-- WRONG
-`
-	syncLogMethodsTestData := []shardingconfig.SyncLogMethod{}
-	errors := yaml.Unmarshal([]byte(data), &syncLogMethodsTestData)
-
-	assert.NotNil(t, errors)
-}
-
 func TestAdditionalHeadersYamlParsingSuccessful(t *testing.T) {
 	correct := `
 'Access-Control-Allow-Credentials': "true"
@@ -351,7 +330,8 @@ func TestShouldNotPassWhenNoRegionIsDefined(t *testing.T) {
 	var size httpHandlerConfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	testConfData := PrepareYamlConfig(size, 21, 32, maintainedBackendHost,
-		":80", ":81", regionsConfig.ShardingPolicies{}, nil, config.WatchdogConfig{}, nil)
+		":80", ":81", regionsConfig.ShardingPolicies{}, nil, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 
 	result, _ := ValidateConf(testConfData, true)
 
@@ -368,7 +348,9 @@ func PrepareYamlConfig(
 	policies regionsConfig.ShardingPolicies,
 	transports transportConfig.Transports,
 	watchdog config.WatchdogConfig,
-	credentialsStoreMap crdStoreConfig.CredentialsStoreMap) YamlConfig {
+	credentialsStoreMap crdStoreConfig.CredentialsStoreMap,
+	privacyConfig privacy.Config,
+	bucketMetaDataCacheConfig metadata.BucketMetaDataCacheConfig) YamlConfig {
 
 	url1 := url.URL{Scheme: "http", Host: "127.0.0.1:8080"}
 	yamlURL := shardingconfig.YAMLUrl{URL: &url1}
@@ -441,13 +423,15 @@ func PrepareYamlConfig(
 			},
 		},
 
-		Storages:          storageMap,
-		Shards:            shardsMap,
-		ShardingPolicies:  policies,
-		Logging:           logconfig.LoggingConfig{},
-		Metrics:           metrics.Config{},
-		Watchdog:          watchdog,
-		CredentialsStores: credentialsStoreMap,
+		Storages:            storageMap,
+		Shards:              shardsMap,
+		ShardingPolicies:    policies,
+		Logging:             logconfig.LoggingConfig{},
+		Metrics:             metrics.Config{},
+		Watchdog:            watchdog,
+		CredentialsStores:   credentialsStoreMap,
+		Privacy:             privacyConfig,
+		BucketMetaDataCache: bucketMetaDataCacheConfig,
 	}
 }
 

@@ -3,7 +3,6 @@ package storages
 import (
 	"bytes"
 	"encoding/xml"
-	"github.com/allegro/akubra/watchdog"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"github.com/allegro/akubra/storages/backend"
 	"github.com/allegro/akubra/types"
 	"github.com/allegro/akubra/utils"
+	"github.com/allegro/akubra/watchdog"
 	"github.com/serialx/hashring"
 )
 
@@ -49,8 +49,6 @@ func newMultiPartRoundTripper(backends []*StorageClient) client {
 	multiPartRoundTripper.backendsRing = hashring.New(activeBackendsEndpoints)
 	return multiPartRoundTripper
 }
-
-var errPushToSyncLog = errors.New("sync multipart upload")
 
 // ErrReplicationIndicator signals backends where object has to be replicated
 var ErrReplicationIndicator = errors.New("replication required")
@@ -101,10 +99,9 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *http.Request) <-
 	}
 	go func() {
 		if !utils.IsInitiateMultiPartUploadRequest(request) && isCompleteUploadResponseSuccessful(httpResponse) {
-			for _, backend := range multiPartRoundTripper.backendsRoundTrippers {
-				if backend != multiUploadBackend {
-					backendResponseChannel <- BackendResponse{Request: request, Response: nil, Error: errPushToSyncLog, Backend: backend}
-				}
+			multipartUploadID, ok := request.Context().Value(watchdog.MultiPartUpload).(*bool)
+			if ok && multipartUploadID != nil {
+				*multipartUploadID = true
 			}
 		}
 		backendResponseChannel <- BackendResponse{Request: request, Response: httpResponse, Error: requestError, Backend: multiUploadBackend}
@@ -168,11 +165,6 @@ func responseContainsCompleteUploadString(response *http.Response) bool {
 		return false
 	}
 
-	log.Debugf("Successfully performed multipart upload to %s", completeMultipartUploadResult.Location)
-	multipartUploadID, ok := response.Request.Context().Value(watchdog.MultiPartUpload).(*bool)
-	if ok && multipartUploadID != nil {
-		*multipartUploadID = true
-
-	}
+	
 	return true
 }

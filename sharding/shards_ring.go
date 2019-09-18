@@ -3,13 +3,14 @@ package sharding
 import (
 	"bytes"
 	"fmt"
-	"github.com/allegro/akubra/utils"
-	"github.com/allegro/akubra/watchdog"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/allegro/akubra/utils"
+	"github.com/allegro/akubra/watchdog"
 
 	"github.com/allegro/akubra/log"
 	"github.com/allegro/akubra/metrics"
@@ -33,6 +34,7 @@ type ShardsRingAPI interface {
 	DoRequest(req *http.Request) (resp *http.Response, rerr error)
 	GetRingProps() *RingProps
 	Pick(key string) (storages.NamedShardClient, error)
+	GetShards() map[string]storages.NamedShardClient
 }
 
 // ShardsRing implements http.RoundTripper interface,
@@ -65,6 +67,11 @@ func (sr ShardsRing) Pick(key string) (storages.NamedShardClient, error) {
 	}
 
 	return shardCluster, nil
+}
+
+// GetShards returns all shards for the ring
+func (sr ShardsRing) GetShards() map[string]storages.NamedShardClient {
+	return sr.shardClusterMap
 }
 
 type reqBody struct {

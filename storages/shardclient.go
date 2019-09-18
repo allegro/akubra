@@ -3,8 +3,9 @@ package storages
 import (
 	"errors"
 	"fmt"
-	"github.com/allegro/akubra/watchdog/config"
 	"net/http"
+
+	"github.com/allegro/akubra/watchdog/config"
 
 	"github.com/allegro/akubra/balancing"
 	"github.com/allegro/akubra/log"
@@ -63,7 +64,7 @@ func (shardClient *ShardClient) balancerRoundTrip(req *http.Request) (resp *http
 		}
 
 		resp, err = node.RoundTrip(nodeRequest)
-		if (resp == nil && err != balancing.ErrNoActiveNodes) || http.StatusNotFound == resp.StatusCode {
+		if (resp == nil && err != balancing.ErrNoActiveNodes) || http.StatusNotFound == resp.StatusCode || http.StatusForbidden == resp.StatusCode {
 			notFoundNodes = append(notFoundNodes, node)
 			continue
 		}

@@ -2,6 +2,7 @@ package backend
 
 import (
 	"fmt"
+	"github.com/allegro/akubra/storages/config"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -15,10 +16,10 @@ import (
 
 // Backend represents any storage in akubra cluster
 type Backend struct {
+	config.Storage
 	http.RoundTripper
-	Endpoint    url.URL
-	Name        string
-	Maintenance bool
+	Endpoint url.URL
+	Name     string
 }
 
 // RoundTrip satisfies http.RoundTripper interface

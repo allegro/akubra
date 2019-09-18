@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/allegro/akubra/httphandler"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -106,7 +107,7 @@ func createRequest(t *testing.T, method string, reqURL string, clusterName strin
 	}
 	req.Header = http.Header{}
 	req.Header.Add("Authorization", authHeaderV4)
-	req = req.WithContext(context.WithValue(context.Background(), watchdog.Domain, clusterName))
+	req = req.WithContext(context.WithValue(context.Background(), httphandler.Domain, clusterName))
 	return req.WithContext(context.WithValue(req.Context(), log.ContextreqIDKey, reqID))
 }
 

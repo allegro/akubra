@@ -1,6 +1,7 @@
 package watchdog
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/allegro/akubra/watchdog/config"
@@ -14,10 +15,10 @@ import (
 )
 
 const (
-	insertNew = "INSERT INTO consistency_record (request_id, object_id, domain, access_key, execution_delay, method) VALUES (?, ?, ?, ?, ?, ?) RETURNING object_version"
+	insertNew                        = "INSERT INTO consistency_record (request_id, object_id, domain, access_key, execution_delay, method) VALUES (?, ?, ?, ?, ?, ?) RETURNING object_version"
+	insertNewWithObjectVersion       = "INSERT INTO consistency_record (object_version, request_id, object_id, domain, access_key, execution_delay, method) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING object_version"
 	selectNow                        = "SELECT CAST(EXTRACT(EPOCH FROM CURRENT_TIMESTAMP at time zone 'utc') * 10^6 AS BIGINT)"
-	watchdogTable                    = "consistency_record"
-	markersInsertedEalier            = "domain = ? AND object_id = ? AND object_version <= ?"
+	deleteMarkersInsertedEalier      = "DELETE FROM consistency_record WHERE domain = ? AND object_id = ? AND object_version <= ?"
 	updateRecordExecutionTimeByReqID = "UPDATE consistency_record " +
 		"SET execution_delay = ?" +
 		"WHERE request_id = ?"
@@ -34,7 +35,7 @@ type SQLWatchdogFactory struct {
 
 // SQLWatchdog is a type of ConsistencyWatchdog that uses a SQL database
 type SQLWatchdog struct {
-	dbConn            *gorm.DB
+			dbConn            *gorm.DB
 	versionHeaderName string
 }
 
@@ -110,13 +111,26 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 	log.Debugf("[watchdog] INSERT reqID %s, objID %s, domain %s ", record.RequestID, record.ObjectID, record.Domain)
 
 	queryStartTime := time.Now()
-	rows, err := watchdog.
-		dbConn.
-		Raw(insertNew, record.RequestID, record.ObjectID, record.Domain,
-						record.AccessKey, record.ExecutionDelay.String(), record.Method).
-		Rows()
 
-	if err != nil  {
+	var rows *sql.Rows
+	var err error
+	if record.ObjectVersion > 0 {
+
+		rows, err = watchdog.
+			dbConn.
+			Raw(insertNewWithObjectVersion, record.ObjectVersion, record.RequestID, record.ObjectID, record.Domain, record.AccessKey, record.ExecutionDelay.String(), record.Method).
+			Rows()
+
+	} else {
+
+		rows, err = watchdog.
+			dbConn.
+			Raw(insertNew, record.RequestID, record.ObjectID, record.Domain, record.AccessKey, record.ExecutionDelay.String(), record.Method).
+			Rows()
+
+	}
+
+	if err != nil {
 		metrics.UpdateSince("watchdog.insert.err", queryStartTime)
 		log.Debugf("[watchdog] INSERT FAIL reqID %s, objID %s, domain %s: %s", record.RequestID, record.ObjectID, record.Domain, err.Error())
 		return nil, ErrDataBase
@@ -148,22 +162,22 @@ func (watchdog *SQLWatchdog) Insert(record *ConsistencyRecord) (*DeleteMarker, e
 func (watchdog *SQLWatchdog) InsertWithRequestID(requestID string, record *ConsistencyRecord) (*DeleteMarker, error) {
 	record.RequestID = requestID
 	return watchdog.Insert(record)
-}
+}	
 
 // Delete deletes from SQL db
 func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 	log.Debugf("[watchdog] DELETE objID %s, version %d", marker.objectID, marker.objectVersion)
-
 	queryStartTime := time.Now()
-	deleteResult := watchdog.
+	rows, err := watchdog.
 		dbConn.
-		Table(watchdogTable).
-		Where(markersInsertedEalier, marker.domain, marker.objectID, marker.objectVersion).
-		Delete(&SQLConsistencyRecord{})
+		Raw(deleteMarkersInsertedEalier, marker.domain, marker.objectID, marker.objectVersion).
+		Rows()
 
-	if deleteResult.Error != nil {
+	defer rows.Close()
+
+	if err != nil {
 		metrics.UpdateSince("watchdog.delete.err", queryStartTime)
-		log.Debugf("[watchdog] DELETE FAIL objID %s, version <= %d: %s", marker.objectID, marker.objectVersion, deleteResult.Error.Error())
+		log.Debugf("[watchdog] DELETE FAIL objID %s, version <= %d: %s", marker.objectID, marker.objectVersion, err)
 		return ErrDataBase
 	}
 
@@ -226,7 +240,6 @@ func (watchdog *SQLWatchdog) SupplyRecordWithVersion(record *ConsistencyRecord) 
 func (watchdog *SQLWatchdog) GetVersionHeaderName() string {
 	return watchdog.versionHeaderName
 }
-
 
 //CreateWatchdogSQLClientProps creates watchdog reader/writer config
 func CreateWatchdogSQLClientProps(watchdogConfig *config.WatchdogConfig, readerConfig bool) map[string]string {

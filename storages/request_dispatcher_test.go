@@ -2,6 +2,7 @@ package storages
 
 import (
 	"context"
+	"github.com/allegro/akubra/httphandler"
 	"net/http"
 	"testing"
 
@@ -74,7 +75,7 @@ func TestRequestDispatcherDispatch(t *testing.T) {
 	require.NotNil(t, dispatcher)
 
 	request, err := http.NewRequest("GET", "http://random.domain/bucket/object", nil)
-	request = request.WithContext(context.WithValue(request.Context(), watchdog.Domain, "random.domain"))
+	request = request.WithContext(context.WithValue(request.Context(), httphandler.Domain, "random.domain"))
 	request = request.WithContext(context.WithValue(request.Context(), watchdog.ConsistencyLevel, config.None))
 	request = request.WithContext(context.WithValue(request.Context(), watchdog.ReadRepair, false))
 

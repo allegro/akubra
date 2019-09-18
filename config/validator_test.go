@@ -3,12 +3,16 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/allegro/akubra/watchdog/config"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	metadata "github.com/allegro/akubra/metadata"
+	"github.com/allegro/akubra/watchdog/config"
+
 	"time"
+
+	privacy "github.com/allegro/akubra/privacy"
 
 	crdStoreConig "github.com/allegro/akubra/crdstore/config"
 	httphandlerconfig "github.com/allegro/akubra/httphandler/config"
@@ -97,7 +101,8 @@ func TestShouldPassListenPortsLogicalValidator(t *testing.T) {
 	regionConfig := shardsconfig.Policies{}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", listen,
 		listenTechnicalEndpoint,
-		map[string]shardsconfig.Policies{"region": regionConfig}, nil, config.WatchdogConfig{}, nil)
+		map[string]shardsconfig.Policies{"region": regionConfig}, nil, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, validationErrors := yamlConfig.ListenPortsLogicalValidator()
 
 	assert.Len(t, validationErrors, 0, "Should not be errors")
@@ -112,7 +117,8 @@ func TestShouldNotPassListenPortsLogicalValidatorWhenPortsAreEqual(t *testing.T)
 	regionConfig := shardsconfig.Policies{}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81", listen,
 		listenTechnicalEndpoint,
-		map[string]shardsconfig.Policies{"region": regionConfig}, nil, config.WatchdogConfig{}, nil)
+		map[string]shardsconfig.Policies{"region": regionConfig}, nil, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, validationErrors := yamlConfig.ListenPortsLogicalValidator()
 
 	assert.Len(t, validationErrors, 1, "Should be one error")
@@ -185,7 +191,8 @@ func TestValidatorShouldPassWithValidRegionConfig(t *testing.T) {
 
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
 		"127.0.0.1:1234", "127.0.0.1:1235",
-		map[string]shardsconfig.Policies{"region": regionConfig}, nil, config.WatchdogConfig{}, nil)
+		map[string]shardsconfig.Policies{"region": regionConfig}, nil, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.True(t, valid)
@@ -209,7 +216,8 @@ func TestValidatorShouldFailWithMissingCluster(t *testing.T) {
 
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
 		"127.0.0.1:1234", "127.0.0.1:1235",
-		map[string]shardsconfig.Policies{policyName: regionConfig}, nil, config.WatchdogConfig{}, nil)
+		map[string]shardsconfig.Policies{policyName: regionConfig}, nil, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -232,7 +240,8 @@ func TestValidatorShouldFailWithInvalidWeight(t *testing.T) {
 	size.SizeInBytes = 2048
 	regions := map[string]shardsconfig.Policies{"testregion": regionConfig}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil, config.WatchdogConfig{}, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
@@ -257,7 +266,8 @@ func TestValidatorShouldFailWithMissingClusterDomain(t *testing.T) {
 
 	regions := map[string]shardsconfig.Policies{"testregion": regionConfig}
 	yamlConfig := PrepareYamlConfig(size, 31, 45,
-		"127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions, nil, config.WatchdogConfig{}, nil)
+		"127.0.0.1:81", "127.0.0.1:1234", "127.0.0.1:1235", regions, nil, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -274,7 +284,8 @@ func TestValidatorShouldFailWithMissingClusterDefinition(t *testing.T) {
 	size.SizeInBytes = 2048
 	regions := map[string]shardsconfig.Policies{"testregion": regionConfig}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil, config.WatchdogConfig{}, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", regions, nil, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, validationErrors := yamlConfig.RegionsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -288,7 +299,8 @@ func TestValidatorShouldFailWithEmptyTransportsDefinition(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, validationErrors := yamlConfig.TransportsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -312,7 +324,8 @@ func TestValidatorShouldProcessTransportsWithSuccess(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
@@ -330,7 +343,8 @@ func TestValidatorShouldProcessTransportsWithSuccessWithNotDefinedRulesPropertie
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
@@ -350,7 +364,8 @@ func TestShouldValidateWithEmptyPropertiesInRulesDefinition(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 51, 55, "127.0.0.1:82",
-		"127.0.0.1:1235", "127.0.0.1:1236", nil, transports, config.WatchdogConfig{}, nil)
+		"127.0.0.1:1235", "127.0.0.1:1236", nil, transports, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
@@ -377,7 +392,8 @@ func TestValidatorShouldValidateTransportsWithEmptyRules(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
@@ -394,7 +410,8 @@ func TestValidatorShouldFailOnTransportWithoutProperties(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, validationErrors := yamlConfig.TransportsEntryLogicalValidator()
 	assert.False(t, valid)
 	assert.Equal(
@@ -409,7 +426,8 @@ func TestShouldPassTransportsEntryLogicalValidatorWhenIdleConnTimeoutDurationIsZ
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
@@ -420,7 +438,8 @@ func TestShouldFailTransportsEntryLogicalValidatorWhenResponseHeaderTimeoutDurat
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	result, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.False(t, result)
 }
@@ -431,7 +450,8 @@ func TestShouldPassTransportsEntryLogicalValidatorWhenMaxIdleConnsIsZero(t *test
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
@@ -442,7 +462,8 @@ func TestShouldPassTransportsEntryLogicalValidatorWhenMaxIdleConnsPerHostIsZero(
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, transports, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, _ := yamlConfig.TransportsEntryLogicalValidator()
 	assert.True(t, valid)
 }
@@ -453,7 +474,8 @@ func TestShouldFailWhenUnsupportedTypeOfWatchdogIsDefined(t *testing.T) {
 	conf := Config{}
 	conf.Watchdog = config.WatchdogConfig{Type: "unsupportedType", Props: make(map[string]string)}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, conf.Watchdog, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, conf.Watchdog, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, _ := yamlConfig.WatchdogEntryLogicalValidator()
 	assert.False(t, valid)
 }
@@ -462,7 +484,8 @@ func TestShouldPassWhenNoWatchdogIsDefined(t *testing.T) {
 	var size httphandlerconfig.HumanSizeUnits
 	size.SizeInBytes = 2048
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, config.WatchdogConfig{}, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, config.WatchdogConfig{}, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, _ := yamlConfig.WatchdogEntryLogicalValidator()
 	assert.True(t, valid)
 }
@@ -473,7 +496,8 @@ func TestShouldNotPassWhenWatchdogIsDefinedAndObjectVersionHeaderNameIsNotDefine
 	conf := Config{}
 	conf.Watchdog = config.WatchdogConfig{Type: "sql", Props: map[string]string{}}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, conf.Watchdog, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, conf.Watchdog, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, errList := yamlConfig.WatchdogEntryLogicalValidator()
 	assert.Contains(t, errList["WatchdogEntryLogicalValidator"], errors.New("ObjectVersionHeaderName can't be empty if watcher is defined"))
 	assert.False(t, valid)
@@ -485,7 +509,8 @@ func TestShouldNotPassWhenWatchdogIsDefinedAndObjectVersionHeaderNameHasWrongFor
 	conf := Config{}
 	conf.Watchdog = config.WatchdogConfig{Type: "sql", ObjectVersionHeaderName: "SomeBadFormat", Props: map[string]string{}}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, conf.Watchdog, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, conf.Watchdog, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, errList := yamlConfig.WatchdogEntryLogicalValidator()
 	assert.Contains(t, errList["WatchdogEntryLogicalValidator"], errors.New("ObjectVersionHeaderName has to start with 'x-amz-meta'"))
 	assert.False(t, valid)
@@ -496,7 +521,7 @@ func TestShouldFailWhenWatchdogConfigDoesNotHaveAllOfTheFieldsProvided(t *testin
 	size.SizeInBytes = 2048
 	conf := Config{}
 	conf.Watchdog = config.WatchdogConfig{
-		Type: "sql",
+		Type:                    "sql",
 		ObjectVersionHeaderName: "x-amz-meta-akubra",
 		Props: map[string]string{
 			"dialect":         "postgres",
@@ -510,7 +535,8 @@ func TestShouldFailWhenWatchdogConfigDoesNotHaveAllOfTheFieldsProvided(t *testin
 			"connmaxlifetime": "1h",
 		}}
 	yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, conf.Watchdog, nil)
+		"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, conf.Watchdog, nil,
+		privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 	valid, errList := yamlConfig.WatchdogEntryLogicalValidator()
 	assert.Contains(t, errList["WatchdogEntryLogicalValidator"], errors.New("param 'conntimeout' for watchdog 'sql' is missing"))
 	assert.False(t, valid)
@@ -550,7 +576,8 @@ func TestCredentialsStoresValidation(t *testing.T) {
 		var size httphandlerconfig.HumanSizeUnits
 		size.SizeInBytes = 2048
 		yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
-			"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, config.WatchdogConfig{}, testCase.crdStoresMap)
+			"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, config.WatchdogConfig{}, testCase.crdStoresMap,
+			privacy.Config{}, metadata.BucketMetaDataCacheConfig{})
 		yamlConfig.Storages = config2.StoragesMap{
 			"test": {Type: "S3AuthService"},
 		}
@@ -560,6 +587,155 @@ func TestCredentialsStoresValidation(t *testing.T) {
 				assert.Contains(t, errList["CredentialsStoresEntryLogicalValidator"], testCase.expectedErrors[idx])
 			}
 
+			assert.False(t, valid)
+
+		} else {
+			assert.True(t, valid)
+		}
+	}
+}
+
+func TestPrivacyConfigValidation(t *testing.T) {
+	for _, testCase := range []struct {
+		caseName       string
+		prvConf        privacy.Config
+		expectedErrors []error
+	}{
+		{"Should fail when at least property is missing", privacy.Config{
+			IsInternalNetworkHeaderName:  "x",
+			IsInternalNetworkHeaderValue: "",
+		},
+			[]error{errors.New("'IsInternalNetworkHeaderValue' cant be empty")}},
+
+		{"Should validate config", privacy.Config{
+			IsInternalNetworkHeaderName:  "x",
+			IsInternalNetworkHeaderValue: "y",
+		},
+			[]error{},
+		},
+	} {
+
+		var size httphandlerconfig.HumanSizeUnits
+		size.SizeInBytes = 2048
+		yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+			"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, config.WatchdogConfig{}, crdStoreConig.CredentialsStoreMap{},
+			testCase.prvConf, metadata.BucketMetaDataCacheConfig{})
+
+		valid, errList := yamlConfig.PrivacyEntryLogicalValidator()
+		if len(testCase.expectedErrors) > 0 {
+			for idx := range testCase.expectedErrors {
+				assert.Contains(t, errList["PrivacyEntryLogicalValidator"], testCase.expectedErrors[idx])
+			}
+
+			assert.Equal(t, len(testCase.expectedErrors), len(errList))
+			assert.False(t, valid)
+
+		} else {
+			assert.True(t, valid)
+		}
+	}
+}
+
+func TestBucketCacheConfigValidation(t *testing.T) {
+	for _, testCase := range []struct {
+		caseName       string
+		conf           metadata.BucketMetaDataCacheConfig
+		expectedErrors []error
+	}{
+		{"Should fail if 'AllInternal' property is missing", metadata.BucketMetaDataCacheConfig{
+			MaxCacheSizeInMB: 1,
+			ShardsCount:      2,
+			FetcherType:      "fake",
+			FetcherProps:     map[string]string{},
+		},
+			[]error{errors.New("'AllInternal' property is missing")},
+		},
+		{"Should fail if 'AllInternal' is not parsable", metadata.BucketMetaDataCacheConfig{
+			MaxCacheSizeInMB: 1,
+			ShardsCount:      2,
+			FetcherType:      "fake",
+			FetcherProps:     map[string]string{"AllInternal": "x"},
+		},
+			[]error{errors.New("'AllInternal' property not parsable")},
+		},
+		{"Should fail if 'HTTPEndpoint' property is missing", metadata.BucketMetaDataCacheConfig{
+			MaxCacheSizeInMB: 1,
+			ShardsCount:      2,
+			FetcherType:      "http",
+			FetcherProps:     map[string]string{},
+		},
+			[]error{errors.New("'HTTPEndpoint' property is missing")},
+		},
+		{"Should fail if 'HTTPEndpoint' not parsable", metadata.BucketMetaDataCacheConfig{
+			MaxCacheSizeInMB: 1,
+			ShardsCount:      2,
+			FetcherType:      "http",
+			FetcherProps:     map[string]string{"HTTPEndpoint": ""},
+		},
+			[]error{errors.New("'HTTPEndpoint' not parsable")},
+		},
+		{"Should fail if 'HTTPTimeout' property is missing", metadata.BucketMetaDataCacheConfig{
+			MaxCacheSizeInMB: 1,
+			ShardsCount:      2,
+			FetcherType:      "http",
+			FetcherProps:     map[string]string{"HTTPEndpoint": "http://localhost"},
+		},
+			[]error{errors.New("'HTTPTimeout' property is missing")},
+		},
+		{"Should fail if 'HTTPTimeout' not parsable", metadata.BucketMetaDataCacheConfig{
+			MaxCacheSizeInMB: 1,
+			ShardsCount:      2,
+			FetcherType:      "http",
+			FetcherProps:     map[string]string{"HTTPEndpoint": "http://localhost", "HTTPTimeout": "x"},
+		},
+			[]error{errors.New("'HTTPTimeout' not parsable")},
+		},
+		{"Should fail if least fetcher type is not supported", metadata.BucketMetaDataCacheConfig{
+			MaxCacheSizeInMB: 1,
+			ShardsCount:      1,
+			FetcherType:      "x",
+		},
+			[]error{errors.New("not fetcher valdiator found for validator of type x")},
+		},
+		{"Should fail when at least property one property is invalid", metadata.BucketMetaDataCacheConfig{
+			MaxCacheSizeInMB: 1,
+			ShardsCount:      0,
+			FetcherType:      "fake",
+			FetcherProps:     map[string]string{"AllInternal": "false"},
+		},
+			[]error{errors.New("'ShardsCount' cant be smaller or equal to zero")},
+		},
+		{"Should validate fake fetcher", metadata.BucketMetaDataCacheConfig{
+			MaxCacheSizeInMB: 1,
+			ShardsCount:      1,
+			FetcherType:      "fake",
+			FetcherProps:     map[string]string{"AllInternal": "false"},
+		},
+			[]error{},
+		},
+		{"Should validate http fetcher", metadata.BucketMetaDataCacheConfig{
+			MaxCacheSizeInMB: 1,
+			ShardsCount:      1,
+			FetcherType:      "http",
+			FetcherProps:     map[string]string{"HTTPEndpoint": "http://localhost", "HTTPTimeout": "3s"},
+		},
+			[]error{},
+		},
+	} {
+
+		var size httphandlerconfig.HumanSizeUnits
+		size.SizeInBytes = 2048
+		yamlConfig := PrepareYamlConfig(size, 31, 45, "127.0.0.1:81",
+			"127.0.0.1:1234", "127.0.0.1:1235", nil, nil, config.WatchdogConfig{}, crdStoreConig.CredentialsStoreMap{},
+			privacy.Config{}, testCase.conf)
+
+		valid, errList := yamlConfig.BucketMetaDataCacheEntryLogicalValidator()
+		if len(testCase.expectedErrors) > 0 {
+			for idx := range testCase.expectedErrors {
+				assert.Contains(t, errList["BucketMetaDataCacheEntryLogicalValidator"], testCase.expectedErrors[idx])
+			}
+
+			assert.Equal(t, len(testCase.expectedErrors), len(errList))
 			assert.False(t, valid)
 
 		} else {
