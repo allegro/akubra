@@ -3,13 +3,13 @@ package storages
 import (
 	"errors"
 	"fmt"
-	"github.com/allegro/akubra/internal/akubra/watchdog/config"
+	"github.com/allegro/akubra/watchdog/config"
 	"net/http"
 
-	"github.com/allegro/akubra/internal/akubra/balancing"
-	"github.com/allegro/akubra/internal/akubra/log"
-	"github.com/allegro/akubra/internal/akubra/utils"
-	"github.com/allegro/akubra/internal/akubra/watchdog"
+	"github.com/allegro/akubra/balancing"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/utils"
+	"github.com/allegro/akubra/watchdog"
 	set "github.com/deckarep/golang-set"
 )
 

@@ -6,8 +6,8 @@ import (
 
 	"net/url"
 
-	"github.com/allegro/akubra/internal/akubra/storages/config"
-	"github.com/allegro/akubra/internal/akubra/types"
+	"github.com/allegro/akubra/storages/config"
+	"github.com/allegro/akubra/types"
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"

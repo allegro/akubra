@@ -2,15 +2,15 @@ package auth
 
 import (
 	"errors"
-	"github.com/allegro/akubra/internal/akubra/utils"
+	"github.com/allegro/akubra/utils"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/allegro/akubra/internal/akubra/crdstore"
-	"github.com/allegro/akubra/internal/akubra/httphandler"
-	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/crdstore"
+	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/log"
 	"github.com/wookie41/minio-go/pkg/s3signer"
 )
 

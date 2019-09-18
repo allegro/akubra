@@ -3,9 +3,9 @@ package storages
 import (
 	"net/http"
 
-	"github.com/allegro/akubra/internal/akubra/log"
-	"github.com/allegro/akubra/internal/akubra/storages/merger"
-	"github.com/allegro/akubra/internal/akubra/utils"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/storages/merger"
+	"github.com/allegro/akubra/utils"
 )
 
 const listTypeV2 = "2"

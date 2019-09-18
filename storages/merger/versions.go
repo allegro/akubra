@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/allegro/akubra/internal/akubra/log"
-	"github.com/allegro/akubra/internal/akubra/storages/backend"
-	"github.com/allegro/akubra/internal/akubra/storages/merger/s3datatypes"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/storages/backend"
+	"github.com/allegro/akubra/storages/merger/s3datatypes"
 )
 
 // MergeVersionsResponses unifies responses from multiple backends

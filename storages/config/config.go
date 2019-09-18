@@ -1,8 +1,8 @@
 package config
 
 import (
-	"github.com/allegro/akubra/internal/akubra/metrics"
-	"github.com/allegro/akubra/internal/akubra/types"
+	"github.com/allegro/akubra/metrics"
+	"github.com/allegro/akubra/types"
 )
 
 const (

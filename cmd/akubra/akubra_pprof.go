@@ -4,7 +4,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/log"
 )
 
 func init() {

@@ -1,6 +1,6 @@
 package config
 
-import "github.com/allegro/akubra/internal/akubra/log"
+import "github.com/allegro/akubra/log"
 
 // LoggingConfig contains Loggers configuration
 type LoggingConfig struct {

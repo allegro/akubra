@@ -3,7 +3,7 @@ package log
 import (
 	"fmt"
 
-	"github.com/allegro/akubra/internal/akubra/discovery"
+	"github.com/allegro/akubra/discovery"
 	"github.com/sirupsen/logrus"
 )
 

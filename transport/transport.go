@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	httphandlerConfig "github.com/allegro/akubra/internal/akubra/httphandler/config"
-	"github.com/allegro/akubra/internal/akubra/log"
-	"github.com/allegro/akubra/internal/akubra/transport/config"
+	httphandlerConfig "github.com/allegro/akubra/httphandler/config"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/transport/config"
 )
 
 const (

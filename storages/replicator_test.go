@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/allegro/akubra/internal/akubra/log"
-	"github.com/allegro/akubra/internal/akubra/storages/backend"
-	"github.com/allegro/akubra/internal/akubra/watchdog"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/storages/backend"
+	"github.com/allegro/akubra/watchdog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

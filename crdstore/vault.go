@@ -2,7 +2,7 @@ package crdstore
 
 import (
 	"fmt"
-	"github.com/allegro/akubra/internal/akubra/metrics"
+	"github.com/allegro/akubra/metrics"
 	"net/http"
 	"os"
 	"strconv"

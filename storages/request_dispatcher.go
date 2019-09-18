@@ -3,8 +3,8 @@ package storages
 import (
 	"net/http"
 
-	"github.com/allegro/akubra/internal/akubra/storages/backend"
-	"github.com/allegro/akubra/internal/akubra/utils"
+	"github.com/allegro/akubra/storages/backend"
+	"github.com/allegro/akubra/utils"
 )
 
 type dispatcher interface {

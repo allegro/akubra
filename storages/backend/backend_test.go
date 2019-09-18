@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/allegro/akubra/internal/akubra/storages/config"
-	"github.com/allegro/akubra/internal/akubra/types"
-	"github.com/allegro/akubra/internal/akubra/utils"
+	"github.com/allegro/akubra/storages/config"
+	"github.com/allegro/akubra/types"
+	"github.com/allegro/akubra/utils"
 )
 
 func newBackend(backendConfig config.Storage, transport http.RoundTripper) (*Backend, error) {

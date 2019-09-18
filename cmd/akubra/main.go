@@ -10,20 +10,20 @@ import (
 	"syscall"
 	"time"
 
-	watchdogConfig "github.com/allegro/akubra/internal/akubra/watchdog/config"
+	watchdogConfig "github.com/allegro/akubra/watchdog/config"
 
 	"github.com/alecthomas/kingpin"
-	"github.com/allegro/akubra/internal/akubra/config"
-	"github.com/allegro/akubra/internal/akubra/crdstore"
-	"github.com/allegro/akubra/internal/akubra/httphandler"
-	"github.com/allegro/akubra/internal/akubra/log"
-	logconfig "github.com/allegro/akubra/internal/akubra/log/config"
-	"github.com/allegro/akubra/internal/akubra/watchdog"
+	"github.com/allegro/akubra/config"
+	"github.com/allegro/akubra/crdstore"
+	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/log"
+	logconfig "github.com/allegro/akubra/log/config"
+	"github.com/allegro/akubra/watchdog"
 
-	"github.com/allegro/akubra/internal/akubra/metrics"
-	"github.com/allegro/akubra/internal/akubra/regions"
-	"github.com/allegro/akubra/internal/akubra/storages"
-	"github.com/allegro/akubra/internal/akubra/transport"
+	"github.com/allegro/akubra/metrics"
+	"github.com/allegro/akubra/regions"
+	"github.com/allegro/akubra/storages"
+	"github.com/allegro/akubra/transport"
 
 	_ "github.com/lib/pq"
 )

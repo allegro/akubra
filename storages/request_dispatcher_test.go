@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/allegro/akubra/internal/akubra/regions/config"
-	"github.com/allegro/akubra/internal/akubra/storages/backend"
-	"github.com/allegro/akubra/internal/akubra/watchdog"
+	"github.com/allegro/akubra/regions/config"
+	"github.com/allegro/akubra/storages/backend"
+	"github.com/allegro/akubra/watchdog"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )

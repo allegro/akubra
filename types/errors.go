@@ -3,7 +3,7 @@ package types
 import (
 	"fmt"
 
-	"github.com/allegro/akubra/internal/akubra/transport"
+	"github.com/allegro/akubra/transport"
 )
 
 // BackendError is returned in Backend.RoundTrip if any

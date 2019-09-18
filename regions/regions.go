@@ -3,17 +3,17 @@ package regions
 import (
 	"bytes"
 	"context"
-	"github.com/allegro/akubra/internal/akubra/utils"
+	"github.com/allegro/akubra/utils"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 
-	"github.com/allegro/akubra/internal/akubra/watchdog"
+	"github.com/allegro/akubra/watchdog"
 
-	"github.com/allegro/akubra/internal/akubra/config"
-	"github.com/allegro/akubra/internal/akubra/sharding"
-	storage "github.com/allegro/akubra/internal/akubra/storages"
+	"github.com/allegro/akubra/config"
+	"github.com/allegro/akubra/sharding"
+	storage "github.com/allegro/akubra/storages"
 )
 
 // Regions container for multiclusters

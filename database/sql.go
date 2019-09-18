@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/log"
 	"github.com/jinzhu/gorm"
 )
 

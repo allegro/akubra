@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/allegro/akubra/internal/akubra/metrics"
-	"github.com/allegro/akubra/internal/akubra/storages/config"
+	"github.com/allegro/akubra/metrics"
+	"github.com/allegro/akubra/storages/config"
 	"github.com/stretchr/testify/require"
 )
 

@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/allegro/akubra/internal/akubra/log"
-	"github.com/allegro/akubra/internal/akubra/metrics"
-	"github.com/allegro/akubra/internal/akubra/types"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/metrics"
+	"github.com/allegro/akubra/types"
 )
 
 // Backend represents any storage in akubra cluster

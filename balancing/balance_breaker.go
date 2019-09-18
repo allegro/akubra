@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/allegro/akubra/internal/akubra/log"
-	"github.com/allegro/akubra/internal/akubra/metrics"
-	"github.com/allegro/akubra/internal/akubra/storages/backend"
-	"github.com/allegro/akubra/internal/akubra/storages/config"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/metrics"
+	"github.com/allegro/akubra/storages/backend"
+	"github.com/allegro/akubra/storages/config"
 )
 
 // ResponseTimeBalancer proxies calls to balancing nodes

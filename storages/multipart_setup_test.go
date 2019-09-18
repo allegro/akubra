@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/allegro/akubra/internal/akubra/storages/backend"
-	"github.com/allegro/akubra/internal/akubra/transport"
+	"github.com/allegro/akubra/storages/backend"
+	"github.com/allegro/akubra/transport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

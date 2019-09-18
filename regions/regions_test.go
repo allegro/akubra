@@ -2,13 +2,13 @@ package regions
 
 import (
 	"context"
-	"github.com/allegro/akubra/internal/akubra/storages"
+	"github.com/allegro/akubra/storages"
 	"net/http"
 	"testing"
 
-	"github.com/allegro/akubra/internal/akubra/regions/config"
-	"github.com/allegro/akubra/internal/akubra/sharding"
-	"github.com/allegro/akubra/internal/akubra/watchdog"
+	"github.com/allegro/akubra/regions/config"
+	"github.com/allegro/akubra/sharding"
+	"github.com/allegro/akubra/watchdog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

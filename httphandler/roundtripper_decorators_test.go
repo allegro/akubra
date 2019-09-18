@@ -12,7 +12,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/log"
 	"github.com/stretchr/testify/assert"
 )
 

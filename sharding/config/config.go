@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"github.com/allegro/akubra/internal/akubra/types"
+	"github.com/allegro/akubra/types"
 )
 
 // MultiClusterConfig defines region settings for multicluster

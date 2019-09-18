@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/allegro/akubra/internal/akubra/metrics"
+	"github.com/allegro/akubra/metrics"
 )
 
 // CredentialsStore configuration

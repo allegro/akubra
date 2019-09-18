@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/alecthomas/kingpin"
-	"github.com/allegro/akubra/internal/akubra/config"
-	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/config"
+	"github.com/allegro/akubra/log"
 	bConf "github.com/allegro/akubra/internal/brim/config"
 	watchdog "github.com/allegro/akubra/internal/brim/watchdog-main"
 	_ "github.com/jinzhu/gorm/dialects/postgres"

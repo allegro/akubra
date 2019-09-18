@@ -3,7 +3,7 @@ package storages
 import (
 	"net/http"
 
-	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/log"
 )
 
 var emptyBackendResponse = BackendResponse{}

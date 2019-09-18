@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/allegro/akubra/internal/akubra/metrics"
+	"github.com/allegro/akubra/metrics"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
 )

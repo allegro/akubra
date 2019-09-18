@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/allegro/akubra/internal/akubra/storages/merger/s3datatypes"
+	"github.com/allegro/akubra/storages/merger/s3datatypes"
 
 	"github.com/stretchr/testify/suite"
 )

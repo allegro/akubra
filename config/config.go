@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/allegro/akubra/internal/akubra/watchdog/config"
+	"github.com/allegro/akubra/watchdog/config"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -9,13 +9,13 @@ import (
 
 	"fmt"
 
-	crdstoreconfig "github.com/allegro/akubra/internal/akubra/crdstore/config"
-	httphandler "github.com/allegro/akubra/internal/akubra/httphandler/config"
-	"github.com/allegro/akubra/internal/akubra/log"
-	logconfig "github.com/allegro/akubra/internal/akubra/log/config"
-	"github.com/allegro/akubra/internal/akubra/metrics"
-	confregions "github.com/allegro/akubra/internal/akubra/regions/config"
-	storages "github.com/allegro/akubra/internal/akubra/storages/config"
+	crdstoreconfig "github.com/allegro/akubra/crdstore/config"
+	httphandler "github.com/allegro/akubra/httphandler/config"
+	"github.com/allegro/akubra/log"
+	logconfig "github.com/allegro/akubra/log/config"
+	"github.com/allegro/akubra/metrics"
+	confregions "github.com/allegro/akubra/regions/config"
+	storages "github.com/allegro/akubra/storages/config"
 	"gopkg.in/validator.v1"
 	"gopkg.in/yaml.v2"
 )

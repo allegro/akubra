@@ -2,11 +2,11 @@ package storages
 
 import (
 	"context"
-	"github.com/allegro/akubra/internal/akubra/watchdog/config"
+	"github.com/allegro/akubra/watchdog/config"
 	"net/http"
 	"testing"
 
-	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/log"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )

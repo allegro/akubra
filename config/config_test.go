@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/allegro/akubra/internal/akubra/watchdog/config"
+	"github.com/allegro/akubra/watchdog/config"
 	"net/url"
 	"strings"
 	"testing"
@@ -12,14 +12,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	crdStoreConfig "github.com/allegro/akubra/internal/akubra/crdstore/config"
-	httpHandlerConfig "github.com/allegro/akubra/internal/akubra/httphandler/config"
-	logconfig "github.com/allegro/akubra/internal/akubra/log/config"
-	"github.com/allegro/akubra/internal/akubra/metrics"
-	regionsConfig "github.com/allegro/akubra/internal/akubra/regions/config"
-	shardingconfig "github.com/allegro/akubra/internal/akubra/sharding/config"
-	storageconfig "github.com/allegro/akubra/internal/akubra/storages/config"
-	transportConfig "github.com/allegro/akubra/internal/akubra/transport/config"
+	crdStoreConfig "github.com/allegro/akubra/crdstore/config"
+	httpHandlerConfig "github.com/allegro/akubra/httphandler/config"
+	logconfig "github.com/allegro/akubra/log/config"
+	"github.com/allegro/akubra/metrics"
+	regionsConfig "github.com/allegro/akubra/regions/config"
+	shardingconfig "github.com/allegro/akubra/sharding/config"
+	storageconfig "github.com/allegro/akubra/storages/config"
+	transportConfig "github.com/allegro/akubra/transport/config"
 	"github.com/stretchr/testify/assert"
 
 	"gopkg.in/yaml.v2"

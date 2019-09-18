@@ -8,8 +8,8 @@ import (
 
 	"io/ioutil"
 
-	"github.com/allegro/akubra/internal/akubra/httphandler/config"
-	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/httphandler/config"
+	"github.com/allegro/akubra/log"
 )
 
 // Decorator is http.RoundTripper interface wrapper

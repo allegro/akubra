@@ -5,9 +5,9 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/log"
 
-	backend "github.com/allegro/akubra/internal/akubra/storages/backend"
+	backend "github.com/allegro/akubra/storages/backend"
 )
 
 const (

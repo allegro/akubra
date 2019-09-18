@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/allegro/akubra/internal/akubra/metrics"
+	"github.com/allegro/akubra/metrics"
 )
 
 // ClientTransportProperties details

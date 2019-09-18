@@ -2,17 +2,17 @@ package storages
 
 import (
 	"fmt"
-	config2 "github.com/allegro/akubra/internal/akubra/watchdog/config"
+	config2 "github.com/allegro/akubra/watchdog/config"
 	"net/http"
 
-	"github.com/allegro/akubra/internal/akubra/balancing"
-	"github.com/allegro/akubra/internal/akubra/httphandler"
-	"github.com/allegro/akubra/internal/akubra/log"
-	"github.com/allegro/akubra/internal/akubra/watchdog"
+	"github.com/allegro/akubra/balancing"
+	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/watchdog"
 
-	"github.com/allegro/akubra/internal/akubra/storages/auth"
-	"github.com/allegro/akubra/internal/akubra/storages/config"
-	"github.com/allegro/akubra/internal/akubra/storages/merger"
+	"github.com/allegro/akubra/storages/auth"
+	"github.com/allegro/akubra/storages/config"
+	"github.com/allegro/akubra/storages/merger"
 )
 
 // ClusterStorage is basic cluster storage interface

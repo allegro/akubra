@@ -3,13 +3,13 @@ package watchdog
 import (
 	"errors"
 	"fmt"
-	"github.com/allegro/akubra/internal/akubra/watchdog/config"
+	"github.com/allegro/akubra/watchdog/config"
 	"strings"
 	"time"
 
-	"github.com/allegro/akubra/internal/akubra/database"
-	"github.com/allegro/akubra/internal/akubra/log"
-	"github.com/allegro/akubra/internal/akubra/metrics"
+	"github.com/allegro/akubra/database"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/metrics"
 	"github.com/jinzhu/gorm"
 )
 

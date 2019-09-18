@@ -13,8 +13,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/allegro/akubra/internal/akubra/log"
-	"github.com/allegro/akubra/internal/akubra/types"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/types"
 )
 
 const (

@@ -8,8 +8,8 @@ import (
 
 	"net/http"
 
-	confregions "github.com/allegro/akubra/internal/akubra/regions/config"
-	"github.com/allegro/akubra/internal/akubra/storages/config"
+	confregions "github.com/allegro/akubra/regions/config"
+	"github.com/allegro/akubra/storages/config"
 	set "github.com/deckarep/golang-set"
 )
 

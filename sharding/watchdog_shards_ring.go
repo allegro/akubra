@@ -3,11 +3,11 @@ package sharding
 import (
 	"errors"
 	"fmt"
-	"github.com/allegro/akubra/internal/akubra/log"
-	"github.com/allegro/akubra/internal/akubra/regions/config"
-	"github.com/allegro/akubra/internal/akubra/storages"
-	"github.com/allegro/akubra/internal/akubra/utils"
-	"github.com/allegro/akubra/internal/akubra/watchdog"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/regions/config"
+	"github.com/allegro/akubra/storages"
+	"github.com/allegro/akubra/utils"
+	"github.com/allegro/akubra/watchdog"
 	"net/http"
 	"time"
 )

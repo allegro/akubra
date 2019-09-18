@@ -2,12 +2,12 @@ package sharding
 
 import (
 	"fmt"
-	"github.com/allegro/akubra/internal/akubra/config"
+	"github.com/allegro/akubra/config"
 	"math"
 
-	"github.com/allegro/akubra/internal/akubra/log"
-	regionsConfig "github.com/allegro/akubra/internal/akubra/regions/config"
-	"github.com/allegro/akubra/internal/akubra/storages"
+	"github.com/allegro/akubra/log"
+	regionsConfig "github.com/allegro/akubra/regions/config"
+	"github.com/allegro/akubra/storages"
 	"github.com/serialx/hashring"
 )
 

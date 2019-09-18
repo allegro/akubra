@@ -9,9 +9,9 @@ import (
 
 	"errors"
 
-	httphandlerConfig "github.com/allegro/akubra/internal/akubra/httphandler/config"
-	"github.com/allegro/akubra/internal/akubra/log"
-	transportConfig "github.com/allegro/akubra/internal/akubra/transport/config"
+	httphandlerConfig "github.com/allegro/akubra/httphandler/config"
+	"github.com/allegro/akubra/log"
+	transportConfig "github.com/allegro/akubra/transport/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

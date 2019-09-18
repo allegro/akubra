@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/allegro/akubra/internal/akubra/metrics"
-	transport "github.com/allegro/akubra/internal/akubra/transport/config"
+	"github.com/allegro/akubra/metrics"
+	transport "github.com/allegro/akubra/transport/config"
 	units "github.com/docker/go-units"
 )
 

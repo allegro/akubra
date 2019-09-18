@@ -3,12 +3,12 @@ package watchdog
 import (
 	"errors"
 	"fmt"
-	"github.com/allegro/akubra/internal/akubra/watchdog/config"
+	"github.com/allegro/akubra/watchdog/config"
 	"net/http"
 	"time"
 
-	"github.com/allegro/akubra/internal/akubra/log"
-	"github.com/allegro/akubra/internal/akubra/utils"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/utils"
 )
 
 const (

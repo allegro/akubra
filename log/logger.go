@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/allegro/akubra/internal/akubra/log/sql"
+	"github.com/allegro/akubra/log/sql"
 	"github.com/sirupsen/logrus"
 )
 

@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/allegro/akubra/internal/akubra/crdstore/config"
-	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/crdstore/config"
+	"github.com/allegro/akubra/log"
 	"golang.org/x/sync/syncmap"
 )
 

@@ -3,17 +3,17 @@ package storages
 import (
 	"bytes"
 	"encoding/xml"
-	"github.com/allegro/akubra/internal/akubra/watchdog"
+	"github.com/allegro/akubra/watchdog"
 	"io/ioutil"
 	"net/http"
 	"strings"
 
 	"errors"
 
-	"github.com/allegro/akubra/internal/akubra/log"
-	"github.com/allegro/akubra/internal/akubra/storages/backend"
-	"github.com/allegro/akubra/internal/akubra/types"
-	"github.com/allegro/akubra/internal/akubra/utils"
+	"github.com/allegro/akubra/log"
+	"github.com/allegro/akubra/storages/backend"
+	"github.com/allegro/akubra/types"
+	"github.com/allegro/akubra/utils"
 	"github.com/serialx/hashring"
 )
 

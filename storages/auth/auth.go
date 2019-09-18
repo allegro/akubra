@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/allegro/akubra/internal/akubra/crdstore"
-	"github.com/allegro/akubra/internal/akubra/httphandler"
-	"github.com/allegro/akubra/internal/akubra/storages/config"
+	"github.com/allegro/akubra/crdstore"
+	"github.com/allegro/akubra/httphandler"
+	"github.com/allegro/akubra/storages/config"
 )
 
 const (

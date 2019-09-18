@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/allegro/akubra/internal/akubra/metrics"
+	"github.com/allegro/akubra/metrics"
 	"github.com/sirupsen/logrus"
 	pglogrus "gopkg.in/gemnasium/logrus-postgresql-hook.v1"
 )
