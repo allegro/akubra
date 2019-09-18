@@ -1,6 +1,7 @@
 package storages
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"github.com/allegro/akubra/internal/akubra/regions/config"
@@ -8,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/tools/go/ssa/interp/testdata/src/errors"
+	"io/ioutil"
 	"net/http"
 	"testing"
 )
@@ -27,6 +29,7 @@ func TestInsertingRecordsBasedOnTheRequest(t *testing.T) {
 		url                string
 		consistencyLevel   config.ConsistencyLevel
 		shouldInsertRecord bool
+		isMultiPart        bool
 	}{
 		{method: http.MethodPut, url: "http://localhost/newBucket", consistencyLevel: config.Strong, shouldInsertRecord: false},
 		{method: http.MethodPut, url: "http://localhost/newBucket", consistencyLevel: config.Weak, shouldInsertRecord: false},
@@ -37,6 +40,8 @@ func TestInsertingRecordsBasedOnTheRequest(t *testing.T) {
 		{method: http.MethodGet, url: "http://localhost/newBucket/objectg", consistencyLevel: config.Strong, shouldInsertRecord: false},
 		{method: http.MethodGet, url: "http://localhost/newBucket/objectg?acl", consistencyLevel: config.Strong, shouldInsertRecord: false},
 		{method: http.MethodPut, url: "http://localhost/newBucket/objectg?acl", consistencyLevel: config.Strong, shouldInsertRecord: true},
+		{method: http.MethodPost, url: "http://localhost/newBucket/objectg?uploads", consistencyLevel: config.Strong, shouldInsertRecord: true, isMultiPart: true},
+		{method: http.MethodPost, url: "http://localhost/newBucket/objectg?partNumber=1", consistencyLevel: config.Strong, shouldInsertRecord: false, isMultiPart: true},
 	} {
 		shardMock := &ShardClientMock{&mock.Mock{}}
 		factoryMock := &ConsistencyRecordFactoryMock{&mock.Mock{}}
@@ -63,17 +68,27 @@ func TestInsertingRecordsBasedOnTheRequest(t *testing.T) {
 
 		watchdogMock.On("Insert", consistencyRecord).Return(nil, nil)
 
+		if testCase.isMultiPart && testCase.shouldInsertRecord {
+			response.Body = ioutil.NopCloser(bytes.NewBuffer([]byte(initiateMultiPartResponse)))
+			watchdogMock.On("SupplyRecordWithVersion", consistencyRecord).Return(nil)
+		}
+
 		resp, err := consistentShard.RoundTrip(request)
 		assert.Nil(t, err)
 		assert.NotNil(t, resp)
 
 		shardMock.AssertCalled(t, "RoundTrip", request)
 		if testCase.shouldInsertRecord {
+			if testCase.isMultiPart {
+				watchdogMock.AssertCalled(t, "SupplyRecordWithVersion", consistencyRecord)
+			}
 			factoryMock.AssertCalled(t, "CreateRecordFor", request)
 			watchdogMock.AssertCalled(t, "Insert", consistencyRecord)
+			assert.NotEmpty(t, request.Header.Get(versionHeaderName))
 		} else {
 			factoryMock.AssertNotCalled(t, "CreateRecordFor", request)
 			watchdogMock.AssertNotCalled(t, "Insert", consistencyRecord)
+			assert.Empty(t, request.Header.Get(versionHeaderName))
 		}
 	}
 }
@@ -275,3 +290,13 @@ func (fm *ConsistencyRecordFactoryMock) CreateRecordFor(request *http.Request) (
 	err := args.Error(1)
 	return record, err
 }
+
+
+var initiateMultiPartResponse = `
+<?xml version="1.0" encoding="UTF-8"?>
+<InitiateMultipartUploadResult
+xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+   <Bucket>example-bucket</Bucket>
+   <Key>example-object</Key>
+   <UploadId>EXAMPLEJZ6e0YupT2h66iePQCc9IEbYbDUy4RTpMeoSMLPRp8Z5o1u8feSRonpvnWsKKG35tI2LB9VDPiCgTy.Gq2VxQLYjrue4Nq.NBdqI-</UploadId>
+</InitiateMultipartUploadResult>`
