@@ -167,15 +167,15 @@ func (watchdog *SQLWatchdog) InsertWithRequestID(requestID string, record *Consi
 // Delete deletes from SQL db
 func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 	log.Debugf("[watchdog] DELETE objID %s, version %d", marker.objectID, marker.objectVersion)
-
 	queryStartTime := time.Now()
-	deleteResult := watchdog.
+	_, err := watchdog.
 		dbConn.
-		Raw(deleteMarkersInsertedEalier, marker.domain, marker.objectID, marker.objectVersion)
+		Raw(deleteMarkersInsertedEalier, marker.domain, marker.objectID, marker.objectVersion).
+		Rows()
 
-	if deleteResult.Error != nil {
+	if err != nil {
 		metrics.UpdateSince("watchdog.delete.err", queryStartTime)
-		log.Debugf("[watchdog] DELETE FAIL objID %s, version <= %d: %s", marker.objectID, marker.objectVersion, deleteResult.Error.Error())
+		log.Debugf("[watchdog] DELETE FAIL objID %s, version <= %d: %s", marker.objectID, marker.objectVersion, err)
 		return ErrDataBase
 	}
 
