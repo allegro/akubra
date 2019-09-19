@@ -28,7 +28,7 @@ func TestRequestHost(t *testing.T) {
 	req, _ := buildRequest("dynamodb", "us-east-1", "{}")
 	req.URL.RawQuery = "Foo=z&Foo=o&Foo=m&Foo=a"
 	req.Host = "myhost"
-	canonicalHeaders := getCanonicalHeaders(req, v4IgnoredHeaders)
+	canonicalHeaders := getCanonicalHeaders(req, v4IgnoredHeaders, true)
 
 	if !strings.Contains(canonicalHeaders, "host:"+req.Host) {
 		t.Errorf("canonical host header invalid")
@@ -41,7 +41,7 @@ func TestIncludeXAMZHeaders(t *testing.T) {
 	req, _ := buildRequest("dynamodb", "us-east-1", "{}")
 	req.URL.RawQuery = "Foo=z&Foo=o&Foo=m&Foo=a"
 	req.Host = "myhost"
-	canonicalHeaders := getCanonicalHeaders(req, v4IgnoredHeaders)
+	canonicalHeaders := getCanonicalHeaders(req, v4IgnoredHeaders, true)
 
 	if !strings.Contains(canonicalHeaders, "x-amz-meta-other-header") {
 		t.Errorf("x-amz-meta-other-header should be in canonical headers")
@@ -52,10 +52,23 @@ func TestExcludeNoNonAMZXHeaders(t *testing.T) {
 	req, _ := buildRequest("dynamodb", "us-east-1", "{}")
 	req.URL.RawQuery = "Foo=z&Foo=o&Foo=m&Foo=a"
 	req.Host = "myhost"
-	canonicalHeaders,_ := getHeadersToSign(req, v4IgnoredHeaders)
+	canonicalHeaders,_ := getHeadersToSign(req, v4IgnoredHeaders, true)
 
 	if contains(canonicalHeaders, "x-non-amz-header") {
 		t.Errorf("X-non-amz-header should not be found")
+	}
+}
+
+
+
+func TestNotExcludeNoNonAMZXHeadersWhenNotSigning(t *testing.T) {
+	req, _ := buildRequest("dynamodb", "us-east-1", "{}")
+	req.URL.RawQuery = "Foo=z&Foo=o&Foo=m&Foo=a"
+	req.Host = "myhost"
+	canonicalHeaders,_ := getHeadersToSign(req, v4IgnoredHeaders, false)
+
+	if !contains(canonicalHeaders, "x-non-amz-header") {
+		t.Errorf("X-non-amz-header should be found")
 	}
 }
 func contains(s []string, e string) bool {
