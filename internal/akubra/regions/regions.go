@@ -12,8 +12,15 @@ import (
 	"github.com/allegro/akubra/internal/akubra/watchdog"
 
 	"github.com/allegro/akubra/internal/akubra/config"
+	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/sharding"
 	storage "github.com/allegro/akubra/internal/akubra/storages"
+)
+
+
+const (
+	// Domain is a constant used to put/get domain's name to/from request's context
+	Domain = log.ContextKey("Domain")
 )
 
 // Regions container for multiclusters
@@ -56,7 +63,7 @@ func (rg Regions) RoundTrip(req *http.Request) (*http.Response, error) {
 	if shardsRing == nil {
 		return rg.getNoSuchDomainResponse(req), nil
 	}
-	req = req.WithContext(shardingPolicyContext(req, reqHost, shardsRing.GetRingProps()))
+	req = req.WithContext(shardingPolicyContext(req, shardsRing.GetRingProps()))
 	return shardsRing.DoRequest(req)
 }
 
@@ -75,12 +82,11 @@ func prepareRequestBody(request *http.Request) (*http.Request, error) {
 	return request, nil
 }
 
-func shardingPolicyContext(request *http.Request, reqHost string, shardProps *sharding.RingProps) context.Context {
+func shardingPolicyContext(request *http.Request, shardProps *sharding.RingProps) context.Context {
 	noErrorsDuringRequest := true
 	readRepairObjectVersion := ""
 	successfulMultipart := false
-	shardingContext := context.WithValue(request.Context(), watchdog.Domain, reqHost)
-	shardingContext = context.WithValue(shardingContext, watchdog.ConsistencyLevel, shardProps.ConsistencyLevel)
+	shardingContext := context.WithValue(request.Context(), watchdog.ConsistencyLevel, shardProps.ConsistencyLevel)
 	shardingContext = context.WithValue(shardingContext, watchdog.NoErrorsDuringRequest, &noErrorsDuringRequest)
 	shardingContext = context.WithValue(shardingContext, watchdog.ReadRepairObjectVersion, &readRepairObjectVersion)
 	shardingContext = context.WithValue(shardingContext, watchdog.MultiPartUpload, &successfulMultipart)
@@ -94,7 +100,7 @@ func NewRegions(conf config.Config,
 	recordFactory watchdog.ConsistencyRecordFactory,
 	watchdogVersionHeader string) (http.RoundTripper, error) {
 
-	ringFactory := sharding.NewRingFactory(conf, storages)
+	ringFactory := sharding.NewRingFactory(conf, storages, consistencyWatchdog, recordFactory, watchdogVersionHeader)
 	regions := &Regions{
 		multiCluters: make(map[string]sharding.ShardsRingAPI),
 	}
@@ -102,10 +108,6 @@ func NewRegions(conf config.Config,
 		regionRing, err := ringFactory.RegionRing(name, conf, regionConfig)
 		if err != nil {
 			return nil, err
-		}
-
-		if consistencyWatchdog != nil {
-			regionRing = sharding.NewShardingAPI(regionRing, consistencyWatchdog, recordFactory, watchdogVersionHeader)
 		}
 
 		for _, domain := range regionConfig.Domains {

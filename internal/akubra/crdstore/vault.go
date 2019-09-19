@@ -19,6 +19,13 @@ const vaultCredsFormat = "%s/%s/%s"
 
 var requiredVaultProps = []string{"Endpoint", "Timeout", "MaxRetries", "PathPrefix"}
 
+var (
+	errNoCredentialsFound       = errors.New("no credentials found in crdstore")
+	errInvalidCredentialsFormat = errors.New("invalid credentials response format")
+	errAccessKeyMissing         = errors.New("access key missing")
+	errSecretKeyMissing         = errors.New("secret key missing")
+)
+
 type vaultCredsBackendFactory struct {
 	credentialsBackendFactory
 }
@@ -104,21 +111,21 @@ func (vault *vaultCredsBackend) FetchCredentials(accessKey string, storageName s
 
 func parseVaultResponse(vaultResponse *api.Secret) (string, string, error) {
 	if vaultResponse == nil || vaultResponse.Data == nil || vaultResponse.Data["data"] == nil {
-		return "", "", errors.New("empty response")
+		return "", "", errNoCredentialsFound
 	}
 	responseData, castOK := vaultResponse.Data["data"].([]interface{})
 	if !castOK || len(responseData) == 0 {
-		return "", "", errors.New("invalid response format")
+		return "", "", errInvalidCredentialsFormat
 	}
 	keys, castOK := responseData[0].(map[string]interface{})
 	if !castOK || len(responseData) == 0 {
-		return "", "", errors.New("invalid response format")
+		return "", "", errInvalidCredentialsFormat
 	}
 	if _, accessPresent := keys["access_key"]; !accessPresent {
-		return "", "", errors.New("access key is missing")
+		return "", "", errAccessKeyMissing
 	}
 	if _, secretPresent := keys["secret_key"]; !secretPresent {
-		return "", "", errors.New("secret key is missing")
+		return "", "", errSecretKeyMissing
 	}
 	return keys["access_key"].(string), keys["secret_key"].(string), nil
 }

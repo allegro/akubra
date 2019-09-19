@@ -3,8 +3,9 @@ package storages
 import (
 	"errors"
 	"fmt"
-	"github.com/allegro/akubra/internal/akubra/watchdog/config"
 	"net/http"
+
+	"github.com/allegro/akubra/internal/akubra/watchdog/config"
 
 	"github.com/allegro/akubra/internal/akubra/balancing"
 	"github.com/allegro/akubra/internal/akubra/log"

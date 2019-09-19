@@ -2,6 +2,7 @@ package storages
 
 import (
 	"bytes"
+	"github.com/allegro/akubra/internal/akubra/storages/config"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -68,16 +69,16 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 	activeBackendURL2, _ := url.Parse("http://active2:1234")
 
 	activateBackend1 := &StorageClient{
+		Storage:      config.Storage{Maintenance: false,},
 		RoundTripper: activeBackendRoundTripper1,
 		Endpoint:     *activeBackendURL,
-		Maintenance:  false,
 		Name:         "activateBackend",
 	}
 
 	activateBackend2 := &StorageClient{
 		RoundTripper: activeBackendRoundTripper2,
 		Endpoint:     *activeBackendURL2,
-		Maintenance:  false,
+		Storage:      config.Storage{Maintenance: false,},
 		Name:         "activateBackend2",
 	}
 
@@ -145,7 +146,7 @@ func testMultipartFlow(statusCode int, xmlResponse string, testSuite *testing.T)
 	activateBackend1 := &StorageClient{
 		RoundTripper: activeBackendRoundTripper1,
 		Endpoint:     *activeBackendURL,
-		Maintenance:  false,
+		Storage:      config.Storage{Maintenance: false,},
 		Name:         "activateBackend1",
 	}
 
@@ -154,7 +155,7 @@ func testMultipartFlow(statusCode int, xmlResponse string, testSuite *testing.T)
 	activateBackend2 := &StorageClient{
 		RoundTripper: activeBackendRoundTripper2,
 		Endpoint:     *activeBackendURL2,
-		Maintenance:  false,
+		Storage:      config.Storage{Maintenance: false,},
 		Name:         "activateBackend2",
 	}
 

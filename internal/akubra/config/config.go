@@ -14,7 +14,9 @@ import (
 	httphandler "github.com/allegro/akubra/internal/akubra/httphandler/config"
 	"github.com/allegro/akubra/internal/akubra/log"
 	logconfig "github.com/allegro/akubra/internal/akubra/log/config"
+	metadata "github.com/allegro/akubra/internal/akubra/metadata"
 	"github.com/allegro/akubra/internal/akubra/metrics"
+	privacy "github.com/allegro/akubra/internal/akubra/privacy"
 	confregions "github.com/allegro/akubra/internal/akubra/regions/config"
 	storages "github.com/allegro/akubra/internal/akubra/storages/config"
 	"gopkg.in/validator.v1"
@@ -37,6 +39,8 @@ type YamlConfig struct {
 	Logging                     logconfig.LoggingConfig            `yaml:"Logging"`
 	Metrics                     metrics.Config                     `yaml:"Metrics"`
 	Watchdog                    config.WatchdogConfig              `yaml:"Watchdog"`
+	Privacy             privacy.Config                     `yaml:"Privacy"`
+	BucketMetaDataCache metadata.BucketMetaDataCacheConfig `yaml:"BucketMetaDataCache"`
 	IgnoredCanonicalizedHeaders map[string]bool                    `yaml:"IgnoredCanonicalizedHeaders"`
 }
 

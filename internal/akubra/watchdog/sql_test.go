@@ -107,10 +107,11 @@ func TestShouldDeleteRecordsByMarker(t *testing.T) {
 	}
 
 	dbMock.
-		ExpectExec(`DELETE\ FROM\ "consistency_record"\ WHERE\ \(domain\ \=\ .+\ AND\ object_id\ \=\ .+\ AND\ object_version\ \<\=\ .+\)`).
+		ExpectQuery(`DELETE\ FROM\ consistency_record\ WHERE\ domain\ \=\ .+\ AND\ object_id\ \=\ .+\ AND\ object_version\ \<\=\ .+`).
 		WithArgs(marker.domain, marker.objectID, marker.objectVersion).
-		WillReturnResult(sqlmock.NewResult(1, 1)).
-		WillReturnError(nil)
+		WillReturnRows(sqlmock.NewRows([]string{""})).
+		WillReturnError(nil).
+		RowsWillBeClosed()
 
 	err := watchdog.Delete(&marker)
 	assert.Nil(t, err)
