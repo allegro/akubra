@@ -6,7 +6,7 @@ require (
 	github.com/QuentinPerez/go-encodeUrl v0.0.0-20160615164728-645a9dbeee15 // indirect
 	github.com/ShowMax/go-fqdn v0.0.0-20180501083314-6f60894d629f
 	github.com/alecthomas/kingpin v2.2.6+incompatible
-	github.com/allegro/bigcache v1.2.1
+	github.com/allegro/bigcache v1.2.0
 	github.com/cyberdelia/go-metrics-graphite v0.0.0-20161219230853-39f87cc3b432
 	github.com/deckarep/golang-set v1.7.1
 	github.com/docker/go-units v0.4.0
