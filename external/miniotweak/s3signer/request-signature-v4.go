@@ -128,8 +128,8 @@ func getHashedPayload(req *http.Request) string {
 
 // getCanonicalHeaders generate a list of request headers for
 // signature.
-func getCanonicalHeaders(req *http.Request, ignoredHeaders map[string]bool) string {
-	headers, vals := getHeadersToSign(req, ignoredHeaders)
+func getCanonicalHeaders(req *http.Request, ignoredHeaders map[string]bool, isSigning bool) string {
+	headers, vals := getHeadersToSign(req, ignoredHeaders, isSigning)
 	var buf bytes.Buffer
 	// Save all the headers in canonical form <header>:<value> newline
 	// separated for each header.
@@ -156,12 +156,12 @@ func getCanonicalHeaders(req *http.Request, ignoredHeaders map[string]bool) stri
 // getSignedHeaders generate all signed request headers.
 // i.e lexically sorted, semicolon-separated list of lowercase
 // request header names.
-func getSignedHeaders(req *http.Request, ignoredHeaders map[string]bool) string {
-	headers,_ := getHeadersToSign(req, ignoredHeaders)
+func getSignedHeaders(req *http.Request, ignoredHeaders map[string]bool, isSigning bool) string {
+	headers,_ := getHeadersToSign(req, ignoredHeaders, isSigning)
 	return strings.Join(headers, ";")
 }
 // Returns slice of header names to be used in sign process
-func getHeadersToSign(req *http.Request, ignoredHeaders map[string]bool) ([]string, map[string][]string) {
+func getHeadersToSign(req *http.Request, ignoredHeaders map[string]bool, isSigning bool) ([]string, map[string][]string) {
 	var headers []string
 	vals := make(map[string][]string)
 	for k,vv := range req.Header {
@@ -169,7 +169,7 @@ func getHeadersToSign(req *http.Request, ignoredHeaders map[string]bool) ([]stri
 		if _, ok := ignoredHeaders[http.CanonicalHeaderKey(k)]; ok {
 			continue // Ignored header found continue.
 		}
-		if !strings.HasPrefix(lowerCaseHeaderName, v4SignHeadersNamePrefix) {
+		if isSigning && !strings.HasPrefix(lowerCaseHeaderName, v4SignHeadersNamePrefix) {
 			continue
 		}
 		headers = append(headers, strings.ToLower(k))
@@ -189,14 +189,14 @@ func getHeadersToSign(req *http.Request, ignoredHeaders map[string]bool) ([]stri
 //  <CanonicalHeaders>\n
 //  <SignedHeaders>\n
 //  <HashedPayload>
-func getCanonicalRequest(req *http.Request, ignoredHeaders map[string]bool) string {
+func getCanonicalRequest(req *http.Request, ignoredHeaders map[string]bool, isSigning bool) string {
 	req.URL.RawQuery = strings.Replace(req.URL.Query().Encode(), "+", "%20", -1)
 	canonicalRequest := strings.Join([]string{
 		req.Method,
 		s3utils.EncodePath(req.URL.Path),
 		req.URL.RawQuery,
-		getCanonicalHeaders(req, ignoredHeaders),
-		getSignedHeaders(req, ignoredHeaders),
+		getCanonicalHeaders(req, ignoredHeaders, isSigning),
+		getSignedHeaders(req, ignoredHeaders, isSigning),
 		getHashedPayload(req),
 	}, "\n")
 	return canonicalRequest
@@ -225,7 +225,7 @@ func PreSignV4(req *http.Request, accessKeyID, secretAccessKey, sessionToken, lo
 	credential := GetCredential(accessKeyID, location, service, t)
 
 	// Get all signed headers.
-	signedHeaders := getSignedHeaders(req, v4IgnoredHeaders)
+	signedHeaders := getSignedHeaders(req, v4IgnoredHeaders, true)
 
 	// Set URL query.
 	query := req.URL.Query()
@@ -241,7 +241,7 @@ func PreSignV4(req *http.Request, accessKeyID, secretAccessKey, sessionToken, lo
 	req.URL.RawQuery = query.Encode()
 
 	// Get canonical request.
-	canonicalRequest := getCanonicalRequest(req, v4IgnoredHeaders)
+	canonicalRequest := getCanonicalRequest(req, v4IgnoredHeaders, true)
 
 	// Get string to sign from canonical request.
 	stringToSign := getStringToSignV4(t, location, service, canonicalRequest)
@@ -286,7 +286,7 @@ func SignV4WithIgnoredHeaders(req *http.Request, accessKeyID, secretAccessKey, s
 	}
 
 	// Get canonical request.
-	canonicalRequest := getCanonicalRequest(req, ignoredHeaders)
+	canonicalRequest := getCanonicalRequest(req, ignoredHeaders, true)
 
 	// Get string to sign from canonical request.
 	stringToSign := getStringToSignV4(t, location, service, canonicalRequest)
@@ -298,7 +298,7 @@ func SignV4WithIgnoredHeaders(req *http.Request, accessKeyID, secretAccessKey, s
 	credential := GetCredential(accessKeyID, location, service, t)
 
 	// Get all signed headers.
-	signedHeaders := getSignedHeaders(req, ignoredHeaders)
+	signedHeaders := getSignedHeaders(req, ignoredHeaders, true)
 
 	// Calculate signature.
 	signature := getSignature(signingKey, stringToSign)
@@ -362,7 +362,7 @@ func VerifyV4(req *http.Request, secretAccessKey string) (bool, error) {
 	}
 
 	// Get canonical request.
-	canonicalRequest := getCanonicalRequest(req, ignoredHeaders)
+	canonicalRequest := getCanonicalRequest(req, ignoredHeaders, false)
 	// Get string to sign from canonical request.
 	stringToSign := getStringToSignV4(t, origAuthHeader.region, origAuthHeader.service, canonicalRequest)
 	// Get hmac signing key.

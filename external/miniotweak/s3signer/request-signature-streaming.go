@@ -132,7 +132,7 @@ func buildChunkSignature(chunkData []byte, reqTime time.Time, region, service,
 // getSeedSignature - returns the seed signature for a given request.
 func (s *StreamingReader) setSeedSignature(req *http.Request, ignoredHeaders map[string]bool) {
 	// Get canonical request
-	canonicalRequest := getCanonicalRequest(req, ignoredHeaders)
+	canonicalRequest := getCanonicalRequest(req, ignoredHeaders, true)
 
 	// Get string to sign from canonical request.
 	stringToSign := getStringToSignV4(s.reqTime, s.region, s.service, canonicalRequest)
@@ -197,7 +197,7 @@ func (s *StreamingReader) setStreamingAuthHeader(req *http.Request, ignoredHeade
 	credential := GetCredential(s.accessKeyID, s.region, s.service, s.reqTime)
 	authParts := []string{
 		signV4Algorithm + " Credential=" + credential,
-		"SignedHeaders=" + getSignedHeaders(req, ignoredHeaders),
+		"SignedHeaders=" + getSignedHeaders(req, ignoredHeaders, true),
 		"Signature=" + s.seedSignature,
 	}
 
