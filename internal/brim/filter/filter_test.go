@@ -2,6 +2,7 @@ package filter
 
 import (
 	"fmt"
+	"github.com/allegro/akubra/internal/akubra/types"
 	"github.com/allegro/akubra/internal/brim/model"
 	"net/url"
 	"sync"
@@ -16,7 +17,6 @@ import (
 	"github.com/allegro/akubra/internal/akubra/sharding"
 	storagesConfig "github.com/allegro/akubra/internal/akubra/storages/config"
 	transportConfig "github.com/allegro/akubra/internal/akubra/transport/config"
-	"github.com/allegro/akubra/internal/akubra/types"
 	"github.com/allegro/akubra/internal/akubra/watchdog"
 	"github.com/allegro/akubra/internal/brim/auth"
 	brimS3 "github.com/allegro/akubra/internal/brim/s3"
@@ -104,7 +104,7 @@ func TestShouldFailedWhenRingCanNotBeResolved(t *testing.T) {
 }
 
 func TestShouldGenerateANoopTaskWhenThereIsANewerVersionOfTheObjectAlreadyUploaded(t *testing.T) {
-	akubraConfig := generateAkubraConfig(3)
+	akubraConfig := generateAkubraConfig(1, 3)
 	resolver := &backendResolverMock{}
 	versionFetcher := &versionFetcherMock{}
 
@@ -132,8 +132,8 @@ func TestShouldGenerateANoopTaskWhenThereIsANewerVersionOfTheObjectAlreadyUpload
 	walEntriesChannel <- walEntry
 	prepareVersionMocks("some", "key1", "123", "321", versionFetcher, map[string]*StorageState{
 		"http://localhost:1000": {storageEndpoint: "http://localhost:1000", version: 1},
-		"http://localhost:2000": {storageEndpoint: "http://localhost:2000", version: 1},
-		"http://localhost:3000": {storageEndpoint: "http://localhost:3000", version: 2},
+		"http://localhost:1100": {storageEndpoint: "http://localhost:1100", version: 1},
+		"http://localhost:1200": {storageEndpoint: "http://localhost:1200", version: 2},
 	})
 
 	tasksChannel := filter.Filter(walEntriesChannel)
@@ -146,7 +146,7 @@ func TestShouldGenerateANoopTaskWhenThereIsANewerVersionOfTheObjectAlreadyUpload
 }
 
 func TestShouldGenerateMigrationsForStoragesWithoutObjectInProperVersion(t *testing.T) {
-	akubraConfig := generateAkubraConfig(4)
+	akubraConfig := generateAkubraConfig(1, 4)
 	resolver := &backendResolverMock{}
 	versionFetcher := &versionFetcherMock{}
 
@@ -176,28 +176,32 @@ func TestShouldGenerateMigrationsForStoragesWithoutObjectInProperVersion(t *test
 	walEntriesChannel <- entry
 	prepareVersionMocks("some", "key1", "123", "321", versionFetcher, map[string]*StorageState{
 		"http://localhost:1000": {storageEndpoint: "http://localhost:1000", version: 1},
-		"http://localhost:2000": {storageEndpoint: "http://localhost:2000", objectNotFound: true},
-		"http://localhost:3000": {storageEndpoint: "http://localhost:3000", version: -1},
-		"http://localhost:4000": {storageEndpoint: "http://localhost:4000", version: latestVersion},
+		"http://localhost:1100": {storageEndpoint: "http://localhost:1100", objectNotFound: true},
+		"http://localhost:1200": {storageEndpoint: "http://localhost:1200", version: -1},
+		"http://localhost:1300": {storageEndpoint: "http://localhost:1300", version: latestVersion},
 	})
 
 	tasksChannel := filter.Filter(walEntriesChannel)
-	task := <-tasksChannel
-	_ = task.WALEntry.RecordProcessedHook(entry.Record, nil)
+	migrationTask := <-tasksChannel
+	_ = migrationTask.WALEntry.RecordProcessedHook(entry.Record, nil)
+
+	oldStoragesTask := <-tasksChannel
+	_ = oldStoragesTask.WALEntry.RecordProcessedHook(entry.Record, nil)
 
 	var dstEndpoints []string
-	for _, cli := range task.DestinationsClients {
+	for _, cli := range migrationTask.DestinationsClients {
 		dstEndpoints = append(dstEndpoints, cli.S3Endpoint)
 	}
 
 	entryWG.Wait()
-	assert.Equal(t, task.SourceClient.S3Endpoint, "http://localhost:4000")
-	assert.Len(t, task.DestinationsClients, 3)
-	assert.Contains(t, dstEndpoints, "http://localhost:1000", "http://localhost:2000", "http://localhost:3000")
+	assert.Equal(t, migrationTask.SourceClient.S3Endpoint, "http://localhost:1300")
+	assert.Len(t, migrationTask.DestinationsClients, 3)
+	assert.Len(t, oldStoragesTask.DestinationsClients, 0)
+	assert.Contains(t, dstEndpoints, "http://localhost:1000", "http://localhost:1100", "http://localhost:1200")
 }
 
 func TestShouldNotGenerateDeleteTasksIfTheObjectIsAlreadyAbsentOnAllStorages(t *testing.T) {
-	akubraConfig := generateAkubraConfig(4)
+	akubraConfig := generateAkubraConfig(1, 4)
 	resolver := &backendResolverMock{}
 	versionFetcher := &versionFetcherMock{}
 
@@ -227,9 +231,9 @@ func TestShouldNotGenerateDeleteTasksIfTheObjectIsAlreadyAbsentOnAllStorages(t *
 	walEntriesChannel <- entry
 	prepareVersionMocks("some", "key1", "123", "321", versionFetcher, map[string]*StorageState{
 		"http://localhost:1000": {storageEndpoint: "http://localhost:1000", objectNotFound: true},
-		"http://localhost:2000": {storageEndpoint: "http://localhost:2000", objectNotFound: true},
-		"http://localhost:3000": {storageEndpoint: "http://localhost:3000", objectNotFound: true},
-		"http://localhost:4000": {storageEndpoint: "http://localhost:4000", objectNotFound: true},
+		"http://localhost:1100": {storageEndpoint: "http://localhost:1100", objectNotFound: true},
+		"http://localhost:1200": {storageEndpoint: "http://localhost:1200", objectNotFound: true},
+		"http://localhost:1300": {storageEndpoint: "http://localhost:1300", objectNotFound: true},
 	})
 
 	tasksChannel := filter.Filter(walEntriesChannel)
@@ -242,7 +246,7 @@ func TestShouldNotGenerateDeleteTasksIfTheObjectIsAlreadyAbsentOnAllStorages(t *
 }
 
 func TestShouldDeleteObjectsFromStoragesThatSillContainThem(t *testing.T) {
-	akubraConfig := generateAkubraConfig(4)
+	akubraConfig := generateAkubraConfig(1, 4)
 	resolver := &backendResolverMock{}
 	versionFetcher := &versionFetcherMock{}
 
@@ -274,9 +278,9 @@ func TestShouldDeleteObjectsFromStoragesThatSillContainThem(t *testing.T) {
 	walEntriesChannel <- entry
 	prepareVersionMocks("some", "key1", "123", "321", versionFetcher, map[string]*StorageState{
 		"http://localhost:1000": {storageEndpoint: "http://localhost:1000", version: -1},
-		"http://localhost:2000": {storageEndpoint: "http://localhost:2000", version: latestVersion},
-		"http://localhost:3000": {storageEndpoint: "http://localhost:3000", version: someOtherVersion},
-		"http://localhost:4000": {storageEndpoint: "http://localhost:4000", objectNotFound: true},
+		"http://localhost:1100": {storageEndpoint: "http://localhost:1100", version: latestVersion},
+		"http://localhost:1200": {storageEndpoint: "http://localhost:1200", version: someOtherVersion},
+		"http://localhost:1300": {storageEndpoint: "http://localhost:1300", objectNotFound: true},
 	})
 
 	tasksChannel := filter.Filter(walEntriesChannel)
@@ -291,11 +295,11 @@ func TestShouldDeleteObjectsFromStoragesThatSillContainThem(t *testing.T) {
 	entryWG.Wait()
 	assert.Nil(t, task.SourceClient)
 	assert.Len(t, dstEndpoints, 3)
-	assert.Contains(t, dstEndpoints, "http://localhost:1000", "http://localhost:2000", "http://localhost:3000")
+	assert.Contains(t, dstEndpoints, "http://localhost:1000", "http://localhost:1100", "http://localhost:1200")
 }
 
 func TestShoulKeepTheVersionFromStoragesIfTheVersionHeaderIsMissingOnAllStorages(t *testing.T) {
-	akubraConfig := generateAkubraConfig(2)
+	akubraConfig := generateAkubraConfig(1, 2)
 	resolver := &backendResolverMock{}
 	versionFetcher := &versionFetcherMock{}
 
@@ -326,7 +330,7 @@ func TestShoulKeepTheVersionFromStoragesIfTheVersionHeaderIsMissingOnAllStorages
 	walEntriesChannel <- entry
 	prepareVersionMocks("some", "key1", "123", "321", versionFetcher, map[string]*StorageState{
 		"http://localhost:1000": {storageEndpoint: "http://localhost:1000", version: -1},
-		"http://localhost:2000": {storageEndpoint: "http://localhost:2000", version: -1},
+		"http://localhost:1100": {storageEndpoint: "http://localhost:1100", version: -1},
 	})
 
 	tasksChannel := filter.Filter(walEntriesChannel)
@@ -337,6 +341,73 @@ func TestShoulKeepTheVersionFromStoragesIfTheVersionHeaderIsMissingOnAllStorages
 	assert.Nil(t, task.SourceClient)
 	assert.Len(t, task.DestinationsClients, 0)
 }
+
+
+func TestShouldClearOldShardsFromObjectVersions(t *testing.T) {
+	akubraConfig := generateAkubraConfig(2, 3)
+	resolver := &backendResolverMock{}
+	versionFetcher := &versionFetcherMock{}
+
+	filter := NewDefaultWALFilter(resolver, versionFetcher)
+
+	entryWG := sync.WaitGroup{}
+	entryWG.Add(1)
+
+	walEntriesChannel := make(chan *model.WALEntry, 1)
+	shardsRing, _, _ := auth.Ring(akubraConfig, "test")
+
+	resolver.
+		On("GetShardsRing", "localhost").
+		Return(shardsRing, nil)
+
+	prepareMocksForStorages(resolver, akubraConfig.Storages, "123", "321", "some/key1")
+
+	latestVersion := 4
+
+	entry := &model.WALEntry{Record: &watchdog.ConsistencyRecord{
+		Method:        watchdog.PUT,
+		Domain:        "localhost",
+		ObjectID:      "some/key1",
+		AccessKey:     "123",
+		ObjectVersion: latestVersion},
+		RecordProcessedHook: func(_ *watchdog.ConsistencyRecord, err error) error { entryWG.Done(); assert.Nil(t, err); return nil }}
+
+	walEntriesChannel <- entry
+	prepareVersionMocks("some", "key1", "123", "321", versionFetcher, map[string]*StorageState{
+		"http://localhost:1000": {storageEndpoint: "http://localhost:1000", version: 2},
+		"http://localhost:1100": {storageEndpoint: "http://localhost:1100", version: 4},
+		"http://localhost:1200": {storageEndpoint: "http://localhost:1200", objectNotFound: true},
+		"http://localhost:2000": {storageEndpoint: "http://localhost:2000", version: 4},
+		"http://localhost:2100": {storageEndpoint: "http://localhost:2100", version: 4},
+		"http://localhost:2200": {storageEndpoint: "http://localhost:2200", version: 3},
+	})
+
+	tasksChannel := filter.Filter(walEntriesChannel)
+
+	migrationTask := <-tasksChannel
+	clearOldStoragesTasks := <-tasksChannel
+
+
+	_ = migrationTask.WALEntry.RecordProcessedHook(entry.Record, nil)
+	_ = clearOldStoragesTasks.WALEntry.RecordProcessedHook(entry.Record, nil)
+
+	var migrationDstEndpoints []string
+	for _, cli := range migrationTask.DestinationsClients {
+		migrationDstEndpoints = append(migrationDstEndpoints, cli.S3Endpoint)
+	}
+
+	var endpointsToClear []string
+	for _, cli := range clearOldStoragesTasks.DestinationsClients {
+		endpointsToClear = append(endpointsToClear, cli.S3Endpoint)
+	}
+
+	entryWG.Wait()
+	assert.True(t, migrationTask.SourceClient.S3Endpoint == "http://localhost:2100" || migrationTask.SourceClient.S3Endpoint == "http://localhost:2000")
+	assert.Equal(t, clearOldStoragesTasks.WALEntry.Record.Method, watchdog.DELETE)
+	assert.Equal(t, migrationDstEndpoints, []string{"http://localhost:2200"})
+	assert.Equal(t, endpointsToClear, []string{"http://localhost:1000", "http://localhost:1100"})
+}
+
 
 func prepareMocksForStorages(resolverMock *backendResolverMock, storagesMaps storagesConfig.StoragesMap, accessKey, secretKey, key string) {
 	for storageName := range storagesMaps {
@@ -356,37 +427,44 @@ func prepareVersionMocks(bucket, key, access, secret string, fetcherMock *versio
 	}
 }
 
-func generateAkubraConfig(numberOfStorages int) *config.Config {
+func generateAkubraConfig(numberOfShards int, numberOfStoragesPerShard int) *config.Config {
 	akubraConfig := &config.Config{}
 	akubraConfig.Storages = storagesConfig.StoragesMap{}
 	akubraConfig.Shards = storagesConfig.ShardsMap{}
 
+	weightPerShard := float64(1) / float64(numberOfStoragesPerShard)
+
+	var shards []regionsConfig.Policy
+	for shardNum := 0; shardNum < numberOfShards; shardNum++ {
+		shards = append(shards, regionsConfig.Policy{Weight: weightPerShard, ShardName: fmt.Sprintf("test-%d", shardNum)})
+
+		var storages storagesConfig.Storages
+		for storageNum := 0; storageNum < numberOfStoragesPerShard; storageNum++ {
+			endpoint, _ := url.Parse(fmt.Sprintf("http://localhost:%d", ((shardNum + 1)*1000) + (storageNum * 100)))
+
+			akubraConfig.Storages[fmt.Sprintf("test-%d-%d", shardNum, storageNum)] = storagesConfig.Storage{
+				Maintenance: false,
+				Backend:     types.YAMLUrl{URL: endpoint},
+				Type:        "passthrough",
+			}
+
+			storages = append(storages, storagesConfig.StorageBreakerProperties{Name: fmt.Sprintf("test-%d-%d", shardNum, storageNum)})
+		}
+
+		akubraConfig.Shards[fmt.Sprintf("test-%d", shardNum)] = storagesConfig.Shard{
+			Storages: storages,
+		}
+
+	}
+
 	akubraConfig.ShardingPolicies = regionsConfig.ShardingPolicies{}
 	akubraConfig.ShardingPolicies["test"] = regionsConfig.Policies{
 		Domains: []string{"localhost"},
-		Shards:  []regionsConfig.Policy{{Weight: 1, ShardName: "test"}},
+		Shards:  shards,
 	}
 
 	akubraConfig.Service = httpConfig.Service{
 		Client: httpConfig.Client{Transports: transportConfig.Transports{{}}}}
-
-	var storages storagesConfig.Storages
-
-	for i := 1; i <= numberOfStorages; i++ {
-		endpoint, _ := url.Parse(fmt.Sprintf("http://localhost:%d", i*1000))
-
-		akubraConfig.Storages[fmt.Sprintf("test-%d", i)] = storagesConfig.Storage{
-			Maintenance: false,
-			Backend:     types.YAMLUrl{URL: endpoint},
-			Type:        "passthrough",
-		}
-
-		storages = append(storages, storagesConfig.StorageBreakerProperties{Name: fmt.Sprintf("test-%d", i)})
-	}
-
-	akubraConfig.Shards["test"] = storagesConfig.Shard{
-		Storages: storages,
-	}
 
 	return akubraConfig
 }

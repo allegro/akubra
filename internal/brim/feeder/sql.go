@@ -68,7 +68,7 @@ func (feeder *SQLWALFeeder) queryDB(walEntriesChannel chan *model.WALEntry) {
 		res := tx.
 			Order("object_version DESC").
 			Set("gorm:query_option", "FOR UPDATE SKIP LOCKED").
-			Where("updated_at + execution_delay < NOW() AT TIME ZONE 'UTC").
+			Where("updated_at + execution_delay < NOW() AT TIME ZONE 'UTC'").
 			Limit(feeder.config.MaxRecordsPerQuery).
 			Find(&consistencyRecords)
 

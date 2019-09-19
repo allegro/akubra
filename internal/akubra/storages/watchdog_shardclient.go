@@ -121,11 +121,9 @@ func (consistencyShard *ConsistencyShardClient) logRequest(consistencyRequest *c
 		}
 		consistencyRequest.DeleteMarker = deleteMarker
 	}
-	if consistencyRequest.isInitiateMultipartUploadRequest {
-		consistencyRequest.
-			Header.
-			Add(consistencyShard.versionHeaderName, fmt.Sprintf("%d", consistencyRequest.ConsistencyRecord.ObjectVersion))
-	}
+	consistencyRequest.
+		Header.
+		Add(consistencyShard.versionHeaderName, fmt.Sprintf("%d", consistencyRequest.ConsistencyRecord.ObjectVersion))
 	return consistencyRequest, nil
 }
 
