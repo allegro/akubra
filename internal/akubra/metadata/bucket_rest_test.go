@@ -112,7 +112,7 @@ func TestBucketMetaDataFetching(t *testing.T) {
 			fmt.Sprintf("service://mock/buckets/%s", testCase.bucketName),
 			nil)
 
-		metaDataJSON := fmt.Sprintf(`{"name": "%s", "visibility": "%s"}`, testCase.bucketName, testCase.visibility)
+		metaDataJSON := fmt.Sprintf(`{"bucketName": "%s", "bucketVisibility": "%s"}`, testCase.bucketName, testCase.visibility)
 
 		indexServiceResp := http.Response{
 			StatusCode: http.StatusOK,

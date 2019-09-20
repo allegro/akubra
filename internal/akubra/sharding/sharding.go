@@ -70,7 +70,7 @@ func (rf RingFactory) RegionRing(name string, conf config.Config, regionCfg regi
 		if rf.consistencyWatchdog != nil {
 			s = storages.NewConsistentShard(s, rf.consistencyWatchdog, rf.recordFactory, rf.consistencyHeaderName)
 		}
-		s = storages.NewShardAuthenticator(s)
+		s = storages.NewShardAuthenticator(s, rf.conf.IgnoredCanonicalizedHeaders)
 		shardClusterMap[name] = s
 	}
 	if err != nil {
@@ -90,7 +90,7 @@ func (rf RingFactory) RegionRing(name string, conf config.Config, regionCfg regi
 			allBackendsRoundTripper, rf.consistencyWatchdog,
 			rf.recordFactory, rf.consistencyHeaderName)
 	}
-	allBackendsRoundTripper = storages.NewShardAuthenticator(allBackendsRoundTripper)
+	allBackendsRoundTripper = storages.NewShardAuthenticator(allBackendsRoundTripper, nil)
 	regressionMap, err := rf.createRegressionMap(regionCfg)
 	if err != nil {
 		return ShardsRing{}, err
