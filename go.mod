@@ -27,7 +27,6 @@ require (
 	github.com/smartystreets/gunit v1.0.0 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.3.0
-	github.com/wookie41/minio-go v3.0.2+incompatible
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/tools v0.0.0-20190813034749-528a2984e271

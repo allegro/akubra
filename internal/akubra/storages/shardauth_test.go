@@ -1,6 +1,7 @@
 package storages
 
 import (
+	"github.com/allegro/akubra/external/miniotweak/s3signer"
 	"github.com/allegro/akubra/internal/akubra/httphandler"
 	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/storages/auth"
@@ -8,7 +9,6 @@ import (
 	"github.com/allegro/akubra/internal/akubra/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/wookie41/minio-go/pkg/s3signer"
 	"golang.org/x/net/context"
 	"net/http"
 	"testing"
@@ -25,7 +25,7 @@ func TestShouldNotAttemptToAuthorizeRequestWithoutAuthHeader(t *testing.T) {
 	shardMock := shardClientMock{Mock: &mock.Mock{}}
 	shardMock.On("RoundTrip", reqWithoutAuthHeader).Return(&expectedResp, nil)
 
-	shardAuthenticator := NewShardAuthenticator(&shardMock)
+	shardAuthenticator := NewShardAuthenticator(&shardMock, nil)
 	resp, err := shardAuthenticator.RoundTrip(reqWithoutAuthHeader)
 
 	assert.Nil(t, err)
@@ -43,7 +43,7 @@ func TestShouldReturnAccessDeniedWhenCredentialsDoNotMatch(t *testing.T) {
 		Properties: map[string]string{"AccessKey": access, "Secret": secret}},}
 
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8080/bucket/obj", nil)
-	req = s3signer.SignV2(*req, access, "1234")
+	req = s3signer.SignV2(req, access, "1234", nil)
 
 	authHeader, err := utils.ParseAuthorizationHeader(req.Header.Get("Authorization"))
 	assert.Nil(t, err)
@@ -56,7 +56,7 @@ func TestShouldReturnAccessDeniedWhenCredentialsDoNotMatch(t *testing.T) {
 	shardMock.On("RoundTrip", req).Return(&expectedResp, nil)
 	shardMock.On("Backends").Return([]*StorageClient{&passthroughBackend, &fixedKeyBackend})
 
-	shardAuthenticator := NewShardAuthenticator(&shardMock)
+	shardAuthenticator := NewShardAuthenticator(&shardMock, nil)
 	resp, err := shardAuthenticator.RoundTrip(req)
 
 	assert.Nil(t, err)
@@ -73,7 +73,7 @@ func TestShouldValidateRequestCredentialsBasedOnBackendType(t *testing.T) {
 		Properties: map[string]string{"AccessKey": access, "Secret": secret}},}
 
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8080/bucket/obj", nil)
-	req = s3signer.SignV2(*req, access, secret)
+	req = s3signer.SignV2(req, access, secret, nil)
 
 	authHeader, err := utils.ParseAuthorizationHeader(req.Header.Get("Authorization"))
 	assert.Nil(t, err)
@@ -86,7 +86,7 @@ func TestShouldValidateRequestCredentialsBasedOnBackendType(t *testing.T) {
 	shardMock.On("RoundTrip", req).Return(&expectedResp, nil)
 	shardMock.On("Backends").Return([]*StorageClient{&passthroughBackend, &fixedKeyBackend})
 
-	shardAuthenticator := NewShardAuthenticator(&shardMock)
+	shardAuthenticator := NewShardAuthenticator(&shardMock, nil)
 	resp, err := shardAuthenticator.RoundTrip(req)
 
 	assert.Nil(t, err)

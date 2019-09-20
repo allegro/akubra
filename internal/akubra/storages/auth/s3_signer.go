@@ -130,10 +130,6 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
 	}
-	if DoesSignMatch(req, Keys{AccessKeyID: csd.AccessKey, SecretAccessKey: csd.SecretKey}, srt.ignoredCanonicalizedHeaders) != ErrNone {
-		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
-	}
-
 	csd, err = srt.crd.Get(authHeader.AccessKey, srt.backend)
 	if err == crdstore.ErrCredentialsNotFound {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
