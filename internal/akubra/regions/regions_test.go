@@ -32,6 +32,14 @@ func (sro *ShardsRingMock) GetRingProps() *sharding.RingProps {
 	return nil
 }
 
+
+func (sro *ShardsRingMock) GetShards() map[string]storages.NamedShardClient {
+	args := sro.Called()
+	return args.Get(0).(map[string]storages.NamedShardClient)
+}
+
+
+
 func (sro *ShardsRingMock) Pick(key string) (storages.NamedShardClient, error) {
 	args := sro.Called()
 	v := args.Get(0)

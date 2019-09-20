@@ -2,8 +2,9 @@ package storages
 
 import (
 	"fmt"
-	config2 "github.com/allegro/akubra/internal/akubra/watchdog/config"
 	"net/http"
+
+	watchdogConfig "github.com/allegro/akubra/internal/akubra/watchdog/config"
 
 	"github.com/allegro/akubra/internal/akubra/balancing"
 	"github.com/allegro/akubra/internal/akubra/httphandler"
@@ -71,7 +72,7 @@ type Factory struct {
 }
 
 //NewStoragesFactory creates StoragesFactory
-func NewStoragesFactory(transport http.RoundTripper, watchdogConfig *config2.WatchdogConfig,
+func NewStoragesFactory(transport http.RoundTripper, watchdogConfig *watchdogConfig.WatchdogConfig,
 	watchdog watchdog.ConsistencyWatchdog, watchdogRequestFactory watchdog.ConsistencyRecordFactory) *Factory {
 	return &Factory{
 		transport: transport,
@@ -85,19 +86,18 @@ func NewStoragesFactory(transport http.RoundTripper, watchdogConfig *config2.Wat
 }
 
 // InitStorages setups storages
-func (factory *Factory) InitStorages(clustersConf config.ShardsMap, storagesMap config.StoragesMap, ignoredV2Headers map[string]bool) (ClusterStorage, error) {
+func (factory *Factory) InitStorages(clustersConf config.ShardsMap, storagesMap config.StoragesMap, ignoredHeaders map[string]bool) (ClusterStorage, error) {
 	shards := make(map[string]NamedShardClient)
 	storageClients := make(map[string]*StorageClient)
 
 	if len(storagesMap) == 0 {
 		return nil, fmt.Errorf("empty map 'storagesMap' in 'InitStorages'")
 	}
-
 	for name, storage := range storagesMap {
 		if storage.Maintenance {
 			log.Printf("storage %q in maintenance mode", name)
 		}
-		decoratedBackend, err := decorateBackend(factory.transport, name, storage, ignoredV2Headers)
+		decoratedBackend, err := decorateBackend(factory.transport, name, storage, ignoredHeaders)
 		if err != nil {
 			return nil, err
 		}
@@ -142,14 +142,14 @@ func storageNames(conf config.Shard) []string {
 	return names
 }
 
-func decorateBackend(transport http.RoundTripper, name string, storageDef config.Storage, ignoredV2CanonicalizedHeaders map[string]bool) (*StorageClient, error) {
+func decorateBackend(transport http.RoundTripper, name string, storageDef config.Storage, ignoredCanonicalizedHeaders map[string]bool) (*StorageClient, error) {
 
 	errPrefix := fmt.Sprintf("initialization of backend '%s' resulted with error", name)
 	decoratorFactory, ok := auth.Decorators[storageDef.Type]
 	if !ok {
 		return nil, fmt.Errorf("%s: no decorator defined for type '%s'", errPrefix, storageDef.Type)
 	}
-	decorator, err := decoratorFactory(name, storageDef, ignoredV2CanonicalizedHeaders)
+	decorator, err := decoratorFactory(name, storageDef, ignoredCanonicalizedHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %q", errPrefix, err)
 	}

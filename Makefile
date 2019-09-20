@@ -3,7 +3,7 @@ LDFLAGS := -X main.version=$(VERSION)
 GO := "$(GOROOT)/bin/go"
 GO111MODULE := on
 LINTERVERSION := v1.16.0
-	
+
 all:  build # vars formatting lint test
 
 vars:
@@ -32,7 +32,7 @@ lint: vars deps-lint
 
 lint-slow: deps-lint
 	$(LINTERVERSION)/golangci-lint run internal/akubra/* internal/brim/* \
-	--skip-dirs ./tmp \ 
+	--skip-dirs ./tmp \
 	--disable=dupl \
 	--deadline=600s \
 	--disable=typecheck \
