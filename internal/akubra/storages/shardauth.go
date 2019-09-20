@@ -11,13 +11,15 @@ import (
 
 //ShardAuthenticator is a delegating NamedSharedClient that checks the requests authorization
 type ShardAuthenticator struct {
-	shardClient NamedShardClient
+	shardClient                 NamedShardClient
+	ignoredCanonicalizedHeaders map[string]bool
 }
 
-
 //NewShardAuthenticator creates an instance of ShardAuthenticator
-func NewShardAuthenticator(shardClient NamedShardClient) NamedShardClient {
-	return &ShardAuthenticator{shardClient:shardClient}
+func NewShardAuthenticator(shardClient NamedShardClient, ignoredCanonicalizedHeaders map[string]bool) NamedShardClient {
+	return &ShardAuthenticator{
+		shardClient: shardClient,
+		ignoredCanonicalizedHeaders: ignoredCanonicalizedHeaders}
 }
 
 //Name returns then of the shard
@@ -35,7 +37,7 @@ func (auth *ShardAuthenticator) Backends() []*StorageClient {
 func (shardAuth *ShardAuthenticator) RoundTrip(req *http.Request) (*http.Response, error) {
 	authHeaderVal := req.Context().Value(httphandler.AuthHeader)
 	if authHeaderVal == nil {
-		return shardAuth .shardClient.RoundTrip(req)
+		return shardAuth.shardClient.RoundTrip(req)
 	}
 
 	authHeader := authHeaderVal.(*utils.ParsedAuthorizationHeader)
@@ -58,7 +60,7 @@ func (shardAuth *ShardAuthenticator) RoundTrip(req *http.Request) (*http.Respons
 	}
 
 	for idx := range backendsCredentials {
-		if auth.ErrNone != auth.DoesSignMatch(req, backendsCredentials[idx], nil) {
+		if auth.ErrNone != auth.DoesSignMatch(req, backendsCredentials[idx], shardAuth.ignoredCanonicalizedHeaders) {
 			log.Debugf("authorization check failed for req %s, signature mismatch on storage '%s' using access '%s'",
 				req.Context().Value(log.ContextreqIDKey).(string), backends[idx].Name, backendsCredentials[idx].AccessKeyID)
 			return utils.ResponseForbidden(req), nil

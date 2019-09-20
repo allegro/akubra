@@ -59,8 +59,8 @@ func (factory *BucketIndexRestServiceFactory) Create(config map[string]string) (
 }
 
 type bucketMataDataJSON struct {
-	BucketName string `json:"name"`
-	Visibility string `json:"visibility"`
+	BucketName string `json:"bucketName"`
+	Visibility string `json:"bucketVisibility"`
 }
 
 //NewBucketIndexRestService creates an instance of BucketIndexRestService
