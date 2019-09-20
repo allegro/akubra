@@ -36,8 +36,8 @@ var v4IgnoredHeaders = map[string]bool{
 
 var noHeadersIgnored = make(map[string]bool)
 
-// DoesSignMatch - Verify authorization header with calculated header
-// returns true if matches, false otherwise. if error is not nil then it is always false
+//DoesSignMatch - Verify authorization header with calculated header
+//returns true if matches, false otherwise. if error is not nil then it is always false
 func DoesSignMatch(r *http.Request, cred Keys, ignoredV2CanonicalizedHeaders map[string]bool) APIErrorCode {
 	authHeaderVal := r.Context().Value(httphandler.AuthHeader)
 	if authHeaderVal == nil {
@@ -76,38 +76,6 @@ type Keys struct {
 	SecretAccessKey string `json:"secret-key" yaml:"Secret"`
 }
 
-func responseForbidden(req *http.Request) *http.Response {
-	return &http.Response{
-		Status:     "403 Forbidden",
-		StatusCode: http.StatusForbidden,
-		Proto:      req.Proto,
-		ProtoMajor: req.ProtoMajor,
-		ProtoMinor: req.ProtoMinor,
-		Request:    req,
-	}
-}
-
-type authRoundTripper struct {
-	rt                            http.RoundTripper
-	keys                          Keys
-	ignoredV2CanonicalizedHeaders map[string]bool
-}
-
-// RoundTrip implements http.RoundTripper interface
-func (art authRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if DoesSignMatch(req, art.keys, art.ignoredV2CanonicalizedHeaders) == ErrNone {
-		return art.rt.RoundTrip(req)
-	}
-	return responseForbidden(req), nil
-}
-
-// S3Decorator checks if request Signature matches s3 keys
-func S3Decorator(keys Keys) httphandler.Decorator {
-	return func(rt http.RoundTripper) http.RoundTripper {
-		return authRoundTripper{keys: keys}
-	}
-}
-
 type signRoundTripper struct {
 	rt                            http.RoundTripper
 	keys                          Keys
@@ -133,9 +101,6 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 		}
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
-	if DoesSignMatch(req, Keys{AccessKeyID: srt.keys.AccessKeyID, SecretAccessKey: srt.keys.SecretAccessKey}, srt.ignoredV2CanonicalizedHeaders) != ErrNone {
-		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
-	}
 	req, err = sign(req, authHeader, srt.host, srt.keys.AccessKeyID, srt.keys.SecretAccessKey)
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
@@ -159,10 +124,6 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
 	}
-	if DoesSignMatch(req, Keys{AccessKeyID: csd.AccessKey, SecretAccessKey: csd.SecretKey}, srt.ignoredV2CanonicalizedHeaders) != ErrNone {
-		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
-	}
-
 	csd, err = srt.crd.Get(authHeader.AccessKey, srt.backend)
 	if err == crdstore.ErrCredentialsNotFound {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
