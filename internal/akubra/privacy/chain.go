@@ -87,7 +87,7 @@ func violationDetectedFor(req *http.Request) *http.Response {
 
 func (chainRT *ChainRoundTripper) reportMetrics() {
 	for {
-		metrics.UpdateGauge("privacy.violation", chainRT.violationsCount)
+		metrics.UpdateGauge("privacy.violation", atomic.LoadInt64(&chainRT.violationsCount))
 		atomic.SwapInt64(&chainRT.violationsCount, 0)
 		time.Sleep(10 * time.Second)
 	}
