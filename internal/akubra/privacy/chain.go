@@ -3,10 +3,11 @@ package privacy
 import (
 	"errors"
 	"fmt"
-	"net/http"
-
 	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/metrics"
+	"net/http"
+	"sync/atomic"
+	"time"
 )
 
 //ViolationType is an code indiciating which (if any) privacy policy has been violated
@@ -33,15 +34,18 @@ type ChainRoundTripper struct {
 	roundTripper          http.RoundTripper
 	chain                 Chain
 	shouldDropOnViolation bool
+	violationsCount       int64
 }
 
 //NewChainRoundTripper creates an instance of ChainRoundTripper
 func NewChainRoundTripper(shouldDrop bool, chain Chain, roundTripper http.RoundTripper) http.RoundTripper {
-	return &ChainRoundTripper{
+	chainRT := &ChainRoundTripper{
 		roundTripper:          roundTripper,
 		chain:                 chain,
 		shouldDropOnViolation: shouldDrop,
 	}
+	go chainRT.reportMetrics()
+	return chainRT
 }
 
 //RoundTrip checks for violations on req
@@ -60,8 +64,9 @@ func (chainRT *ChainRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 		return chainRT.roundTripper.RoundTrip(req)
 	}
 
-	log.Debugf("detected violation of type %d on req %s", violation, reqID)
-	metrics.UpdateGauge("privacy.violation", 1)
+	log.Printf("detected violation of type %d on req %s", violation, reqID)
+	atomic.AddInt64(&chainRT.violationsCount, 1)
+
 	if chainRT.shouldDropOnViolation {
 		return violationDetectedFor(req), nil
 	}
@@ -77,6 +82,14 @@ func violationDetectedFor(req *http.Request) *http.Response {
 		ProtoMajor: req.ProtoMajor,
 		ProtoMinor: req.ProtoMinor,
 		Request:    req,
+	}
+}
+
+func (chainRT *ChainRoundTripper) reportMetrics() {
+	for {
+		metrics.UpdateGauge("privacy.violation", chainRT.violationsCount)
+		atomic.SwapInt64(&chainRT.violationsCount, 0)
+		time.Sleep(10 * time.Second)
 	}
 }
 
