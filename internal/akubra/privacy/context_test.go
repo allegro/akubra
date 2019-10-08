@@ -30,6 +30,8 @@ func TestShouldSupplyRequestWithPrivacyContext(t *testing.T) {
 
 		if isInternalNetworkRequest {
 			req.Header.Set(config.IsInternalNetworkHeaderName, config.IsInternalNetworkHeaderValue)
+		} else {
+			req.Header.Set(config.IsInternalNetworkHeaderName, "1")
 		}
 
 		req, err = supplier.Supply(req)
@@ -37,7 +39,7 @@ func TestShouldSupplyRequestWithPrivacyContext(t *testing.T) {
 
 		privacyContext := req.Context().Value(RequestPrivacyContextKey).(*Context)
 		if isInternalNetworkRequest {
-			assert.True(t, privacyContext.isInternalNetwork)
+ 			assert.True(t, privacyContext.isInternalNetwork)
 		} else {
 			assert.False(t, privacyContext.isInternalNetwork)
 		}
@@ -105,7 +107,7 @@ func (rtm *roundTripperMock) RoundTrip(req *http.Request) (*http.Response, error
 
 func prepareConfig() *Config {
 	return &Config{
-		IsInternalNetworkHeaderName:  "X-Internal",
-		IsInternalNetworkHeaderValue: "1",
+		IsInternalNetworkHeaderName:  "X-Untrusted",
+		IsInternalNetworkHeaderValue: "",
 	}
 }
