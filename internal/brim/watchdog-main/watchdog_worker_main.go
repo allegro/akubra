@@ -54,9 +54,9 @@ func RunWatchdogWorker(akubraConf *config.Config, brimConf *bConf.BrimConf) {
 	walWorker.Process(walTasks)
 
 	for item := range throtteledFeedChannel {
-		switch item.(type) {
+		switch it := item.(type) {
 		case *model.WALEntry:
-			walEntries <- item.(*model.WALEntry)
+			walEntries <- it
 		}
 	}
 }

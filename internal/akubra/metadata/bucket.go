@@ -205,8 +205,7 @@ func (bucketCache *BucketMetaDataCache) findByBucketNameToPatternMapping(bucketN
 }
 
 func (bucketCache *BucketMetaDataCache) findPatternThatMatches(bucketName string) *BucketMetaData {
-	var patterns []*regexp.Regexp
-	patterns = bucketCache.patterns //to avoid strange behaviour during concurrent access
+	patterns := bucketCache.patterns //to avoid strange behaviour during concurrent access
 	for _, pattern := range patterns {
 		matched := pattern.MatchString(bucketName)
 		if matched {

@@ -234,7 +234,7 @@ func checkVersions(record *watchdog.ConsistencyRecord, objectState *objectState)
 				srcStorageEndpoint = storage.storageEndpoint
 			}
 		case watchdog.DELETE:
-			if record.ObjectVersion <= record.ObjectVersion {
+			if !storage.objectNotFound {
 				storagesEndpointsToSync = append(storagesEndpointsToSync, storage.storageEndpoint)
 			}
 		}
