@@ -46,6 +46,9 @@ func (s3VersionFetcher *S3VersionFetcher) Fetch(auth *s3.MigrationAuth, bucketNa
 	}
 	objectVersionHeader := headResponse.Header.Get(s3VersionFetcher.VersionHeaderName)
 	objectVersion, err := strconv.ParseInt(objectVersionHeader, 10, 64)
+	if err != nil {
+		return nil, err
+	}
 	return &StorageState{
 		objectNotFound:  false,
 		version:         int(objectVersion),

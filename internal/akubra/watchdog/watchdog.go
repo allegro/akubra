@@ -89,10 +89,8 @@ func (factory *DefaultConsistencyRecordFactory) CreateRecordFor(request *http.Re
 	switch request.Method {
 	case "PUT", "POST", "GET", "HEAD":
 		method = PUT
-		break
 	case "DELETE":
 		method = DELETE
-		break
 	default:
 		return nil, fmt.Errorf("unsupported method - %s", request.Method)
 	}

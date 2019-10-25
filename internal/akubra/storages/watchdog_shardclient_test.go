@@ -160,7 +160,7 @@ func TestReadRepair(t *testing.T) {
 		consistencyRequest := &consistencyRequest{Request: request}
 
 		consistencyRecord := &watchdog.ConsistencyRecord{}
-		readRepairRecord := &*consistencyRecord
+		readRepairRecord := consistencyRecord
 		readRepairRecord.ObjectVersion = objectVersionToPerformReadRepairOn
 
 		factoryMock.On("CreateRecordFor", request).Return(consistencyRecord, nil)
