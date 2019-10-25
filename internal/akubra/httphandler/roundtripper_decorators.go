@@ -92,7 +92,7 @@ func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err
 	}
 	for k, v := range hs.responseHeaders {
                headerValue := resp.Header.Get(k)
-               if headerValue != "" {
+               if headerValue == "" {
                         resp.Header.Set(k, v)
                 }
 	}
