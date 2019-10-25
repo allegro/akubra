@@ -28,6 +28,10 @@ func NewBucketPrivacyFilterFunc(fetcher metadata.BucketMetaDataFetcher) Filter {
 
 //Filter checks for bucket-based violations
 func (filter *BucketPrivacyFilter) Filter(req *http.Request, prvCtx *Context) (ViolationType, error) {
+	if prvCtx.isInternalNetwork {
+		return NoViolation, nil
+	}
+
 	bucketName := utils.ExtractBucketFrom(req.URL.Path)
 	if bucketName == "" {
 		return NoViolation, nil
