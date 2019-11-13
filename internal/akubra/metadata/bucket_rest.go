@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/allegro/akubra/internal/akubra/discovery"
@@ -17,7 +18,7 @@ import (
 const (
 	restEndpointPattern     = "%s/buckets/%s"
 	responseStatusErrFormat = "unexpected response status %d"
-	internal                = "INTERNAL"
+	internal                = "internal"
 )
 
 //BucketIndexRestService is an implementation of BucketMetaDataFetcher that talks to a rest service
@@ -92,9 +93,12 @@ func (service *BucketIndexRestService) Fetch(bucketLocation *BucketLocation) (*B
 	if err != nil {
 		return nil, err
 	}
+
+	log.Debugf("Fetched info for bucket %s, visibility: %s", bucketLocation.Name, metaDataJSON.Visibility)
+
 	return &BucketMetaData{
 		Name:       metaDataJSON.BucketName,
-		IsInternal: metaDataJSON.Visibility == internal}, nil
+		IsInternal: strings.ToLower(metaDataJSON.Visibility) == internal}, nil
 }
 
 func (service *BucketIndexRestService) createBucketMetaDataRequest(bucketLocation *BucketLocation) (*http.Request, error) {

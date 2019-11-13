@@ -394,7 +394,7 @@ func (breaker *NodeBreaker) errorRate() float64 {
 
 func newLenLimitCounter(retention int) *lengthDelimitedCounter {
 	return &lengthDelimitedCounter{
-		values: make([]float64, retention, retention),
+		values: make([]float64, retention),
 	}
 }
 

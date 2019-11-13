@@ -90,7 +90,7 @@ func (feeder *SQLWALFeeder) queryDB(walEntriesChannel chan *model.WALEntry) {
 			continue
 		}
 
-		log.Debugf("Gathered %d records from database in %f seconds", len(consistencyRecords), time.Now().Sub(startTime).Seconds())
+		log.Debugf("Gathered %d records from database in %f seconds", len(consistencyRecords), time.Since(startTime).Seconds())
 		metrics.UpdateSince("watchdog.feeder.select.ok", startTime)
 
 		wg := &sync.WaitGroup{}

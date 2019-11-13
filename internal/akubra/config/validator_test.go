@@ -602,10 +602,10 @@ func TestPrivacyConfigValidation(t *testing.T) {
 		expectedErrors []error
 	}{
 		{"Should fail when at least property is missing", privacy.Config{
-			IsInternalNetworkHeaderName:  "x",
+			IsInternalNetworkHeaderName:  "",
 			IsInternalNetworkHeaderValue: "",
 		},
-			[]error{errors.New("'IsInternalNetworkHeaderValue' cant be empty")}},
+			[]error{errors.New("'IsInternalNetworkHeaderName' cant be empty")}},
 
 		{"Should validate config", privacy.Config{
 			IsInternalNetworkHeaderName:  "x",

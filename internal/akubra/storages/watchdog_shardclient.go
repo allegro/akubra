@@ -176,7 +176,7 @@ func (consistencyShard *ConsistencyShardClient) logIfInitMultiPart(consistencyRe
 
 func (consistencyShard *ConsistencyShardClient) updateExecutionDelay(request *http.Request) {
 	reqQuery := request.URL.Query()
-	uploadID, _ := reqQuery["uploadId"]
+	uploadID := reqQuery["uploadId"]
 	delta := &watchdog.ExecutionDelay{
 		RequestID: uploadID[0],
 		Delay:     time.Minute * 5,

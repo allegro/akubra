@@ -206,6 +206,7 @@ func (c YamlConfig) CredentialsStoresEntryLogicalValidator() (valid bool, valida
 	if numberOfStoragesUsingDefaultSignService > 0 && !isDefaultCredentialsStoreDefined {
 		errList = append(errList, fmt.Errorf("you have to define a default CredentialsStore when Storages don't have CredentialsStores specified explicilty"))
 		validationErrors, valid = prepareErrors(errList, "CredentialsStoresEntryLogicalValidator")
+		return
 	}
 
 	validationErrors, valid = prepareErrors(errList, "CredentialsStoresEntryLogicalValidator")
@@ -216,8 +217,7 @@ func (c YamlConfig) CredentialsStoresEntryLogicalValidator() (valid bool, valida
 func (c YamlConfig) PrivacyEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
 	requiredProperties := map[string]*string{
-		"IsInternalNetworkHeaderName":  &c.Privacy.IsInternalNetworkHeaderName,
-		"IsInternalNetworkHeaderValue": &c.Privacy.IsInternalNetworkHeaderValue}
+		"IsInternalNetworkHeaderName":  &c.Privacy.IsInternalNetworkHeaderName}
 	for name, val := range requiredProperties {
 		if *val == "" {
 			errList = append(errList, fmt.Errorf("'%s' cant be empty", name))

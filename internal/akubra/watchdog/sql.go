@@ -173,7 +173,9 @@ func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 		Raw(deleteMarkersInsertedEalier, marker.domain, marker.objectID, marker.objectVersion).
 		Rows()
 
-	defer rows.Close()
+	defer func(){
+		_ = rows.Close()
+	}()
 
 	if err != nil {
 		metrics.UpdateSince("watchdog.delete.err", queryStartTime)
