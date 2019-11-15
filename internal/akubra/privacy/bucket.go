@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/metadata"
 	"github.com/allegro/akubra/internal/akubra/utils"
 )
@@ -36,9 +37,11 @@ func (filter *BucketPrivacyFilter) Filter(req *http.Request, prvCtx *Context) (V
 	if bucketName == "" {
 		return NoViolation, nil
 	}
-
+	reqID := utils.RequestID(req)
+	log.Debugf("Asking for bucket %s metadata on reqID %s", bucketName, reqID)
 	bucketLocation := metadata.BucketLocation{Name: bucketName}
 	bucketMetaData, err := filter.bucketMetaDataFetcher.Fetch(&bucketLocation)
+	log.Debugf("Got bucket %s metadata on reqID %s", bucketName, reqID)
 	if err != nil {
 		return NoViolation, fmt.Errorf("failed to verify bucket privacy, could't fetch meta data: %s", err)
 	}

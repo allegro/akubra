@@ -2,11 +2,14 @@ package httphandler
 
 import (
 	"context"
-	"github.com/allegro/akubra/internal/akubra/utils"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"sync/atomic"
+	"time"
+
+	"github.com/allegro/akubra/internal/akubra/metrics"
 
 	"github.com/allegro/akubra/internal/akubra/httphandler/config"
 	"github.com/allegro/akubra/internal/akubra/log"
@@ -20,7 +23,7 @@ const (
 	AuthHeader = log.ContextKey("AuthHeader")
 )
 
-var incorrectAuthHeader = []byte("Incorrect auth header")
+var incorrectAuthHeader = "Incorrect auth header"
 
 func randomStr(length int) string {
 	return uuid.Must(uuid.NewV4()).String()[:length]
@@ -35,6 +38,24 @@ type Handler struct {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	var err error
+	var resp *http.Response
+	since := time.Now()
+	defer func() {
+		metrics.UpdateSince("reqs.global.all", since)
+		if err != nil {
+			metrics.UpdateSince("reqs.global.err", since)
+		}
+		if resp != nil {
+			name := fmt.Sprintf("reqs.global.status_%d", resp.StatusCode)
+			metrics.UpdateSince(name, since)
+		}
+		if req != nil {
+			methodName := fmt.Sprintf("reqs.global.method_%s", req.Method)
+			metrics.UpdateSince(methodName, since)
+		}
+	}()
+
 	canServe := true
 	log.Printf("handler url %s", req.URL)
 
@@ -66,26 +87,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	reqCtx := context.WithValue(req.Context(), log.ContextreqIDKey, randomIDStr)
 	reqCtx = context.WithValue(reqCtx, Domain, reqHost)
 
-	httpAuthHeader := req.Header.Get("Authorization")
-	if httpAuthHeader != "" {
-		authHeader, err := utils.ParseAuthorizationHeader(httpAuthHeader)
-		if err != nil {
-			log.Debugf("failed to parse auth header for req %s: %q", randomIDStr, err)
-			w.WriteHeader(http.StatusBadRequest)
-			_, err := w.Write(incorrectAuthHeader)
-			if err != nil {
-				log.Debug(err)
-			}
-			return
-		}
-		reqCtx = context.WithValue(reqCtx, AuthHeader, &authHeader)
-	}
-
-
-	log.Debugf("Request id %s, domain %s", randomIDStr, reqHost)
-
 	req.Header.Del("Expect")
-	resp, err := h.roundTripper.RoundTrip(req.WithContext(reqCtx))
+	resp, err = h.roundTripper.RoundTrip(req.WithContext(reqCtx))
 
 	if err != nil || resp == nil {
 		w.WriteHeader(http.StatusInternalServerError)

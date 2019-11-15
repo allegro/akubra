@@ -1,6 +1,7 @@
 package httphandler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -11,7 +12,10 @@ import (
 	"github.com/allegro/akubra/internal/akubra/httphandler/config"
 	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/privacy"
+	"github.com/allegro/akubra/internal/akubra/utils"
 )
+
+var incorrectAuthHeader = "Incorrect auth header"
 
 // Decorator is http.RoundTripper interface wrapper
 type Decorator func(http.RoundTripper) http.RoundTripper
@@ -22,7 +26,7 @@ type loggingRoundTripper struct {
 }
 
 func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-
+	log.Debug("Request in LoggingRoundTripper %s", utils.RequestID(req))
 	timeStart := time.Now()
 	resp, err = lrt.roundTripper.RoundTrip(req)
 
@@ -64,7 +68,7 @@ type headersSuplier struct {
 }
 
 func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-
+	log.Debug("Request in headersSuplier %s", utils.RequestID(req))
 	req.URL.Scheme = "http"
 	for k, v := range hs.requestHeaders {
 		_, ok := req.Header[k]
@@ -91,10 +95,10 @@ func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err
 		resp.Header = http.Header{}
 	}
 	for k, v := range hs.responseHeaders {
-               headerValue := resp.Header.Get(k)
-               if headerValue == "" {
-                        resp.Header.Set(k, v)
-                }
+		headerValue := resp.Header.Get(k)
+		if headerValue == "" {
+			resp.Header.Set(k, v)
+		}
 	}
 	return
 }
@@ -115,6 +119,7 @@ type responseHeadersStripper struct {
 }
 
 func (hs *responseHeadersStripper) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	log.Debug("Request in responseHeadersStripper %s", utils.RequestID(req))
 	resp, err = hs.roundTripper.RoundTrip(req)
 	if err != nil || resp == nil {
 		return
@@ -153,6 +158,7 @@ type optionsHandler struct {
 }
 
 func (os optionsHandler) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	log.Debug("Request in optionsHandler %s", utils.RequestID(req))
 	isOptions := false
 	if req.Method == "OPTIONS" {
 		req.Method = "HEAD"
@@ -179,18 +185,24 @@ type statusHandler struct {
 }
 
 func (sh statusHandler) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	log.Debug("Request in status Handler %s", utils.RequestID(req))
 	if strings.ToLower(req.URL.Path) == sh.healthCheckEndpoint {
-		resp := &http.Response{}
-		bodyContent := "OK"
-		resp.Body = ioutil.NopCloser(strings.NewReader(bodyContent))
-		resp.ContentLength = int64(len(bodyContent))
-		resp.Header = make(http.Header)
-		resp.Header.Set("Cache-Control", "no-cache, no-store")
-		resp.Header.Set("Content-Type", "text/plain")
-		resp.StatusCode = http.StatusOK
+		resp := makeResponse(req, http.StatusOK, "OK", "text/plain")
 		return resp, nil
 	}
 	return sh.roundTripper.RoundTrip(req)
+}
+
+func makeResponse(req *http.Request, status int, body string, contentType string) *http.Response {
+	resp := &http.Response{}
+	bodyContent := body
+	resp.Body = ioutil.NopCloser(strings.NewReader(bodyContent))
+	resp.ContentLength = int64(len(bodyContent))
+	resp.Header = make(http.Header)
+	resp.Header.Set("Cache-Control", "no-cache, no-store")
+	resp.Header.Set("Content-Type", contentType)
+	resp.StatusCode = status
+	return resp
 }
 
 // HealthCheckHandler serving health check endpoint
@@ -201,6 +213,32 @@ func HealthCheckHandler(healthCheckEndpoint string) Decorator {
 			roundTripper:        roundTripper,
 		}
 	}
+}
+
+func AuthHeaderContextSuplementer() Decorator {
+	return func(roundTripper http.RoundTripper) http.RoundTripper {
+		return &
+
+	}
+}
+
+type authHeaderContextSuplementer struct {
+	roundTripper http.RoundTripper
+}
+
+func (authHeaderRT *authHeaderContextSuplementer) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+
+	httpAuthHeader := req.Header.Get("Authorization")
+	if httpAuthHeader != "" {
+		authHeader, err := utils.ParseAuthorizationHeader(httpAuthHeader)
+		if err != nil {
+			log.Debugf("failed to parse auth header for req %s: %q", utils.RequestID(req), err)
+			return makeResponse(req, http.StatusBadRequest, incorrectAuthHeader, "text/plain"), nil
+		}
+		reqCtx := context.WithValue(req.Context(), AuthHeader, &authHeader)
+		req = req.WithContext(reqCtx)
+	}
+	return authHeaderRT.RoundTrip(req)
 }
 
 // Decorate returns http.Roundtripper wraped with all passed decorators

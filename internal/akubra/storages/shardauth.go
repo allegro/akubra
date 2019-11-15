@@ -18,18 +18,18 @@ type ShardAuthenticator struct {
 //NewShardAuthenticator creates an instance of ShardAuthenticator
 func NewShardAuthenticator(shardClient NamedShardClient, ignoredCanonicalizedHeaders map[string]bool) NamedShardClient {
 	return &ShardAuthenticator{
-		shardClient: shardClient,
+		shardClient:                 shardClient,
 		ignoredCanonicalizedHeaders: ignoredCanonicalizedHeaders}
 }
 
 //Name returns then of the shard
-func (auth *ShardAuthenticator) Name() string {
-	return auth.shardClient.Name()
+func (shardAuth *ShardAuthenticator) Name() string {
+	return shardAuth.shardClient.Name()
 }
 
 //Backends returns the backends of a shard
-func (auth *ShardAuthenticator) Backends() []*StorageClient {
-	return auth.shardClient.Backends()
+func (shardAuth *ShardAuthenticator) Backends() []*StorageClient {
+	return shardAuth.shardClient.Backends()
 }
 
 //RoundTrip first ensures that client is authorized to access the shard and the delegates
