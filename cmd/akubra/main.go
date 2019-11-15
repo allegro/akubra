@@ -228,7 +228,7 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 
 	regionsDecoratedRT = httphandler.Decorate(regionsDecoratedRT,
 		httphandler.ResponseHeadersStripper(conf.Service.Client.ResponseHeadersToStrip),
-		httphandler.PrivacyFilterChain(conf.Privacy.ShouldDropRequests, basicChain),
+		httphandler.PrivacyFilterChain(conf.Privacy.ShouldDropRequests, conf.Privacy.ViolationErrorCode, basicChain),
 		httphandler.PrivacyContextSupplier(privacyContextSupplier))
 
 	handler, err := httphandler.NewHandlerWithRoundTripper(regionsDecoratedRT, conf.Service.Server)

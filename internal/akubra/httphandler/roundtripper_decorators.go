@@ -91,10 +91,10 @@ func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err
 		resp.Header = http.Header{}
 	}
 	for k, v := range hs.responseHeaders {
-               headerValue := resp.Header.Get(k)
-               if headerValue == "" {
-                        resp.Header.Set(k, v)
-                }
+		headerValue := resp.Header.Get(k)
+		if headerValue == "" {
+			resp.Header.Set(k, v)
+		}
 	}
 	return
 }
@@ -142,9 +142,12 @@ func PrivacyContextSupplier(supplier privacy.ContextSupplier) Decorator {
 }
 
 //PrivacyFilterChain creates Decorator checks for any privacy violations
-func PrivacyFilterChain(shouldDrop bool, chain privacy.Chain) Decorator {
+func PrivacyFilterChain(shouldDrop bool, violationErrorCode int, chain privacy.Chain) Decorator {
 	return func(roundTripper http.RoundTripper) http.RoundTripper {
-		return privacy.NewChainRoundTripper(shouldDrop, chain, roundTripper)
+		if violationErrorCode == 0 {
+			violationErrorCode = http.StatusForbidden
+		}
+		return privacy.NewChainRoundTripper(shouldDrop, violationErrorCode, chain, roundTripper)
 	}
 }
 

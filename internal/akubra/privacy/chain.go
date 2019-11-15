@@ -35,14 +35,16 @@ type ChainRoundTripper struct {
 	chain                 Chain
 	shouldDropOnViolation bool
 	violationsCount       int64
+	violationErrorCode    int
 }
 
 //NewChainRoundTripper creates an instance of ChainRoundTripper
-func NewChainRoundTripper(shouldDrop bool, chain Chain, roundTripper http.RoundTripper) http.RoundTripper {
+func NewChainRoundTripper(shouldDrop bool, violationErrorCode int, chain Chain, roundTripper http.RoundTripper) http.RoundTripper {
 	chainRT := &ChainRoundTripper{
 		roundTripper:          roundTripper,
 		chain:                 chain,
 		shouldDropOnViolation: shouldDrop,
+		violationErrorCode:    violationErrorCode,
 	}
 	go chainRT.reportMetrics()
 	return chainRT
@@ -68,15 +70,15 @@ func (chainRT *ChainRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 	atomic.AddInt64(&chainRT.violationsCount, 1)
 
 	if chainRT.shouldDropOnViolation {
-		return violationDetectedFor(req), nil
+		return violationDetectedFor(req, chainRT.violationErrorCode), nil
 	}
 
 	return chainRT.roundTripper.RoundTrip(req)
 }
 
-func violationDetectedFor(req *http.Request) *http.Response {
+func violationDetectedFor(req *http.Request, errorCode int) *http.Response {
 	return &http.Response{
-		StatusCode: http.StatusForbidden,
+		StatusCode: errorCode,
 		Status:     "Privacy policy violated",
 		Proto:      req.Proto,
 		ProtoMajor: req.ProtoMajor,
