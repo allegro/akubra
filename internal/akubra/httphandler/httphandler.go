@@ -23,7 +23,6 @@ const (
 	AuthHeader = log.ContextKey("AuthHeader")
 )
 
-var incorrectAuthHeader = "Incorrect auth header"
 
 func randomStr(length int) string {
 	return uuid.Must(uuid.NewV4()).String()[:length]
