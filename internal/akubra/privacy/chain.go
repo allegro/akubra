@@ -35,6 +35,7 @@ type ChainRoundTripper struct {
 	chain                 Chain
 	shouldDropOnViolation bool
 	violationsCount       int64
+	violationErrorCode    int
 }
 
 //NewChainRoundTripper creates an instance of ChainRoundTripper
@@ -69,7 +70,7 @@ func (chainRT *ChainRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 	atomic.AddInt64(&chainRT.violationsCount, 1)
 
 	if chainRT.shouldDropOnViolation {
-		return violationDetectedFor(req), nil
+		return violationDetectedFor(req, chainRT.violationErrorCode), nil
 	}
 
 	return chainRT.roundTripper.RoundTrip(req)
