@@ -223,7 +223,7 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	regionsDecoratedRT := httphandler.DecorateRoundTripper(conf.Service.Client,
+	regionsDecoratedRT := httphandler.DecorateRoundTripper(conf.Service.Client, conf.Service.Server,
 		accessLog, conf.Service.Server.HealthCheckEndpoint, regionsRT)
 
 	regionsDecoratedRT = httphandler.Decorate(regionsDecoratedRT,

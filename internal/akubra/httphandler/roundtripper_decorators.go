@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"io/ioutil"
@@ -19,6 +20,13 @@ var incorrectAuthHeader = "Incorrect auth header"
 
 // Decorator is http.RoundTripper interface wrapper
 type Decorator func(http.RoundTripper) http.RoundTripper
+
+// AccessLogging creares Decorator with access log collector
+func AccessLogging(logger log.Logger) Decorator {
+	return func(rt http.RoundTripper) http.RoundTripper {
+		return &loggingRoundTripper{roundTripper: rt, accessLog: logger}
+	}
+}
 
 type loggingRoundTripper struct {
 	roundTripper http.RoundTripper
@@ -52,13 +60,6 @@ func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Respons
 	}
 	lrt.accessLog.Printf("%s", jsonb)
 	return
-}
-
-// AccessLogging creares Decorator with access log collector
-func AccessLogging(logger log.Logger) Decorator {
-	return func(rt http.RoundTripper) http.RoundTripper {
-		return &loggingRoundTripper{roundTripper: rt, accessLog: logger}
-	}
 }
 
 type headersSuplier struct {
@@ -218,10 +219,13 @@ func HealthCheckHandler(healthCheckEndpoint string) Decorator {
 	}
 }
 
+// AuthHeaderContextSuplementer adds utils.ParsedAuthorizationHeader to request
+// context value
 func AuthHeaderContextSuplementer() Decorator {
 	return func(roundTripper http.RoundTripper) http.RoundTripper {
-		return &
-
+		return &authHeaderContextSuplementer{
+			roundTripper: roundTripper,
+		}
 	}
 }
 
@@ -230,7 +234,6 @@ type authHeaderContextSuplementer struct {
 }
 
 func (authHeaderRT *authHeaderContextSuplementer) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-
 	httpAuthHeader := req.Header.Get("Authorization")
 	if httpAuthHeader != "" {
 		authHeader, err := utils.ParseAuthorizationHeader(httpAuthHeader)
@@ -242,6 +245,64 @@ func (authHeaderRT *authHeaderContextSuplementer) RoundTrip(req *http.Request) (
 		req = req.WithContext(reqCtx)
 	}
 	return authHeaderRT.RoundTrip(req)
+}
+
+// RequestLimiter limits number of concurrent requests
+func RequestLimiter(maxConcurrentRequests int32) Decorator {
+	return func(roundTripper http.RoundTripper) http.RoundTripper {
+		return &requestLimitRoundTripper{
+			roundTripper:          roundTripper,
+			maxConcurrentRequests: maxConcurrentRequests,
+			runningRequestCount:   0,
+		}
+	}
+}
+
+type requestLimitRoundTripper struct {
+	roundTripper          http.RoundTripper
+	runningRequestCount   int32
+	maxConcurrentRequests int32
+}
+
+func (rlrt *requestLimitRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	canServe := true
+	if atomic.AddInt32(&rlrt.runningRequestCount, 1) > rlrt.maxConcurrentRequests {
+		canServe = false
+	}
+	defer atomic.AddInt32(&rlrt.runningRequestCount, -1)
+	if !canServe {
+		log.Printf("Rejected request from %s - too many other requests in progress.", req.Host)
+		return makeResponse(req, http.StatusServiceUnavailable, "Too many requests in progress.", "text/plain"), nil
+	}
+	return rlrt.roundTripper.RoundTrip(req)
+}
+
+// BodySizeLimitter rejects requests with to large body size
+func BodySizeLimitter(bodySizeLimit int64) Decorator {
+	return func(roundTripper http.RoundTripper) http.RoundTripper {
+		return &bodySizeLimitter{
+			roundTripper:  roundTripper,
+			bodySizeLimit: bodySizeLimit,
+		}
+	}
+}
+
+type bodySizeLimitter struct {
+	roundTripper  http.RoundTripper
+	bodySizeLimit int64
+}
+
+func (sizeLimitter *bodySizeLimitter) RoundTrip(req *http.Request) (*http.Response, error) {
+	validationCode := sizeLimitter.validateIncomingRequest(req)
+	if validationCode > 0 {
+		log.Printf("Rejected invalid incoming request from %s, code %d", req.RemoteAddr, validationCode)
+		return makeResponse(req, validationCode, "Too large body size.", "text/plain"), nil
+	}
+	return sizeLimitter.roundTripper.RoundTrip(req)
+}
+
+func (sizeLimitter *bodySizeLimitter) validateIncomingRequest(req *http.Request) int {
+	return config.RequestHeaderContentLengthValidator(*req, sizeLimitter.bodySizeLimit)
 }
 
 // Decorate returns http.Roundtripper wraped with all passed decorators
