@@ -9,10 +9,10 @@ import (
 
 	"github.com/allegro/akubra/internal/akubra/utils"
 
-	"github.com/allegro/akubra/external/miniotweak/s3signer"
 	"github.com/allegro/akubra/internal/akubra/crdstore"
 	"github.com/allegro/akubra/internal/akubra/httphandler"
 	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/external/miniotweak/s3signer"
 )
 
 // APIErrorCode type of error status.
@@ -75,6 +75,38 @@ func DoesSignMatch(r *http.Request, cred Keys, ignoredCanonicalizedHeaders map[s
 type Keys struct {
 	AccessKeyID     string `json:"access-key" yaml:"AccessKey"`
 	SecretAccessKey string `json:"secret-key" yaml:"Secret"`
+}
+
+func responseForbidden(req *http.Request) *http.Response {
+	return &http.Response{
+		Status:     "403 Forbidden",
+		StatusCode: http.StatusForbidden,
+		Proto:      req.Proto,
+		ProtoMajor: req.ProtoMajor,
+		ProtoMinor: req.ProtoMinor,
+		Request:    req,
+	}
+}
+
+type authRoundTripper struct {
+	rt                          http.RoundTripper
+	keys                        Keys
+	ignoredCanonicalizedHeaders map[string]bool
+}
+
+// RoundTrip implements http.RoundTripper interface
+func (art authRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if DoesSignMatch(req, art.keys, art.ignoredCanonicalizedHeaders) == ErrNone {
+		return art.rt.RoundTrip(req)
+	}
+	return responseForbidden(req), nil
+}
+
+// S3Decorator checks if request Signature matches s3 keys
+func S3Decorator(keys Keys) httphandler.Decorator {
+	return func(rt http.RoundTripper) http.RoundTripper {
+		return authRoundTripper{keys: keys}
+	}
 }
 
 type signRoundTripper struct {

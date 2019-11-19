@@ -25,11 +25,11 @@ require (
 	github.com/sirupsen/logrus v1.4.1
 	github.com/smartystreets/go-aws-auth v0.0.0-20180515143844-0c1422d1fdb9 // indirect
 	github.com/smartystreets/gunit v1.0.0 // indirect
-	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.3.0
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/tools v0.0.0-20190813034749-528a2984e271
+	golang.org/x/tools v0.0.0-20190703212419-2214986f1668
+	gopkg.in/gemnasium/logrus-postgresql-hook.v1 v1.1.3
 	gopkg.in/validator.v1 v1.0.0-20140827164146-4379dff89709
 	gopkg.in/yaml.v2 v2.2.2
 )
