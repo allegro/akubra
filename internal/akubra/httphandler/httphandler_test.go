@@ -12,27 +12,41 @@ import (
 func TestShouldReturnEntityTooLargeCode(t *testing.T) {
 	request := httptest.NewRequest("POST", "http://somepath", nil)
 	request.Header.Set("Content-Length", "4096")
-	handler := &Handler{bodyMaxSize: 1024, maxConcurrentRequests: 10}
-	writer := httptest.NewRecorder()
-	handler.ServeHTTP(writer, request)
-	assert.Equal(t, http.StatusRequestEntityTooLarge, writer.Code)
+	snert := &shouldNotExecuteRoundTripper{t: t}
+	rt := BodySizeLimitter(1024)(snert)
+	resp, err := rt.RoundTrip(request)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, resp.StatusCode)
+}
+
+type shouldNotExecuteRoundTripper struct {
+	t *testing.T
+}
+
+func (snert *shouldNotExecuteRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
+	snert.t.Logf("Should not be executed")
+	snert.t.Fail()
+	return nil, nil
 }
 
 func TestShouldReturnBadRequestOnUnparsableContentLengthHeader(t *testing.T) {
 	request := httptest.NewRequest("POST", "http://somepath", nil)
 	request.Header.Set("Content-Length", "strange-content-header")
-	handler := &Handler{bodyMaxSize: 1024, maxConcurrentRequests: 10}
-	writer := httptest.NewRecorder()
-	handler.ServeHTTP(writer, request)
-	assert.Equal(t, http.StatusBadRequest, writer.Code)
+	snert := &shouldNotExecuteRoundTripper{t: t}
+	rt := BodySizeLimitter(1024)(snert)
+	resp, err := rt.RoundTrip(request)
+	assert.Nil(t, err)
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestShouldReturnServiceNotAvailableOnTooManyRequests(t *testing.T) {
 	request := httptest.NewRequest("GET", "http://somepath", nil)
-	handler := &Handler{bodyMaxSize: 1024, maxConcurrentRequests: 0}
-	writer := httptest.NewRecorder()
-	handler.ServeHTTP(writer, request)
-	assert.Equal(t, http.StatusServiceUnavailable, writer.Code)
+	snert := &shouldNotExecuteRoundTripper{t: t}
+	rt := RequestLimiter(0)(snert)
+	resp, err := rt.RoundTrip(request)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 }
 
 func TestShouldReturnStatusOKOnHealthCheckEndpoint(t *testing.T) {
@@ -43,7 +57,7 @@ func TestShouldReturnStatusOKOnHealthCheckEndpoint(t *testing.T) {
 	rt := Decorate(http.DefaultTransport, HealthCheckHandler(healthCheckPath))
 	_, err := rt.RoundTrip(request)
 	require.NoError(t, err)
-	handler := &Handler{bodyMaxSize: 1024, maxConcurrentRequests: 1}
+	handler := &Handler{}
 	writer := httptest.NewRecorder()
 	handler.roundTripper = statusHandler{
 		healthCheckEndpoint: healthCheckPath,

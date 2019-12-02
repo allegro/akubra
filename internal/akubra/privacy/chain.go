@@ -3,11 +3,13 @@ package privacy
 import (
 	"errors"
 	"fmt"
-	"github.com/allegro/akubra/internal/akubra/log"
-	"github.com/allegro/akubra/internal/akubra/metrics"
 	"net/http"
 	"sync/atomic"
 	"time"
+
+	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/internal/akubra/metrics"
+	"github.com/allegro/akubra/internal/akubra/utils"
 )
 
 //ViolationType is an code indiciating which (if any) privacy policy has been violated
@@ -52,7 +54,8 @@ func NewChainRoundTripper(shouldDrop bool, violationErrorCode int, chain Chain, 
 
 //RoundTrip checks for violations on req
 func (chainRT *ChainRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	reqID := req.Context().Value(log.ContextreqIDKey).(string)
+	log.Debug("Request in ChainRoundTripper %s", utils.RequestID(req))
+	reqID := utils.RequestID(req)
 	violation, err := chainRT.chain.Filter(req)
 	if err != nil {
 		violationCheckErr := fmt.Errorf("failed to filter req %s: %s", reqID, err)
