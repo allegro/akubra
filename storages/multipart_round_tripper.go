@@ -101,7 +101,9 @@ func (multiPartRoundTripper *MultiPartRoundTripper) Do(request *Request) <-chan 
 				Error:    requestError,
 				Backend:  multiUploadBackend,
 			}
+			close(backendResponseChannel)
 		}()
+		return backendResponseChannel
 	}
 	go func() {
 		if !utils.IsInitiateMultiPartUploadRequest(request.Request) && isCompleteUploadResponseSuccessful(httpResponse) {
