@@ -145,7 +145,7 @@ Metrics:
 
 Metrics:
   Target: stdout # graphite
-  Addr: skystats.qxlint:2003
+  Addr: stats-collector.local
   Prefix: stats.tech.images.akubra
   AppendDefaults: true
   Interval: 1m
