@@ -89,7 +89,6 @@ type Settings struct {
 	MaxRetries int              `yaml:"MaxRetries"`
 	Token      string           `yaml:"Token"`
 	Prefix     string           `yaml:"Prefix"`
-	Key        string           `yaml:"Key"`
 }
 
 type vaultClient struct {

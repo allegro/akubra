@@ -90,23 +90,50 @@ func main() {
 }
 
 func readConfiguration() (config.Config, error) {
-	var configReader io.Reader
 	if vault.DefaultClient != nil {
-		log.Println("Vault client initialized")
-		env := os.Getenv(akubraEnvVarName)
-		version := os.Getenv(akubraVersionVarName)
-		path := fmt.Sprintf("configuration/%s/%s", env, version)
-		v, err := vault.DefaultClient.Read(path)
-		if err == nil {
-			log.Println("Configuration read successful")
-			configString, ok := v["secret"].(string)
-			if !ok {
-				log.Fatal("Could not assert secret to string map")
-			}
-			configReader =  bytes.NewReader([]byte(configString))
-			return parseConfig(configReader)
-		}
+		return readVaultConfiguration()
 	}
+	return readFileConfiguration()
+}
+
+func readVaultConfiguration() (config.Config, error) {
+	log.Println("Vault client initialized")
+	version := os.Getenv(akubraVersionVarName)
+	revPath := fmt.Sprintf("configuration/%s/current", version)
+
+	revData, err := vault.DefaultClient.Read(revPath)
+	if err != nil {
+		return config.Config{}, err
+	}
+
+	revisionMap, ok := revData["secret"].(map[string]interface{})
+	if !ok {
+		log.Fatalf("Could not map revData to map[string]interface{} %#v", revData)
+	}
+
+	revision, ok := revisionMap["revision"].(string)
+	if !ok {
+		log.Fatalf("Could not assert revision to string %#v", revision)
+	}
+
+	path := fmt.Sprintf("configuration/%s/%s", version, revision)
+
+	v, err := vault.DefaultClient.Read(path)
+	if err != nil {
+		return config.Config{}, err
+	}
+
+	log.Println("Configuration read successful")
+
+	configString, ok := v["secret"].(string)
+	if !ok {
+		log.Fatal("Could not assert secret to string map")
+	}
+	configReader :=  bytes.NewReader([]byte(configString))
+	return parseConfig(configReader)
+}
+
+func readFileConfiguration() (config.Config, error) {
 	configReadCloser, err := config.ReadConfiguration(*configFile)
 	log.Println("Read configuration from file")
 	defer func() {

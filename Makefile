@@ -41,13 +41,10 @@ lint-slow: deps-lint
 	--enable=goimports \
 	--fast
 
-deps:
-	go get
-
-deps-lint: deps
+deps-lint:
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(LINTERVERSION)
 
-build: vars deps lint
+build: vars lint
         # Enable netcgo, then name resolution will use systems dns caches
 	$(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1' ./cmd/akubra
 
