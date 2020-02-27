@@ -68,7 +68,7 @@ func (feeder *SQLWALFeeder) queryDB(walEntriesChannel chan *model.WALEntry) {
 		res := tx.
 			Order("object_version DESC").
 			Set("gorm:query_option", "FOR UPDATE SKIP LOCKED").
-			Where("updated_at + execution_delay < NOW() AT TIME ZONE 'UTC").
+			Where("updated_at + execution_delay < NOW() AT TIME ZONE 'UTC'").
 			Limit(feeder.config.MaxRecordsPerQuery).
 			Find(&consistencyRecords)
 
@@ -90,7 +90,7 @@ func (feeder *SQLWALFeeder) queryDB(walEntriesChannel chan *model.WALEntry) {
 			continue
 		}
 
-		log.Debugf("Gathered %d records from database in %f seconds", len(consistencyRecords), time.Now().Sub(startTime).Seconds())
+		log.Debugf("Gathered %d records from database in %f seconds", len(consistencyRecords), time.Since(startTime).Seconds())
 		metrics.UpdateSince("watchdog.feeder.select.ok", startTime)
 
 		wg := &sync.WaitGroup{}

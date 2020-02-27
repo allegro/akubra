@@ -2,6 +2,8 @@ package filter
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/AdRoll/goamz/s3"
 	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/sharding"
@@ -10,7 +12,6 @@ import (
 	"github.com/allegro/akubra/internal/brim/auth"
 	"github.com/allegro/akubra/internal/brim/model"
 	brimS3 "github.com/allegro/akubra/internal/brim/s3"
-	"strings"
 )
 
 //WALFilter consults the storages to determine the desired state of an object
@@ -45,6 +46,14 @@ type storagesEndpoints struct {
 	numberOfStoragesWithoutVersionHeader int
 }
 
+type ringState struct {
+	oldStoragesWithObject []*s3.S3
+	targetShardSrcCli     *s3.S3
+	targetShardDstClis    []*s3.S3
+}
+
+var noopTask = ringState{nil, nil, nil}
+
 //NewDefaultWALFilter constructs an instance of DefaultWALFeeder
 func NewDefaultWALFilter(resolver auth.BackendResolver, fetcher VersionFetcher) WALFilter {
 	return &DefaultWALFilter{
@@ -69,26 +78,44 @@ func (filter *DefaultWALFilter) Filter(walEntriesChannel <-chan *model.WALEntry)
 				continue
 			}
 
-			shard, err := ring.Pick(walEntry.Record.ObjectID)
+			ringState, err := filter.determineStorages(walEntry.Record, ring)
 			if err != nil {
 				finishWithError(walEntry, err)
 				continue
 			}
 
-			srcClient, dstClients, err := filter.determineStorages(walEntry.Record, shard)
-			if err != nil {
-				finishWithError(walEntry, err)
-				continue
+			//we're removing the hook from this task, because we need to run it only only after we've also deleted
+			// the object's versions from storages that used to be the object's storages
+			// (for example before a migration, or before weights were changed)
+			hook := noopHook
+			if len(ringState.oldStoragesWithObject) > 0 {
+				hook = walEntry.RecordProcessedHook
+				walEntry.RecordProcessedHook = noopHook
 			}
 
 			tasksChannel <- &model.WALTask{
 				WALEntry:            walEntry,
-				SourceClient:        srcClient,
-				DestinationsClients: dstClients,
+				SourceClient:        ringState.targetShardSrcCli,
+				DestinationsClients: ringState.targetShardDstClis,
 			}
+
+			tasksChannel <- clearOldStoragesTask(walEntry.Record, hook, ringState.oldStoragesWithObject)
 		}
 	}()
 	return tasksChannel
+}
+
+func clearOldStoragesTask(record *watchdog.ConsistencyRecord, recordProcessedHook model.Hook, s3Clis []*s3.S3) *model.WALTask {
+	deleteRecord := *record
+	deleteRecord.Method = watchdog.DELETE
+	return &model.WALTask{
+		DestinationsClients: s3Clis,
+		SourceClient:        nil,
+		WALEntry: &model.WALEntry{
+			Record:              &deleteRecord,
+			RecordProcessedHook: recordProcessedHook,
+		},
+	}
 }
 
 func finishWithError(entry *model.WALEntry, err error) {
@@ -98,36 +125,43 @@ func finishWithError(entry *model.WALEntry, err error) {
 	}
 }
 
-func (filter *DefaultWALFilter) determineStorages(record *watchdog.ConsistencyRecord, shardClient storages.NamedShardClient) (*s3.S3, []*s3.S3, error) {
-	objectState, err := filter.fetchVersionsFromStorages(record, shardClient)
+func (filter *DefaultWALFilter) determineStorages(record *watchdog.ConsistencyRecord, ring sharding.ShardsRingAPI) (*ringState, error) {
+	pickedShard, err := ring.Pick(record.ObjectID)
 	if err != nil {
-		return nil, nil, err
-	}
-	storagesEndpoints, err := resolveVersions(record, objectState)
-	if err != nil {
-		return nil, nil, err
-	}
-	//In this the case there is a newer version of the object on at least
-	//one of the storages
-	if storagesEndpoints == nil && err == nil {
-		return nil, nil, nil
-	}
-	var srcStorages []string
-	if storagesEndpoints.src != "" {
-		srcStorages = []string{storagesEndpoints.src}
+		return nil, err
 	}
 
-	srcClients := filter.createS3Clients(srcStorages, objectState.storagesKeys)
-	dstClients := filter.createS3Clients(storagesEndpoints.destinations, objectState.storagesKeys)
+	var pickedShardSrcCli *s3.S3
+	var pickedShardDstClis []*s3.S3
+	var oldStoragesWithObject []*s3.S3
 
-	var srcClient *s3.S3
-	if record.Method == watchdog.PUT {
-		if len(srcClients) == 0 {
-			return nil, nil, nil
+	for _, shardClient := range ring.GetShards() {
+
+		stateOnShard, err := filter.fetchVersionsFromStorages(record, shardClient)
+		if err != nil {
+			return nil, err
 		}
-		srcClient = srcClients[0]
+
+		if shardClient == pickedShard {
+			srcCli, dstClis, err := filter.prepareShardMigration(record, stateOnShard)
+			if srcCli == nil && dstClis == nil && err == nil {
+				return &noopTask, nil
+			}
+			pickedShardSrcCli = srcCli
+			pickedShardDstClis = dstClis
+			continue
+		}
+
+		oldStoragesWithObject = append(
+			oldStoragesWithObject,
+			filter.getStoragesWithVersion(record.ObjectVersion, stateOnShard)...)
 	}
-	return srcClient, dstClients, nil
+
+	return &ringState{
+		oldStoragesWithObject: oldStoragesWithObject,
+		targetShardSrcCli:     pickedShardSrcCli,
+		targetShardDstClis:    pickedShardDstClis,
+	}, nil
 }
 
 func (filter *DefaultWALFilter) fetchVersionsFromStorages(record *watchdog.ConsistencyRecord, shardClient storages.NamedShardClient) (*objectState, error) {
@@ -200,7 +234,7 @@ func checkVersions(record *watchdog.ConsistencyRecord, objectState *objectState)
 				srcStorageEndpoint = storage.storageEndpoint
 			}
 		case watchdog.DELETE:
-			if record.ObjectVersion <= record.ObjectVersion {
+			if !storage.objectNotFound {
 				storagesEndpointsToSync = append(storagesEndpointsToSync, storage.storageEndpoint)
 			}
 		}
@@ -264,6 +298,7 @@ func (filter *DefaultWALFilter) checkStoragesForObjectPresence(storagesKeys map[
 	}
 
 	var storagesWithObject, storagesWithoutObject []*StorageState
+
 	for _, storageClient := range shardClient.Backends() {
 
 		clientAuth := &brimS3.MigrationAuth{
@@ -290,4 +325,50 @@ func (filter *DefaultWALFilter) checkStoragesForObjectPresence(storagesKeys map[
 	}
 
 	return storagesWithObject, storagesWithoutObject, nil
+}
+
+func (filter *DefaultWALFilter) getStoragesWithVersion(version int, state *objectState) []*s3.S3 {
+	var storagesWithObject []*s3.S3
+	for _, storageWithObject := range state.storagesWithObject {
+		if storageWithObject.objectNotFound {
+			continue
+		}
+		if storageWithObject.version <= version {
+			storageClient := filter.createS3Clients([]string{storageWithObject.storageEndpoint}, state.storagesKeys)[0]
+			storagesWithObject = append(storagesWithObject, storageClient)
+		}
+	}
+	return storagesWithObject
+}
+
+func (filter *DefaultWALFilter) prepareShardMigration(record *watchdog.ConsistencyRecord, state *objectState) (*s3.S3, []*s3.S3, error) {
+	storagesEndpoints, err := resolveVersions(record, state)
+	if err != nil {
+		return nil, nil, err
+	}
+	//In this the case there is a newer version of the object on at least
+	//one of the storages
+	if storagesEndpoints == nil && err == nil {
+		return nil, nil, nil
+	}
+	var srcStorages []string
+	if storagesEndpoints.src != "" {
+		srcStorages = []string{storagesEndpoints.src}
+	}
+
+	srcClients := filter.createS3Clients(srcStorages, state.storagesKeys)
+	dstClients := filter.createS3Clients(storagesEndpoints.destinations, state.storagesKeys)
+
+	var srcClient *s3.S3
+	if record.Method == watchdog.PUT {
+		if len(srcClients) == 0 {
+			return nil, nil, nil
+		}
+		srcClient = srcClients[0]
+	}
+
+	return srcClient, dstClients, err
+}
+func noopHook(_ *watchdog.ConsistencyRecord, _ error) error {
+	return nil
 }

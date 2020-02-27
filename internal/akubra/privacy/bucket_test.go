@@ -43,6 +43,23 @@ func TestBucketFetcherFailure(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
+func TestBucketMetaDataNotFound(t *testing.T) {
+	bucketName := "bucket"
+	bucketLocation := &metadata.BucketLocation{Name: bucketName}
+
+	fetcherMock := &BucketMetaDataFetcherMock{Mock: &mock.Mock{}}
+	fetcherMock.On("Fetch", bucketLocation).Return(nil, nil)
+
+	req := requestWithBasicContext("123", bucketName, "obj")
+	prvContext := &Context{}
+
+	filter := NewBucketPrivacyFilter(fetcherMock)
+	violation, err := filter.Filter(req, prvContext)
+
+	assert.Equal(t, NoViolation, violation)
+	assert.Nil(t, err)
+}
+
 func TestRestrictingAccessToInternalBucket(t *testing.T) {
 	bucketName := "bucket"
 	bucketLocation := &metadata.BucketLocation{Name: bucketName}
@@ -73,6 +90,23 @@ func TestRestrictingAccessToInternalBucket(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestShouldNotFetchMetadataIfTheNetworkIsInternal(t *testing.T) {
+	bucketName := "bucketName"
+	bucketLocation := &metadata.BucketLocation{Name: bucketName}
+
+	fetcherMock := &BucketMetaDataFetcherMock{Mock: &mock.Mock{}}
+	req := requestWithBasicContext("123", bucketName, "obj")
+
+	prvContext := &Context{isInternalNetwork: true}
+
+	filter := NewBucketPrivacyFilterFunc(fetcherMock)
+	violation, err := filter(req, prvContext)
+
+	assert.Nil(t, err)
+	assert.Equal(t, NoViolation, violation)
+	fetcherMock.AssertNotCalled(t, "Fetch", bucketLocation)
 }
 
 func (fetcher *BucketMetaDataFetcherMock) Fetch(bucketLocation *metadata.BucketLocation) (*metadata.BucketMetaData, error) {

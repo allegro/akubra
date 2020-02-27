@@ -4,9 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync/atomic"
+	"time"
 
 	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/metrics"
+	"github.com/allegro/akubra/internal/akubra/utils"
 )
 
 //ViolationType is an code indiciating which (if any) privacy policy has been violated
@@ -33,20 +36,26 @@ type ChainRoundTripper struct {
 	roundTripper          http.RoundTripper
 	chain                 Chain
 	shouldDropOnViolation bool
+	violationsCount       int64
+	violationErrorCode    int
 }
 
 //NewChainRoundTripper creates an instance of ChainRoundTripper
-func NewChainRoundTripper(shouldDrop bool, chain Chain, roundTripper http.RoundTripper) http.RoundTripper {
-	return &ChainRoundTripper{
+func NewChainRoundTripper(shouldDrop bool, violationErrorCode int, chain Chain, roundTripper http.RoundTripper) http.RoundTripper {
+	chainRT := &ChainRoundTripper{
 		roundTripper:          roundTripper,
 		chain:                 chain,
 		shouldDropOnViolation: shouldDrop,
+		violationErrorCode:    violationErrorCode,
 	}
+	go chainRT.reportMetrics()
+	return chainRT
 }
 
 //RoundTrip checks for violations on req
 func (chainRT *ChainRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	reqID := req.Context().Value(log.ContextreqIDKey).(string)
+	log.Debug("Request in ChainRoundTripper %s", utils.RequestID(req))
+	reqID := utils.RequestID(req)
 	violation, err := chainRT.chain.Filter(req)
 	if err != nil {
 		violationCheckErr := fmt.Errorf("failed to filter req %s: %s", reqID, err)
@@ -60,23 +69,32 @@ func (chainRT *ChainRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 		return chainRT.roundTripper.RoundTrip(req)
 	}
 
-	log.Debugf("detected violation of type %d on req %s", violation, reqID)
-	metrics.UpdateGauge("privacy.violation", 1)
+	log.Printf("detected violation of type %d on req %s", violation, reqID)
+	atomic.AddInt64(&chainRT.violationsCount, 1)
+
 	if chainRT.shouldDropOnViolation {
-		return violationDetectedFor(req), nil
+		return violationDetectedFor(req, chainRT.violationErrorCode), nil
 	}
 
 	return chainRT.roundTripper.RoundTrip(req)
 }
 
-func violationDetectedFor(req *http.Request) *http.Response {
+func violationDetectedFor(req *http.Request, errorCode int) *http.Response {
 	return &http.Response{
-		StatusCode: http.StatusForbidden,
+		StatusCode: errorCode,
 		Status:     "Privacy policy violated",
 		Proto:      req.Proto,
 		ProtoMajor: req.ProtoMajor,
 		ProtoMinor: req.ProtoMinor,
 		Request:    req,
+	}
+}
+
+func (chainRT *ChainRoundTripper) reportMetrics() {
+	for {
+		metrics.UpdateGauge("privacy.violation", atomic.LoadInt64(&chainRT.violationsCount))
+		atomic.SwapInt64(&chainRT.violationsCount, 0)
+		time.Sleep(10 * time.Second)
 	}
 }
 

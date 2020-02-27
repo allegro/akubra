@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/metadata"
 	"github.com/allegro/akubra/internal/akubra/utils"
 )
@@ -28,15 +29,25 @@ func NewBucketPrivacyFilterFunc(fetcher metadata.BucketMetaDataFetcher) Filter {
 
 //Filter checks for bucket-based violations
 func (filter *BucketPrivacyFilter) Filter(req *http.Request, prvCtx *Context) (ViolationType, error) {
+	if prvCtx.isInternalNetwork {
+		return NoViolation, nil
+	}
+
 	bucketName := utils.ExtractBucketFrom(req.URL.Path)
 	if bucketName == "" {
 		return NoViolation, nil
 	}
-
+	reqID := utils.RequestID(req)
+	log.Debugf("Asking for bucket %s metadata on reqID %s", bucketName, reqID)
 	bucketLocation := metadata.BucketLocation{Name: bucketName}
 	bucketMetaData, err := filter.bucketMetaDataFetcher.Fetch(&bucketLocation)
+	log.Debugf("Got bucket %s metadata on reqID %s", bucketName, reqID)
 	if err != nil {
 		return NoViolation, fmt.Errorf("failed to verify bucket privacy, could't fetch meta data: %s", err)
+	}
+
+	if bucketMetaData == nil {
+		return NoViolation, nil
 	}
 
 	if bucketMetaData.IsInternal && !prvCtx.isInternalNetwork {

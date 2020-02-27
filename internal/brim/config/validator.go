@@ -79,7 +79,7 @@ func SupervisorConfValidator(v interface{}, param string) error {
 	if !ok {
 		return fmt.Errorf("%s SupervisorConf type mismatch in section %q", msgPfx, param)
 	}
-	if supervisorConf.MaxTasksRunningCount <= 0 {
+	if supervisorConf.MaxTasksRunningCount == 0 {
 		return fmt.Errorf("%s supervisorConf.MaxTasksRunningCount can't be < 1", msgPfx)
 	}
 	return nil

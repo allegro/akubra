@@ -261,9 +261,11 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 	consistencyWatchdog := setupWatchdog(s.config.Watchdog)
 
 	storagesFactory := storages.NewStoragesFactory(transportMatcher, &s.config.Watchdog, consistencyWatchdog, watchdogRecordFactory)
-	storage, err := storagesFactory.InitStorages(s.config.Shards, s.config.Storages, map[string]bool{
-		s.config.Watchdog.ObjectVersionHeaderName: true,
-	})
+	ignoredSignHeaders := map[string]bool{s.config.Watchdog.ObjectVersionHeaderName: true}
+	for k, v := range conf.IgnoredCanonicalizedHeaders {
+		ignoredSignHeaders[k] = v
+	}
+	storage, err := storagesFactory.InitStorages(s.config.Shards, s.config.Storages, ignoredSignHeaders)
 
 	if err != nil {
 		log.Fatalf("Storages initialization problem: %q", err)
@@ -289,12 +291,12 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	regionsDecoratedRT := httphandler.DecorateRoundTripper(conf.Service.Client,
+	regionsDecoratedRT := httphandler.DecorateRoundTripper(conf.Service.Client, conf.Service.Server,
 		accessLog, conf.Service.Server.HealthCheckEndpoint, regionsRT)
 
 	regionsDecoratedRT = httphandler.Decorate(regionsDecoratedRT,
 		httphandler.ResponseHeadersStripper(conf.Service.Client.ResponseHeadersToStrip),
-		httphandler.PrivacyFilterChain(conf.Privacy.ShouldDropRequests, basicChain),
+		httphandler.PrivacyFilterChain(conf.Privacy.ShouldDropRequests, conf.Privacy.ViolationErrorCode, basicChain),
 		httphandler.PrivacyContextSupplier(privacyContextSupplier))
 
 	handler, err := httphandler.NewHandlerWithRoundTripper(regionsDecoratedRT, conf.Service.Server)

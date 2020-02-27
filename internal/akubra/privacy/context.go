@@ -29,6 +29,7 @@ type Config struct {
 	IsInternalNetworkHeaderName  string `yaml:"IsInternalNetworkHeaderName"`
 	IsInternalNetworkHeaderValue string `yaml:"IsInternalNetworkHeaderValue"`
 	ShouldDropRequests           bool   `yaml:"ShouldDropRequests"`
+	ViolationErrorCode           int    `yaml:"ViolationErrorCode"`
 }
 
 //BasicPrivacyContextSupplier is a basic implemtation of ContextSupplier

@@ -54,7 +54,9 @@ func (walWorker *TaskMigratorWALWorker) Process(walTasksChan <-chan *model.WALTa
 				}
 
 				err := walWorker.processTask(task)
-				_ = task.WALEntry.RecordProcessedHook(record, err)
+				if task.WALEntry.RecordProcessedHook != nil {
+					_ = task.WALEntry.RecordProcessedHook(record, err)
+				}
 
 			}(walTask)
 		}

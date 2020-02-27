@@ -3,16 +3,15 @@ package sharding
 import (
 	"bytes"
 	"fmt"
-	"github.com/allegro/akubra/internal/akubra/utils"
-	"github.com/allegro/akubra/internal/akubra/watchdog"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"time"
+
+	"github.com/allegro/akubra/internal/akubra/utils"
+	"github.com/allegro/akubra/internal/akubra/watchdog"
 
 	"github.com/allegro/akubra/internal/akubra/log"
-	"github.com/allegro/akubra/internal/akubra/metrics"
 	"github.com/allegro/akubra/internal/akubra/regions/config"
 	"github.com/allegro/akubra/internal/akubra/storages"
 	"github.com/serialx/hashring"
@@ -33,6 +32,7 @@ type ShardsRingAPI interface {
 	DoRequest(req *http.Request) (resp *http.Response, rerr error)
 	GetRingProps() *RingProps
 	Pick(key string) (storages.NamedShardClient, error)
+	GetShards() map[string]storages.NamedShardClient
 }
 
 // ShardsRing implements http.RoundTripper interface,
@@ -65,6 +65,11 @@ func (sr ShardsRing) Pick(key string) (storages.NamedShardClient, error) {
 	}
 
 	return shardCluster, nil
+}
+
+// GetShards returns all shards for the ring
+func (sr ShardsRing) GetShards() map[string]storages.NamedShardClient {
+	return sr.shardClusterMap
 }
 
 type reqBody struct {
@@ -139,22 +144,6 @@ func shouldCallRegression(request *http.Request, response *http.Response, err er
 
 // DoRequest performs http requests to all backends that should be reached within this shards ring and with given method
 func (sr ShardsRing) DoRequest(req *http.Request) (resp *http.Response, rerr error) {
-	since := time.Now()
-	defer func() {
-		metrics.UpdateSince("reqs.global.all", since)
-		if rerr != nil {
-			metrics.UpdateSince("reqs.global.err", since)
-		}
-		if resp != nil {
-			name := fmt.Sprintf("reqs.global.status_%d", resp.StatusCode)
-			metrics.UpdateSince(name, since)
-		}
-		if req != nil {
-			methodName := fmt.Sprintf("reqs.global.method_%s", req.Method)
-			metrics.UpdateSince(methodName, since)
-		}
-	}()
-
 	if req.Method == http.MethodDelete || sr.isBucketPath(req.URL.Path) {
 		return sr.allClustersRoundTripper.RoundTrip(req)
 	}

@@ -1,9 +1,11 @@
 package httphandler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"io/ioutil"
@@ -11,10 +13,20 @@ import (
 	"github.com/allegro/akubra/internal/akubra/httphandler/config"
 	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/privacy"
+	"github.com/allegro/akubra/internal/akubra/utils"
 )
+
+var incorrectAuthHeader = "Incorrect auth header"
 
 // Decorator is http.RoundTripper interface wrapper
 type Decorator func(http.RoundTripper) http.RoundTripper
+
+// AccessLogging creares Decorator with access log collector
+func AccessLogging(logger log.Logger) Decorator {
+	return func(rt http.RoundTripper) http.RoundTripper {
+		return &loggingRoundTripper{roundTripper: rt, accessLog: logger}
+	}
+}
 
 type loggingRoundTripper struct {
 	roundTripper http.RoundTripper
@@ -22,7 +34,7 @@ type loggingRoundTripper struct {
 }
 
 func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-
+	log.Debug("Request in LoggingRoundTripper %s", utils.RequestID(req))
 	timeStart := time.Now()
 	resp, err = lrt.roundTripper.RoundTrip(req)
 
@@ -50,13 +62,6 @@ func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Respons
 	return
 }
 
-// AccessLogging creares Decorator with access log collector
-func AccessLogging(logger log.Logger) Decorator {
-	return func(rt http.RoundTripper) http.RoundTripper {
-		return &loggingRoundTripper{roundTripper: rt, accessLog: logger}
-	}
-}
-
 type headersSuplier struct {
 	requestHeaders  config.AdditionalHeaders
 	responseHeaders config.AdditionalHeaders
@@ -64,7 +69,7 @@ type headersSuplier struct {
 }
 
 func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-
+	log.Debug("Request in headersSuplier %s", utils.RequestID(req))
 	req.URL.Scheme = "http"
 	for k, v := range hs.requestHeaders {
 		_, ok := req.Header[k]
@@ -91,8 +96,8 @@ func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err
 		resp.Header = http.Header{}
 	}
 	for k, v := range hs.responseHeaders {
-		_, ok := resp.Header[k]
-		if !ok {
+		headerValue := resp.Header.Get(k)
+		if headerValue == "" {
 			resp.Header.Set(k, v)
 		}
 	}
@@ -115,6 +120,7 @@ type responseHeadersStripper struct {
 }
 
 func (hs *responseHeadersStripper) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	log.Debug("Request in responseHeadersStripper %s", utils.RequestID(req))
 	resp, err = hs.roundTripper.RoundTrip(req)
 	if err != nil || resp == nil {
 		return
@@ -142,9 +148,12 @@ func PrivacyContextSupplier(supplier privacy.ContextSupplier) Decorator {
 }
 
 //PrivacyFilterChain creates Decorator checks for any privacy violations
-func PrivacyFilterChain(shouldDrop bool, chain privacy.Chain) Decorator {
+func PrivacyFilterChain(shouldDrop bool, violationErrorCode int, chain privacy.Chain) Decorator {
 	return func(roundTripper http.RoundTripper) http.RoundTripper {
-		return privacy.NewChainRoundTripper(shouldDrop, chain, roundTripper)
+		if violationErrorCode == 0 {
+			violationErrorCode = http.StatusForbidden
+		}
+		return privacy.NewChainRoundTripper(shouldDrop, violationErrorCode, chain, roundTripper)
 	}
 }
 
@@ -153,6 +162,7 @@ type optionsHandler struct {
 }
 
 func (os optionsHandler) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	log.Debug("Request in optionsHandler %s", utils.RequestID(req))
 	isOptions := false
 	if req.Method == "OPTIONS" {
 		req.Method = "HEAD"
@@ -179,18 +189,24 @@ type statusHandler struct {
 }
 
 func (sh statusHandler) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	log.Debug("Request in status Handler %s", utils.RequestID(req))
 	if strings.ToLower(req.URL.Path) == sh.healthCheckEndpoint {
-		resp := &http.Response{}
-		bodyContent := "OK"
-		resp.Body = ioutil.NopCloser(strings.NewReader(bodyContent))
-		resp.ContentLength = int64(len(bodyContent))
-		resp.Header = make(http.Header)
-		resp.Header.Set("Cache-Control", "no-cache, no-store")
-		resp.Header.Set("Content-Type", "text/plain")
-		resp.StatusCode = http.StatusOK
+		resp := makeResponse(req, http.StatusOK, "OK", "text/plain")
 		return resp, nil
 	}
 	return sh.roundTripper.RoundTrip(req)
+}
+
+func makeResponse(req *http.Request, status int, body string, contentType string) *http.Response {
+	resp := &http.Response{}
+	bodyContent := body
+	resp.Body = ioutil.NopCloser(strings.NewReader(bodyContent))
+	resp.ContentLength = int64(len(bodyContent))
+	resp.Header = make(http.Header)
+	resp.Header.Set("Cache-Control", "no-cache, no-store")
+	resp.Header.Set("Content-Type", contentType)
+	resp.StatusCode = status
+	return resp
 }
 
 // HealthCheckHandler serving health check endpoint
@@ -201,6 +217,92 @@ func HealthCheckHandler(healthCheckEndpoint string) Decorator {
 			roundTripper:        roundTripper,
 		}
 	}
+}
+
+// AuthHeaderContextSuplementer adds utils.ParsedAuthorizationHeader to request
+// context value
+func AuthHeaderContextSuplementer() Decorator {
+	return func(roundTripper http.RoundTripper) http.RoundTripper {
+		return &authHeaderContextSuplementer{
+			roundTripper: roundTripper,
+		}
+	}
+}
+
+type authHeaderContextSuplementer struct {
+	roundTripper http.RoundTripper
+}
+
+func (authHeaderRT *authHeaderContextSuplementer) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	httpAuthHeader := req.Header.Get("Authorization")
+	if httpAuthHeader != "" {
+		authHeader, err := utils.ParseAuthorizationHeader(httpAuthHeader)
+		if err != nil {
+			log.Debugf("failed to parse auth header for req %s: %q", utils.RequestID(req), err)
+			return makeResponse(req, http.StatusBadRequest, incorrectAuthHeader, "text/plain"), nil
+		}
+		reqCtx := context.WithValue(req.Context(), AuthHeader, &authHeader)
+		req = req.WithContext(reqCtx)
+	}
+	return authHeaderRT.RoundTrip(req)
+}
+
+// RequestLimiter limits number of concurrent requests
+func RequestLimiter(maxConcurrentRequests int32) Decorator {
+	return func(roundTripper http.RoundTripper) http.RoundTripper {
+		return &requestLimitRoundTripper{
+			roundTripper:          roundTripper,
+			maxConcurrentRequests: maxConcurrentRequests,
+			runningRequestCount:   0,
+		}
+	}
+}
+
+type requestLimitRoundTripper struct {
+	roundTripper          http.RoundTripper
+	runningRequestCount   int32
+	maxConcurrentRequests int32
+}
+
+func (rlrt *requestLimitRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	canServe := true
+	if atomic.AddInt32(&rlrt.runningRequestCount, 1) > rlrt.maxConcurrentRequests {
+		canServe = false
+	}
+	defer atomic.AddInt32(&rlrt.runningRequestCount, -1)
+	if !canServe {
+		log.Printf("Rejected request from %s - too many other requests in progress.", req.Host)
+		return makeResponse(req, http.StatusServiceUnavailable, "Too many requests in progress.", "text/plain"), nil
+	}
+	return rlrt.roundTripper.RoundTrip(req)
+}
+
+// BodySizeLimitter rejects requests with to large body size
+func BodySizeLimitter(bodySizeLimit int64) Decorator {
+	return func(roundTripper http.RoundTripper) http.RoundTripper {
+		return &bodySizeLimitter{
+			roundTripper:  roundTripper,
+			bodySizeLimit: bodySizeLimit,
+		}
+	}
+}
+
+type bodySizeLimitter struct {
+	roundTripper  http.RoundTripper
+	bodySizeLimit int64
+}
+
+func (sizeLimitter *bodySizeLimitter) RoundTrip(req *http.Request) (*http.Response, error) {
+	validationCode := sizeLimitter.validateIncomingRequest(req)
+	if validationCode > 0 {
+		log.Printf("Rejected invalid incoming request from %s, code %d", req.RemoteAddr, validationCode)
+		return makeResponse(req, validationCode, "Too large body size.", "text/plain"), nil
+	}
+	return sizeLimitter.roundTripper.RoundTrip(req)
+}
+
+func (sizeLimitter *bodySizeLimitter) validateIncomingRequest(req *http.Request) int {
+	return config.RequestHeaderContentLengthValidator(*req, sizeLimitter.bodySizeLimit)
 }
 
 // Decorate returns http.Roundtripper wraped with all passed decorators

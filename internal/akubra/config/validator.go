@@ -4,14 +4,24 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
+	"time"
 
 	"net/http"
+	"net/url"
 
 	confregions "github.com/allegro/akubra/internal/akubra/regions/config"
 	"github.com/allegro/akubra/internal/akubra/storages/config"
 	set "github.com/deckarep/golang-set"
 )
+
+type fetcherValidator = func(conf map[string]string) error
+
+var fetcherConfigValidators = map[string]fetcherValidator{
+	"fake": fakeFetcherConfigValidator,
+	"http": httpFetcherConfigValidator,
+}
 
 // NoEmptyValuesInSliceValidator for strings in slice
 func NoEmptyValuesInSliceValidator(v interface{}, param string) error {
@@ -195,6 +205,7 @@ func (c YamlConfig) CredentialsStoresEntryLogicalValidator() (valid bool, valida
 	if numberOfStoragesUsingDefaultSignService > 0 && !isDefaultCredentialsStoreDefined {
 		errList = append(errList, fmt.Errorf("you have to define a default CredentialsStore when Storages don't have CredentialsStores specified explicilty"))
 		validationErrors, valid = prepareErrors(errList, "CredentialsStoresEntryLogicalValidator")
+		return
 	}
 
 	validationErrors, valid = prepareErrors(errList, "CredentialsStoresEntryLogicalValidator")
@@ -205,8 +216,7 @@ func (c YamlConfig) CredentialsStoresEntryLogicalValidator() (valid bool, valida
 func (c YamlConfig) PrivacyEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
 	requiredProperties := map[string]*string{
-		"IsInternalNetworkHeaderName":  &c.Privacy.IsInternalNetworkHeaderName,
-		"IsInternalNetworkHeaderValue": &c.Privacy.IsInternalNetworkHeaderValue}
+		"IsInternalNetworkHeaderName":  &c.Privacy.IsInternalNetworkHeaderName}
 	for name, val := range requiredProperties {
 		if *val == "" {
 			errList = append(errList, fmt.Errorf("'%s' cant be empty", name))
@@ -219,6 +229,12 @@ func (c YamlConfig) PrivacyEntryLogicalValidator() (valid bool, validationErrors
 //BucketMetaDataCacheEntryLogicalValidator validates bucket metadata cache config
 func (c YamlConfig) BucketMetaDataCacheEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
+	validator, present := fetcherConfigValidators[c.BucketMetaDataCache.FetcherType]
+	if !present {
+		errList = append(errList, fmt.Errorf("not fetcher valdiator found for validator of type %s", c.BucketMetaDataCache.FetcherType))
+		validationErrors, valid = prepareErrors(errList, "BucketMetaDataCacheEntryLogicalValidator")
+		return
+	}
 	greaterThanZero := map[string]int{
 		"ShardsCount":      c.BucketMetaDataCache.ShardsCount,
 		"MaxCacheSizeInMB": c.BucketMetaDataCache.MaxCacheSizeInMB}
@@ -226,6 +242,10 @@ func (c YamlConfig) BucketMetaDataCacheEntryLogicalValidator() (valid bool, vali
 		if val <= 0 {
 			errList = append(errList, fmt.Errorf("'%s' cant be smaller or equal to zero", name))
 		}
+	}
+	validatorErrors := validator(c.BucketMetaDataCache.FetcherProps)
+	if validatorErrors != nil {
+		errList = append(errList, validatorErrors)
 	}
 	validationErrors, valid = prepareErrors(errList, "BucketMetaDataCacheEntryLogicalValidator")
 	return
@@ -278,4 +298,36 @@ func RequestHeaderContentTypeValidator(req http.Request, requiredContentType str
 		return http.StatusUnsupportedMediaType
 	}
 	return 0
+}
+
+func fakeFetcherConfigValidator(conf map[string]string) error {
+	value, present := conf["AllInternal"]
+	if !present {
+		return errors.New("'AllInternal' property is missing")
+	}
+	_, e := strconv.ParseBool(value)
+	if e != nil {
+		return errors.New("'AllInternal' property not parsable")
+	}
+	return nil
+}
+
+func httpFetcherConfigValidator(conf map[string]string) error {
+	value, present := conf["HTTPEndpoint"]
+	if !present {
+		return errors.New("'HTTPEndpoint' property is missing")
+	}
+	_, e := url.Parse(value)
+	if value == "" || e != nil {
+		return errors.New("'HTTPEndpoint' not parsable")
+	}
+	valueD, present := conf["HTTPTimeout"]
+	if !present {
+		return errors.New("'HTTPTimeout' property is missing")
+	}
+	_, e = time.ParseDuration(valueD)
+	if e != nil {
+		return errors.New("'HTTPTimeout' not parsable")
+	}
+	return nil
 }

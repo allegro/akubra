@@ -33,16 +33,17 @@ const TechnicalEndpointHeaderContentType = "application/yaml"
 
 // YamlConfig contains configuration fields of config file
 type YamlConfig struct {
-	Service             httphandler.Service                `yaml:"Service"`
-	Storages            storages.StoragesMap               `yaml:"Storages"`
-	Shards              storages.ShardsMap                 `yaml:"Shards"`
-	ShardingPolicies    confregions.ShardingPolicies       `yaml:"ShardingPolicies"`
-	CredentialsStores   crdstoreconfig.CredentialsStoreMap `yaml:"CredentialsStores"`
-	Logging             logconfig.LoggingConfig            `yaml:"Logging"`
-	Metrics             metrics.Config                     `yaml:"Metrics"`
-	Watchdog            config.WatchdogConfig              `yaml:"Watchdog"`
+	Service                     httphandler.Service                `yaml:"Service"`
+	Storages                    storages.StoragesMap               `yaml:"Storages"`
+	Shards                      storages.ShardsMap                 `yaml:"Shards"`
+	ShardingPolicies            confregions.ShardingPolicies       `yaml:"ShardingPolicies"`
+	CredentialsStores           crdstoreconfig.CredentialsStoreMap `yaml:"CredentialsStores"`
+	Logging                     logconfig.LoggingConfig            `yaml:"Logging"`
+	Metrics                     metrics.Config                     `yaml:"Metrics"`
+	Watchdog                    config.WatchdogConfig              `yaml:"Watchdog"`
 	Privacy             privacy.Config                     `yaml:"Privacy"`
 	BucketMetaDataCache metadata.BucketMetaDataCacheConfig `yaml:"BucketMetaDataCache"`
+	IgnoredCanonicalizedHeaders map[string]bool                    `yaml:"IgnoredCanonicalizedHeaders"`
 }
 
 // Config contains processed YamlConfig data

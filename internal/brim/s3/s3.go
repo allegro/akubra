@@ -330,7 +330,9 @@ const objectSizeLimit = 100 * 1024 * 1024
 
 func s3ObjectData(path string, bucket *s3.Bucket, multipart bool) (result s3Object, err error) {
 	resp, err := bucket.GetResponseWithHeaders(path,
-		map[string][]string{"X-Akubra-No-Regression-On-Failure": []string{"1"}})
+		map[string][]string{
+			"X-Akubra-No-Regression-On-Failure": {"1"},
+			"Accept-Encoding": {"*"}})
 
 	if err != nil {
 		log.Printf("Object %s/%s/%s headers could not be fetched: %s", bucket.S3Endpoint, bucket.Name, path, err)
@@ -347,7 +349,9 @@ func s3ObjectData(path string, bucket *s3.Bucket, multipart bool) (result s3Obje
 	if err != nil {
 		return result, err
 	}
-
+	if result.headers.Get("Content-Encoding") != "" {
+		result.options.ContentEncoding = result.headers.Get("Content-Encoding")
+	}
 	log.Debugf("Get bucket acl %s/%s", bucket.S3Endpoint, bucket.Name)
 	objACL, err := bucket.GetACL(path)
 	if err != nil {

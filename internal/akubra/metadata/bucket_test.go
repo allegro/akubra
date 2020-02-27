@@ -79,6 +79,32 @@ func TestFetchingAndPatternCachingBucketMetaData(t *testing.T) {
 
 	fetcherMock.AssertNumberOfCalls(t, "Fetch", 1)
 }
+
+func TestFetchingAndCaching404(t *testing.T) {
+	bucketName := "bucket"
+	bucketNameHash := uint64(123)
+	bucketLocation := BucketLocation{Name: bucketName}
+
+	fetcherMock := FetcherMock{Mock: &mock.Mock{}}
+	fetcherMock.On("Fetch", &bucketLocation).Return(nil, nil)
+
+	mockedHashes := map[string]uint64{
+		bucketName: bucketNameHash,
+		evictKey:   9999}
+	cacheConfig := prepareCacheConfig(0*time.Second, &FakeHasher{hashes: mockedHashes})
+
+	metaDataCache, err := NewBucketMetaDataCache(cacheConfig, &fetcherMock)
+	assert.Nil(t, err)
+
+	for i := 0; i < 1000; i++ {
+		metaData, err := metaDataCache.Fetch(&bucketLocation)
+		assert.Nil(t, err)
+		assert.Nil(t, metaData)
+	}
+
+	fetcherMock.AssertNumberOfCalls(t, "Fetch", 1)
+}
+
 func TestFetcherFailure(t *testing.T) {
 
 	bucketName := "bucket1"
