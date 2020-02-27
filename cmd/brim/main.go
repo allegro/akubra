@@ -25,7 +25,17 @@ var (
 
 func main() {
 	kingpin.Parse()
-	akubraConf, err := config.Configure(*akubraConfig)
+	configReadCloser, err := config.ReadConfiguration(*akubraConfig)
+	if err != nil {
+		log.Fatal("No akubra configuration provided")
+	}
+	defer func(){
+		err := configReadCloser.Close()
+		if err != nil {
+			log.Println("Could not close config file")
+		}
+	}()
+	akubraConf, err := config.Configure(configReadCloser)
 	if err != nil {
 		log.Fatalf("Improperly configured %s", err)
 	}

@@ -21,6 +21,8 @@ import (
 	storages "github.com/allegro/akubra/internal/akubra/storages/config"
 	"gopkg.in/validator.v1"
 	"gopkg.in/yaml.v2"
+	_ "github.com/allegro/akubra/internal/akubra/config/vault"
+
 )
 
 // TechnicalEndpointBodyMaxSize for /configuration/validate endpoint
@@ -61,22 +63,21 @@ func parseConf(file io.Reader) (YamlConfig, error) {
 	return rc, err
 }
 
-// Configure parse configuration file
-func Configure(configFilePath string) (conf Config, err error) {
+// ReadConfiguration reads config from file
+func ReadConfiguration(configFilePath string) (io.ReadCloser, error) {
 	confFile, err := os.Open(configFilePath)
 	if err != nil {
 		log.Fatalf("[ ERROR ] Problem with opening config file: '%s' - err: %v !", configFilePath, err)
-		return conf, err
 	}
-	defer func() {
-		err = confFile.Close()
-		if err != nil {
-			log.Debugf("Cannot close configuration, reason: %s", err)
-		}
-	}()
-	yconf, err := parseConf(confFile)
+	return confFile, err
+}
+//
+// Configure parse configuration file
+func Configure(configReader io.Reader) (conf Config, err error) {
+
+	yconf, err := parseConf(configReader)
 	if err != nil {
-		log.Fatalf("[ ERROR ] Problem with parsing config file: '%s' - err: %v !", configFilePath, err)
+		log.Fatalf("Parsing config file error: %v", err)
 		return conf, err
 	}
 	conf.YamlConfig = yconf
