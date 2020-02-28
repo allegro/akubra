@@ -115,6 +115,7 @@ func readVaultConfiguration() (config.Config, error) {
 	if !ok {
 		log.Fatalf("Could not assert revision to string %#v", revision)
 	}
+	log.Printf("Configuration version %s revision: %s\n", version, revision)
 
 	path := fmt.Sprintf("configuration/%s/%s", version, revision)
 
@@ -159,6 +160,7 @@ func parseConfig(reader io.Reader) (config.Config, error) {
 	if !valid {
 		return config.Config{}, fmt.Errorf("YAML validation - errors: %q", errs)
 	}
+
 	log.Println("Configuration checked - OK.")
 
 	return conf, nil
