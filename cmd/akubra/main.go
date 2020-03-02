@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"bytes"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -14,6 +16,7 @@ import (
 
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/internal/akubra/config"
+	vault "github.com/allegro/akubra/internal/akubra/config/vault"
 	"github.com/allegro/akubra/internal/akubra/crdstore"
 	"github.com/allegro/akubra/internal/akubra/httphandler"
 	"github.com/allegro/akubra/internal/akubra/log"
@@ -31,7 +34,11 @@ import (
 )
 
 // TechnicalEndpointGeneralTimeout for /configuration/validate endpoint
-const TechnicalEndpointGeneralTimeout = 5 * time.Second
+const (
+	TechnicalEndpointGeneralTimeout = 5 * time.Second
+	akubraVersionVarName = "AKUBRA_VERSION"
+	akubraEnvVarName = "AKUBRA_ENV"
+)
 
 var (
 	// filled by linker
@@ -41,7 +48,6 @@ var (
 	configFile = kingpin.
 			Flag("config", "Configuration file path e.g.: \"conf/dev.yaml\"").
 			Short('c').
-			Required().
 			ExistingFile()
 	testConfig = kingpin.
 			Flag("test-config", "Testing only configuration file from 'config' arg. (app. not starting).").
@@ -57,7 +63,7 @@ func main() {
 	versionString := fmt.Sprintf("Akubra (%s version)", version)
 	kingpin.Version(versionString)
 	kingpin.Parse()
-	conf, err := parseConfig(*configFile)
+	conf, err := readConfiguration()
 	if err != nil {
 		log.Fatalf("Configuration corrupted: %s", err)
 	}
@@ -82,8 +88,70 @@ func main() {
 		mainlog.Fatalf("Could not start service, reason: %q", startErr.Error())
 	}
 }
-func parseConfig(path string) (config.Config, error) {
-	conf, err := config.Configure(*configFile)
+
+func readConfiguration() (config.Config, error) {
+	if vault.DefaultClient != nil {
+		return readVaultConfiguration()
+	}
+	return readFileConfiguration()
+}
+
+func readVaultConfiguration() (config.Config, error) {
+	log.Println("Vault client initialized")
+	version := os.Getenv(akubraVersionVarName)
+	revPath := fmt.Sprintf("configuration/%s/current", version)
+
+	revData, err := vault.DefaultClient.Read(revPath)
+	if err != nil {
+		return config.Config{}, err
+	}
+
+	revisionMap, ok := revData["secret"].(map[string]interface{})
+	if !ok {
+		log.Fatalf("Could not map revData to map[string]interface{} %#v", revData)
+	}
+
+	revision, ok := revisionMap["revision"].(string)
+	if !ok {
+		log.Fatalf("Could not assert revision to string %#v", revision)
+	}
+	log.Printf("Configuration version %s revision: %s\n", version, revision)
+
+	path := fmt.Sprintf("configuration/%s/%s", version, revision)
+
+	v, err := vault.DefaultClient.Read(path)
+	if err != nil {
+		return config.Config{}, err
+	}
+
+	log.Println("Configuration read successful")
+
+	configString, ok := v["secret"].(string)
+	if !ok {
+		log.Fatal("Could not assert secret to string map")
+	}
+	configReader :=  bytes.NewReader([]byte(configString))
+	return parseConfig(configReader)
+}
+
+func readFileConfiguration() (config.Config, error) {
+	configReadCloser, err := config.ReadConfiguration(*configFile)
+	log.Println("Read configuration from file")
+	defer func() {
+		err = configReadCloser.Close()
+		if err != nil {
+			log.Debugf("Cannot close configuration, reason: %s", err)
+		}
+	}()
+
+	if err != nil {
+		log.Fatalf("Could not read configuration file {}", *configFile)
+	}
+	return parseConfig(configReadCloser)
+}
+
+func parseConfig(reader io.Reader) (config.Config, error) {
+	conf, err := config.Configure(reader)
 	if err != nil {
 		return config.Config{}, fmt.Errorf("Improperly configured %s", err)
 	}
@@ -92,6 +160,7 @@ func parseConfig(path string) (config.Config, error) {
 	if !valid {
 		return config.Config{}, fmt.Errorf("YAML validation - errors: %q", errs)
 	}
+
 	log.Println("Configuration checked - OK.")
 
 	return conf, nil
@@ -151,7 +220,7 @@ func (s *service) signalsHandler() {
 		signal.Notify(intr, syscall.SIGINT)
 		select {
 		case <-hup:
-			conf, err := parseConfig(s.configPath)
+			conf, err := readConfiguration()
 			if err != nil {
 				log.Printf("New config is corrupted %s", err)
 				continue
@@ -177,6 +246,7 @@ func (s *service) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	handler := s.handler
 	handler.ServeHTTP(rw, r)
 }
+
 func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 	transportMatcher, err := transport.ConfigureHTTPTransports(conf.Service.Client)
 	if err != nil {

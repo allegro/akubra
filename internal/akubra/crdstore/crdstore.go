@@ -65,7 +65,6 @@ func InitializeCredentialsStores(storeMap config.CredentialsStoreMap) {
 		if _, supported := credentialsStoresFactories[cfg.Type]; !supported {
 			log.Fatalf("unsupported CredentialsStore '%s'", cfg.Type)
 		}
-
 		credsBackend, err := credentialsStoresFactories[cfg.Type].create(name, cfg.Properties)
 		if err != nil {
 			log.Fatalf("failed to initialize CredentialsStore '%s': %s", name, err)
