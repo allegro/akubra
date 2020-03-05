@@ -165,6 +165,5 @@ func responseContainsCompleteUploadString(response *http.Response) bool {
 		return false
 	}
 
-	
 	return true
 }

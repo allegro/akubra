@@ -10,6 +10,7 @@ import (
 
 	"fmt"
 
+	_ "github.com/allegro/akubra/internal/akubra/config/vault"
 	crdstoreconfig "github.com/allegro/akubra/internal/akubra/crdstore/config"
 	httphandler "github.com/allegro/akubra/internal/akubra/httphandler/config"
 	"github.com/allegro/akubra/internal/akubra/log"
@@ -21,7 +22,6 @@ import (
 	storages "github.com/allegro/akubra/internal/akubra/storages/config"
 	"gopkg.in/validator.v1"
 	"gopkg.in/yaml.v2"
-	_ "github.com/allegro/akubra/internal/akubra/config/vault"
 
 )
 
@@ -41,8 +41,8 @@ type YamlConfig struct {
 	Logging                     logconfig.LoggingConfig            `yaml:"Logging"`
 	Metrics                     metrics.Config                     `yaml:"Metrics"`
 	Watchdog                    config.WatchdogConfig              `yaml:"Watchdog"`
-	Privacy             privacy.Config                     `yaml:"Privacy"`
-	BucketMetaDataCache metadata.BucketMetaDataCacheConfig `yaml:"BucketMetaDataCache"`
+	Privacy                     privacy.Config                     `yaml:"Privacy"`
+	BucketMetaDataCache         metadata.BucketMetaDataCacheConfig `yaml:"BucketMetaDataCache"`
 	IgnoredCanonicalizedHeaders map[string]bool                    `yaml:"IgnoredCanonicalizedHeaders"`
 }
 
@@ -71,7 +71,7 @@ func ReadConfiguration(configFilePath string) (io.ReadCloser, error) {
 	}
 	return confFile, err
 }
-//
+
 // Configure parse configuration file
 func Configure(configReader io.Reader) (conf Config, err error) {
 

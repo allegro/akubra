@@ -1,8 +1,8 @@
 package util
 
 import (
-	"strings"
 	"fmt"
+	"strings"
 )
 
 const (

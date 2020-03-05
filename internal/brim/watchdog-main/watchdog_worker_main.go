@@ -42,7 +42,7 @@ func RunWatchdogWorker(akubraConf *config.Config, brimConf *bConf.BrimConf) {
 
 	backendResolver := auth.NewConfigBasedBackendResolver(akubraConf, brimConf)
 	throtteledFeedChannel := feederUtils.Throttle(feedProxyChannel, &feederUtils.ThrottledPublisherConfig{
-		BurstEnabled: brimConf.WALConf.BurstFeeder,
+		BurstEnabled:         brimConf.WALConf.BurstFeeder,
 		TaskEmissionDuration: brimConf.WALConf.TaskEmissionDuration,
 		MaxEmittedTasksCount: uint64(brimConf.WALConf.MaxEmittedTasksCount)})
 

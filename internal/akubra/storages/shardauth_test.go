@@ -32,15 +32,14 @@ func TestShouldNotAttemptToAuthorizeRequestWithoutAuthHeader(t *testing.T) {
 	assert.Equal(t, &expectedResp, resp)
 }
 
-
 func TestShouldReturnAccessDeniedWhenCredentialsDoNotMatch(t *testing.T) {
 	access := "access"
 	secret := "secret"
 
-	passthroughBackend := StorageClient{Storage: config.Storage{Type: auth.Passthrough},}
+	passthroughBackend := StorageClient{Storage: config.Storage{Type: auth.Passthrough}}
 	fixedKeyBackend := StorageClient{Storage: config.Storage{
-		Type: auth.S3FixedKey,
-		Properties: map[string]string{"AccessKey": access, "Secret": secret}},}
+		Type:       auth.S3FixedKey,
+		Properties: map[string]string{"AccessKey": access, "Secret": secret}}}
 
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8080/bucket/obj", nil)
 	req = s3signer.SignV2(req, access, "1234", nil)
@@ -67,10 +66,10 @@ func TestShouldValidateRequestCredentialsBasedOnBackendType(t *testing.T) {
 	access := "access"
 	secret := "secret"
 
-	passthroughBackend := StorageClient{Storage: config.Storage{Type: auth.Passthrough},}
+	passthroughBackend := StorageClient{Storage: config.Storage{Type: auth.Passthrough}}
 	fixedKeyBackend := StorageClient{Storage: config.Storage{
-		Type: auth.S3FixedKey,
-		Properties: map[string]string{"AccessKey": access, "Secret": secret}},}
+		Type:       auth.S3FixedKey,
+		Properties: map[string]string{"AccessKey": access, "Secret": secret}}}
 
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8080/bucket/obj", nil)
 	req = s3signer.SignV2(req, access, secret, nil)

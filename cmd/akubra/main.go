@@ -1,9 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"bytes"
 	"io"
 	"net"
 	"net/http"
@@ -36,8 +36,8 @@ import (
 // TechnicalEndpointGeneralTimeout for /configuration/validate endpoint
 const (
 	TechnicalEndpointGeneralTimeout = 5 * time.Second
-	akubraVersionVarName = "AKUBRA_VERSION"
-	akubraEnvVarName = "AKUBRA_ENV"
+	akubraVersionVarName            = "AKUBRA_VERSION"
+	akubraEnvVarName                = "AKUBRA_ENV"
 )
 
 var (
@@ -130,7 +130,7 @@ func readVaultConfiguration() (config.Config, error) {
 	if !ok {
 		log.Fatal("Could not assert secret to string map")
 	}
-	configReader :=  bytes.NewReader([]byte(configString))
+	configReader := bytes.NewReader([]byte(configString))
 	return parseConfig(configReader)
 }
 

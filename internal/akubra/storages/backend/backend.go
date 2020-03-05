@@ -12,6 +12,7 @@ import (
 	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/metrics"
 	"github.com/allegro/akubra/internal/akubra/types"
+	"github.com/allegro/akubra/internal/akubra/utils"
 )
 
 // Backend represents any storage in akubra cluster
@@ -32,16 +33,20 @@ func (b *Backend) RoundTrip(req *http.Request) (resp *http.Response, err error) 
 
 	if b.Maintenance {
 		log.Debugf("Request %s blocked %s/%s is in maintenance mode", reqID, req.URL.Host, req.URL.Path)
+		utils.SetRequestProcessingMetadata(req, "backendResponse", fmt.Sprintf("%s is in maintenance mode", req.URL.Host))
 		return nil, &types.BackendError{HostName: b.Endpoint.Host,
 			OrigErr: types.ErrorBackendMaintenance}
 	}
 
 	resp, oerror := b.RoundTripper.RoundTrip(req)
-	log.Debugf("Response for req %s from %s%s with %q err", reqID, req.URL.Host, req.URL.Path, oerror)
+
 	if oerror != nil {
 		err = &types.BackendError{HostName: b.Endpoint.Host, OrigErr: oerror}
+		utils.SetRequestProcessingMetadata(req, "backendResponse", fmt.Sprintf("%s, err: %s", req.URL.Host, err))
+
 	} else if resp != nil {
 		log.Debugf("Body for req %s from %s%s is nil: %t, status: %d", reqID, req.URL.Host, req.URL.Path, resp.Body == nil, resp.StatusCode)
+		utils.SetRequestProcessingMetadata(req, "backendResponse", fmt.Sprintf("%s, status: %d", req.URL.Host, resp.StatusCode))
 	}
 
 	return resp, err

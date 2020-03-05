@@ -23,10 +23,10 @@ type GORMDBClientFactory struct {
 }
 
 //NewDBClientFactory creates an instance of NewDBClientFactory
-func NewDBClientFactory(dialect string, connectionStringFormat  string, connectionStringArgsNames []string) *GORMDBClientFactory {
+func NewDBClientFactory(dialect string, connectionStringFormat string, connectionStringArgsNames []string) *GORMDBClientFactory {
 	return &GORMDBClientFactory{
-		dialect:dialect,
-		connectionStringFormat: connectionStringFormat,
+		dialect:                   dialect,
+		connectionStringFormat:    connectionStringFormat,
 		connectionStringArgsNames: connectionStringArgsNames,
 	}
 }
@@ -66,7 +66,6 @@ func (factory *GORMDBClientFactory) CreateConnection(dbConfig map[string]string)
 
 	return db, nil
 }
-
 
 func (factory *GORMDBClientFactory) createConnString(dbConfig map[string]string) (string, error) {
 	connString := factory.connectionStringFormat

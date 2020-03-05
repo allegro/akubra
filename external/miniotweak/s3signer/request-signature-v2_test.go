@@ -18,12 +18,12 @@
 package s3signer
 
 import (
-	"sort"
-	"testing"
-	"net/url"
-	"net/http"
 	"bytes"
 	"github.com/stretchr/testify/assert"
+	"net/http"
+	"net/url"
+	"sort"
+	"testing"
 )
 
 // Tests for 'func TestResourceListSorting(t *testing.T)'.
@@ -41,15 +41,15 @@ func TestResourceListSorting(t *testing.T) {
 
 func TestEncodeURL2PathWithVirtualHost(t *testing.T) {
 
-	amazonURL,  _ := url.Parse("http://my.amazon.bucket.s3.us-east-2.amazonaws.com/amazonobject")
-	googleURL,  _ := url.Parse("http://my.google.bucket.storage.googleapis.com/googleobject")
-	customStorageURL,  _ := url.Parse("http://my.custom.bucket.custom.storage.com/customobject")
+	amazonURL, _ := url.Parse("http://my.amazon.bucket.s3.us-east-2.amazonaws.com/amazonobject")
+	googleURL, _ := url.Parse("http://my.google.bucket.storage.googleapis.com/googleobject")
+	customStorageURL, _ := url.Parse("http://my.custom.bucket.custom.storage.com/customobject")
 
 	testCases := []struct {
-		Url *url.URL
-		ExpectedPath string
+		Url                 *url.URL
+		ExpectedPath        string
 		CustomStorageHeader string
-	} {
+	}{
 		{amazonURL, "/my.amazon.bucket/amazonobject", ""},
 		{googleURL, "/my.google.bucket/googleobject", ""},
 		{customStorageURL, "/my.custom.bucket/customobject", "custom.storage.com"},
@@ -77,6 +77,6 @@ func TestShouldIngnoreTheSpecifiedHeadersDuringV2Signing(t *testing.T) {
 	req.Header = http.Header{}
 	req.Header.Add("x-amz-meta-test-header", "test-value")
 	req.Header.Add("x-amz-meta-date", "123")
-	writeCanonicalizedHeaders(buf, &req, map[string]bool {"x-amz-meta-test-header": true})
+	writeCanonicalizedHeaders(buf, &req, map[string]bool{"x-amz-meta-test-header": true})
 	assert.Equal(t, buf.String(), "x-amz-meta-date:123\n")
 }

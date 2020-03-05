@@ -35,8 +35,6 @@ func TestRequestHost(t *testing.T) {
 	}
 }
 
-
-
 func TestIncludeXAMZHeaders(t *testing.T) {
 	req, _ := buildRequest("dynamodb", "us-east-1", "{}")
 	req.URL.RawQuery = "Foo=z&Foo=o&Foo=m&Foo=a"
@@ -52,32 +50,30 @@ func TestExcludeNoNonAMZXHeaders(t *testing.T) {
 	req, _ := buildRequest("dynamodb", "us-east-1", "{}")
 	req.URL.RawQuery = "Foo=z&Foo=o&Foo=m&Foo=a"
 	req.Host = "myhost"
-	canonicalHeaders,_ := getHeadersToSign(req, v4IgnoredHeaders, true)
+	canonicalHeaders, _ := getHeadersToSign(req, v4IgnoredHeaders, true)
 
 	if contains(canonicalHeaders, "x-non-amz-header") {
 		t.Errorf("X-non-amz-header should not be found")
 	}
 }
 
-
-
 func TestNotExcludeNoNonAMZXHeadersWhenNotSigning(t *testing.T) {
 	req, _ := buildRequest("dynamodb", "us-east-1", "{}")
 	req.URL.RawQuery = "Foo=z&Foo=o&Foo=m&Foo=a"
 	req.Host = "myhost"
-	canonicalHeaders,_ := getHeadersToSign(req, v4IgnoredHeaders, false)
+	canonicalHeaders, _ := getHeadersToSign(req, v4IgnoredHeaders, false)
 
 	if !contains(canonicalHeaders, "x-non-amz-header") {
 		t.Errorf("X-non-amz-header should be found")
 	}
 }
 func contains(s []string, e string) bool {
-    for _, a := range s {
-        if a == e {
-            return true
-        }
-    }
-    return false
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
 func buildRequest(serviceName, region, body string) (*http.Request, io.ReadSeeker) {
 	endpoint := "https://" + serviceName + "." + region + ".amazonaws.com"

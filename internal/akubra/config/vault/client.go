@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/allegro/akubra/internal/akubra/metrics"
 	"github.com/allegro/akubra/internal/akubra/log"
+	"github.com/allegro/akubra/internal/akubra/metrics"
 
 	cleanhttp "github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/vault/api"

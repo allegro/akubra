@@ -69,7 +69,7 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 	activeBackendURL2, _ := url.Parse("http://active2:1234")
 
 	activateBackend1 := &StorageClient{
-		Storage:      config.Storage{Maintenance: false,},
+		Storage:      config.Storage{Maintenance: false},
 		RoundTripper: activeBackendRoundTripper1,
 		Endpoint:     *activeBackendURL,
 		Name:         "activateBackend",
@@ -78,7 +78,7 @@ func TestShouldDetectMultiPartUploadRequestWhenItIsAInitiateRequestOrUploadPartR
 	activateBackend2 := &StorageClient{
 		RoundTripper: activeBackendRoundTripper2,
 		Endpoint:     *activeBackendURL2,
-		Storage:      config.Storage{Maintenance: false,},
+		Storage:      config.Storage{Maintenance: false},
 		Name:         "activateBackend2",
 	}
 
@@ -146,7 +146,7 @@ func testMultipartFlow(statusCode int, xmlResponse string, testSuite *testing.T)
 	activateBackend1 := &StorageClient{
 		RoundTripper: activeBackendRoundTripper1,
 		Endpoint:     *activeBackendURL,
-		Storage:      config.Storage{Maintenance: false,},
+		Storage:      config.Storage{Maintenance: false},
 		Name:         "activateBackend1",
 	}
 
@@ -155,7 +155,7 @@ func testMultipartFlow(statusCode int, xmlResponse string, testSuite *testing.T)
 	activateBackend2 := &StorageClient{
 		RoundTripper: activeBackendRoundTripper2,
 		Endpoint:     *activeBackendURL2,
-		Storage:      config.Storage{Maintenance: false,},
+		Storage:      config.Storage{Maintenance: false},
 		Name:         "activateBackend2",
 	}
 

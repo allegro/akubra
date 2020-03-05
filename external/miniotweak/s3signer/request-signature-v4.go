@@ -78,7 +78,7 @@ var v4IgnoredHeaders = map[string]bool{
 	"Authorization":  true,
 	"Content-Length": true,
 	"User-Agent":     true,
-	"Content-Type": true,
+	"Content-Type":   true,
 }
 
 const v4SignHeadersNamePrefix = "x-amz"
@@ -157,14 +157,15 @@ func getCanonicalHeaders(req *http.Request, ignoredHeaders map[string]bool, isSi
 // i.e lexically sorted, semicolon-separated list of lowercase
 // request header names.
 func getSignedHeaders(req *http.Request, ignoredHeaders map[string]bool, isSigning bool) string {
-	headers,_ := getHeadersToSign(req, ignoredHeaders, isSigning)
+	headers, _ := getHeadersToSign(req, ignoredHeaders, isSigning)
 	return strings.Join(headers, ";")
 }
+
 // Returns slice of header names to be used in sign process
 func getHeadersToSign(req *http.Request, ignoredHeaders map[string]bool, isSigning bool) ([]string, map[string][]string) {
 	var headers []string
 	vals := make(map[string][]string)
-	for k,vv := range req.Header {
+	for k, vv := range req.Header {
 		lowerCaseHeaderName := strings.ToLower(k)
 		if _, ok := ignoredHeaders[http.CanonicalHeaderKey(k)]; ok {
 			continue // Ignored header found continue.

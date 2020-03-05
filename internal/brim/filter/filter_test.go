@@ -342,7 +342,6 @@ func TestShoulKeepTheVersionFromStoragesIfTheVersionHeaderIsMissingOnAllStorages
 	assert.Len(t, task.DestinationsClients, 0)
 }
 
-
 func TestShouldClearOldShardsFromObjectVersions(t *testing.T) {
 	akubraConfig := generateAkubraConfig(2, 3)
 	resolver := &backendResolverMock{}
@@ -387,7 +386,6 @@ func TestShouldClearOldShardsFromObjectVersions(t *testing.T) {
 	migrationTask := <-tasksChannel
 	clearOldStoragesTasks := <-tasksChannel
 
-
 	_ = migrationTask.WALEntry.RecordProcessedHook(entry.Record, nil)
 	_ = clearOldStoragesTasks.WALEntry.RecordProcessedHook(entry.Record, nil)
 
@@ -407,7 +405,6 @@ func TestShouldClearOldShardsFromObjectVersions(t *testing.T) {
 	assert.Equal(t, migrationDstEndpoints, []string{"http://localhost:2200"})
 	assert.Equal(t, endpointsToClear, []string{"http://localhost:1000", "http://localhost:1100"})
 }
-
 
 func prepareMocksForStorages(resolverMock *backendResolverMock, storagesMaps storagesConfig.StoragesMap, accessKey, secretKey, key string) {
 	for storageName := range storagesMaps {
@@ -440,7 +437,7 @@ func generateAkubraConfig(numberOfShards int, numberOfStoragesPerShard int) *con
 
 		var storages storagesConfig.Storages
 		for storageNum := 0; storageNum < numberOfStoragesPerShard; storageNum++ {
-			endpoint, _ := url.Parse(fmt.Sprintf("http://localhost:%d", ((shardNum + 1)*1000) + (storageNum * 100)))
+			endpoint, _ := url.Parse(fmt.Sprintf("http://localhost:%d", ((shardNum+1)*1000)+(storageNum*100)))
 
 			akubraConfig.Storages[fmt.Sprintf("test-%d-%d", shardNum, storageNum)] = storagesConfig.Storage{
 				Maintenance: false,

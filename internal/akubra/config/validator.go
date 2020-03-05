@@ -216,7 +216,7 @@ func (c YamlConfig) CredentialsStoresEntryLogicalValidator() (valid bool, valida
 func (c YamlConfig) PrivacyEntryLogicalValidator() (valid bool, validationErrors map[string][]error) {
 	errList := make([]error, 0)
 	requiredProperties := map[string]*string{
-		"IsInternalNetworkHeaderName":  &c.Privacy.IsInternalNetworkHeaderName}
+		"IsInternalNetworkHeaderName": &c.Privacy.IsInternalNetworkHeaderName}
 	for name, val := range requiredProperties {
 		if *val == "" {
 			errList = append(errList, fmt.Errorf("'%s' cant be empty", name))

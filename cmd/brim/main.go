@@ -29,7 +29,7 @@ func main() {
 	if err != nil {
 		log.Fatal("No akubra configuration provided")
 	}
-	defer func(){
+	defer func() {
 		err := configReadCloser.Close()
 		if err != nil {
 			log.Println("Could not close config file")
