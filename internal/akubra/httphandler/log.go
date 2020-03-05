@@ -21,8 +21,8 @@ type AccessMessageData struct {
 	RespErr          string  `json:"error"`
 	ReqID            string  `json:"reqID"`
 	Time             string  `json:"ts"`
-	AccessKey        string  `Access:"accessKey"`
-	BackendResponses string  `BackendResponses`
+	AccessKey        string  `json:"accessKey"`
+	BackendResponses string  `json:"BackendResponses"`
 }
 
 // String produces data in csv format with fields in following order:
