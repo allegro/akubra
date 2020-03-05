@@ -332,7 +332,7 @@ func s3ObjectData(path string, bucket *s3.Bucket, multipart bool) (result s3Obje
 	resp, err := bucket.GetResponseWithHeaders(path,
 		map[string][]string{
 			"X-Akubra-No-Regression-On-Failure": {"1"},
-			"Accept-Encoding": {"*"}})
+			"Accept-Encoding":                   {"*"}})
 
 	if err != nil {
 		log.Printf("Object %s/%s/%s headers could not be fetched: %s", bucket.S3Endpoint, bucket.Name, path, err)

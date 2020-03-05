@@ -182,4 +182,3 @@ func (*doerB) do() int {
 }
 
 type doerC struct{}
-

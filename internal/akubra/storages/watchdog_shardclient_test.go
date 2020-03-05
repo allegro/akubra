@@ -291,7 +291,6 @@ func (fm *ConsistencyRecordFactoryMock) CreateRecordFor(request *http.Request) (
 	return record, err
 }
 
-
 var initiateMultiPartResponse = `
 <?xml version="1.0" encoding="UTF-8"?>
 <InitiateMultipartUploadResult

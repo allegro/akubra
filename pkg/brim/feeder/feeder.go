@@ -4,12 +4,11 @@ import (
 	"time"
 )
 
-
 //ThrottledPublisherConfig is the throttler configuration
 type ThrottledPublisherConfig struct {
 	MaxEmittedTasksCount uint64
 	TaskEmissionDuration time.Duration
-	BurstEnabled		 bool
+	BurstEnabled         bool
 }
 
 //Throttle throttles the channel according to the configuration
@@ -26,7 +25,7 @@ func Throttle(publisherChannel <-chan interface{}, config *ThrottledPublisherCon
 		for {
 			next := <-publisherChannel
 
-			if config.BurstEnabled && emittedItemsCount + 1 >= config.MaxEmittedTasksCount {
+			if config.BurstEnabled && emittedItemsCount+1 >= config.MaxEmittedTasksCount {
 				nextEmissionDelay := time.Until(emissionStart.Add(config.TaskEmissionDuration))
 				time.Sleep(nextEmissionDelay)
 				emittedItemsCount = 0
@@ -44,4 +43,3 @@ func Throttle(publisherChannel <-chan interface{}, config *ThrottledPublisherCon
 
 	return throttledChannel
 }
-

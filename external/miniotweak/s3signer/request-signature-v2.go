@@ -58,7 +58,7 @@ func encodeURL2Path(req *http.Request) (path string) {
 	}
 
 	customHostSuffix := "." + req.Header.Get(CustomStorageHost)
-	if customHostSuffix != "." && strings.HasSuffix(reqHost, customHostSuffix){
+	if customHostSuffix != "." && strings.HasSuffix(reqHost, customHostSuffix) {
 		path = "/" + strings.TrimSuffix(reqHost, customHostSuffix)
 		path += req.URL.Path
 		path = s3utils.EncodePath(path)

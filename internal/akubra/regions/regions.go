@@ -17,7 +17,6 @@ import (
 	storage "github.com/allegro/akubra/internal/akubra/storages"
 )
 
-
 const (
 	// Domain is a constant used to put/get domain's name to/from request's context
 	Domain = log.ContextKey("Domain")

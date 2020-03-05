@@ -39,7 +39,7 @@ func TestShouldSupplyRequestWithPrivacyContext(t *testing.T) {
 
 		privacyContext := req.Context().Value(RequestPrivacyContextKey).(*Context)
 		if isInternalNetworkRequest {
- 			assert.True(t, privacyContext.isInternalNetwork)
+			assert.True(t, privacyContext.isInternalNetwork)
 		} else {
 			assert.False(t, privacyContext.isInternalNetwork)
 		}

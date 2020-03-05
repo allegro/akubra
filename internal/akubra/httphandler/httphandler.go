@@ -3,6 +3,7 @@ package httphandler
 import (
 	"context"
 	"fmt"
+	"github.com/allegro/akubra/internal/akubra/utils"
 	"io"
 	"net"
 	"net/http"
@@ -34,7 +35,6 @@ type Handler struct {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	since := time.Now()
 	randomIDStr := randomStr(36)
-	log.Printf("reqid %s url %s, host %s, header host %s, req host %s", req.URL, randomIDStr, req.URL.Host, req.Header.Get("Host"), req.Host)
 	req = prepareRequestWithContextValues(req, randomIDStr)
 	req.Header.Del("Expect")
 
@@ -44,7 +44,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if err != nil || resp == nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		log.Printf("%s", err)
 		return
 	}
 
@@ -64,9 +63,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		log.Printf("Handler.ServeHTTP Cannot send response body %s reason: %q",
 			randomIDStr,
 			copyErr.Error())
-	} else {
-		log.Printf("Handler.ServeHTTP Sent response body %s",
-			randomIDStr)
 	}
 }
 
@@ -90,7 +86,7 @@ func prepareRequestWithContextValues(req *http.Request, requestID string) *http.
 	if err != nil {
 		reqHost = req.Host
 	}
-
+	utils.SetRequestProcessingMetadata(req, "requestID", requestID)
 	reqCtx := context.WithValue(req.Context(), log.ContextreqIDKey, requestID)
 	return req.WithContext(context.WithValue(reqCtx, Domain, reqHost))
 }

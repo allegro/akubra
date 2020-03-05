@@ -14,12 +14,12 @@ func TestShouldAddConsistencyRecordForRequestAndReturnTheObjectVersionGeneratedB
 
 	expectedObjectVersion := 123
 	record := ConsistencyRecord{
-		RequestID: "1",
-		ObjectID: "bucket/key",
-		AccessKey: "access",
+		RequestID:      "1",
+		ObjectID:       "bucket/key",
+		AccessKey:      "access",
 		ExecutionDelay: fiveMinutes,
-		Domain: "local.qxlint",
-		Method: PUT,
+		Domain:         "local.qxlint",
+		Method:         PUT,
 	}
 
 	dbMock.
@@ -28,7 +28,7 @@ func TestShouldAddConsistencyRecordForRequestAndReturnTheObjectVersionGeneratedB
 		WillReturnRows(sqlmock.NewRows([]string{"object_version"}).AddRow(expectedObjectVersion)).
 		WillReturnError(nil).
 		RowsWillBeClosed()
-	
+
 	deleteMarker, err := watchdog.Insert(&record)
 
 	assert.Equal(t, deleteMarker.objectVersion, expectedObjectVersion)
@@ -43,13 +43,13 @@ func TestShouldAddConsistencyRecordForRequestWithTheVersionSuppliedInTheRecord(t
 
 	expectedObjectVersion := 123
 	record := ConsistencyRecord{
-		RequestID: "1",
-		ObjectID: "bucket/key",
-		AccessKey: "access",
+		RequestID:      "1",
+		ObjectID:       "bucket/key",
+		AccessKey:      "access",
 		ExecutionDelay: fiveMinutes,
-		Domain: "local.local",
-		Method: PUT,
-		ObjectVersion: expectedObjectVersion,
+		Domain:         "local.local",
+		Method:         PUT,
+		ObjectVersion:  expectedObjectVersion,
 	}
 
 	dbMock.
@@ -74,13 +74,13 @@ func TestShouldSupplyRecordWithObjectVersion(t *testing.T) {
 
 	expectedObjectVersion := 123
 	record := ConsistencyRecord{
-		RequestID: "1",
-		ObjectID: "bucket/key",
-		AccessKey: "access",
+		RequestID:      "1",
+		ObjectID:       "bucket/key",
+		AccessKey:      "access",
 		ExecutionDelay: fiveMinutes,
-		Domain: "local.com",
-		Method: PUT,
-		ObjectVersion: expectedObjectVersion,
+		Domain:         "local.com",
+		Method:         PUT,
+		ObjectVersion:  expectedObjectVersion,
 	}
 
 	dbMock.
@@ -101,8 +101,8 @@ func TestShouldDeleteRecordsByMarker(t *testing.T) {
 	watchdog := SQLWatchdog{dbConn: gormDbMock, versionHeaderName: "x-version-header"}
 
 	marker := DeleteMarker{
-		domain:"domain.local",
-		objectID: "key/bucket",
+		domain:        "domain.local",
+		objectID:      "key/bucket",
 		objectVersion: 123,
 	}
 
@@ -116,7 +116,6 @@ func TestShouldDeleteRecordsByMarker(t *testing.T) {
 	err := watchdog.Delete(&marker)
 	assert.Nil(t, err)
 }
-
 
 func createDBMock(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *gorm.DB) {
 	db, dbMock, err := sqlmock.New()

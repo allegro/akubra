@@ -1,14 +1,13 @@
 package config
 
-
 //ConsistencyLevel specifies how hard should akubra try to ensure consistency inside a region
 type ConsistencyLevel string
 
 const (
 	//None says that the request shouldn't be logged at all
-	None   ConsistencyLevel = "None"
+	None ConsistencyLevel = "None"
 	//Weak says that the request should be logged, but if an error occurs on logging, then the request may continue
-	Weak   ConsistencyLevel = "Weak"
+	Weak ConsistencyLevel = "Weak"
 	//Strong says that the request must be logged and can't proceed without an entry in the log
 	Strong ConsistencyLevel = "Strong"
 )

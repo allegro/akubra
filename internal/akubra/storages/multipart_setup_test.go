@@ -44,14 +44,14 @@ func TestShouldSetupMultiUploadRingAndMigrationEndpoints(testSuite *testing.T) {
 	activateBackend := &StorageClient{
 		RoundTripper: activeBackendRoundTripper,
 		Endpoint:     *activeBackendURL,
-		Storage:      config.Storage{Maintenance: false,},
+		Storage:      config.Storage{Maintenance: false},
 		Name:         "activateBackend",
 	}
 
 	activateBackend2 := &StorageClient{
 		RoundTripper: activeBackendRoundTripper2,
 		Endpoint:     *activeBackendURL2,
-		Storage:      config.Storage{Maintenance: false,},
+		Storage:      config.Storage{Maintenance: false},
 		Name:         "activateBackend2",
 	}
 
@@ -60,7 +60,7 @@ func TestShouldSetupMultiUploadRingAndMigrationEndpoints(testSuite *testing.T) {
 	maintenanceBackend := &StorageClient{
 		RoundTripper: nil,
 		Endpoint:     *maintenanceBackendURL,
-		Storage:      config.Storage{Maintenance: true,},
+		Storage:      config.Storage{Maintenance: true},
 		Name:         "maintenanceBackend",
 	}
 

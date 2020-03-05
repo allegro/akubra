@@ -1,8 +1,8 @@
 package util
 
 import (
-	"strings"
 	"fmt"
+	"strings"
 )
 
 //SplitKeyIntoBucketKey splits a string into a bucket and key

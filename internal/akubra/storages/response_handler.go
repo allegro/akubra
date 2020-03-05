@@ -11,7 +11,7 @@ import (
 const listTypeV2 = "2"
 
 type responseMerger struct {
-	responsesChannel    <-chan BackendResponse
+	responsesChannel <-chan BackendResponse
 }
 
 func newResponseHandler(ch <-chan BackendResponse) responsePicker {

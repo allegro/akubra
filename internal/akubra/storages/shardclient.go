@@ -47,15 +47,12 @@ func (shardClient *ShardClient) RoundTrip(request *http.Request) (*http.Response
 
 func (shardClient *ShardClient) balancerRoundTrip(req *http.Request) (resp *http.Response, err error) {
 	var notFoundNodes []balancing.Node
-	reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
-	log.Printf("Balancer RoundTrip %s", reqID)
 	if err != nil {
 		return nil, errors.New("regions not configured properly")
 	}
 	for node := shardClient.balancer.GetMostAvailable(notFoundNodes...); node != nil; node = shardClient.balancer.GetMostAvailable(notFoundNodes...) {
-		log.Printf("Balancer roundTrip node loop %s %s", node.Name, reqID)
 		if node == nil {
-			return nil, fmt.Errorf("no avialable node")
+			return nil, fmt.Errorf("all balancer nodes are unavailable")
 		}
 		var nodeRequest *http.Request
 		nodeRequest, err = utils.ReplicateRequest(req)

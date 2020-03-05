@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/allegro/akubra/internal/akubra/metrics"
 	"github.com/allegro/akubra/internal/akubra/config/vault"
+	"github.com/allegro/akubra/internal/akubra/metrics"
 	cleanhttp "github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/vault/api"
 	"github.com/pkg/errors"

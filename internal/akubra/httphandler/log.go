@@ -12,16 +12,17 @@ import (
 // AccessMessageData holds all important informations
 // about http roundtrip
 type AccessMessageData struct {
-	Method     string  `json:"method"`
-	Host       string  `json:"host"`
-	Path       string  `json:"path"`
-	UserAgent  string  `json:"useragent"`
-	StatusCode int     `json:"status"`
-	Duration   float64 `json:"duration_ms"`
-	RespErr    string  `json:"error"`
-	ReqID      string  `json:"reqID"`
-	Time       string  `json:"ts"`
-	AccessKey  string  `Access:"accessKey"`
+	Method           string  `json:"method"`
+	Host             string  `json:"host"`
+	Path             string  `json:"path"`
+	UserAgent        string  `json:"useragent"`
+	StatusCode       int     `json:"status"`
+	Duration         float64 `json:"duration_ms"`
+	RespErr          string  `json:"error"`
+	ReqID            string  `json:"reqID"`
+	Time             string  `json:"ts"`
+	AccessKey        string  `Access:"accessKey"`
+	BackendResponses string  `BackendResponses`
 }
 
 // String produces data in csv format with fields in following order:
@@ -37,6 +38,7 @@ func NewAccessLogMessage(req *http.Request,
 	statusCode int, duration float64, respErr string) *AccessMessageData {
 	ts := time.Now().Format(time.RFC3339Nano)
 	reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
+	backendResponses := utils.GetRequestProcessingMetadata(req, "backendResponse")
 	return &AccessMessageData{
 		req.Method,
 		req.Host,
@@ -44,7 +46,9 @@ func NewAccessLogMessage(req *http.Request,
 		req.Header.Get("User-Agent"),
 		statusCode, duration, respErr,
 		reqID, ts,
-		utils.ExtractAccessKey(req)}
+		utils.ExtractAccessKey(req),
+		backendResponses,
+	}
 }
 
 // ScanCSVAccessLogMessage will scan csv string and return AccessMessageData.

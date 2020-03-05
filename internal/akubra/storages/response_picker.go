@@ -7,6 +7,7 @@ import (
 )
 
 var emptyBackendResponse = BackendResponse{}
+
 // BasePicker contains common methods of pickers
 type BasePicker struct {
 	responsesChan <-chan BackendResponse
@@ -100,6 +101,7 @@ func (orp *ObjectResponsePicker) pullResponses(out chan<- BackendResponse) {
 		orp.send(out, orp.failure)
 	}
 }
+
 type baseDeleteResponsePicker struct {
 	BasePicker
 	softErrors []BackendResponse
