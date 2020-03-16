@@ -12,17 +12,17 @@ import (
 // AccessMessageData holds all important informations
 // about http roundtrip
 type AccessMessageData struct {
-	Method           string  `json:"method"`
-	Host             string  `json:"host"`
-	Path             string  `json:"path"`
-	UserAgent        string  `json:"useragent"`
-	StatusCode       int     `json:"status"`
+	Method           string  `json:"req_method"`
+	Host             string  `json:"req_host"`
+	Path             string  `json:"req_path"`
+	UserAgent        string  `json:"req_useragent"`
+	StatusCode       int     `json:"resp_status_code"`
 	Duration         float64 `json:"duration_ms"`
-	RespErr          string  `json:"error"`
-	ReqID            string  `json:"reqID"`
+	RespErr          string  `json:"err_msg"`
+	ReqID            string  `json:"req_id"`
 	Time             string  `json:"ts"`
-	AccessKey        string  `json:"accessKey"`
-	BackendResponses string  `json:"BackendResponses"`
+	AccessKey        string  `json:"access_key"`
+	BackendResponses string  `json:"backend_responses"`
 }
 
 // String produces data in csv format with fields in following order:
