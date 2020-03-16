@@ -293,7 +293,7 @@ func TestBreakerRecoveryPeriodsProgression(t *testing.T) {
 		fmt.Sprintf("should be in halfclosed state after %s", timer.now().Sub(opentime)))
 
 	openBreaker(breaker)
-	require.True(t, breaker.ShouldOpen(), fmt.Sprintf("should be in open"))
+	require.True(t, breaker.ShouldOpen(), "should be in open")
 
 	checkOpenFor(t, 2*time.Second, breaker, timer)
 	require.False(t, breaker.ShouldOpen())
