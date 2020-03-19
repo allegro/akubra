@@ -231,8 +231,10 @@ func PutResponseHeaderToContext(context context.Context, contextValueName log.Co
 	if ctxValue == nil {
 		return
 	}
-	headerValue := resp.Header.Get(headerName)
-	*ctxValue = headerValue
+	if resp != nil && resp.Header != nil {
+		headerValue := resp.Header.Get(headerName)
+		*ctxValue = headerValue
+	}
 }
 
 func ResponseForbidden(req *http.Request) *http.Response {
