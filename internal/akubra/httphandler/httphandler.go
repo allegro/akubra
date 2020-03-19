@@ -44,7 +44,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if err != nil || resp == nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		resp.StatusCode = http.StatusInternalServerError
 		return
 	}
 
