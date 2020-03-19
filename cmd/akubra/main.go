@@ -296,10 +296,14 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 	regionsDecoratedRT := httphandler.DecorateRoundTripper(conf.Service.Client, conf.Service.Server,
 		accessLog, conf.Service.Server.HealthCheckEndpoint, regionsRT)
 
+
+
 	regionsDecoratedRT = httphandler.Decorate(regionsDecoratedRT,
 		httphandler.ResponseHeadersStripper(conf.Service.Client.ResponseHeadersToStrip),
 		httphandler.PrivacyFilterChain(conf.Privacy.ShouldDropRequests, conf.Privacy.ViolationErrorCode, basicChain),
-		httphandler.PrivacyContextSupplier(privacyContextSupplier))
+		httphandler.PrivacyContextSupplier(privacyContextSupplier),
+		httphandler.AccessLogging(accessLog),
+	)
 
 	handler, err := httphandler.NewHandlerWithRoundTripper(regionsDecoratedRT, conf.Service.Server)
 	if err != nil {

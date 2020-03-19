@@ -34,7 +34,10 @@ type loggingRoundTripper struct {
 }
 
 func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-	log.Debug("Request in LoggingRoundTripper %s", utils.RequestID(req))
+
+	log.Debug("Request in loggingRoundTripper %s", utils.RequestID(req))
+	defer log.Debug("Request out loggingRoundTripper %s", utils.RequestID(req))
+
 	timeStart := time.Now()
 	resp, err = lrt.roundTripper.RoundTrip(req)
 
@@ -70,6 +73,7 @@ type headersSuplier struct {
 
 func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	log.Debug("Request in headersSuplier %s", utils.RequestID(req))
+	defer log.Debug("Request out headersSuplier %s", utils.RequestID(req))
 	req.URL.Scheme = "http"
 	for k, v := range hs.requestHeaders {
 		_, ok := req.Header[k]
@@ -92,9 +96,11 @@ func (hs *headersSuplier) RoundTrip(req *http.Request) (resp *http.Response, err
 	if err != nil || resp == nil {
 		return
 	}
+
 	if resp.Header == nil {
 		resp.Header = http.Header{}
 	}
+
 	for k, v := range hs.responseHeaders {
 		headerValue := resp.Header.Get(k)
 		if headerValue == "" {
@@ -121,6 +127,7 @@ type responseHeadersStripper struct {
 
 func (hs *responseHeadersStripper) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	log.Debug("Request in responseHeadersStripper %s", utils.RequestID(req))
+	defer log.Debug("Request out responseHeadersStripper %s", utils.RequestID(req))
 	resp, err = hs.roundTripper.RoundTrip(req)
 	if err != nil || resp == nil {
 		return
@@ -163,6 +170,7 @@ type optionsHandler struct {
 
 func (os optionsHandler) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	log.Debug("Request in optionsHandler %s", utils.RequestID(req))
+	defer log.Debug("Request out optionsHandler %s", utils.RequestID(req))
 	isOptions := false
 	if req.Method == "OPTIONS" {
 		req.Method = "HEAD"
@@ -189,7 +197,8 @@ type statusHandler struct {
 }
 
 func (sh statusHandler) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-	log.Debug("Request in status Handler %s", utils.RequestID(req))
+	log.Debug("Request in statusHandler %s", utils.RequestID(req))
+	defer log.Debug("Request out statusHandler %s", utils.RequestID(req))
 	if strings.ToLower(req.URL.Path) == sh.healthCheckEndpoint {
 		resp := makeResponse(req, http.StatusOK, "OK", "text/plain")
 		return resp, nil
@@ -234,6 +243,8 @@ type authHeaderContextSuplementer struct {
 }
 
 func (authHeaderRT *authHeaderContextSuplementer) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	log.Debug("Request in authHeaderContextSuplementer %s", utils.RequestID(req))
+	defer log.Debug("Request out authHeaderContextSuplementer %s", utils.RequestID(req))
 	httpAuthHeader := req.Header.Get("Authorization")
 	if httpAuthHeader != "" {
 		authHeader, err := utils.ParseAuthorizationHeader(httpAuthHeader)
@@ -265,6 +276,8 @@ type requestLimitRoundTripper struct {
 }
 
 func (rlrt *requestLimitRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	log.Debug("Request in requestLimitRoundTripper %s", utils.RequestID(req))
+	defer log.Debug("Request out requestLimitRoundTripper %s", utils.RequestID(req))
 	canServe := true
 	if atomic.AddInt32(&rlrt.runningRequestCount, 1) > rlrt.maxConcurrentRequests {
 		canServe = false
@@ -293,6 +306,8 @@ type bodySizeLimitter struct {
 }
 
 func (sizeLimitter *bodySizeLimitter) RoundTrip(req *http.Request) (*http.Response, error) {
+	log.Debug("Request in bodySizeLimitter %s", utils.RequestID(req))
+	defer log.Debug("Request out bodySizeLimitter %s", utils.RequestID(req))
 	validationCode := sizeLimitter.validateIncomingRequest(req)
 	if validationCode > 0 {
 		log.Printf("Rejected invalid incoming request from %s, code %d", req.RemoteAddr, validationCode)
