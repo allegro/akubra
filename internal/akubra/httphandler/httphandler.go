@@ -44,6 +44,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if err != nil || resp == nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		resp.StatusCode = http.StatusInternalServerError
 		return
 	}
 
@@ -109,7 +110,6 @@ func respBodyCloserFactory(resp *http.Response, randomIDStr string) func() {
 func DecorateRoundTripper(conf config.Client, servConfig config.Server, accesslog log.Logger, healthCheckEndpoint string, rt http.RoundTripper) http.RoundTripper {
 	return Decorate(
 		rt,
-		AccessLogging(accesslog),
 		RequestLimiter(servConfig.MaxConcurrentRequests),
 		BodySizeLimitter(servConfig.BodyMaxSize.SizeInBytes),
 		HeadersSuplier(conf.AdditionalRequestHeaders, conf.AdditionalResponseHeaders),

@@ -3,6 +3,7 @@ package privacy
 import (
 	"context"
 	"fmt"
+	"github.com/allegro/akubra/internal/akubra/utils"
 
 	"net/http"
 
@@ -69,6 +70,8 @@ func NewPrivacyContextSupplierRoundTripper(roundTripper http.RoundTripper, suppl
 
 //RoundTrip supplies the request with basic privacy info
 func (supplierRT *SupplierRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	log.Debug("Request in SupplierRoundTripper %s", utils.RequestID(req))
+	defer log.Debug("Request out SupplierRoundTripper %s", utils.RequestID(req))
 	reqWithPrivacy, err := supplierRT.privacyContextSupplier.Supply(req)
 	if err != nil {
 		reqID := req.Context().Value(log.ContextreqIDKey).(string)

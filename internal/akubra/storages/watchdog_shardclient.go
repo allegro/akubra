@@ -42,6 +42,8 @@ func (consistencyShard *ConsistencyShardClient) Backends() []*StorageClient {
 
 //RoundTrip performs the request and also records the request if the consistency level requires so
 func (consistencyShard *ConsistencyShardClient) RoundTrip(req *http.Request) (*http.Response, error) {
+	log.Debug("Request in ConsistencyShardClient %s", utils.RequestID(req))
+	defer log.Debug("Request out ConsistencyShardClient %s", utils.RequestID(req))
 	consistencyLevel, isReadRepairOn, err := extractRegionPropsFrom(req)
 	if err != nil {
 		return nil, err
@@ -253,7 +255,7 @@ func shouldPerformReadRepair(readRepairVersion *string, readRepairPropertyCastSu
 	return readRepairPropertyCastSuccessful && readRepairVersion != nil && *readRepairVersion != ""
 }
 
-//NewConsistentShard wraps the provided shard with ConsistencyShardClient to ensure consistency
+// NewConsistentShard wraps the provided shard with ConsistencyShardClient to ensure consistency
 func NewConsistentShard(shardClient NamedShardClient,
 	consistencyWatchdgo watchdog.ConsistencyWatchdog,
 	recordFactory watchdog.ConsistencyRecordFactory,

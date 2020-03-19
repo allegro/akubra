@@ -2,6 +2,7 @@ package crdstore
 
 import (
 	"fmt"
+	"github.com/allegro/akubra/internal/akubra/log"
 	"net/http"
 	"os"
 	"strconv"
@@ -90,6 +91,8 @@ func (vaultFactory *vaultCredsBackendFactory) create(crdStoreName string, props 
 }
 
 func (vault *vaultCredsBackend) FetchCredentials(accessKey string, storageName string) (*CredentialsStoreData, error) {
+	log.Debugf("Request in FetchCredentials %s", accessKey)
+	defer log.Debugf("Request out FetchCredentials %s", accessKey)
 	fetchStartTime := time.Now()
 	vaultResponse, err := vault.
 		vaultClient.
