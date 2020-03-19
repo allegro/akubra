@@ -174,7 +174,9 @@ func (watchdog *SQLWatchdog) Delete(marker *DeleteMarker) error {
 		Rows()
 
 	defer func() {
-		_ = rows.Close()
+		if rows != nil {
+			_ = rows.Close()
+		}
 	}()
 
 	if err != nil {

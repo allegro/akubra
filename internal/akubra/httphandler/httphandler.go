@@ -44,7 +44,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if err != nil || resp == nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		resp.StatusCode = http.StatusInternalServerError
 		return
 	}
 
@@ -74,6 +73,9 @@ func sendStats(req *http.Request, resp *http.Response, err error, since time.Tim
 	}
 	if resp != nil {
 		name := fmt.Sprintf("reqs.global.status_%d", resp.StatusCode)
+		metrics.UpdateSince(name, since)
+	} else {
+		name := fmt.Sprintf("reqs.global.status_%d", http.StatusInternalServerError)
 		metrics.UpdateSince(name, since)
 	}
 	if req != nil {
