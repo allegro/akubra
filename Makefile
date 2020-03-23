@@ -48,7 +48,7 @@ build: vars lint
         # Enable netcgo, then name resolution will use systems dns caches
 	$(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1' ./cmd/akubra
 
-build-bare-linux: var deps lint
+build-bare-linux: vars lint
 	CGO_ENABLED=0 GOOS=linux $(GO) build -v -a -installsuffix cgo -ldflags '-extldflags "-static"' -o akubra ./cmd/akubra
 
 install-junit-report:
