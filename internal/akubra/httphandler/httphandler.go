@@ -35,7 +35,18 @@ type Handler struct {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	since := time.Now()
 	randomIDStr := randomStr(36)
-	req = prepareRequestWithContextValues(req, randomIDStr)
+	req, err := prepareRequestWithContextValues(req, randomIDStr)
+
+	if err != nil {
+		log.Debugf("failed to parse auth header for req %s: %q", randomIDStr, err)
+		w.WriteHeader(http.StatusBadRequest)
+		_, err := w.Write([]byte(incorrectAuthHeader))
+		if err != nil {
+			log.Debug(err)
+		}
+		return
+	}
+
 	req.Header.Del("Expect")
 
 	resp, err := h.roundTripper.RoundTrip(req)
@@ -84,14 +95,22 @@ func sendStats(req *http.Request, resp *http.Response, err error, since time.Tim
 	}
 }
 
-func prepareRequestWithContextValues(req *http.Request, requestID string) *http.Request {
+func prepareRequestWithContextValues(req *http.Request, requestID string) (*http.Request, error) {
 	reqHost, _, err := net.SplitHostPort(req.Host)
 	if err != nil {
 		reqHost = req.Host
 	}
 	utils.SetRequestProcessingMetadata(req, "requestID", requestID)
 	reqCtx := context.WithValue(req.Context(), log.ContextreqIDKey, requestID)
-	return req.WithContext(context.WithValue(reqCtx, Domain, reqHost))
+	httpAuthHeader := req.Header.Get("Authorization")
+	if httpAuthHeader != "" {
+		authHeader, err := utils.ParseAuthorizationHeader(httpAuthHeader)
+		if err != nil {
+			return req, err
+		}
+		reqCtx = context.WithValue(reqCtx, AuthHeader, &authHeader)
+	}
+	return req.WithContext(context.WithValue(reqCtx, Domain, reqHost)), nil
 }
 
 func respBodyCloserFactory(resp *http.Response, randomIDStr string) func() {
