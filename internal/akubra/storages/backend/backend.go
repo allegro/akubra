@@ -37,7 +37,6 @@ func (b *Backend) RoundTrip(req *http.Request) (resp *http.Response, err error) 
 		return nil, &types.BackendError{HostName: b.Endpoint.Host,
 			OrigErr: types.ErrorBackendMaintenance}
 	}
-
 	resp, oerror := b.RoundTripper.RoundTrip(req)
 
 	if oerror != nil {

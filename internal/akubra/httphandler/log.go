@@ -18,7 +18,7 @@ type AccessMessageData struct {
 	UserAgent        string  `json:"req_useragent"`
 	StatusCode       int     `json:"resp_status_code"`
 	Duration         float64 `json:"duration_ms"`
-	RespErr          string  `json:"err_msg"`
+	RespErr          string  `json:"resp_err_msg"`
 	ReqID            string  `json:"req_id"`
 	Time             string  `json:"ts"`
 	AccessKey        string  `json:"access_key"`

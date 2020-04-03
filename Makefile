@@ -1,6 +1,6 @@
 VERSION := `git log -n 1 | grep commit | sed 's/commit //g' | head -n 1`
 LDFLAGS := -X main.version=$(VERSION)
-GO := "$(GOROOT)/bin/go"
+GO := "go"
 GOBIN := $(GOBIN)
 GO111MODULE := on
 LINTERVERSION := v1.16.0
@@ -49,7 +49,7 @@ build: vars lint
 	$(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1' ./cmd/akubra
 
 build-bare-linux: vars lint
-	CGO_ENABLED=0 GOOS=linux $(GO) build -v -a -installsuffix cgo -ldflags '-extldflags "-static"'  -tags 'netcgo=1' -o akubra ./cmd/akubra
+	GOOS=linux $(GO) build -v -a -installsuffix cgo -ldflags '-extldflags "-static"'  -tags 'netcgo=1' -o akubra ./cmd/akubra
 
 install-junit-report:
 	GOBIN=$(GOBIN) go install github.com/jstemmer/go-junit-report
@@ -60,3 +60,6 @@ test: install-junit-report
 clean:
 	rm -rf $(LINTERVERSION)
 	$(GO) clean .
+
+brim:
+	$(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1' ./cmd/brim
