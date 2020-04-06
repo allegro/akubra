@@ -54,7 +54,7 @@ build-bare-linux: vars lint
 install-junit-report:
 	GOBIN=$(GOBIN) go install github.com/jstemmer/go-junit-report
 
-test: deps install-junit-report
+test: install-junit-report
 	$(GO) test -v -race -cover $$(go list ./... | grep -v /vendor/)  | go-junit-report > tests.xml
 
 clean:
