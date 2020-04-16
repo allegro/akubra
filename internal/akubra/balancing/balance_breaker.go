@@ -236,6 +236,9 @@ func (h *histogram) PickLastSeries(period time.Duration) []*dataSeries {
 	now := h.now()
 	stop := h.index(now) + 1
 	start := int(math.Max(float64(stop-int(cellsNumber)), 0))
+	if start > cap(h.data) || stop > cap(h.data) {
+		return []*dataSeries{}
+	}
 	return h.data[start:stop]
 }
 
