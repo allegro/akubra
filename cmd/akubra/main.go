@@ -300,7 +300,7 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 
 	regionsDecoratedRT = httphandler.Decorate(regionsDecoratedRT,
 		httphandler.ResponseHeadersStripper(conf.Service.Client.ResponseHeadersToStrip),
-		httphandler.PrivacyFilterChain(conf.Privacy.ShouldDropRequests, conf.Privacy.ViolationErrorCode, basicChain),
+		httphandler.PrivacyFilterChain(conf.Privacy.DropOnError, conf.Privacy.DropOnValidation, conf.Privacy.ViolationErrorCode, basicChain),
 		httphandler.PrivacyContextSupplier(privacyContextSupplier),
 		httphandler.AccessLogging(accessLog),
 	)

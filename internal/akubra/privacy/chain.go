@@ -36,16 +36,18 @@ type ChainRoundTripper struct {
 	roundTripper          http.RoundTripper
 	chain                 Chain
 	shouldDropOnViolation bool
+	shouldDropOnError     bool
 	violationsCount       int64
 	violationErrorCode    int
 }
 
 //NewChainRoundTripper creates an instance of ChainRoundTripper
-func NewChainRoundTripper(shouldDrop bool, violationErrorCode int, chain Chain, roundTripper http.RoundTripper) http.RoundTripper {
+func NewChainRoundTripper(onErrorDrop, onValidationDrop bool, violationErrorCode int, chain Chain, roundTripper http.RoundTripper) http.RoundTripper {
 	chainRT := &ChainRoundTripper{
 		roundTripper:          roundTripper,
 		chain:                 chain,
-		shouldDropOnViolation: shouldDrop,
+		shouldDropOnViolation: onValidationDrop,
+		shouldDropOnError:     onErrorDrop,
 		violationErrorCode:    violationErrorCode,
 	}
 	go chainRT.reportMetrics()
@@ -60,17 +62,15 @@ func (chainRT *ChainRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 	violation, err := chainRT.chain.Filter(req)
 	if err != nil {
 		violationCheckErr := fmt.Errorf("failed to filter req %s: %s", reqID, err)
-		if chainRT.shouldDropOnViolation {
+		if chainRT.shouldDropOnError {
 			return nil, violationCheckErr
 		}
-		log.Debug(violationCheckErr)
 	}
 
 	if violation == NoViolation {
 		return chainRT.roundTripper.RoundTrip(req)
 	}
 
-	log.Printf("detected violation of type %d on req %s", violation, reqID)
 	atomic.AddInt64(&chainRT.violationsCount, 1)
 
 	if chainRT.shouldDropOnViolation {
