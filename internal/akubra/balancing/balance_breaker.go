@@ -288,7 +288,7 @@ type Breaker interface {
 	ShouldOpen() bool
 }
 
-func newBreaker(retention int, callTimeLimit time.Duration,
+func NewBreaker(retention int, callTimeLimit time.Duration,
 	timeLimitPercentile, errorRate float64,
 	closeDelay, maxDelay time.Duration) Breaker {
 	return &NodeBreaker{
@@ -560,7 +560,7 @@ func NewBalancerPrioritySet(storagesConfig config.Storages, backends map[string]
 	priotitiesFilter := make(map[int]struct{})
 	priorityStorage := make(map[int][]*MeasuredStorage)
 	for _, storageConfig := range storagesConfig {
-		breaker := newBreaker(storageConfig.BreakerProbeSize,
+		breaker := NewBreaker(storageConfig.BreakerProbeSize,
 			storageConfig.BreakerCallTimeLimit.Duration,
 			storageConfig.BreakerCallTimeLimitPercentile,
 			storageConfig.BreakerErrorRate,

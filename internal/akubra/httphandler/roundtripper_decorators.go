@@ -155,12 +155,12 @@ func PrivacyContextSupplier(supplier privacy.ContextSupplier) Decorator {
 }
 
 //PrivacyFilterChain creates Decorator checks for any privacy violations
-func PrivacyFilterChain(shouldDrop bool, violationErrorCode int, chain privacy.Chain) Decorator {
+func PrivacyFilterChain(onErrorDrop, onValidationDrop bool, violationErrorCode int, chain privacy.Chain) Decorator {
 	return func(roundTripper http.RoundTripper) http.RoundTripper {
 		if violationErrorCode == 0 {
 			violationErrorCode = http.StatusForbidden
 		}
-		return privacy.NewChainRoundTripper(shouldDrop, violationErrorCode, chain, roundTripper)
+		return privacy.NewChainRoundTripper(onErrorDrop, onValidationDrop, violationErrorCode, chain, roundTripper)
 	}
 }
 

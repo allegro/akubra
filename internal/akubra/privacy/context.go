@@ -30,6 +30,8 @@ type Config struct {
 	IsInternalNetworkHeaderName  string `yaml:"IsInternalNetworkHeaderName"`
 	IsInternalNetworkHeaderValue string `yaml:"IsInternalNetworkHeaderValue"`
 	ShouldDropRequests           bool   `yaml:"ShouldDropRequests"`
+	DropOnError                  bool   `yaml:"DropOnError"`
+	DropOnValidation             bool   `yaml:"DropOnValidation"`
 	ViolationErrorCode           int    `yaml:"ViolationErrorCode"`
 }
 
