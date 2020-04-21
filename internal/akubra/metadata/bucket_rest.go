@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/allegro/akubra/internal/akubra/balancing"
+	"github.com/allegro/akubra/internal/akubra/metrics"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,6 +29,7 @@ const (
 type BucketIndexRestService struct {
 	httpClient akubraHttp.Client
 	endpoint   string
+	breaker balancing.Breaker
 }
 
 //BucketIndexRestServiceFactory creates instances of BucketIndexRestService
@@ -54,11 +58,48 @@ func (factory *BucketIndexRestServiceFactory) Create(config map[string]string) (
 	}
 	httpCli := &http.Client{Timeout: timeout}
 	akubraHTTPCli := akubraHttp.NewDiscoveryHTTPClient(factory.discoveryClient, httpCli)
+	breaker, err := createBreaker(config)
+	if err != nil {
+		return nil, fmt.Errorf("SBI breaker not defined properly %w", err)
+	}
 	return &BucketIndexRestService{
 		httpClient: akubraHTTPCli,
-		endpoint:   httpEndpoint}, nil
+		endpoint:   httpEndpoint,
+		breaker: breaker}, nil
 }
-
+func createBreaker(config map[string]string) (balancing.Breaker, error) {
+	callTimeLimit, err := time.ParseDuration(config["BreakerCallTimeLimit"])
+	if err != nil {
+		return nil, fmt.Errorf("duration parse fail fo field BreakerCallTimeLimit")
+	}
+	cutOutDuration, err := time.ParseDuration(config["BreakerBasicCutOutDuration"])
+	if err != nil {
+		return nil, fmt.Errorf("duration parse fail fo field BreakerBasicCutOutDuration")
+	}
+	maxCutOutDuration, err  := time.ParseDuration(config["BreakerMaxCutOutDuration"])
+	if err != nil {
+		return nil, fmt.Errorf("duration parse fail fo field BreakerMaxCutOutDuration")
+	}
+	probeSize, err := strconv.ParseInt(config["BreakerProbeSize"], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("duration parse fail fo field BreakerProbeSize")
+	}
+	callTimePercentile, err := strconv.ParseFloat(config["BreakerCallTimeLimitPercentile"], 642)
+	if err != nil {
+		return nil, fmt.Errorf("duration parse fail fo field BreakerCallTimeLimitPercentile")
+	}
+	errorRate, err := strconv.ParseFloat(config["BreakerErrorRate"], 642)
+	if err != nil {
+		return nil, fmt.Errorf("duration parse fail fo field BreakerErrorRate")
+	}
+	return balancing.NewBreaker(int(probeSize),
+		callTimeLimit,
+		callTimePercentile,
+		errorRate,
+		cutOutDuration,
+		maxCutOutDuration,
+	), nil
+}
 type bucketMataDataJSON struct {
 	BucketName string `json:"bucketName"`
 	Visibility string `json:"bucketVisibility"`
@@ -69,11 +110,18 @@ func NewBucketIndexRestService(httpClient akubraHttp.Client, endpoint string) Bu
 	return &BucketIndexRestService{
 		httpClient: httpClient,
 		endpoint:   endpoint,
+		breaker: nil,
 	}
 }
 
 //Fetch fetches the bucket metadata via rest API
 func (service *BucketIndexRestService) Fetch(bucketLocation *BucketLocation) (*BucketMetaData, error) {
+	if service.breaker != nil {
+		if service.breaker.ShouldOpen() {
+			metrics.UpdateGauge("metadata.bucket.service.broke", 1)
+			return nil, fmt.Errorf("bucketIndexRestService.Fetch error: breaker is open")
+		}
+	}
 	bucketMetaDataRequest, err := service.createBucketMetaDataRequest(bucketLocation)
 	if err != nil {
 		return nil, err

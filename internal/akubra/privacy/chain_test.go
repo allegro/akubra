@@ -35,7 +35,7 @@ func TestValidationsChecking(t *testing.T) {
 			rtMock := &roundTripperMock{Mock: &mock.Mock{}}
 			rtMock.On("RoundTrip", req).Return(expectedResponse, nil)
 
-			chainRT := NewChainRoundTripper(shouldDropOnViolation, http.StatusForbidden, chainMock, rtMock)
+			chainRT := NewChainRoundTripper(shouldDropOnViolation, shouldDropOnViolation, http.StatusForbidden, chainMock, rtMock)
 			resp, err := chainRT.RoundTrip(req)
 
 			assert.Nil(t, err)
@@ -69,7 +69,7 @@ func TestErrorHandlingDuringViolationChecking(t *testing.T) {
 			rtMock := &roundTripperMock{Mock: &mock.Mock{}}
 			rtMock.On("RoundTrip", req).Return(expectedResponse, nil)
 
-			chainRT := NewChainRoundTripper(shouldDrop, http.StatusForbidden, chainMock, rtMock)
+			chainRT := NewChainRoundTripper(shouldDrop, shouldDrop, http.StatusForbidden, chainMock, rtMock)
 			resp, err := chainRT.RoundTrip(req)
 
 			chainMock.AssertCalled(t, "Filter", req)

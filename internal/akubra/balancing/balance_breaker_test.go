@@ -266,7 +266,7 @@ func makeTestBreaker() Breaker {
 	timeLimitPercentile := 0.9
 	closeDelay := time.Second
 	maxDelay := 4 * time.Second
-	breaker := newBreaker(
+	breaker := NewBreaker(
 		retention, timeLimit, timeLimitPercentile,
 		errorRate, closeDelay, maxDelay)
 

@@ -3,7 +3,7 @@ LDFLAGS := -X main.version=$(VERSION)
 GO := "$(GOROOT)/bin/go"
 GOBIN := $(GOBIN)
 GO111MODULE := on
-LINTERVERSION := v1.16.0
+LINTERVERSION := v1.24.0
 
 all:  build # vars formatting lint test
 
@@ -20,8 +20,8 @@ linux: vars formatting lint test
 formatting:
 	$(GO) get golang.org/x/tools/cmd/goimports
 
-lint: vars deps-lint
-	$(LINTERVERSION)/golangci-lint run internal/akubra/* internal/brim/* \
+lint: vars $(LINTERVERSION)
+	GOARCH=amd64 $(LINTERVERSION)/golangci-lint run internal/akubra/* internal/brim/* \
 	--skip-dirs ./tmp \
 	--disable=dupl \
 	--disable=gosec \
@@ -31,8 +31,8 @@ lint: vars deps-lint
 	--disable=typecheck \
 	--fast
 
-lint-slow: deps-lint
-	$(LINTERVERSION)/golangci-lint run internal/akubra/* internal/brim/* \
+lint-slow: $(LINTERVERSION)
+	GOARCH=amd64 $(LINTERVERSION)/golangci-lint run internal/akubra/* internal/brim/* \
 	--skip-dirs ./tmp \
 	--disable=dupl \
 	--deadline=600s \
@@ -41,7 +41,7 @@ lint-slow: deps-lint
 	--enable=goimports \
 	--fast
 
-deps-lint:
+$(LINTERVERSION):
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(LINTERVERSION)
 
 build: vars lint
