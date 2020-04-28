@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 )
@@ -30,4 +33,16 @@ func GetRequestProcessingMetadata(req *http.Request, key string) string {
 		return ""
 	}
 	return strings.Join(reqMetaData[key], ", ")
+}
+
+func DumpResponseBody(resp *http.Response) []byte {
+	if resp.Body == nil {
+		return []byte("No body")
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	defer func(){resp.Body = ioutil.NopCloser(bytes.NewReader(body))}()
+	if err != nil {
+		return []byte(fmt.Sprintf("%s\nerror reading body: %s", body, err))
+	}
+	return body
 }

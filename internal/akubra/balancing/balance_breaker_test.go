@@ -235,6 +235,22 @@ func TestHistogramRetention(t *testing.T) {
 	require.NotNil(t, series)
 }
 
+func TestHistogramPickLastSeries(t *testing.T) {
+	retention := 5 * time.Second
+	resolution := 1 * time.Second
+	timer := mockTimer {
+		baseTime:   time.Now(),
+		advanceDur: time.Minute,
+		mx:         sync.Mutex{},
+	}
+	hist := newTimeHistogram(retention, resolution, timer.now)
+	timer.advance()
+	series := hist.PickLastSeries(resolution)
+
+	require.NotNil(t, series)
+}
+
+
 func TestBreaker(t *testing.T) {
 	breaker := makeTestBreaker()
 	require.Implements(t, (*Breaker)(nil), breaker)
