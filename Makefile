@@ -49,7 +49,7 @@ build: vars lint
 	$(GO) build -v -ldflags "$(LDFLAGS)" -tags 'netcgo=1' ./cmd/akubra
 
 build-bare-linux: vars lint
-	GOOS=linux $(GO) build -v -a -installsuffix cgo -ldflags '-extldflags "-static"'  -tags 'netcgo=1' -o akubra ./cmd/akubra
+	CGO_ENABLED=0 GOOS=linux $(GO) build -v -a -installsuffix cgo -ldflags '-extldflags "-static"'  -tags 'netcgo=1' -o akubra ./cmd/akubra
 
 install-junit-report:
 	GOBIN=$(GOBIN) go install github.com/jstemmer/go-junit-report

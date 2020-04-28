@@ -33,7 +33,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Improperly configured %s", err)
 	}
-	log.Println()
 	brimConf, err := bConf.Configure(*brimConfig)
 	if err != nil {
 		log.Fatalf("Improperly configured %s", err)
