@@ -104,9 +104,11 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 		}
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
+
 	if DoesSignMatch(req, Keys{AccessKeyID: srt.keys.AccessKeyID, SecretAccessKey: srt.keys.SecretAccessKey}, srt.ignoredCanonicalizedHeaders) != ErrNone {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
 	}
+
 	req, err = sign(req, authHeader, srt.host, srt.keys.AccessKeyID, srt.keys.SecretAccessKey, srt.ignoredCanonicalizedHeaders, srt.v4IgnoredHeaders)
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err

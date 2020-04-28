@@ -15,7 +15,7 @@ import (
 
 	"github.com/allegro/akubra/internal/brim/admin"
 )
-
+const brim_config_env_var_name = "BRIM_CONFIG_VARNAME"
 //LoggingConfig hold the configuration for loggers
 type LoggingConfig struct {
 	Mainlog log.LoggerConfig `yaml:"Mainlog"`
@@ -116,6 +116,16 @@ func readConfFile(confFilePath string) (BrimConf, error) {
 
 // Configure creates BrimConf
 func Configure(confFilePath string) (BrimConf, error) {
+	configEnvName := os.Getenv(brim_config_env_var_name)
+
+	if configEnvName != "" {
+		configRaw := os.Getenv(configEnvName)
+		if configRaw != "" {
+			bc := BrimConf{}
+			err := yaml.Unmarshal([]byte(configRaw), &bc)
+			return bc, err
+		}
+	}
 
 	bc, err := readConfFile(confFilePath)
 	if err != nil {
