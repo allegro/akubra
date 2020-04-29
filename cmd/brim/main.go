@@ -11,6 +11,7 @@ import (
 	watchdog "github.com/allegro/akubra/internal/brim/watchdog-main"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"io"
+	"net/http"
 	"os"
 )
 
@@ -37,10 +38,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("Improperly configured %s", err)
 	}
-
+	go runHealthCheck()
 	watchdog.RunWatchdogWorker(&akubraConf, &brimConf)
 }
-
+func runHealthCheck() {
+	http.HandleFunc("/status/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "OK")
+	})
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
 func readAkubraConfiguration() (config.Config, error) {
 	if vault.DefaultClient != nil {
 		return readVaultConfiguration()
