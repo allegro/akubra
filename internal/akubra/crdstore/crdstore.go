@@ -85,7 +85,6 @@ func (cs *CredentialsStore) prepareKey(accessKey, backend string) string {
 }
 
 func (cs *CredentialsStore) updateCache(accessKey, backend, key string, csd *CredentialsStoreData, blocking bool) (credentials *CredentialsStoreData, err error) {
-
 	switch blocking {
 	case true:
 		cs.lock.Lock()
@@ -94,7 +93,6 @@ func (cs *CredentialsStore) updateCache(accessKey, backend, key string, csd *Cre
 			return csd, nil
 		}
 	}
-
 	credentials, err = cs.credentialsBackend.FetchCredentials(accessKey, backend)
 	switch {
 	case err == nil:
@@ -128,7 +126,6 @@ func (cs *CredentialsStore) tryLock() bool {
 // Get - Gets key from cache or from akubra-crdstore if TTL has expired
 func (cs *CredentialsStore) Get(accessKey, backend string) (csd *CredentialsStoreData, err error) {
 	key := cs.prepareKey(accessKey, backend)
-
 	if value, credsPresentInCache := cs.cache.Load(key); credsPresentInCache {
 		csd = value.(*CredentialsStoreData)
 	}

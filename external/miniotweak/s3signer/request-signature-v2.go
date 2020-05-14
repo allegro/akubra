@@ -153,7 +153,6 @@ func SignV2(req *http.Request, accessKeyID, secretAccessKey string, ignoredCanon
 
 	// Set Authorization header.
 	req.Header.Set("Authorization", authHeader)
-
 	return req
 }
 
