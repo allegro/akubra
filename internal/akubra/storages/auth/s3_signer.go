@@ -126,12 +126,14 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
 	csd, err := srt.crd.Get(authHeader.AccessKey, "akubra")
+
 	if err == crdstore.ErrCredentialsNotFound {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
 	}
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
 	}
+
 	csd, err = srt.crd.Get(authHeader.AccessKey, srt.backend)
 	if err == crdstore.ErrCredentialsNotFound {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
@@ -139,6 +141,7 @@ func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Respo
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
 	}
+
 	req, err = sign(req, authHeader, srt.host, csd.AccessKey, csd.SecretKey, srt.ignoredCanonicalizedHeaders, srt.v4IgnoredHeaders)
 	if err != nil {
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err

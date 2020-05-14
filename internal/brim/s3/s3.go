@@ -402,6 +402,28 @@ func prepareMetadataAndHeaders(inputS3Obj s3Object) (outputS3Obj s3Object) {
 }
 
 func multipartUpload(bucket *s3.Bucket, objectPath string, srcObj s3Object) error {
+	uploader := MultipartUploader{
+		Bucket:     bucket.Name,
+		Key:        srcObj.path,
+		AccessKey:  bucket.AccessKey,
+		SecretKey:  bucket.SecretKey,
+		HostPort:   bucket.S3BucketEndpoint,
+		ObjectBody: srcObj.data,
+	}
+
+	err := uploader.Init(srcObj.contentType, srcObj.perm, srcObj.options)
+	if err != nil {
+		return err
+	}
+
+	err = uploader.UploadParts(50*1024*1024 - 2)
+	if err != nil {
+		return err
+	}
+	return uploader.Complete()
+}
+
+func multipartUploadWithIntermediaryFile(bucket *s3.Bucket, objectPath string, srcObj s3Object) error {
 	f, err := ioutil.TempFile(os.TempDir(), "")
 	if err != nil {
 		return err
@@ -412,7 +434,7 @@ func multipartUpload(bucket *s3.Bucket, objectPath string, srcObj s3Object) erro
 	}
 	defer func() {
 		if rmErr := os.Remove(path.Join(os.TempDir(), f.Name())); rmErr != nil {
-			log.Debugf("Warning! did not removed file after multipart upload, reason %s", rmErr)
+			log.Println("Warning! did not removed file after multipart upload, reason %s", rmErr)
 		}
 	}()
 	multipart, err := bucket.InitMulti(objectPath, srcObj.contentType, srcObj.perm, srcObj.options)
