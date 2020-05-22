@@ -124,12 +124,15 @@ func parseVaultResponse(vaultResponse *api.Secret) (string, string, error) {
 		return "", "", errInvalidCredentialsFormat
 	}
 	keys, castOK := responseData[0].(map[string]interface{})
+
 	if !castOK || len(responseData) == 0 {
 		return "", "", errInvalidCredentialsFormat
 	}
+
 	if _, accessPresent := keys["access_key"]; !accessPresent {
 		return "", "", errAccessKeyMissing
 	}
+
 	if _, secretPresent := keys["secret_key"]; !secretPresent {
 		return "", "", errSecretKeyMissing
 	}

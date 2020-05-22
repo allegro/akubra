@@ -35,8 +35,8 @@ type Handler struct {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	since := time.Now()
 	randomIDStr := randomStr(36)
+	
 	req, err := prepareRequestWithContextValues(req, randomIDStr)
-
 	if err != nil {
 		log.Debugf("failed to parse auth header for req %s: %q", randomIDStr, err)
 		w.WriteHeader(http.StatusBadRequest)

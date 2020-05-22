@@ -112,8 +112,7 @@ func (client *vaultClient) Read(path string) (map[string]interface{}, error) {
 
 func (client *vaultClient) Write(path string, data map[string]interface{}) error {
 	secretPath := fmt.Sprintf("%s/%s", client.prefix, path)
-	v, err := client.Client.
+	_, err := client.Client.
 		Logical().Write(secretPath, data)
-	fmt.Printf("%v %v", v, err)
 	return err
 }
