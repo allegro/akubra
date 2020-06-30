@@ -104,7 +104,7 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 		}
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
-
+	log.Debug("sign round tripper does sign match")
 	if DoesSignMatch(req, Keys{AccessKeyID: srt.keys.AccessKeyID, SecretAccessKey: srt.keys.SecretAccessKey}, srt.ignoredCanonicalizedHeaders) != ErrNone {
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
 	}
@@ -118,19 +118,24 @@ func (srt signRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 
 // RoundTrip implements http.RoundTripper interface
 func (srt signAuthServiceRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	reqID := utils.RequestID(req)
+	log.Debugf("Singning req %s", utils.RequestID(req))
 	authHeader, err := utils.ParseAuthorizationHeader(req.Header.Get("Authorization"))
 	if err != nil {
 		if err == utils.ErrNoAuthHeader {
 			return srt.rt.RoundTrip(req)
 		}
+		log.Debugf("Parse auth header error for req %s: %s", reqID, err)
 		return &http.Response{StatusCode: http.StatusBadRequest, Request: req}, err
 	}
 	csd, err := srt.crd.Get(authHeader.AccessKey, "akubra")
 
 	if err == crdstore.ErrCredentialsNotFound {
+		log.Debugf("CredentialsNotFound for req %s: %s", reqID, err)
 		return &http.Response{StatusCode: http.StatusForbidden, Request: req}, err
 	}
 	if err != nil {
+		log.Debugf("Other internak error for req %s: %s", reqID, err)
 		return &http.Response{StatusCode: http.StatusInternalServerError, Request: req}, err
 	}
 

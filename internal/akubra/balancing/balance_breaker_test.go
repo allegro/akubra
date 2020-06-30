@@ -94,7 +94,7 @@ func (node *nodeMock) UpdateTimeSpent(time.Duration) {
 }
 
 func TestCallMeter(t *testing.T) {
-	callMeter := newCallMeter(5*time.Second, 5*time.Second)
+	callMeter := NewCallMeter(5*time.Second, 5*time.Second)
 	require.Implements(t, (*Node)(nil), callMeter)
 
 	callMeter.UpdateTimeSpent(time.Millisecond)

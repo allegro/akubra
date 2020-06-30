@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/allegro/akubra/internal/akubra/log"
@@ -37,7 +38,13 @@ func (b *Backend) RoundTrip(req *http.Request) (resp *http.Response, err error) 
 		return nil, &types.BackendError{HostName: b.Endpoint.Host,
 			OrigErr: types.ErrorBackendMaintenance}
 	}
+	if b.BucketPrefix != "" {
+		req = b.addPrefix(req)
+	}
+	fmt.Printf("Backend prefix %s", b.BucketPrefix)
+	log.Debugf("Request backend %s, %s, %s", req.URL.Host, req.URL.Path, reqID)
 	resp, oerror := b.RoundTripper.RoundTrip(req)
+	log.Debugf("Response error %s", oerror)
 
 	if oerror != nil {
 		err = &types.BackendError{HostName: b.Endpoint.Host, OrigErr: oerror}
@@ -47,8 +54,19 @@ func (b *Backend) RoundTrip(req *http.Request) (resp *http.Response, err error) 
 		log.Debugf("Body for req %s from %s%s is nil: %t, status: %d", reqID, req.URL.Host, req.URL.Path, resp.Body == nil, resp.StatusCode)
 		utils.SetRequestProcessingMetadata(req, "backendResponse", fmt.Sprintf("%s, status: %d", req.URL.Host, resp.StatusCode))
 	}
-	
+
 	return resp, err
+}
+
+func (b Backend) addPrefix(req *http.Request) *http.Request {
+	path := strings.TrimPrefix(req.URL.Path, "/")
+	if path != "" {
+		fmt.Printf("Prefixing path %s", b.BucketPrefix)
+
+		path = strings.Join([]string{b.BucketPrefix, path}, "")
+		req.URL.Path = "/" + path
+	}
+	return req
 }
 
 func (b *Backend) collectMetrics(resp *http.Response, err error, since time.Time) {

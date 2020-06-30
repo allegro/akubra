@@ -74,7 +74,7 @@ var (
 	ErrNoActiveNodes = fmt.Errorf("Balancer has no nodes to call")
 )
 
-func newCallMeter(retention, resolution time.Duration) *CallMeter {
+func NewCallMeter(retention, resolution time.Duration) *CallMeter {
 	return &CallMeter{
 		retention:  retention,
 		resolution: resolution,
@@ -84,7 +84,7 @@ func newCallMeter(retention, resolution time.Duration) *CallMeter {
 }
 
 func newCallMeterWithTimer(retention, resolution time.Duration, now func() time.Time) *CallMeter {
-	cm := newCallMeter(retention, resolution)
+	cm := NewCallMeter(retention, resolution)
 	cm.now = now
 	cm.histogram = newTimeHistogram(retention, resolution, now)
 	cm.histogram.now = now
@@ -210,20 +210,6 @@ type histogram struct {
 	mx         sync.Mutex
 }
 
-func (h *histogram) pickSeries(at time.Time) *dataSeries {
-	h.mx.Lock()
-	defer h.mx.Unlock()
-	idx := h.index(at)
-	if idx < 0 {
-		return nil
-	}
-	if idx >= h.cellsCount() || idx >= len(h.data) {
-		h.unshiftData(at)
-		idx = h.index(at)
-	}
-	return h.data[idx]
-}
-
 // PickLastSeries returns slice of dataSeries tracking at least given period of time
 func (h *histogram) PickLastSeries(period time.Duration) []*dataSeries {
 	h.mx.Lock()
@@ -240,6 +226,22 @@ func (h *histogram) PickLastSeries(period time.Duration) []*dataSeries {
 		return []*dataSeries{}
 	}
 	return h.data[start:stop]
+}
+
+func (h *histogram) pickSeries(at time.Time) *dataSeries {
+	h.mx.Lock()
+	defer h.mx.Unlock()
+	idx := h.index(at)
+	log.Debugf("pickSeries idx %d, cells %d, datalen %d", idx, h.cellsCount(),  len(h.data))
+	if idx < 0 {
+		return nil
+	}
+	if idx >= h.cellsCount() || idx >= len(h.data) {
+		h.unshiftData(at)
+		idx = h.index(at)
+		log.Debugf("pickSeries unshifted idx %d, cells %d, datalen %d", idx, h.cellsCount(),  len(h.data))
+	}
+	return h.data[idx]
 }
 
 func (h *histogram) index(now time.Time) int {
@@ -514,7 +516,6 @@ type MeasuredStorage struct {
 	Breaker
 	http.RoundTripper
 	Name           string
-	watcherStarted bool
 }
 
 // RoundTrip implements http.RoundTripper
@@ -526,7 +527,7 @@ func (ms *MeasuredStorage) RoundTrip(req *http.Request) (*http.Response, error) 
 	duration := time.Since(start)
 	success := backendSuccess(resp, err)
 	open := ms.Breaker.Record(duration, success)
-	log.Debugf("s %s: Request %s took %s was successful: %t, opened breaker %t\n", ms.Name, reqID, duration, success, open)
+	log.Debugf("MeasuredStorage %s: Request %s took %s was successful: %t, opened breaker %t\n", ms.Name, reqID, duration, success, open)
 
 	ms.Node.UpdateTimeSpent(duration)
 	ms.Node.SetActive(!open)
@@ -570,7 +571,7 @@ func NewBalancerPrioritySet(storagesConfig config.Storages, backends map[string]
 			storageConfig.BreakerBasicCutOutDuration.Duration,
 			storageConfig.BreakerMaxCutOutDuration.Duration,
 		)
-		meter := newCallMeter(storageConfig.MeterRetention.Duration, storageConfig.MeterResolution.Duration)
+		meter := NewCallMeter(storageConfig.MeterRetention.Duration, storageConfig.MeterResolution.Duration)
 		backend, ok := backends[storageConfig.Name]
 		if !ok {
 			log.Fatalf("No defined storage %s\n", storageConfig.Name)
