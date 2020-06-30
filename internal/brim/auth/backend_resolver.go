@@ -265,7 +265,7 @@ func getURL(hostPort string) *url.URL {
 	}
 	u, err := url.Parse(hostPort)
 	if err != nil {
-		fmt.Printf("URL Parse failure %s", err)
+		log.Printf("URL Parse failure %s", err)
 	}
 	return u
 }

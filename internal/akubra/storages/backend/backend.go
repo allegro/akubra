@@ -41,7 +41,6 @@ func (b *Backend) RoundTrip(req *http.Request) (resp *http.Response, err error) 
 	if b.BucketPrefix != "" {
 		req = b.addPrefix(req)
 	}
-	fmt.Printf("Backend prefix %s", b.BucketPrefix)
 	log.Debugf("Request backend %s, %s, %s", req.URL.Host, req.URL.Path, reqID)
 	resp, oerror := b.RoundTripper.RoundTrip(req)
 	log.Debugf("Response error %s", oerror)
@@ -61,8 +60,6 @@ func (b *Backend) RoundTrip(req *http.Request) (resp *http.Response, err error) 
 func (b Backend) addPrefix(req *http.Request) *http.Request {
 	path := strings.TrimPrefix(req.URL.Path, "/")
 	if path != "" {
-		fmt.Printf("Prefixing path %s", b.BucketPrefix)
-
 		path = strings.Join([]string{b.BucketPrefix, path}, "")
 		req.URL.Path = "/" + path
 	}
