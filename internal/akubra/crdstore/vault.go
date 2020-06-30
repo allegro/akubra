@@ -191,7 +191,7 @@ func (bvc *BalancedVaultClient) FetchCredentials(accessKey, storageName string) 
 		if err == balancing.ErrNoActiveNodes {
 			return nil, fmt.Errorf("no creds storages available")
 		}
-		mvc := node.(*MeasuredVaultClient)
+		mvc := node.(MeasuredVaultClient)
 		value, err := mvc.FetchCredentials(accessKey, storageName)
 		if err != nil {
 			electedNodes = append(electedNodes, node)
