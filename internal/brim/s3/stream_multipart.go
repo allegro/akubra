@@ -238,7 +238,6 @@ func (uploader *MultipartUploader) ListParts() error {
 	if !deserializeResp.IsTruncated {
 		sort.Sort(parts)
 	}
-	fmt.Printf("ListResp: %#v\n", deserializeResp)
 	return nil
 	//params["part-number-marker"] = []string{resp.NextPartNumberMarker}
 }
