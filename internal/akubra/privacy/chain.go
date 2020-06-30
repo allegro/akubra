@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/allegro/akubra/internal/akubra/log"
 	"github.com/allegro/akubra/internal/akubra/metrics"
 	"github.com/allegro/akubra/internal/akubra/utils"
 )
@@ -56,8 +55,8 @@ func NewChainRoundTripper(onErrorDrop, onValidationDrop bool, violationErrorCode
 
 //RoundTrip checks for violations on req
 func (chainRT *ChainRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	log.Debug("Request in ChainRoundTripper %s", utils.RequestID(req))
-	defer log.Debug("Request out ChainRoundTripper %s", utils.RequestID(req))
+	//log.Debugf("Request in ChainRoundTripper %s", utils.RequestID(req))
+	//defer log.Debugf("Request out ChainRoundTripper %s", utils.RequestID(req))
 	reqID := utils.RequestID(req)
 	violation, err := chainRT.chain.Filter(req)
 	if err != nil {

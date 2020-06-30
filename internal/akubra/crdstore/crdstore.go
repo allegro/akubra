@@ -28,6 +28,7 @@ var DefaultCredentialsStoreName string
 var credentialsStores map[string]*CredentialsStore
 var credentialsStoresFactories = map[credentialsBackendType]credentialsBackendFactory{
 	"Vault": &vaultCredsBackendFactory{},
+	"BalancedVault": &balancedVaultClientFactory{},
 }
 
 type credentialsBackendType = string
@@ -67,7 +68,7 @@ func InitializeCredentialsStores(storeMap config.CredentialsStoreMap) {
 		}
 		credsBackend, err := credentialsStoresFactories[cfg.Type].create(name, cfg.Properties)
 		if err != nil {
-			log.Fatalf("failed to initialize CredentialsStore '%s': %s", name, err)
+			log.Fatalf("failed to initialize CredentialsStore '%s': %s, %#v", name, err, credentialsStoresFactories[cfg.Type])
 		}
 		if cfg.Default {
 			DefaultCredentialsStoreName = name

@@ -16,10 +16,11 @@ const (
 
 // Storage defines backend
 type Storage struct {
-	Backend     types.YAMLUrl     `yaml:"Backend"`
-	Type        string            `yaml:"Type"`
-	Maintenance bool              `yaml:"Maintenance"`
-	Properties  map[string]string `yaml:"Properties"`
+	Backend      types.YAMLUrl     `yaml:"Backend"`
+	Type         string            `yaml:"Type"`
+	Maintenance  bool              `yaml:"Maintenance"`
+	Properties   map[string]string `yaml:"Properties"`
+	BucketPrefix string            `yaml:"BucketPrefix"`
 }
 
 // StoragesMap is map of Backend

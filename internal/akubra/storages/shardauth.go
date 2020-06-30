@@ -1,6 +1,7 @@
 package storages
 
 import (
+	"fmt"
 	"github.com/allegro/akubra/internal/akubra/crdstore"
 	"github.com/allegro/akubra/internal/akubra/httphandler"
 	"github.com/allegro/akubra/internal/akubra/log"
@@ -32,8 +33,8 @@ func (shardAuth *ShardAuthenticator) Backends() []*StorageClient {
 	return shardAuth.shardClient.Backends()
 }
 
-//RoundTrip first ensures that client is authorized to access the shard and the delegates
-//the request to shard client
+// RoundTrip first ensures that client is authorized to access the shard and the delegates
+// the request to shard client
 func (shardAuth *ShardAuthenticator) RoundTrip(req *http.Request) (*http.Response, error) {
 	authHeaderVal := req.Context().Value(httphandler.AuthHeader)
 	if authHeaderVal == nil {
@@ -53,16 +54,23 @@ func (shardAuth *ShardAuthenticator) RoundTrip(req *http.Request) (*http.Respons
 		case auth.S3AuthService:
 			keys, err := fetchKeysFor(authHeader.AccessKey, backends[idx])
 			if err != nil {
+				utils.SetRequestProcessingMetadata(
+					req,
+					"auth",
+					fmt.Sprintf("no keys for %s on backend %s", authHeader.AccessKey, backends[idx].Name))
 				return nil, err
 			}
+			log.Debugf("Backend %s creds added", backends[idx].Name)
 			backendsCredentials = append(backendsCredentials, keys)
 		}
 	}
 
 	for idx := range backendsCredentials {
+
 		if auth.ErrNone != auth.DoesSignMatch(req, backendsCredentials[idx], shardAuth.ignoredCanonicalizedHeaders) {
 			log.Debugf("authorization check failed for req %s, signature mismatch on storage '%s' using access '%s'",
 				req.Context().Value(log.ContextreqIDKey).(string), backends[idx].Name, backendsCredentials[idx].AccessKeyID)
+
 			return utils.ResponseForbidden(req), nil
 		}
 	}
