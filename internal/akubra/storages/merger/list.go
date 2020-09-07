@@ -122,10 +122,12 @@ func createResultSet(keys objectsContainer, prefixes objectsContainer, maxKeys i
 	listBucketResult.Contents = listBucketResult.Contents.FromStringer(keys.first(keysCount))
 	listBucketResult.IsTruncated = listBucketResult.IsTruncated || keys.Len()+prefixes.Len() > maxKeys
 	if listBucketResult.IsTruncated {
-		if keysCount > 0 {
-			listBucketResult.NextMarker = listBucketResult.Contents[len(listBucketResult.Contents)-1].Key
-		} else {
-			listBucketResult.NextMarker = listBucketResult.CommonPrefixes[len(listBucketResult.CommonPrefixes)-1].Prefix
+		if len(listBucketResult.NextMarker) == 0 {
+			if keysCount > 0 {
+				listBucketResult.NextMarker = listBucketResult.Contents[len(listBucketResult.Contents)-1].Key
+			} else {
+				listBucketResult.NextMarker = listBucketResult.CommonPrefixes[len(listBucketResult.CommonPrefixes)-1].Prefix
+			}
 		}
 	}
 	return listBucketResult
