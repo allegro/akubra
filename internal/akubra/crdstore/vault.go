@@ -43,7 +43,7 @@ func (bvcf *balancedVaultClientFactory) create(crdStoreName string, props map[st
 	endpoints := make([]string, 0)
 	for k, v := range props {
 		print(k)
-		if strings.HasPrefix(k,"Endpoint") {
+		if strings.HasPrefix(k, "Endpoint") {
 			endpoints = append(endpoints, v)
 		}
 	}
@@ -71,8 +71,8 @@ func (bvcf *balancedVaultClientFactory) create(crdStoreName string, props map[st
 		}
 		meter := balancing.NewCallMeter(bprops.retention, bprops.resolution)
 		breaker := balancing.NewBreaker(bprops.breakerProbeSize, bprops.callTimeLimit,
-			bprops.timeLimitPercentile, bprops.errorRate, bprops.closeDelay,bprops.maxDelay)
-		backendNode := MeasuredVaultClient{Node:meter, Breaker:breaker, client:backend}
+			bprops.timeLimitPercentile, bprops.errorRate, bprops.closeDelay, bprops.maxDelay)
+		backendNode := MeasuredVaultClient{Node: meter, Breaker: breaker, client: backend}
 		nodes = append(nodes, backendNode)
 	}
 	return balancedVaultClients(nodes), nil
@@ -199,11 +199,10 @@ func (bvc *BalancedVaultClient) FetchCredentials(accessKey, storageName string) 
 		}
 		return value, err
 	}
-	return nil, fmt.Errorf("no creds storages available")
 }
 
 func balancedVaultClients(nodes []balancing.Node) *BalancedVaultClient {
-	return &BalancedVaultClient{balancing.ResponseTimeBalancer{nodes}}
+	return &BalancedVaultClient{ResponseTimeBalancer: balancing.ResponseTimeBalancer{Nodes: nodes}}
 }
 
 type MeasuredVaultClient struct {
