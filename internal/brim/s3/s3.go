@@ -4,8 +4,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -423,34 +421,34 @@ func multipartUpload(bucket *s3.Bucket, objectPath string, srcObj s3Object) erro
 	return uploader.Complete()
 }
 
-func multipartUploadWithIntermediaryFile(bucket *s3.Bucket, objectPath string, srcObj s3Object) error {
-	f, err := ioutil.TempFile(os.TempDir(), "")
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(f, srcObj.data)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if rmErr := os.Remove(path.Join(os.TempDir(), f.Name())); rmErr != nil {
-			log.Println("Warning! did not removed file after multipart upload, reason %s", rmErr)
-		}
-	}()
-	multipart, err := bucket.InitMulti(objectPath, srcObj.contentType, srcObj.perm, srcObj.options)
-	if err != nil {
-		return err
-	}
-
-	if _, seekErr := f.Seek(0, 0); seekErr != nil {
-		return seekErr
-	}
-	parts, err := multipart.PutAll(f, 50*1024*1024-2)
-	if err != nil {
-		return err
-	}
-	return multipart.Complete(parts)
-}
+//func multipartUploadWithIntermediaryFile(bucket *s3.Bucket, objectPath string, srcObj s3Object) error {
+//	f, err := ioutil.TempFile(os.TempDir(), "")
+//	if err != nil {
+//		return err
+//	}
+//	_, err = io.Copy(f, srcObj.data)
+//	if err != nil {
+//		return err
+//	}
+//	defer func() {
+//		if rmErr := os.Remove(path.Join(os.TempDir(), f.Name())); rmErr != nil {
+//			log.Println("Warning! did not removed file after multipart upload, reason %s", rmErr)
+//		}
+//	}()
+//	multipart, err := bucket.InitMulti(objectPath, srcObj.contentType, srcObj.perm, srcObj.options)
+//	if err != nil {
+//		return err
+//	}
+//
+//	if _, seekErr := f.Seek(0, 0); seekErr != nil {
+//		return seekErr
+//	}
+//	parts, err := multipart.PutAll(f, 50*1024*1024-2)
+//	if err != nil {
+//		return err
+//	}
+//	return multipart.Complete(parts)
+//}
 
 // GetHTTPStatusCodeFromError extracts http code from s3.Error value
 func GetHTTPStatusCodeFromError(err error) int {

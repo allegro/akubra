@@ -92,7 +92,7 @@ func (uploader *MultipartUploader) UploadParts(size int64) error {
 		seeker := bytes.NewReader(data)
 		part, err := uploader.UploadPart(current, seeker)
 		if err != nil {
-			return  fmt.Errorf("brim.s3.MultipartUploader::UploadPart error sendig part %w", err)
+			return fmt.Errorf("brim.s3.MultipartUploader::UploadPart error sendig part %w", err)
 		}
 		uploader.parts = append(uploader.parts, part)
 		current++
@@ -129,7 +129,7 @@ func (uploader *MultipartUploader) UploadPart(n int, r io.ReadSeeker) (CompleteP
 
 	resp, err := uploader.signAndDo(req, md5b64)
 	if err != nil {
-		fmt.Errorf("s3.brim.MultipartUploader::UploadPart sending request error %w", err)
+		return CompletePart{}, fmt.Errorf("s3.brim.MultipartUploader::UploadPart sending request error %w", err)
 	}
 	etag := resp.Header.Get("ETag")
 	if etag == "" {
@@ -138,7 +138,6 @@ func (uploader *MultipartUploader) UploadPart(n int, r io.ReadSeeker) (CompleteP
 	return CompletePart{PartNumber: n, ETag: etag}, nil
 
 }
-
 
 func (uploader *MultipartUploader) signAndDo(req *http.Request, md5b64 string) (*http.Response, error) {
 	req = s3signer.SignV2(req, uploader.AccessKey, uploader.SecretKey, nil)
@@ -181,8 +180,7 @@ func (uploader *MultipartUploader) Complete() error {
 	}
 
 	decodedResp := &completeUploadResp{}
-	uploader.UnmarshalResp(resp, decodedResp)
-	if err != nil {
+	if err := uploader.UnmarshalResp(resp, decodedResp); err != nil {
 		return err
 	}
 
@@ -268,11 +266,11 @@ func prepareRequest(uri *url.URL, method string, headers, params map[string][]st
 		}
 	}
 	req := &http.Request{
-		Method:  method,
-		URL:     uri,
-		Header:  headers,
-		Body:    body,
-		Close:   false,
+		Method: method,
+		URL:    uri,
+		Header: headers,
+		Body:   body,
+		Close:  false,
 	}
 
 	req.URL.RawQuery = values.Encode()
