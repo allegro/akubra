@@ -139,8 +139,7 @@ func NewLogger(config LoggerConfig) (Logger, error) {
 	}
 
 	var formatter logrus.Formatter = stripMessageNewLineFormatter{
-		&logrus.TextFormatter{
-			FullTimestamp:   true,
+		&logrus.JSONFormatter{
 			TimestampFormat: time.StampMicro,
 		}}
 

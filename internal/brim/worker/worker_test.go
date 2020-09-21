@@ -146,13 +146,13 @@ func prepareDstServer(expectedMethod string, objSize int, expectMultiPart bool, 
 			if !expectMultiPart {
 				assert.Equal(t, req.Method, expectedMethod)
 				assert.Equal(t, req.URL.Path, "/bucket/key")
-				assert.Equal(t, req.Header.Get("x-amz-meta-obj-version"), string(expectedVersion))
+				assert.Equal(t, req.Header.Get("x-amz-meta-obj-version"), fmt.Sprint(expectedVersion))
 
 			}
 		}
 
 		if expectMultiPart {
-			assert.True(t, (req.Method == http.MethodPost && req.Header.Get("x-amz-meta-obj-version") == string(expectedVersion)) ||
+			assert.True(t, (req.Method == http.MethodPost && req.Header.Get("x-amz-meta-obj-version") == fmt.Sprint(expectedVersion)) ||
 				req.Method == http.MethodPut ||
 				req.Method == http.MethodHead)
 
@@ -179,7 +179,7 @@ func prepareSrcServer(objVersion int, objSize int, t *testing.T) *httptest.Serve
 		if req.URL.RawQuery == "acl=" {
 			_, _ = rw.Write([]byte(bucketACLResponse))
 		} else {
-			rw.Header().Set("x-amz-meta-obj-version", string(objVersion))
+			rw.Header().Set("x-amz-meta-obj-version", fmt.Sprint(objVersion))
 			rw.WriteHeader(200)
 			if http.MethodGet == req.Method {
 				rw.Header().Set("Content-Length", fmt.Sprintf("%d", objSize))

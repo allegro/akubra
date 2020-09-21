@@ -33,9 +33,8 @@ require (
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/tools v0.0.0-20190725161231-2e34cfcb95cb
 	google.golang.org/genproto v0.0.0-20190627203621-eb59cef1c072 // indirect
-	gopkg.in/gemnasium/logrus-postgresql-hook.v1 v1.1.3
 	gopkg.in/validator.v1 v1.0.0-20140827164146-4379dff89709
 	gopkg.in/yaml.v2 v2.2.2
 )
 
-go 1.13
+go 1.15

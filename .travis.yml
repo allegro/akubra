@@ -3,4 +3,4 @@ language: go
 go_import_path: github.com/allegro/akubra
 
 go:
-  - "1.12"
+  - "1.15"
