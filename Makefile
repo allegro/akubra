@@ -3,7 +3,7 @@ LDFLAGS := -X main.version=$(VERSION)
 GO := "go"
 GOBIN := $(GOBIN)
 GO111MODULE := on
-LINTERVERSION := v1.24.0
+LINTERVERSION := v1.31.0
 
 all:  build # vars formatting lint test
 
