@@ -48,7 +48,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	req.Header.Del("Expect")
 
-
 	resp, err := h.roundTripper.RoundTrip(req)
 	defer sendStats(req, resp, err, since)
 
@@ -122,7 +121,9 @@ func respBodyCloserFactory(resp *http.Response, randomIDStr string) func() {
 			return
 		}
 		closeErr := resp.Body.Close()
-		log.Debugf("ResponseBody for request %s closed with %s error (handler)", randomIDStr, closeErr)
+		if closeErr != nil {
+			log.Debugf("ResponseBody for request %s closed with %s error (handler)", randomIDStr, closeErr)
+		}
 	}
 }
 
