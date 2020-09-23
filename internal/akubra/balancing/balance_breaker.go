@@ -222,7 +222,7 @@ func (h *histogram) PickLastSeries(period time.Duration) []*dataSeries {
 	now := h.now()
 	stop := h.index(now) + 1
 	start := int(math.Max(float64(stop-int(cellsNumber)), 0))
-	if start > cap(h.data) || stop > cap(h.data) {
+	if start > len(h.data) || stop > len(h.data) {
 		return []*dataSeries{}
 	}
 	return h.data[start:stop]
@@ -232,14 +232,14 @@ func (h *histogram) pickSeries(at time.Time) *dataSeries {
 	h.mx.Lock()
 	defer h.mx.Unlock()
 	idx := h.index(at)
-	log.Debugf("pickSeries idx %d, cells %d, datalen %d", idx, h.cellsCount(),  len(h.data))
+	log.Debugf("pickSeries idx %d, cells %d, datalen %d", idx, h.cellsCount(), len(h.data))
 	if idx < 0 {
 		return nil
 	}
 	if idx >= h.cellsCount() || idx >= len(h.data) {
 		h.unshiftData(at)
 		idx = h.index(at)
-		log.Debugf("pickSeries unshifted idx %d, cells %d, datalen %d", idx, h.cellsCount(),  len(h.data))
+		log.Debugf("pickSeries unshifted idx %d, cells %d, datalen %d", idx, h.cellsCount(), len(h.data))
 	}
 	return h.data[idx]
 }
@@ -515,7 +515,7 @@ type MeasuredStorage struct {
 	Node
 	Breaker
 	http.RoundTripper
-	Name           string
+	Name string
 }
 
 // RoundTrip implements http.RoundTripper
