@@ -15,14 +15,14 @@ import (
 	httphandler "github.com/allegro/akubra/internal/akubra/httphandler/config"
 	"github.com/allegro/akubra/internal/akubra/log"
 	logconfig "github.com/allegro/akubra/internal/akubra/log/config"
-	metadata "github.com/allegro/akubra/internal/akubra/metadata"
+	"github.com/allegro/akubra/internal/akubra/metadata"
 	"github.com/allegro/akubra/internal/akubra/metrics"
-	privacy "github.com/allegro/akubra/internal/akubra/privacy"
+	"github.com/allegro/akubra/internal/akubra/privacy"
 	confregions "github.com/allegro/akubra/internal/akubra/regions/config"
+	"github.com/allegro/akubra/internal/akubra/sentry"
 	storages "github.com/allegro/akubra/internal/akubra/storages/config"
 	"gopkg.in/validator.v1"
 	"gopkg.in/yaml.v2"
-
 )
 
 // TechnicalEndpointBodyMaxSize for /configuration/validate endpoint
@@ -44,6 +44,7 @@ type YamlConfig struct {
 	Privacy                     privacy.Config                     `yaml:"Privacy"`
 	BucketMetaDataCache         metadata.BucketMetaDataCacheConfig `yaml:"BucketMetaDataCache"`
 	IgnoredCanonicalizedHeaders map[string]bool                    `yaml:"IgnoredCanonicalizedHeaders"`
+	Sentry                      sentry.Config                      `yaml:"Sentry"`
 }
 
 // Config contains processed YamlConfig data
