@@ -10,6 +10,7 @@ require (
 	github.com/cyberdelia/go-metrics-graphite v0.0.0-20161219230853-39f87cc3b432
 	github.com/deckarep/golang-set v1.7.1
 	github.com/docker/go-units v0.4.0
+	github.com/getsentry/sentry-go v0.7.0
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/hashicorp/consul/api v1.0.1
 	github.com/hashicorp/go-cleanhttp v0.5.1
@@ -17,7 +18,6 @@ require (
 	github.com/hashicorp/serf v0.8.3 // indirect
 	github.com/hashicorp/vault/api v1.0.1
 	github.com/jinzhu/gorm v1.9.9
-	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.1.1
 	github.com/minio/minio-go v0.0.0-20190410214627-80c2fe34f1a5
 	github.com/mjarco/go-radosgw v0.0.0-20170530132933-03a8ba201fbb
@@ -28,13 +28,13 @@ require (
 	github.com/smartystreets/go-aws-auth v0.0.0-20180515143844-0c1422d1fdb9 // indirect
 	github.com/smartystreets/gunit v1.0.0 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
-	github.com/stretchr/testify v1.3.0
-	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
+	github.com/stretchr/testify v1.4.0
+	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/tools v0.0.0-20190725161231-2e34cfcb95cb
 	google.golang.org/genproto v0.0.0-20190627203621-eb59cef1c072 // indirect
 	gopkg.in/validator.v1 v1.0.0-20140827164146-4379dff89709
-	gopkg.in/yaml.v2 v2.2.2
+	gopkg.in/yaml.v2 v2.2.4
 )
 
 go 1.15
