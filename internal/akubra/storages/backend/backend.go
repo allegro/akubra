@@ -53,7 +53,7 @@ func (b *Backend) RoundTrip(req *http.Request) (resp *http.Response, err error) 
 		log.Debugf("Body for req %s from %s%s is nil: %t, status: %d", reqID, req.URL.Host, req.URL.Path, resp.Body == nil, resp.StatusCode)
 		utils.SetRequestProcessingMetadata(req, "backendResponse", fmt.Sprintf("%s, status: %d", req.URL.Host, resp.StatusCode))
 	}
-
+	
 	return resp, err
 }
 
