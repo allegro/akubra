@@ -29,9 +29,9 @@ require (
 	github.com/smartystreets/gunit v1.0.0 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.3.0
-	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
-	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/tools v0.0.0-20190725161231-2e34cfcb95cb
+	golang.org/x/net v0.7.0
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
+	golang.org/x/tools v0.1.12
 	google.golang.org/genproto v0.0.0-20190627203621-eb59cef1c072 // indirect
 	gopkg.in/validator.v1 v1.0.0-20140827164146-4379dff89709
 	gopkg.in/yaml.v2 v2.2.2
