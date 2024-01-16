@@ -144,6 +144,11 @@ Metrics:
   ExpAddr: ":9089"
 
 Metrics:
+  Target: prometheus
+  ExpAddr: ":9099"
+  Interval: 1m
+
+Metrics:
   Target: stdout # graphite
   Addr: stats-collector.local
   Prefix: stats.tech.images.akubra

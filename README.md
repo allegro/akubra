@@ -1,4 +1,5 @@
 # Akubra
+
 [![Version Widget]][Version] [![Build Status Widget]][Build Status] [![GoDoc Widget]][GoDoc]
 
 [Version]: https://github.com/allegro/akubra/releases/latest
@@ -29,6 +30,7 @@ backends. I case one if clusters rejects request it logs that event, and synchro
 troublesome object with an independent process.
 
 ### Seamless storage space extension with new storage clusters
+
 Akubra has sharding capabilities. You can easily configure new backends with
 weights and append them to regions cluster pool.
 
@@ -38,6 +40,7 @@ target cluster. This kind of events are logged, so it's possible to rebalance
 clusters in background.
 
 ### Multi cloud cost optimization
+
 While all objects has to be stored in each storage within a shard, not all storages
 has to be read. With load balancing and storage prioritization akubra will peak
 cheapest one.
@@ -49,6 +52,7 @@ cheapest one.
 You need go >= 1.8 compiler [see](https://golang.org/doc/install)
 
 ### Build
+
 In main directory of this repository do:
 
 ```
@@ -92,8 +96,7 @@ We also handle slow endpoint scenario. If there are more connections than safe
 limit defined in configuration, the backend with most of them is taken out of
 the pool and an error is logged.
 
-
-## Configuration ##
+## Configuration
 
 Configuration is read from a YAML configuration file with the following fields:
 
@@ -111,14 +114,14 @@ Service:
   Client:
     # Additional not AWS S3 specific headers proxy will add to original request
     AdditionalResponseHeaders:
-        'Access-Control-Allow-Origin': "*"
-        'Access-Control-Allow-Credentials': "true"
-        'Access-Control-Allow-Methods': "GET, POST, OPTIONS"
-        'Access-Control-Allow-Headers': "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,X-CSRFToken"
-        'Cache-Control': "public, s-maxage=600, max-age=600"
+      "Access-Control-Allow-Origin": "*"
+      "Access-Control-Allow-Credentials": "true"
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+      "Access-Control-Allow-Headers": "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,X-CSRFToken"
+      "Cache-Control": "public, s-maxage=600, max-age=600"
     # Additional headers added to backend response
     AdditionalRequestHeaders:
-        'Cache-Control': "public, s-maxage=600, max-age=600"
+      "Cache-Control": "public, s-maxage=600, max-age=600"
     # Backends in maintenance mode
     # MaintainedBackends:
     #  - "http://s3.dc2.internal"
@@ -129,8 +132,7 @@ Service:
       - DELETE
     # Transports rules with dedicated timeouts
     Transports:
-      -
-        Name: TransportDef-Method:GET|POST
+      - Name: TransportDef-Method:GET|POST
         Rules:
           Method: GET|POST
           Path: .*
@@ -139,8 +141,7 @@ Service:
           MaxIdleConnsPerHost: 1000
           IdleConnTimeout: 2s
           ResponseHeaderTimeout: 5s
-      -
-        Name: TransportDef-Method:GET|POST|PUT
+      - Name: TransportDef-Method:GET|POST|PUT
         Rules:
           Method: GET|POST|PUT
           QueryParam: acl
@@ -149,8 +150,7 @@ Service:
           MaxIdleConnsPerHost: 500
           IdleConnTimeout: 5s
           ResponseHeaderTimeout: 5s
-      -
-        Name: OtherTransportDefinition
+      - Name: OtherTransportDefinition
         Rules:
         Properties:
           MaxIdleConns: 300
@@ -205,18 +205,18 @@ Logging:
   #  level: Error   # default: Debug
 
   Accesslog:
-    stderr: true  # default: false
+    stderr: true # default: false
   #  stdout: false  # default: false
   #  file: "/var/log/akubra/access.log"  # default: ""
   #  syslog: LOG_LOCAL3  # default: LOG_LOCAL3
 
 # Enable metrics collection
 Metrics:
-  # Possible targets: "graphite", "expvar", "stdout"
+  # Possible targets: "prometheus", "graphite", "expvar", "stdout"
   Target: graphite
-  # Expvar handler listener address
+  # Expvar or Prometheus handler listener address
   ExpAddr: ":8080"
-  # How often metrics should be released, applicable for "graphite" and "stdout"
+  # How often metrics should be released, applicable for "graphite", "prometheus" and "stdout"
   Interval: 30s
   # Graphite metrics prefix path
   Prefix: my.metrics
@@ -241,10 +241,10 @@ Possible responses:
 
     * HTTP 200
     Configuration checked - OK.
+
 or:
 
     * HTTP 400, 405, 413, 415 and info in body with validation error message
-
 
 ## Health check endpoint
 
@@ -272,12 +272,13 @@ Another example, when user adds big chunks by multi upload,
 default timeout needs to be changed with dedicated 'Transport' with 'Rule' for this case.
 
 We have 'Rules' for 'Transports' definitions:
- - required minimum one item in 'Transports' section
- - required empty or one property (Method, Path, QueryParam) in 'Rules' section
- - if 'Rules' section is empty, the transport will match any requests
- - when transport cannot be matched, http 500 error code will be sent to client.
+
+- required minimum one item in 'Transports' section
+- required empty or one property (Method, Path, QueryParam) in 'Rules' section
+- if 'Rules' section is empty, the transport will match any requests
+- when transport cannot be matched, http 500 error code will be sent to client.
 
 ## Limitations
 
- * Users credentials have to be identical on every backend
- * We do not support S3 partial uploads
+- Users credentials have to be identical on every backend
+- We do not support S3 partial uploads
