@@ -8,6 +8,7 @@ require (
 	github.com/alecthomas/kingpin v2.2.6+incompatible
 	github.com/allegro/bigcache v1.2.1
 	github.com/cyberdelia/go-metrics-graphite v0.0.0-20161219230853-39f87cc3b432
+	github.com/deathowl/go-metrics-prometheus v0.0.0-20221009205350-f2a1482ba35b
 	github.com/deckarep/golang-set v1.7.1
 	github.com/docker/go-units v0.4.0
 	github.com/getsentry/sentry-go v0.7.0
@@ -22,7 +23,8 @@ require (
 	github.com/minio/minio-go v0.0.0-20190410214627-80c2fe34f1a5
 	github.com/mjarco/go-radosgw v0.0.0-20170530132933-03a8ba201fbb
 	github.com/pkg/errors v0.8.1
-	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
+	github.com/prometheus/client_golang v1.1.0
+	github.com/rcrowley/go-metrics v0.0.0-20190826022208-cac0b30c2563
 	github.com/serialx/hashring v0.0.0-20190422032157-8b2912629002
 	github.com/sirupsen/logrus v1.4.2
 	github.com/smartystreets/go-aws-auth v0.0.0-20180515143844-0c1422d1fdb9 // indirect

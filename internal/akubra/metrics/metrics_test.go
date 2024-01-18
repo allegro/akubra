@@ -107,6 +107,18 @@ func TestMetricsInit_ForGraphit(t *testing.T) {
 	Clear()
 }
 
+func TestMetricsInit_ForPrometheusWithNoExpAddr(t *testing.T) {
+	err := Init(Config{Target: "prometheus", ExpAddr: ""})
+	assert.Error(t, err)
+	Clear()
+}
+
+func TestMetricsInit_ForPrometheus(t *testing.T) {
+	err := Init(Config{Target: "prometheus", ExpAddr: ":9099"})
+	assert.NoError(t, err)
+	Clear()
+}
+
 func TestMetricsInit_ForUnknownTarget(t *testing.T) {
 	err := Init(Config{Target: "unknown"})
 	assert.Error(t, err)

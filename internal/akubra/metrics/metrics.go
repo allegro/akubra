@@ -14,6 +14,9 @@ import (
 
 	fqdn "github.com/ShowMax/go-fqdn"
 	graphite "github.com/cyberdelia/go-metrics-graphite"
+	prometheusmetrics "github.com/deathowl/go-metrics-prometheus"
+	prometheus "github.com/prometheus/client_golang/prometheus"
+	promhttp "github.com/prometheus/client_golang/prometheus/promhttp"
 	metrics "github.com/rcrowley/go-metrics"
 
 	"github.com/rcrowley/go-metrics/exp"
@@ -91,6 +94,16 @@ func Init(cfg Config) (err error) {
 			percentiles = append(percentiles, []float64{0.75, 0.95, 0.99, 0.999}...)
 		}
 		return initGraphite(cfg.Addr, cfg.Interval.Duration, percentiles)
+	case "prometheus":
+		if cfg.ExpAddr == "" {
+			return errors.New("metrics: prometheus ExpAddr missing")
+		}
+		if cfg.Interval.Duration == 0 {
+			cfg.Interval.Duration = time.Minute
+		}
+		log.Printf("Exporting metrics to Prometheus on %s", cfg.ExpAddr)
+		initPrometheus(cfg.Addr, cfg.Interval.Duration)
+		return nil
 	case "expvar":
 		log.Printf("Sending metrics to ExpVarService on %s", cfg.ExpAddr)
 		handler := exp.ExpHandler(metrics.DefaultRegistry)
@@ -156,4 +169,13 @@ func initGraphite(addr string, interval time.Duration, percentiles []float64) er
 		Percentiles:   percentiles,
 		Addr:          a})
 	return nil
+}
+
+func initPrometheus(addr string, interval time.Duration) {
+	prometheusClient := prometheusmetrics.NewPrometheusProvider(
+		metrics.DefaultRegistry, "akubra", "", prometheus.DefaultRegisterer, interval)
+	go prometheusClient.UpdatePrometheusMetrics()
+
+	http.Handle("/metrics", promhttp.Handler())
+	go http.ListenAndServe(addr, nil)
 }

@@ -28,7 +28,7 @@ func (interval *Interval) UnmarshalYAML(unmarshal func(interface{}) error) error
 type Config struct {
 	// Target, possible values: "graphite", "expvar", "stdout"
 	Target string `yaml:"Target,omitempty"`
-	// Interval determines how often metrics should be released, applicable for "graphite" and "stdout"
+	// Interval determines how often metrics should be released, applicable for "graphite", "prometheus" and "stdout"
 	Interval Interval `yaml:"Interval,omitempty"`
 	// Addr points graphite collector address
 	Addr string `yaml:"Addr,omitempty"`
