@@ -98,9 +98,9 @@ func Init(cfg Config) (err error) {
 		if cfg.ExpAddr == "" {
 			return errors.New("metrics: prometheus ExpAddr missing")
 		}
-		//if cfg.Interval.Duration == 0 {
-		//	cfg.Interval.Duration = time.Minute
-		//}
+		if cfg.Interval.Duration == 0 {
+			cfg.Interval.Duration = time.Minute
+		}
 		log.Printf("Exporting metrics to Prometheus on %s", cfg.ExpAddr)
 		initPrometheus(cfg.Addr, cfg.Interval.Duration)
 		return nil
