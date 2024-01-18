@@ -102,7 +102,7 @@ func Init(cfg Config) (err error) {
 			cfg.Interval.Duration = time.Minute
 		}
 		log.Printf("Exporting metrics to Prometheus on %s", cfg.ExpAddr)
-		initPrometheus(cfg.Addr, cfg.Interval.Duration)
+		initPrometheus(cfg.ExpAddr, cfg.Interval.Duration)
 		return nil
 	case "expvar":
 		log.Printf("Sending metrics to ExpVarService on %s", cfg.ExpAddr)
