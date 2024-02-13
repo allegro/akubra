@@ -16,7 +16,7 @@ import (
 
 	"github.com/alecthomas/kingpin"
 	"github.com/allegro/akubra/internal/akubra/config"
-	vault "github.com/allegro/akubra/internal/akubra/config/vault"
+	"github.com/allegro/akubra/internal/akubra/config/vault"
 	"github.com/allegro/akubra/internal/akubra/crdstore"
 	"github.com/allegro/akubra/internal/akubra/httphandler"
 	"github.com/allegro/akubra/internal/akubra/log"
@@ -27,6 +27,7 @@ import (
 	"github.com/allegro/akubra/internal/akubra/metrics"
 	"github.com/allegro/akubra/internal/akubra/privacy"
 	"github.com/allegro/akubra/internal/akubra/regions"
+	"github.com/allegro/akubra/internal/akubra/sentry"
 	"github.com/allegro/akubra/internal/akubra/storages"
 	"github.com/allegro/akubra/internal/akubra/transport"
 
@@ -296,8 +297,6 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 	regionsDecoratedRT := httphandler.DecorateRoundTripper(conf.Service.Client, conf.Service.Server,
 		accessLog, conf.Service.Server.HealthCheckEndpoint, regionsRT)
 
-
-
 	regionsDecoratedRT = httphandler.Decorate(regionsDecoratedRT,
 		httphandler.ResponseHeadersStripper(conf.Service.Client.ResponseHeadersToStrip),
 		httphandler.PrivacyFilterChain(conf.Privacy.DropOnError, conf.Privacy.DropOnValidation, conf.Privacy.ViolationErrorCode, basicChain),
@@ -314,6 +313,14 @@ func (s *service) createHandler(conf config.Config) (http.Handler, error) {
 	if err != nil {
 		log.Printf("Metrics initialization error: %s", err)
 	}
+
+	sentryHandler, err := sentry.CreateSentryHandler(&s.config.Sentry)
+	if err != nil {
+		log.Printf("Sentry initialization error: %s", err)
+	} else {
+		handler = sentryHandler.Handle(handler)
+	}
+
 	return handler, nil
 }
 
