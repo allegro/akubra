@@ -563,14 +563,14 @@ func TestCredentialsStoresValidation(t *testing.T) {
 			crdStoreConig.CredentialsStoreMap{
 				"store1": {Default: false, Type: "Vault"},
 			},
-			[]error{errors.New("you have to define a default CredentialsStore when Storages don't have CredentialsStores specified explicilty")}},
+			[]error{errors.New("you have to define a default CredentialsStore when Storages don't have CredentialsStores specified explicitly")}},
 		{"Should fail when a required property is missing in CredentialStoresConfig",
 			crdStoreConig.CredentialsStoreMap{
 				"store1": {Default: true, Type: "Vault", Properties: map[string]string{
 					"Timeout": "300", "MaxRetries": "3", "PathPrefix": "/secret",
 				}},
 			},
-			[]error{errors.New("CredentialsStore 'store1' is missing requried property 'Endpoint'")}},
+			[]error{errors.New("CredentialsStore 'store1' is missing required property 'Endpoint'")}},
 	} {
 
 		var size httphandlerconfig.HumanSizeUnits
