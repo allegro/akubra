@@ -20,9 +20,11 @@ type AccessMessageData struct {
 	Duration         float64 `json:"duration_ms"`
 	RespErr          string  `json:"resp_err_msg"`
 	ReqID            string  `json:"req_id"`
-	Time             string  `json:"ts"`
+	Timestamp        string  `json:"@timestamp"`
 	AccessKey        string  `json:"access_key"`
 	BackendResponses string  `json:"backend_responses"`
+	Message          string  `json:"message"`
+	Level            string  `json:"level"`
 }
 
 // String produces data in csv format with fields in following order:
@@ -36,18 +38,27 @@ func (amd AccessMessageData) String() string {
 // NewAccessLogMessage creates new AccessMessageData
 func NewAccessLogMessage(req *http.Request,
 	statusCode int, duration float64, respErr string) *AccessMessageData {
-	ts := time.Now().Format(time.RFC3339Nano)
+	ts := time.Now().UTC().Format("2006-01-02T15:04:05.000") + "Z"
 	reqID, _ := req.Context().Value(log.ContextreqIDKey).(string)
 	backendResponses := utils.GetRequestProcessingMetadata(req, "backendResponse")
+	level := "INFO"
+	if respErr != "" {
+		level = "ERROR"
+	}
 	return &AccessMessageData{
-		req.Method,
-		req.Host,
-		req.URL.Path,
-		req.Header.Get("User-Agent"),
-		statusCode, duration, respErr,
-		reqID, ts,
-		utils.ExtractAccessKey(req),
-		backendResponses,
+		Method:           req.Method,
+		Host:             req.Host,
+		Path:             req.URL.Path,
+		UserAgent:        req.Header.Get("User-Agent"),
+		StatusCode:       statusCode,
+		Duration:         duration,
+		RespErr:          respErr,
+		ReqID:            reqID,
+		Timestamp:        ts,
+		AccessKey:        utils.ExtractAccessKey(req),
+		BackendResponses: backendResponses,
+		Message:          "access log",
+		Level:            level,
 	}
 }
 
@@ -57,7 +68,7 @@ func ScanCSVAccessLogMessage(csvstr string) (AccessMessageData, error) {
 	amd := AccessMessageData{}
 	_, err := fmt.Sscanf(csvstr, "%q, %q, %q, %q, %d, %f, %q", &amd.Method, &amd.Host,
 		&amd.Path, &amd.UserAgent, &amd.StatusCode, &amd.Duration,
-		&amd.RespErr, &amd.Time)
+		&amd.RespErr, &amd.Timestamp)
 	return amd, err
 }
 
